@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --hw-orange: #ff5500;
+  --hw-yellow: #ffd000;
+  --bttf-cyan: #00f0ff;
+  --bttf-magenta: #ff007f;
+}
+* {
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05050d;
+  font-family: 'Inter', sans-serif;
+  color: #f8fafc;
+  touch-action: none;
+}
+.font-pixel {
+  font-family: 'Press Start 2P', monospace;
+}
+.font-arcade {
+  font-family: 'Orbitron', sans-serif;
+}
+.led-box {
+  background: #08090f;
+  border: 1.5px solid #334155;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.92), 0 2px 8px rgba(0,0,0,0.65);
+}
+.led-red {
+  color: #ff2a2a;
+  text-shadow: 0 0 8px rgba(255, 42, 42, 0.85);
+}
+.led-green {
+  color: #00ff66;
+  text-shadow: 0 0 8px rgba(0, 255, 102, 0.85);
+}
+.led-amber {
+  color: #ffb700;
+  text-shadow: 0 0 8px rgba(255, 183, 0, 0.85);
+}
+.led-cyan {
+  color: #00f0ff;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.9);
+}
+.led-purple {
+  color: #d946ef;
+  text-shadow: 0 0 10px rgba(217, 70, 239, 0.9);
+}
+.scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.30) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.035),
+    rgba(0, 255, 0, 0.015),
+    rgba(0, 0, 255, 0.035)
+  );
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+}
+.hw-badge {
+  background: linear-gradient(135deg, #ff3b00 0%, #ff8800 60%, #ffd000 100%);
+  box-shadow: 0 0 16px rgba(255, 102, 0, 0.65);
+}
+.flux-btn {
+  background: linear-gradient(135deg, #0284c7 0%, #00f0ff 100%);
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.6);
+}
+.zone-btn {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.6);
+}
+.agro-btn {
+  background: linear-gradient(135deg, #dc2626 0%, #f97316 100%);
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.6);
+}
+.roar-btn {
+  background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%);
+  box-shadow: 0 0 14px rgba(236, 72, 153, 0.6);
+}
+.arcade-pedal {
+  backdrop-filter: blur(6px);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+}
+.arcade-pedal:active, .arcade-pedal.active-press {
+  transform: scale(0.92);
+}
+.siren-active {
+  border-color: #38bdf8;
+}

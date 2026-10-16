@@ -1,0 +1,118 @@
+# AGENTS.md — Operating manual for OUTATIME 88
+
+Everything an agent (or human) needs to work on this game. Read it fully before changing
+anything. `CLAUDE.md` points here.
+
+## 1 · Product vision
+
+OUTATIME 88 is a neon, 1985/88-flavoured time-travel arcade racer that runs in a browser
+tab. It mashes up three feelings: **Midnight Club** (open night streets, rival street crews,
+police heat), **Burnout** (boost, near-misses, side-slam takedowns, crash spectacle) and
+**Hot Wheels** (toy-car joy: loops, orange track, impossible jumps). The hook: build speed,
+hit **88 mph**, and the car jumps eras — the world, music and palette shift around you.
+
+It's for anyone with five minutes and a keyboard, phone, or gamepad. A run should feel
+fast, loud, readable and generous: you are always one good drift away from a warp.
+
+**North star for the Scout:** juicier arcade feel (speed sensation, impact, feedback),
+era-authentic 80s style (synthwave, CRT, LED time circuits), clearer readability at speed,
+more *original* content (districts, eras, rivals, cars of our own invention), and rock-solid
+touch/gamepad play. Depth over breadth: polish one moment until it sings before adding three.
+
+## 2 · Live
+
+- Production: https://mutaafaziz.com/outatime/ (served by the `outatime-88` Cloudflare
+  Worker on the route `mutaafaziz.com/outatime*`; the rest of mutaafaziz.com is a different
+  project and repo — never touch it from here).
+- Every PR gets a Cloudflare preview URL (posted on the PR by Workers Builds).
+- Deploy = merge to `main`. Rollback = revert the PR (or `npx wrangler rollback` by the operator).
+
+## 3 · Invariants (breaking any of these fails review)
+
+1. **It must boot.** The page renders a playable first screen with zero console errors on
+   current Chrome, Safari, and Firefox, desktop and phone. The e2e smoke test guards this.
+2. **Base path.** The app is served under `/outatime/`. Vite `base` and `build.outDir`
+   (`dist/outatime/`) encode this. Never use root-absolute URLs (`/foo.png`); import
+   assets or use `import.meta.env.BASE_URL`.
+3. **Allowed runtime hosts:** **none** — everything (code, CSS, fonts via `@fontsource`) is bundled. The e2e smoke test fails on any non-localhost request.
+   No analytics, ads, trackers, fonts or scripts from CDNs. Everything else is bundled.
+4. **Frame budget.** The render loop must hold 60fps on a mid-range laptop and stay
+   playable on a recent phone. No per-frame allocations in hot paths (reuse vectors and
+   arrays), no layout thrash from the HUD.
+5. **Mobile.** Touch controls work at 390x844, touch targets ≥44px, no page scroll or
+   zoom while playing, safe-area insets respected.
+6. **Save data compatibility.** One key: `outatime_cruisn_88_save_v2` (`src/save.js`). Never rename it or
+   change the meaning of an existing field. Add fields by adding defaults to `SaveStore.data`;
+   `load()` merges saved data over defaults, so old saves keep working. A breaking change needs
+   a versioned migration *from* the old key, plus a unit test with a real old-shape save.
+7. **IP caution.** The title is an homage; the game itself must stay original. Do not add
+   trademarked logos, brand marks, real film/TV character names or likenesses, real car-maker
+   badges, or quoted film dialogue/music. Existing named homages in `src/data.js` are legacy
+   debt being replaced (see the backlog), not precedent — new content uses invented names.
+8. **Accessibility floor.** Respect `prefers-reduced-motion` for screen shake/flashes;
+   every control has a keyboard path; text meets 4.5:1 contrast on HUD backgrounds.
+
+## 4 · System map
+
+```
+index.html          Markup: canvas, HUD, touch controls, start/garage/results modals (Tailwind classes)
+src/main.js         Entry + the remaining glue (~3.9k lines, being carved by the Keeper):
+                      JarvisAI assist modes · track generation (segments, biomes, decorations)
+                      LiveTraffic (rivals, police, traffic AI) · race rules (damage, streaks,
+                      takedowns, specials, time warp) · updateGame(dt) · HUD/radar updates
+                      renderScene() + drawDeLorean() (2D-canvas pseudo-3D renderer)
+                      UI (roster, level select, garage) · bindAllControls() · mainLoop()
+src/data.js         Pure content tables: levels, eras, roster, upgrades, road/pace/camera config
+src/state.js        GameState — the one mutable state object every system reads/writes
+src/save.js         SaveStore (localStorage persistence, see invariant 6)
+src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks
+src/input.js        InputState + pollGamepad()
+src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound)
+src/projection.js   projectPoint() — world → screen road projection
+src/fonts.js        Self-hosted @fontsource imports
+src/styles.css      Tailwind layers + the game's custom CSS (LED boxes, scanlines, buttons)
+tests/unit/         Vitest: pure logic (save, input, physics, projection, data integrity)
+tests/e2e/          Playwright: boot smoke, race advances, save round-trip, phone, perf probe
+```
+
+Frame flow: `mainLoop(ts)` → `updateGame(dt)` (input → player physics → traffic/rivals →
+collisions/scoring → time-warp check → HUD) → `renderScene()` (sky/era backdrop → road
+segments back-to-front → sprites/cars → player car → FX). Carving rule: move a cohesive
+system into its own module with explicit imports, never change behavior in the same PR, and
+let `npm run lint` (no-undef) prove nothing was left dangling.
+
+## 5 · Commands
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Vite dev server at http://localhost:5173/outatime/ |
+| `npm run build` | Production build into `dist/outatime/` |
+| `npm run preview` | Serve the production build locally |
+| `npm test` | Unit tests (Vitest) |
+| `npm run e2e` | Playwright e2e (builds first) |
+| `npm run lint` | ESLint correctness rules (undefined identifiers, import misuse) |
+| `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
+
+Budgets: JS ≤ 60 kB gzipped (today ~34 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
+
+## 6 · The agents
+
+Three cloud routines run this repo with no human in the loop (see `agents/prompts/`):
+
+| Agent | Job | Branch prefix |
+|---|---|---|
+| Scout | Plays the build, researches, grooms and refills `docs/backlog/` | `scout/` |
+| Builder | Ships the top ready ticket test-first, merges on green, verifies live | `build/`, `fix/` |
+| Keeper | Dependencies, perf budget, refactors, prompt tuning, red-main backstop | `keep/` |
+
+The operator controls them via `agents/control.json` (pause, per-agent enable, focus,
+caps) and their schedules at https://claude.ai/code/routines (frequency).
+
+## 7 · Definition of done
+
+- [ ] `npm run check` green locally and in CI
+- [ ] Test added that fails without the change
+- [ ] Screenshot checked at 1280x720 and 390x844
+- [ ] No new runtime hosts, no new console errors, frame budget held
+- [ ] Ticket marked `shipped` with PR number; `docs/CHANGELOG.md` line added
+- [ ] Lesson appended to `docs/LESSONS.md` if one was learned
