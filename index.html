@@ -314,11 +314,11 @@
             <span>×</span>
             <span>⚡ 88 MPH ORANGE TRACK</span>
           </div>
-          <h1 class="mt-1.5 font-arcade text-2xl sm:text-4xl font-black tracking-tight text-white">
-            OUTATIME <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-yellow-300 to-cyan-400">MIDNIGHT 88</span>
+          <h1 id="titleWordmark" class="wordmark mt-2 text-4xl sm:text-6xl" aria-label="OUTATIME 88">
+            <span class="wordmark-chrome">OUTATIME</span><span class="wordmark-88">88</span>
           </h1>
-          <p class="text-xs text-slate-300 mt-0.5">
-            Pro Counter-Steer Drift • ZONE/AGRO/ROAR Specials • Rival Takedowns • Heat 1-5 Police Pursuits
+          <p class="wordmark-tagline mt-1 font-arcade text-[11px] sm:text-sm text-cyan-200 tracking-[0.18em] uppercase">
+            Hit 88. Jump eras. Leave fire on the asphalt.
           </p>
         </div>
         <div class="led-box rounded-xl px-3 py-1.5 text-right self-stretch sm:self-auto flex sm:flex-col justify-between items-center sm:items-end">
@@ -328,9 +328,10 @@
         </div>
       </div>
 
-      <!-- GETTING STARTED: INTERACTIVE DRIVING & 2-SOLUTION OBSTACLE GUIDE -->
-      <div class="my-2.5 p-3 rounded-2xl bg-slate-950/95 border border-cyan-500/50">
-        <div class="flex items-center justify-between mb-1.5">
+      <!-- HOW TO PLAY: collapsed by default so the title screen leads with the race (pillar 1) -->
+      <details id="howToPlay" class="my-2.5 p-3 rounded-2xl bg-slate-950/95 border border-cyan-500/50">
+        <summary class="cursor-pointer select-none font-arcade text-[10px] font-black text-cyan-300 uppercase tracking-wider">🎓 HOW TO PLAY <span class="text-slate-400 font-bold">• tap to open</span></summary>
+        <div class="flex items-center justify-between mt-2 mb-1.5">
           <span class="text-[10px] font-arcade font-black text-cyan-300 uppercase tracking-wider">🎓 GETTING STARTED • EVERY OBSTACLE HAS 2 SOLUTIONS!</span>
           <span class="text-[9px] font-arcade text-emerald-300 font-bold">💚 100 HP + ENDLESS WAVE SCALING</span>
         </div>
@@ -348,7 +349,7 @@
             <div class="mt-0.5"><strong>Solution 1:</strong> Boost-Smash (<kbd class="px-1 bg-slate-800 rounded">Space</kbd>) for +Flux/HP<br/><strong>Solution 2:</strong> Slipstream draft & pass!</div>
           </div>
         </div>
-      </div>
+      </details>
 
       <!-- ORIGINAL DRIVER & CAR MULTIVERSE SELECTOR -->
       <div class="my-2.5 p-3 rounded-2xl bg-slate-950/95 border border-orange-500/50">
@@ -414,10 +415,10 @@
         </div>
       </div>
 
-      <!-- Launch Race CTA -->
-      <div class="flex flex-col sm:flex-row items-center gap-3">
-        <button id="btnStartRace" class="w-full py-3 px-6 rounded-2xl hw-badge text-slate-950 font-arcade text-sm sm:text-base font-black tracking-wider uppercase shadow-xl hover:brightness-110 active:scale-[0.99] transition">
-          🔥 IGNITE TIME DIALS & RACE!
+      <!-- Launch Race CTA: sticky so START is always one tap away, whatever you scroll to -->
+      <div id="startBar" class="sticky -bottom-2.5 sm:-bottom-4 z-10 shadow-[0_-12px_24px_rgba(2,6,23,0.85)] -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-3 px-4 sm:px-6 py-3 bg-slate-900/95 backdrop-blur-md border-t border-orange-500/40 rounded-b-3xl flex flex-col sm:flex-row items-center gap-3">
+        <button id="btnStartRace" class="start-cta w-full py-3.5 px-6 rounded-2xl hw-badge text-slate-950 font-arcade text-base sm:text-lg font-black tracking-[0.2em] uppercase shadow-xl hover:brightness-110 active:scale-[0.99] transition">
+          ▶ START RACE
         </button>
       </div>
     </div>
