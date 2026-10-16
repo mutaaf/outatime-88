@@ -1,7 +1,7 @@
 ---
 id: 0005
 title: Remove per-frame allocations from renderScene's hot path
-status: proposed
+status: ready
 priority: P2
 size: M
 lens: performance
@@ -16,6 +16,9 @@ this feeds the GC and causes hitches at exactly the high-speed moments that matt
 invariant 4 forbids per-frame allocation in hot paths.
 
 ## What
+Note: ticket 0009 added `src/fx.js` with a fixed particle pool — reuse that pattern (and migrate
+`GameState.debrisShards` / `hitShockwaves` onto pools) rather than inventing a new one.
+
 Cache gradients and rebuild them only when canvas size, horizon, or era changes. Reuse a
 preallocated `visibleSegments` array (reset `length`), and pool projected-point objects.
 Pixel output must stay identical.

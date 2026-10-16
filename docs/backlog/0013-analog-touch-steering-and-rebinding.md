@@ -1,7 +1,7 @@
 ---
 id: 0013
 title: Analog touch steering and rebindable keyboard controls
-status: proposed
+status: ready
 priority: P2
 size: M
 lens: player-feel
