@@ -1,12 +1,12 @@
 ---
 id: 0010
 title: Procedural synthwave score on the audio clock that intensifies with speed and changes per era
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-16
-pr:
+pr: 4
 ---
 
 ## Why

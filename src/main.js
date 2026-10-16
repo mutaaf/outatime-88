@@ -3917,6 +3917,7 @@ function mainLoop(timestamp) {
     }
   }
 
+  SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
   renderScene();
   rafId = requestAnimationFrame(mainLoop);
 }
