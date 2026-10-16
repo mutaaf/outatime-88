@@ -3,7 +3,7 @@
   "paused": false,
   "focus": "",
   "agents": {
-    "scout":   { "enabled": true, "max_new_tickets_per_run": 3, "ready_queue_cap": 8 },
+    "scout":   { "enabled": true, "max_new_tickets_per_run": 3, "ready_queue_cap": 10 },
     "builder": { "enabled": true, "max_merges_per_day": 4 },
     "keeper":  { "enabled": true }
   },

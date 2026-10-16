@@ -28,8 +28,11 @@ the Builder can ship it in one PR without asking anyone.
    - Mark stale, duplicate, or off-vision tickets `dropped` with a one-line reason.
    - Split any ticket too big for one PR (size `L` that touches >3 systems) into smaller ones.
    - Re-rank `priority` so the most valuable `ready` ticket is obvious.
-5. **Add** up to `control.json → agents.scout.max_new_tickets_per_run` new tickets, but
-   never let the count of `ready` tickets exceed `ready_queue_cap`. Use
+5. **Add** up to `control.json → agents.scout.max_new_tickets_per_run` new tickets. New
+   tickets go in as `ready` while the `ready` count is under `ready_queue_cap`, otherwise
+   as `proposed` (they wait their turn; promote the best `proposed` to `ready` whenever
+   there is room). A full queue never excuses skipping steps 2–4: always play, discover,
+   and groom; a run that only reads files and exits is a failed run. Use
    `docs/backlog/_template.md`. Balance the lenses over time (see the template); do not
    generate vanity work (badges, share cards, marketing, leaderboards that need a server).
    Each ticket must have checkable acceptance criteria and a test plan.
