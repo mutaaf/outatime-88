@@ -7,10 +7,29 @@ import { SoundEngine, setAudioHooks } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
 import { projectPoint } from './projection.js';
+import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
+import { speedFeel, createParticlePool, createHitStop, nearMissChain, watchReducedMotion } from './fx.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
 SaveStore.load();
+
+// Game feel (pillar 2): one spark pool, one hit-stop clock, one near-miss chain for the run.
+const sparks = createParticlePool(160);
+const hitStop = createHitStop();
+const nearMisses = nearMissChain();
+let fxClock = 0;
+watchReducedMotion((reduce) => { GameState.reducedMotion = reduce; });
+
+/** Shower of sparks from the player car (pixel-canvas coords are mapped at draw time). */
+function burstSparks(count, hue, power = 1) {
+  if (GameState.reducedMotion) count = Math.ceil(count / 3);
+  for (let i = 0; i < count; i++) {
+    const a = -Math.PI * (0.15 + Math.random() * 0.7);
+    const v = (180 + Math.random() * 420) * power;
+    sparks.spawn((Math.random() - 0.5) * 60, 0, Math.cos(a) * v * (Math.random() < 0.5 ? -1 : 1), Math.sin(a) * v, 0.35 + Math.random() * 0.45, hue + Math.random() * 30, 1.5 + Math.random() * 2.5);
+  }
+}
 
 // --- WORLD TOUR LEVELS (Night Streets × Takedowns × Time-Warp Campaigns) ---
 
@@ -602,7 +621,7 @@ const LiveTraffic = {
           tr.nearMissed = true;
           GameState.combo = Math.min(12, GameState.combo + 1);
           GameState.comboTimer = 5.0;
-          GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 12);
+          GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.trafficNearMiss);
           GameState.score += 500 * GameState.combo;
           SoundEngine.playCoinPickup();
           advanceContractProgress('NEAR_MISS', 1);
@@ -664,7 +683,7 @@ const LiveTraffic = {
               GameState.lessonsCleared.slide++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
               const pts = 650 * GameState.combo;
               GameState.score += pts;
-              GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 15);
+              GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSlide);
               SoundEngine.playStunt();
               spawnAcquireAnimation('PLUTONIUM', 0, `🔽 SLIDE UNDER! +${pts}`);
             }
@@ -780,6 +799,10 @@ function applyPlayerDamage(rawDmg, reasonText) {
   GameState.hp = Math.max(0, GameState.hp - finalDmg);
   GameState.invulnTimer = 1.1; // 1.1s invulnerability frames
   SoundEngine.playCrash();
+  // Crash spectacle: a beat of slow-mo, a spark shower and a jolt (ticket 0009).
+  if (!GameState.reducedMotion) GameState.takedownSlowMoTimer = Math.max(GameState.takedownSlowMoTimer, 0.28);
+  GameState.screenShake = Math.max(GameState.screenShake, 0.5);
+  burstSparks(26, 18, 1.1);
 
   if (GameState.hp <= 0) {
     endRaceRun('WRECKED — CHASSIS HP DEPLETED!');
@@ -798,11 +821,16 @@ function addEndlessRunStreak(amount, reasonLabel, offsetFromCenter = 0) {
   // Endless Run style multiplier: scales up to x30 as your clean dodge streak grows!
   GameState.combo = Math.min(30, 1 + Math.floor(GameState.dodgeStreak / 2));
   GameState.comboTimer = 9.0;
-  const pts = 500 * amount * GameState.combo;
+  const chain = nearMisses.hit(fxClock);
+  const chainBonus = chain > 1 ? nearMisses.points() : 0;
+  const pts = 500 * amount * GameState.combo + chainBonus;
   GameState.score += pts;
-  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 8 * amount);
+  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.streakPerDodge * amount);
+  // A sliver of hit-stop sells the graze; chains stretch it a touch (ticket 0009).
+  hitStop.trigger(Math.min(0.09, 0.035 + chain * 0.008), GameState.reducedMotion);
   if (reasonLabel) {
-    spawnAcquireAnimation('HW_COIN', offsetFromCenter, `${reasonLabel} +${pts} (x${GameState.combo})`);
+    const chainTag = chain > 1 ? ` · NEAR-MISS x${chain}` : '';
+    spawnAcquireAnimation('HW_COIN', offsetFromCenter, `${reasonLabel} +${pts} (x${GameState.combo})${chainTag}`);
   }
 }
 
@@ -936,7 +964,7 @@ function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
   GameState.takedowns++;
   GameState.combo = Math.min(12, GameState.combo + 2);
   GameState.comboTimer = 5.5;
-  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 32);
+  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.takedown);
   GameState.heatProgress += 35;
   if (GameState.heatProgress >= 100 && GameState.heatLevel < 5) {
     GameState.heatLevel++;
@@ -951,7 +979,8 @@ function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
   GameState.runCoins += 15;
   SaveStore.data.fluxCoins += 15;
   GameState.screenShake = 0.42;
-  GameState.takedownSlowMoTimer = 0.35; // Brief dramatic impact slow-mo!
+  GameState.takedownSlowMoTimer = GameState.reducedMotion ? 0 : 0.35; // Brief dramatic impact slow-mo!
+  burstSparks(34, 190, 1.3);
 
   // Launch flying wreck into 3D space
   GameState.flyingWrecks.push({
@@ -1043,6 +1072,8 @@ function activateMidnightSpecial(type) {
 function triggerTimeWarp() {
   SoundEngine.playTimeWarp88();
   GameState.timeWarps++;
+  GameState.sinceWarp = 0;
+  GameState.warpFxTimer = 0.9;
   GameState.warpActiveTimer = 3.5 + (SaveStore.data.upgrades.flux - 1) * 0.5;
   GameState.fluxCharge = 0;
   GameState.eraIndex = (GameState.eraIndex + 1) % ERAS.length;
@@ -1059,7 +1090,7 @@ function triggerTimeWarp() {
 
   const flashEl = document.getElementById('warpFlash');
   if (flashEl) {
-    flashEl.style.opacity = '0.14';
+    flashEl.style.opacity = GameState.reducedMotion ? '0.08' : '0.14';
     setTimeout(() => { flashEl.style.opacity = '0'; }, 340);
   }
 
@@ -1135,6 +1166,10 @@ function updateGame(rawDt) {
     if (tint) tint.style.opacity = '0';
   }
 
+  fxClock += rawDt;
+  timeScale *= hitStop.scale(rawDt);
+  sparks.update(rawDt);
+  if (GameState.warpFxTimer > 0) GameState.warpFxTimer -= rawDt;
   const dt = rawDt * timeScale;
 
   const cameraSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
@@ -1250,7 +1285,7 @@ function updateGame(rawDt) {
 
   if (isOnBooster && GameState.playerY <= 6) {
     GameState.speed = Math.min(warpMaxMph, GameState.speed + 38 * rawDt);
-    GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 16 * rawDt);
+    GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.boosterPadPerSec * rawDt);
   }
 
   if (GameState.speed > GameState.peakSpeed) GameState.peakSpeed = GameState.speed;
@@ -1359,7 +1394,7 @@ function updateGame(rawDt) {
     const ptsAdded = Math.floor(680 * rawDt * GameState.combo);
     GameState.currentDriftScore += ptsAdded;
     GameState.score += ptsAdded;
-    GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 16 * rawDt);
+    GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.driftPerSec * rawDt);
     advanceContractProgress('DRIFT_PTS', ptsAdded);
 
     // Determine 3-Tier Drift Boost (Cyan -> Orange -> Purple Plasma)
@@ -1469,7 +1504,7 @@ function updateGame(rawDt) {
         GameState.timeLeft = Math.min(60, GameState.timeLeft + 7.0);
         triggerAnnouncement('WANGAN TURBO SHORTCUT!', '+7.0s BONUS TIME!', 1400);
       } else {
-        GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 35);
+        GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.skyLoop);
         triggerAnnouncement('ORANGE TRACK SKY-LOOP!', '+35% FLUX CORE CHARGE!', 1400);
       }
       generateNextTrackBiome(chosen);
@@ -1507,7 +1542,7 @@ function updateGame(rawDt) {
       if (GameState.airTrickCount > 0) {
         const boostMph = GameState.airLandingBoostMph || 14;
         GameState.speed = Math.min(142, GameState.speed + boostMph);
-        GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 15 * GameState.airTrickCount);
+        GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.airTrickPerTrick * GameState.airTrickCount);
         SoundEngine.playBoosterHit();
         triggerAnnouncement(
           `🔥 LANDED x${GameState.airTrickCount} STUNT COMBO!`,
@@ -1562,7 +1597,7 @@ function updateGame(rawDt) {
     if (GameState.draftCharge >= 100) {
       GameState.draftCharge = 0;
       GameState.speed = Math.min(warpMaxMph + 12, GameState.speed + 22);
-      GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 25);
+      GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.draftSling);
       SoundEngine.playBoosterHit();
       triggerAnnouncement('💨 SLIPSTREAM TURBO SLINGSHOT!', '+22 MPH WAKE BOOST & +25% FLUX!', 1400);
     }
@@ -1571,8 +1606,9 @@ function updateGame(rawDt) {
   }
 
   // 6. Flux Core Charge & 88 MPH Time Warp
-  const passiveFluxRate = (GameState.speed > 65 ? 4.8 : 1.8) * (1 + (upg.flux - 1) * 0.25);
-  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + passiveFluxRate * rawDt);
+  // Earned warp pacing (ticket 0014): slower passive gain; skill (drift/draft/takedowns) fills the rest.
+  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + passiveFluxRate(GameState.speed, upg.flux) * rawDt);
+  GameState.sinceWarp += rawDt;
 
   if (InputState.boostPressed || gp.boost) {
     InputState.boostPressed = false;
@@ -1580,22 +1616,23 @@ function updateGame(rawDt) {
       GameState.stuntSpinAngle = 360;
       const stuntPts = 1600 * GameState.combo;
       GameState.score += stuntPts;
-      GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 25);
+      GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.barrelRoll);
       SoundEngine.playStunt();
       triggerAnnouncement('FLUX BARREL ROLL!', `+${stuntPts} PTS!`, 1200);
-    } else if (GameState.fluxCharge >= 35) {
+    } else if (boostOutcome(GameState.fluxCharge) !== 'none') {
       GameState.speed = Math.max(GameState.speed + 26, 92);
-      if (GameState.fluxCharge >= 92 || GameState.speed >= 88) {
+      // Only a nearly-full meter turns a boost into a warp; otherwise it's a nitro purge.
+      if (boostOutcome(GameState.fluxCharge) === 'warp' && GameState.sinceWarp >= FLUX.warpCooldown) {
         triggerTimeWarp();
       } else {
         SoundEngine.playBoosterHit();
-        GameState.fluxCharge = Math.max(0, GameState.fluxCharge - 30);
+        GameState.fluxCharge = Math.max(0, GameState.fluxCharge - FLUX.boostCost);
         triggerAnnouncement('⚡ NITRO FLUX PURGE!', 'SURGING TO 88 MPH!', 1100);
       }
     }
   }
 
-  if (GameState.fluxCharge >= 100 && GameState.speed >= 88 && GameState.warpActiveTimer <= 0) {
+  if (GameState.warpActiveTimer <= 0 && warpReady(GameState.fluxCharge, GameState.speed, GameState.sinceWarp)) {
     triggerTimeWarp();
   }
   if (GameState.warpActiveTimer > 0) GameState.warpActiveTimer -= rawDt;
@@ -1659,14 +1696,14 @@ function updateGame(rawDt) {
           GameState.combo = Math.min(12, GameState.combo + 1);
           GameState.comboTimer = 5.0;
           if (item.type === 'PLUTONIUM') {
-            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 26);
+            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.plutonium);
             GameState.runCoins += 8;
             SaveStore.data.fluxCoins += 8;
             const pts = 500 * GameState.combo;
             GameState.score += pts;
             spawnAcquireAnimation('PLUTONIUM', item.offset - GameState.playerX, `+${pts} ⚡ 1.88GW!`);
           } else {
-            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 12);
+            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.coin);
             GameState.runCoins += 4;
             SaveStore.data.fluxCoins += 4;
             const pts = 300 * GameState.combo;
@@ -1714,7 +1751,7 @@ function updateGame(rawDt) {
               GameState.lessonsCleared.slide++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
               const pts = 650 * GameState.combo;
               GameState.score += pts;
-              GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 15);
+              GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSlide);
               SoundEngine.playStunt();
               spawnAcquireAnimation('PLUTONIUM', 0, `🔽 SLIDE UNDER! +${pts}`);
             }
@@ -1734,7 +1771,7 @@ function updateGame(rawDt) {
           if (item.type === 'FLUX_CRATE' || GameState.agroTimer > 0 || GameState.warpActiveTimer > 0 || GameState.speed >= 72 || GameState.isDrifting) {
             SoundEngine.playStunt();
             GameState.lessonsCleared.smash++;
-            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 18);
+            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSmash);
             healPlayerHp(8);
             GameState.speed = Math.min(135, GameState.speed + 8);
             const pts = 750 * GameState.combo;
@@ -1787,7 +1824,7 @@ function updateGame(rawDt) {
           car.nearMissed = true;
           GameState.combo = Math.min(12, GameState.combo + 1);
           GameState.comboTimer = 5.0;
-          GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 14);
+          GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.rivalNearMiss);
           const nmPts = (GameState.twoWheelTimer > 0 ? 1200 : 600) * GameState.combo;
           GameState.score += nmPts;
           SoundEngine.playCoinPickup();
@@ -2164,7 +2201,7 @@ function renderScene() {
   ctx.save();
 
   // Screen Shake on Takedown / Roar / Boost
-  if (GameState.screenShake > 0) {
+  if (GameState.screenShake > 0 && !GameState.reducedMotion) {
     const mag = GameState.screenShake * 2.5;
     ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
   }
@@ -2962,8 +2999,87 @@ function renderScene() {
   mainCtx.save();
   mainCtx.imageSmoothingEnabled = (eraCfg.pixelScale === 1.0);
   mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-  mainCtx.drawImage(pixelCanvas, 0, 0, pixelCanvas.width, pixelCanvas.height, 0, 0, mainCanvas.width, mainCanvas.height);
+  const playing = GameState.status === 'PLAYING';
+  const feel = speedFeel(playing ? GameState.speed : 0, GameState.reducedMotion);
+  // FOV push-in toward the vanishing point as you approach 88 (crop the source a touch).
+  const cropW = pixelCanvas.width / feel.fov;
+  const cropH = pixelCanvas.height / feel.fov;
+  const cropX = (pixelCanvas.width - cropW) * 0.5;
+  const cropY = (pixelCanvas.height - cropH) * 0.46;
+  const shakeX = feel.shake * Math.sin(fxClock * 61.0) * (mainCanvas.width / 1280);
+  const shakeY = feel.shake * Math.sin(fxClock * 47.0 + 1.3) * (mainCanvas.width / 1280);
+  mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX, shakeY, mainCanvas.width, mainCanvas.height);
+  // Time-warp chromatic split: two offset additive ghosts for ~0.9 s after a warp.
+  if (GameState.warpFxTimer > 0 && !GameState.reducedMotion) {
+    const k = GameState.warpFxTimer / 0.9;
+    const off = 10 * k * (mainCanvas.width / 1280);
+    mainCtx.globalCompositeOperation = 'lighter';
+    mainCtx.globalAlpha = 0.22 * k;
+    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, mainCanvas.width, mainCanvas.height);
+    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, mainCanvas.width, mainCanvas.height);
+    mainCtx.globalAlpha = 1;
+    mainCtx.globalCompositeOperation = 'source-over';
+    drawWarpTunnel(mainCtx, k);
+  }
+  drawSpeedLines(mainCtx, feel.lines);
+  drawSparks(mainCtx, rw, rh);
   mainCtx.restore();
+}
+
+/** Streaks rushing out of the vanishing point, only in the outer band so the road stays clear. */
+function drawSpeedLines(c, intensity) {
+  GameState.fxLinesDrawn = 0;
+  if (intensity <= 0) return;
+  const W = mainCanvas.width, H = mainCanvas.height;
+  const cx = W * 0.5, cy = H * 0.44;
+  const count = Math.round(10 + 34 * intensity);
+  const maxR = Math.hypot(W, H) * 0.62;
+  c.lineCap = 'round';
+  for (let i = 0; i < count; i++) {
+    // Deterministic per-line angle; phase scrolls with time so lines fly outward.
+    const seed = Math.sin(i * 91.17) * 43758.5453;
+    const ang = (seed - Math.floor(seed)) * Math.PI * 2;
+    const phase = (fxClock * (1.6 + intensity * 2.4) + i * 0.137) % 1;
+    const r0 = maxR * (0.42 + phase * 0.6);
+    const r1 = r0 + maxR * (0.08 + 0.22 * intensity);
+    const x0 = cx + Math.cos(ang) * r0, y0 = cy + Math.sin(ang) * r0 * 0.75;
+    const x1 = cx + Math.cos(ang) * r1, y1 = cy + Math.sin(ang) * r1 * 0.75;
+    const fade = 1 - phase * 0.7;
+    c.strokeStyle = i % 3 === 0 ? 'rgba(255,190,110,' + (0.5 * intensity * fade) + ')' : 'rgba(200,245,255,' + (0.6 * intensity * fade) + ')';
+    c.lineWidth = (1.5 + 3 * intensity) * (W / 1280);
+    c.beginPath();
+    c.moveTo(x0, y0);
+    c.lineTo(x1, y1);
+    c.stroke();
+  }
+  GameState.fxLinesDrawn = count;
+}
+
+/** Concentric cyan/magenta rings collapsing into the horizon right after a warp. */
+function drawWarpTunnel(c, k) {
+  const W = mainCanvas.width, H = mainCanvas.height;
+  const cx = W * 0.5, cy = H * 0.44;
+  c.lineWidth = 3 * (W / 1280);
+  for (let i = 0; i < 6; i++) {
+    const r = ((1 - k) * 1.4 + i * 0.22) % 1.4 * Math.max(W, H) * 0.5;
+    c.strokeStyle = i % 2 ? 'rgba(255,0,140,' + (0.35 * k) + ')' : 'rgba(0,240,255,' + (0.35 * k) + ')';
+    c.beginPath();
+    c.ellipse(cx, cy, r, r * 0.6, 0, 0, Math.PI * 2);
+    c.stroke();
+  }
+}
+
+function drawSparks(c, rw, rh) {
+  const sx = mainCanvas.width / rw, sy = mainCanvas.height / rh;
+  const ox = rw * 0.5 * sx, oy = rh * 0.86 * sy;
+  for (let i = 0; i < sparks.items.length; i++) {
+    const p = sparks.items[i];
+    if (p.life <= 0) continue;
+    const a = p.life / p.maxLife;
+    c.fillStyle = 'hsla(' + p.hue + ',100%,' + (55 + 30 * a) + '%,' + a + ')';
+    const s = p.size * sx;
+    c.fillRect(ox + p.x * sx - s / 2, oy + p.y * sy - s / 2, s, s);
+  }
 }
 
 function drawPlayerCar(ctx, rw, rh, eraCfg) {
@@ -3421,7 +3537,11 @@ function startNewRace() {
   GameState.playerVY = 0;
   GameState.speed = 26;
   GameState.peakSpeed = 42;
-  GameState.fluxCharge = 50;
+  GameState.fluxCharge = FLUX.start;
+  GameState.sinceWarp = FLUX.warpCooldown;
+  GameState.warpFxTimer = 0;
+  sparks.clear();
+  nearMisses.reset();
   GameState.draftCharge = 0;
   GameState.specialCharges = 3;
   GameState.zoneTimer = 0;
@@ -3923,6 +4043,8 @@ function mainLoop(timestamp) {
 }
 
 window.onload = () => {
+  // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
+  if (new URLSearchParams(location.search).has('debug')) window.__OT = { GameState };
   resizeCanvases();
   GameState.levelIndex = SaveStore.data.selectedLevel || 0;
   initTrack();

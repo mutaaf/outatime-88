@@ -1,12 +1,12 @@
 ---
 id: 0014
 title: Make the 88 mph warp an earned climax instead of a constant
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-16
-pr:
+pr: 5
 ---
 
 ## Why

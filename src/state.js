@@ -104,5 +104,10 @@ export const GameState = {
   trickPitchAngle: 0,
   phaseJukeTimer: 0,
   lastLeftTap: 0,
-  lastRightTap: 0
+  lastRightTap: 0,
+  // Game feel (ticket 0009/0003/0014)
+  reducedMotion: false,
+  sinceWarp: 99,
+  warpFxTimer: 0,
+  fxLinesDrawn: 0
 };

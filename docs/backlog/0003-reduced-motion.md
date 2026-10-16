@@ -1,12 +1,12 @@
 ---
 id: 0003
 title: Honor prefers-reduced-motion for flashes, shakes and CRT effects
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-10-16
-pr:
+pr: 5
 ---
 
 ## Why
