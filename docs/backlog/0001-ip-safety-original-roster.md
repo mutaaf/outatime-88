@@ -1,12 +1,12 @@
 ---
 id: 0001
 title: Replace trademarked character, car and brand names with original ones
-status: ready
+status: shipped
 priority: P0
 size: M
 lens: authenticity
 created: 2026-10-16
-pr:
+pr: 3
 ---
 
 ## Why
