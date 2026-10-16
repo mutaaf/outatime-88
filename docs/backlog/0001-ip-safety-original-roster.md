@@ -1,12 +1,12 @@
 ---
 id: 0001
 title: Replace trademarked character, car and brand names with original ones
-status: ready
+status: shipped
 priority: P0
 size: M
 lens: authenticity
 created: 2026-10-16
-pr:
+pr: 3
 ---
 
 ## Why
@@ -27,9 +27,9 @@ the 80s give us something we own and can build lore around. This is AGENTS.md in
 - Write the replacement mapping in the PR body.
 
 ## Acceptance criteria
-- [ ] A unit test scans `src/` and `index.html` for a denylist (McFly, Doc Brown, Toretto, O'Conner, K.I.T.T, Knight Rider, Mach 5, Speed Racer, Stark, Iron Man, J.A.R.V.I.S, Hot Wheels, Midnight Club, Burnout, Back to the Future, DeLorean, Skyline, Charger, Trans Am, Hill Valley) and fails on any hit
-- [ ] Existing saves still load (unit test with an old-shape save including `livery` and `selectedLevel`)
-- [ ] Start screen and garage screenshots at 1280x720 and 390x844 read naturally with the new names
+- [x] A unit test scans `src/` and `index.html` for a denylist (McFly, Doc Brown, Toretto, O'Conner, K.I.T.T, Knight Rider, Mach 5, Speed Racer, Stark, Iron Man, J.A.R.V.I.S, Hot Wheels, Midnight Club, Burnout, Back to the Future, DeLorean, Skyline, Charger, Trans Am, Hill Valley) and fails on any hit
+- [x] Existing saves still load (unit test with an old-shape save including `livery` and `selectedLevel`)
+- [x] Start screen and garage screenshots at 1280x720 and 390x844 read naturally with the new names
 
 ## Test plan
 New `tests/unit/ip-denylist.test.js` reads source files and asserts zero denylist matches

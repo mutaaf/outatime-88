@@ -108,7 +108,7 @@ export const SoundEngine = {
     setTimeout(() => this.playTone(880, 'square', 0.15, 0.13), 65);
   },
   playTakedown() {
-    // Visceral Burnout crunch + rising power chord!
+    // Visceral takedown crunch + rising power chord!
     this.playTone(95, 'sawtooth', 0.35, 0.24, 42);
     setTimeout(() => this.playTone(392, 'sawtooth', 0.28, 0.18, 784), 80);
     setTimeout(() => this.playTone(587.33, 'square', 0.35, 0.16, 1174), 160);

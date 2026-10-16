@@ -114,7 +114,7 @@ export class RigidBody3D {
       this.rot = (this.vx * -0.14) + this.yaw * 0.25; // Dynamic body roll on lane changes!
     }
 
-    // 5. Hard Hot Wheels Extruded Side-Wall Rigid-Body Rebound (x in [-0.72, +0.72])
+    // 5. Hard Toy-Track Extruded Side-Wall Rigid-Body Rebound (x in [-0.72, +0.72])
     const maxWallOffset = 0.72 - this.halfW * 0.25;
     if (this.offset < -maxWallOffset) {
       this.offset = -maxWallOffset;
