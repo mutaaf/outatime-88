@@ -1,12 +1,12 @@
 ---
 id: 0011
 title: Campaign ladder with medal targets, unlocks and local best times per level
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: content
 created: 2026-10-16
-pr:
+pr: 7
 ---
 
 ## Why

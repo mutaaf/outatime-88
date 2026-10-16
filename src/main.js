@@ -10,6 +10,7 @@ import { projectPoint } from './projection.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain, watchReducedMotion } from './fx.js';
 import { createAnnouncer } from './announcer.js';
+import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -3390,6 +3391,28 @@ function renderCharacterRosterGrid() {
   });
 }
 
+/** 250000 → '250k', 2500000 → '2.5M' */
+function shortScore(n) {
+  return n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`;
+}
+
+/** Results-screen medal line: what you earned, your best, and the next target. */
+function renderRunMedal(lvl, result) {
+  const el = document.getElementById('endMedalText');
+  if (!el) return;
+  const prog = SaveStore.data.progress[lvl.id] || { best: 0, medal: null };
+  const earned = result.medal ? `${MEDAL_ICON[result.medal]} ${result.medal.toUpperCase()}` : 'NO MEDAL';
+  const next = nextTarget(lvl.id, GameState.score);
+  const nextTxt = next ? ` • NEXT ${MEDAL_ICON[next.medal]} ${next.score.toLocaleString()}` : ' • TOP OF THE LADDER';
+  el.textContent = `${earned}${result.newBest ? ' • NEW BEST!' : ` • BEST ${prog.best.toLocaleString()}`}${nextTxt}`;
+  const unlockEl = document.getElementById('endUnlockText');
+  if (unlockEl) {
+    const opened = result.unlocked !== null ? WORLD_LEVELS[result.unlocked] : null;
+    unlockEl.textContent = opened ? `🔓 UNLOCKED: ${opened.name}` : '';
+    unlockEl.classList.toggle('hidden', !opened);
+  }
+}
+
 function renderLevelSelectGrid() {
   const grid = document.getElementById('levelSelectGrid');
   if (!grid) return;
@@ -3397,10 +3420,17 @@ function renderLevelSelectGrid() {
 
   WORLD_LEVELS.forEach((lvl) => {
     const isSelected = (GameState.levelIndex === lvl.index);
+    const locked = lvl.index >= (SaveStore.data.unlockedLevel || 1);
+    const prog = (SaveStore.data.progress || {})[lvl.id] || { best: 0, medal: null };
+    const medals = LEVEL_MEDALS[lvl.id];
     const card = document.createElement('button');
     card.type = 'button';
+    card.dataset.levelId = lvl.id;
+    card.dataset.locked = locked ? '1' : '0';
     card.className = `text-left p-2.5 rounded-xl border transition flex flex-col justify-between ${
-      isSelected
+      locked
+        ? 'bg-slate-950/70 border border-slate-800 opacity-60 cursor-not-allowed'
+        : isSelected
         ? 'bg-orange-500/20 border-2 border-orange-400 shadow-[0_0_15px_rgba(255,102,0,0.35)]'
         : 'bg-slate-950/90 border border-slate-800 hover:border-slate-600'
     }`;
@@ -3417,8 +3447,15 @@ function renderLevelSelectGrid() {
         <span class="text-amber-300">BOSS: ${lvl.bossName}</span>
         <span class="text-emerald-300 font-bold">+${lvl.bonusReward} ⚡</span>
       </div>
+      <div class="level-ladder mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[9px] font-arcade">
+        ${locked
+          ? `<span class="text-slate-400">🔒 Earn ${MEDAL_ICON.bronze} on the level before</span>`
+          : `<span class="text-white font-bold">${prog.medal ? MEDAL_ICON[prog.medal] : '▫️'} BEST <span class="level-best">${prog.best.toLocaleString()}</span></span>
+             <span class="text-slate-400">${MEDAL_ICON.bronze}${shortScore(medals.bronze)} ${MEDAL_ICON.silver}${shortScore(medals.silver)} ${MEDAL_ICON.gold}${shortScore(medals.gold)}</span>`}
+      </div>
     `;
     card.addEventListener('click', () => {
+      if (locked) return;
       GameState.levelIndex = lvl.index;
       SaveStore.data.selectedLevel = lvl.index;
       SaveStore.save();
@@ -3597,7 +3634,9 @@ function endRaceRun(customBadgeText = null) {
   if (GameState.score > SaveStore.data.bestScore) {
     SaveStore.data.bestScore = GameState.score;
   }
+  const result = applyRunResult(SaveStore.data, { levelIndex: lvl.index, levelId: lvl.id, score: GameState.score }, WORLD_LEVELS.length);
   SaveStore.save();
+  renderRunMedal(lvl, result);
 
   document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
   document.getElementById('endWarpsText').textContent = `POS #${GameState.racePosition} • ${GameState.timeWarps} WARPS`;
