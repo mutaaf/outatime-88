@@ -308,7 +308,7 @@ const LiveTraffic = {
 
     // ONLY 4 Well-Spaced Physical Obstacles (Spaced 3,800 Z-units apart so the track is open and readable!)
     this.obstacles = [];
-    const obsTypes = ['PINE_TREE_HAZARD', 'LOW_LASER_BAR', 'PINE_TREE_HAZARD', 'HIGH_TRON_GATE', 'HOLO_BARRIER'];
+    const obsTypes = ['PINE_TREE_HAZARD', 'LOW_LASER_BAR', 'PINE_TREE_HAZARD', 'HIGH_LIGHT_GATE', 'HOLO_BARRIER'];
     for (let i = 0; i < 4; i++) {
       const oType = obsTypes[i % obsTypes.length];
       const lane = (i % 3 - 1) * 0.44;
@@ -317,7 +317,7 @@ const LiveTraffic = {
   },
 
   createObstacleBody(idx, oType, zPos, laneOffset) {
-    const isHighGate = (oType === 'HIGH_TRON_GATE');
+    const isHighGate = (oType === 'HIGH_LIGHT_GATE');
     const isLowLaser = (oType === 'LOW_LASER_BAR');
     const isCrate = (oType === 'FLUX_CRATE');
     return new RigidBody3D({
@@ -616,7 +616,7 @@ const LiveTraffic = {
 
       // Recycle obstacles that fall behind the player (Spaced 3,400–4,200 Z-units apart so the road is never crowded!)
       if (ob.worldZ - playerZ < -600) {
-        const obsTypes = ['PINE_TREE_HAZARD', 'LOW_LASER_BAR', 'PINE_TREE_HAZARD', 'HIGH_TRON_GATE', 'HOLO_BARRIER'];
+        const obsTypes = ['PINE_TREE_HAZARD', 'LOW_LASER_BAR', 'PINE_TREE_HAZARD', 'HIGH_LIGHT_GATE', 'HOLO_BARRIER'];
         const nextType = obsTypes[(i + GameState.waveTier) % obsTypes.length];
         const lanes = [-0.46, 0, 0.46];
         const nextLane = lanes[(i * 7 + GameState.waveTier) % 3];
@@ -640,10 +640,10 @@ const LiveTraffic = {
             GameState.speed = Math.min(138, GameState.speed + 11);
             GameState.magnetTimer = Math.max(GameState.magnetTimer, 4.0);
             SoundEngine.playCoinPickup();
-            addTempleRunStreak(2, ob.type === 'PINE_TREE_HAZARD' ? '🌲 TREE-GRAZE BOOST!' : '⚡ CLOSE SHAVE!', ob.offset - GameState.playerX);
+            addEndlessRunStreak(2, ob.type === 'PINE_TREE_HAZARD' ? '🌲 TREE-GRAZE BOOST!' : '⚡ CLOSE SHAVE!', ob.offset - GameState.playerX);
           } else {
-            // Clean Temple-Run Dodge Streak +1
-            addTempleRunStreak(1, null, 0);
+            // Clean Endless-Run Dodge Streak +1
+            addEndlessRunStreak(1, null, 0);
           }
         } else if (latDist < minLatSep) {
           const jumpedOver = (playerBotY >= ob.y + ob.height - 4);
@@ -652,7 +652,7 @@ const LiveTraffic = {
           if (jumpedOver) {
             if (!ob.nearMissed) {
               ob.nearMissed = true;
-              GameState.lessonsCleared.jump++; addTempleRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
+              GameState.lessonsCleared.jump++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
               const pts = 600 * GameState.combo;
               GameState.score += pts;
               SoundEngine.playStunt();
@@ -661,7 +661,7 @@ const LiveTraffic = {
           } else if (slidUnder) {
             if (!ob.nearMissed) {
               ob.nearMissed = true;
-              GameState.lessonsCleared.slide++; addTempleRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
+              GameState.lessonsCleared.slide++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
               const pts = 650 * GameState.combo;
               GameState.score += pts;
               GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 15);
@@ -703,7 +703,7 @@ const LiveTraffic = {
               ob.offset - GameState.playerX,
               '#ff5500',
               '#fde047',
-              ob.type === 'LOW_LASER_BAR' ? '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!' : (ob.type === 'HIGH_TRON_GATE' ? '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!' : '💥 BARRICADE IMPACT! -14 HP')
+              ob.type === 'LOW_LASER_BAR' ? '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!' : (ob.type === 'HIGH_LIGHT_GATE' ? '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!' : '💥 BARRICADE IMPACT! -14 HP')
             );
           }
         }
@@ -790,12 +790,12 @@ function healPlayerHp(amount) {
   GameState.hp = Math.min(GameState.maxHp, GameState.hp + amount);
 }
 
-function addTempleRunStreak(amount, reasonLabel, offsetFromCenter = 0) {
+function addEndlessRunStreak(amount, reasonLabel, offsetFromCenter = 0) {
   GameState.dodgeStreak += amount;
   if (GameState.dodgeStreak > GameState.bestStreak) {
     GameState.bestStreak = GameState.dodgeStreak;
   }
-  // Temple Run style multiplier: scales up to x30 as your clean dodge streak grows!
+  // Endless Run style multiplier: scales up to x30 as your clean dodge streak grows!
   GameState.combo = Math.min(30, 1 + Math.floor(GameState.dodgeStreak / 2));
   GameState.comboTimer = 9.0;
   const pts = 500 * amount * GameState.combo;
@@ -848,7 +848,7 @@ function performHumanTrick(direction) {
     }
 
     GameState.airTrickNames.push(trickName);
-    addTempleRunStreak(1, `${trickName}!`, 0);
+    addEndlessRunStreak(1, `${trickName}!`, 0);
     const trickPts = basePts * GameState.combo * GameState.airTrickCount;
     GameState.score += trickPts;
     GameState.magnetTimer = Math.max(GameState.magnetTimer, 4.0);
@@ -871,7 +871,7 @@ function performHumanTrick(direction) {
     GameState.speed = Math.min(135, GameState.speed + 9);
     GameState.magnetTimer = Math.max(GameState.magnetTimer, 3.0);
     SoundEngine.playBoosterHit();
-    addTempleRunStreak(1, '⚡ PHASE-JUKE!', dirSign * 0.25);
+    addEndlessRunStreak(1, '⚡ PHASE-JUKE!', dirSign * 0.25);
     return true;
   }
   return false;
@@ -1163,7 +1163,7 @@ function updateGame(rawDt) {
     GameState.score += Math.floor(450 * rawDt * GameState.combo);
   }
 
-  // Update Invulnerability & Voss Nanotech Regen + Temple-Run Progressive Wave Tier
+  // Update Invulnerability & Voss Nanotech Regen + Endless-Run Progressive Wave Tier
   if (GameState.invulnTimer > 0) GameState.invulnTimer = Math.max(0, GameState.invulnTimer - rawDt);
   const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   if (activeChar.id === 'ARC_ROADSTER_88' && GameState.hp < GameState.maxHp) {
@@ -1245,7 +1245,7 @@ function updateGame(rawDt) {
   GameState.suspVel += suspForce * rawDt;
   GameState.suspOffset += GameState.suspVel * rawDt;
 
-  // Duck-Slide Profile when holding Brake/Drift (S / Down / Swipe Down) -> Lets you slide under HIGH_TRON_GATE!
+  // Duck-Slide Profile when holding Brake/Drift (S / Down / Swipe Down) -> Lets you slide under HIGH_LIGHT_GATE!
   GameState.isDuckSliding = Boolean(braking && GameState.playerY < 18);
 
   if (isOnBooster && GameState.playerY <= 6) {
@@ -1272,7 +1272,7 @@ function updateGame(rawDt) {
   }
   if (Math.abs(gp.steer) > 0.05) steerInput += gp.steer;
 
-  // Scan upcoming road curvature & threats for N.O.V.A. AR HUD and Co-Pilot
+  // Scan upcoming road curvature & threats for LUMEN AR HUD and Co-Pilot
   let curveAhead = 0;
   let nearestThreat = null;
   let bestCollectible = null;
@@ -1300,7 +1300,7 @@ function updateGame(rawDt) {
     GameState.unibeamTimer = Math.max(0, GameState.unibeamTimer - rawDt);
   }
 
-  // N.O.V.A. Co-Pilot Steering Logic (Mode 0: Smart Assist, Mode 1: Full Autopilot)
+  // LUMEN Co-Pilot Steering Logic (Mode 0: Smart Assist, Mode 1: Full Autopilot)
   if (GameState.jarvisMode === 1) {
     // FULL AUTOPILOT: Steer toward optimal lane, dodge non-rammable traffic, grab plutonium, and auto-warp!
     let desiredX = 0;
@@ -1328,7 +1328,7 @@ function updateGame(rawDt) {
     }
   }
 
-  // Periodic N.O.V.A. Tactical Telemetry Advisories
+  // Periodic LUMEN Tactical Telemetry Advisories
   if (Math.floor(GameState.trackPos / 1800) !== Math.floor((GameState.trackPos - worldSpeed * dt) / 1800)) {
     if (GameState.fluxCharge >= 90) {
       JarvisAI.setStatus('Arc-Flux core at maximum capacity. Accelerate to 88 MPH for temporal jump.', false);
@@ -1470,7 +1470,7 @@ function updateGame(rawDt) {
         triggerAnnouncement('WANGAN TURBO SHORTCUT!', '+7.0s BONUS TIME!', 1400);
       } else {
         GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 35);
-        triggerAnnouncement('ORANGE TRACK SKY-LOOP!', '+35% FLUX CAPACITOR CHARGE!', 1400);
+        triggerAnnouncement('ORANGE TRACK SKY-LOOP!', '+35% FLUX CORE CHARGE!', 1400);
       }
       generateNextTrackBiome(chosen);
     }
@@ -1570,7 +1570,7 @@ function updateGame(rawDt) {
     GameState.draftCharge = Math.max(0, GameState.draftCharge - 12 * rawDt);
   }
 
-  // 6. Flux Capacitor Charge & 88 MPH Time Warp
+  // 6. Flux Core Charge & 88 MPH Time Warp
   const passiveFluxRate = (GameState.speed > 65 ? 4.8 : 1.8) * (1 + (upg.flux - 1) * 0.25);
   GameState.fluxCharge = Math.min(100, GameState.fluxCharge + passiveFluxRate * rawDt);
 
@@ -1689,7 +1689,7 @@ function updateGame(rawDt) {
           if (GameState.playerY >= 22) {
             if (!item.cleared) {
               item.cleared = true;
-              GameState.lessonsCleared.jump++; addTempleRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
+              GameState.lessonsCleared.jump++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
               const pts = 600 * GameState.combo;
               GameState.score += pts;
               SoundEngine.playStunt();
@@ -1705,13 +1705,13 @@ function updateGame(rawDt) {
           item.cleared = true;
           GameState.lessonsCleared.steer++;
         }
-      } else if (item.type === 'HIGH_TRON_GATE') {
+      } else if (item.type === 'HIGH_LIGHT_GATE') {
         // 2 SOLUTIONS: Solution 1 = Hold Drift/Duck-Slide Under (isDuckSliding) • Solution 2 = Steer around (dist >= 0.34)
         if (dist < 0.34) {
           if (GameState.isDuckSliding || GameState.twoWheelTimer > 0) {
             if (!item.cleared) {
               item.cleared = true;
-              GameState.lessonsCleared.slide++; addTempleRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
+              GameState.lessonsCleared.slide++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
               const pts = 650 * GameState.combo;
               GameState.score += pts;
               GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 15);
@@ -1920,7 +1920,7 @@ function updateInteractiveCoach(currentSegIdx) {
       iconEl.textContent = '🟠';
       titleEl.textContent = 'LOW LASER AHEAD • CHOOSE 1 OF 2 SOLUTIONS:';
       descEl.textContent = `Solution 1: Press JUMP / HOVER (W, ▲, H, or Swipe Up) to hop over • Solution 2: Steer ${openDir}!`;
-    } else if (t === 'HIGH_TRON_GATE') {
+    } else if (t === 'HIGH_LIGHT_GATE') {
       iconEl.textContent = '🔵';
       titleEl.textContent = 'HIGH LIGHT GATE AHEAD • CHOOSE 1 OF 2 SOLUTIONS:';
       descEl.textContent = `Solution 1: Hold DRIFT / SLIDE (S, ▼, or Swipe Down) to duck under • Solution 2: Steer ${openDir}!`;
@@ -2526,8 +2526,8 @@ function renderScene() {
           ctx.textAlign = 'center';
           ctx.fillText('🔼 JUMP OR DODGE', itemX, roadY - barH * 1.45);
         }
-      } else if (item.type === 'HIGH_TRON_GATE') {
-        // 🔵 HIGH OVERHEAD TRON GATE (Solution 1: Hold Drift/Slide Under • Solution 2: Steer Around)
+      } else if (item.type === 'HIGH_LIGHT_GATE') {
+        // 🔵 HIGH OVERHEAD LIGHT GATE (Solution 1: Hold Drift/Slide Under • Solution 2: Steer Around)
         const gateW = Math.max(12, itemW * 1.35);
         const gateH = Math.max(10, itemH * 1.45);
         const clearanceH = gateH * 0.48; // Open space at the bottom to slide under!
@@ -2535,7 +2535,7 @@ function renderScene() {
         ctx.fillStyle = '#0ea5e9';
         ctx.fillRect(itemX - gateW * 0.5, roadY - gateH, Math.max(2, gateW * 0.10), gateH);
         ctx.fillRect(itemX + gateW * 0.4, roadY - gateH, Math.max(2, gateW * 0.10), gateH);
-        // Overhead Cyan/Magenta Tron Light-Wall Beam (Raised above the ground!)
+        // Overhead Cyan/Magenta Light-Wall Beam (Raised above the ground!)
         ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
         ctx.fillRect(itemX - gateW * 0.48, roadY - gateH, gateW * 0.96, gateH - clearanceH);
         if (roadW > 55) {
@@ -2645,7 +2645,7 @@ function renderScene() {
         ctx.fillRect(-ow * 0.42, -oh * 0.12, ow * 0.84, oh * 0.32);
         ctx.fillStyle = '#fde047';
         ctx.fillRect(-ow * 0.42, -oh * 0.02, ow * 0.84, oh * 0.12);
-      } else if (ob.type === 'HIGH_TRON_GATE') {
+      } else if (ob.type === 'HIGH_LIGHT_GATE') {
         // 🔶 3D OVERHEAD STEEL GANTRY ARCH (Hold Drift [S] to Slide Under OR Steer Around)
         const gateH = oh * 1.65;
         ctx.fillStyle = '#334155';
@@ -2806,7 +2806,7 @@ function renderScene() {
     ctx.restore();
   }
 
-  // 4.5 N.O.V.A. Holographic AR Racing Line, Target Lock-On Reticles & Pulse Beam Laser
+  // 4.5 LUMEN Holographic AR Racing Line, Target Lock-On Reticles & Pulse Beam Laser
   if (GameState.jarvisArEnabled) {
     // Project Optimal Racing Line Chevrons on the Road
     ctx.strokeStyle = 'rgba(0, 240, 255, 0.38)';
@@ -2940,7 +2940,7 @@ function renderScene() {
     ctx.restore();
   }
 
-  // 5.5 Draw N.O.V.A. Curved Helmet Visor Telemetry Brackets on Screen Edges
+  // 5.5 Draw LUMEN Curved Helmet Visor Telemetry Brackets on Screen Edges
   if (GameState.jarvisArEnabled) {
     ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)';
     ctx.lineWidth = 1.5;
@@ -2985,7 +2985,7 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
 
   ctx.save();
   ctx.translate(cx, cy - carH * 0.5);
-  // Duck-Slide Low Profile Compression when sliding under High Tron Gates!
+  // Duck-Slide Low Profile Compression when sliding under High Light Gates!
   if (GameState.isDuckSliding) {
     ctx.translate(0, carH * 0.16);
     ctx.scale(1.08, 0.68);
@@ -3114,7 +3114,7 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
     ctx.fillStyle = '#ff1e1e';
     ctx.fillRect(scanX - carW * 0.08, -carH * 0.12, carW * 0.16, carH * 0.08);
   }
-  // Voss Dynamics Circular Arc Core + Flux Capacitor Y-Matrix
+  // Voss Dynamics Circular Arc Core + Flux Core Y-Matrix
   ctx.fillStyle = '#00f0ff';
   ctx.beginPath();
   ctx.arc(0, -carH * 0.32, Math.max(3.5, carW * 0.065), 0, Math.PI * 2);

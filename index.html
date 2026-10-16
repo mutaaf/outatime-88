@@ -19,11 +19,11 @@
     <div id="abilityTintOverlay" class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200"></div>
   </div>
 
-  <!-- TOP HUD: TIME CIRCUITS + STREET RADAR + STANDINGS / HEAT + TACHOMETER / SPEEDOMETER -->
+  <!-- TOP HUD: TIME DIALS + STREET RADAR + STANDINGS / HEAT + TACHOMETER / SPEEDOMETER -->
   <header class="pointer-events-none absolute top-0 left-0 right-0 z-20 flex flex-col gap-1.5 p-2 sm:p-2.5">
     <div class="flex flex-wrap items-start justify-between gap-1.5 sm:gap-2">
       
-      <!-- Left: Time Circuits + GPS Radar Minimap -->
+      <!-- Left: Time Dials + GPS Radar Minimap -->
       <div class="pointer-events-auto flex items-center gap-2 bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-1.5 backdrop-blur-md shadow-xl">
         <!-- Live GPS Street Radar Canvas -->
         <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-950 border-2 border-cyan-400/70 shadow-[0_0_12px_rgba(0,240,255,0.3)] overflow-hidden flex-shrink-0">
@@ -119,7 +119,7 @@
           </div>
         </div>
 
-        <!-- Flux Capacitor + Street-Crew Special & Slipstream Bars -->
+        <!-- Flux Core + Street-Crew Special & Slipstream Bars -->
         <div class="flex flex-col w-24 sm:w-32 gap-0.5">
           <div class="flex justify-between text-[8px] font-arcade">
             <span class="text-cyan-300 font-bold">1.88GW FLUX</span>
@@ -164,17 +164,17 @@
 
     <!-- Second Row: Collapsible Telemetry Drawer (Hidden by default to keep screen 100% clutter-free!) -->
     <div class="hidden">
-      <!-- N.O.V.A. Arc-Core AI Co-Pilot Bar -->
+      <!-- LUMEN Arc-Core AI Co-Pilot Bar -->
       <div id="jarvisHudBar" class="pointer-events-auto flex items-center gap-2 bg-slate-950/90 border border-cyan-400/60 rounded-xl px-2.5 py-1 text-[9px] sm:text-[10px] font-arcade text-cyan-200 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
         <div class="relative w-4 h-4 rounded-full border-2 border-cyan-300 bg-cyan-400/30 flex items-center justify-center shadow-[0_0_8px_#00f0ff]">
           <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
         </div>
-        <span class="text-cyan-400 font-black">N.O.V.A.:</span>
+        <span class="text-cyan-400 font-black">LUMEN:</span>
         <span id="jarvisStatusText" class="text-slate-100 font-semibold max-w-[210px] sm:max-w-[340px] truncate">Mark-88 Arc-Flux online. Target acquisition & trajectory assist active.</span>
-        <button id="btnJarvisMode" title="Cycle N.O.V.A. Co-Pilot: Smart Assist / Full Autopilot / Manual (Key: I)" class="px-2 py-0.5 rounded bg-cyan-500/25 hover:bg-cyan-500/40 border border-cyan-300 text-[8px] sm:text-[9px] text-cyan-100 font-bold transition">
+        <button id="btnJarvisMode" title="Cycle LUMEN Co-Pilot: Smart Assist / Full Autopilot / Manual (Key: I)" class="px-2 py-0.5 rounded bg-cyan-500/25 hover:bg-cyan-500/40 border border-cyan-300 text-[8px] sm:text-[9px] text-cyan-100 font-bold transition">
           🤖 AI: ASSIST (I)
         </button>
-        <button id="btnJarvisArToggle" title="Toggle Helmet AR HUD & N.O.V.A. Voice (Key: J)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-cyan-500/50 text-[8px] sm:text-[9px] text-cyan-300 font-bold transition">
+        <button id="btnJarvisArToggle" title="Toggle Helmet AR HUD & LUMEN Voice (Key: J)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-cyan-500/50 text-[8px] sm:text-[9px] text-cyan-300 font-bold transition">
           💠 AR HUD: ON (J)
         </button>
       </div>
@@ -417,7 +417,7 @@
       <!-- Launch Race CTA -->
       <div class="flex flex-col sm:flex-row items-center gap-3">
         <button id="btnStartRace" class="w-full py-3 px-6 rounded-2xl hw-badge text-slate-950 font-arcade text-sm sm:text-base font-black tracking-wider uppercase shadow-xl hover:brightness-110 active:scale-[0.99] transition">
-          🔥 IGNITE TIME CIRCUITS & RACE!
+          🔥 IGNITE TIME DIALS & RACE!
         </button>
       </div>
     </div>

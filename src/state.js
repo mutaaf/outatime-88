@@ -60,7 +60,7 @@ export const GameState = {
   flyingWrecks: [], // Rivals launched into the air on Takedown!
   contractIdx: 0,
   contractProgress: 0,
-  // N.O.V.A. Co-Pilot / Mark-88 State
+  // LUMEN Co-Pilot / Mark-88 State
   jarvisMode: 2, // Default to 100% pure manual player control
   jarvisArEnabled: true,
   lockedTarget: null,
@@ -94,7 +94,7 @@ export const GameState = {
   coachDismissed: false,
   lessonsCleared: { steer: 0, jump: 0, slide: 0, smash: 0 },
   activeObstaclePrompt: null,
-  // Temple Run / Tree-Dodging Streak & Human Skill-Edge Trick State
+  // Endless Run / Tree-Dodging Streak & Human Skill-Edge Trick State
   dodgeStreak: 0,
   bestStreak: 0,
   magnetTimer: 0,

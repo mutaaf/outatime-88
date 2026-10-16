@@ -34,8 +34,8 @@ export const WORLD_LEVELS = [
     startEra: 2,
     startingHeat: 3,
     rivalDensity: 1.3,
-    goalDesc: 'Chain Drifts & Defeat Grift\'s Hover Crew',
-    bossName: 'GRIFT_HOVER_2015',
+    goalDesc: 'Chain Drifts & Defeat Vandal\'s Hover Crew',
+    bossName: 'VANDAL_HOVER_2015',
     bonusReward: 300
   },
   {
@@ -86,7 +86,7 @@ export const ERAS = [
   },
   {
     id: '1985',
-    name: '1985 • LONE PINE 3D',
+    name: '1985 • CEDAR RIDGE 3D',
     presentDate: 'OCT 26 1985',
     destDate: 'SEP 02 1885',
     pixelScale: 1.0,
@@ -270,7 +270,7 @@ export const POP_CULTURE_ROSTER = [
     cabin: '#ef4444',
     glow: '#facc15',
     shape: 'ROCKET',
-    perk: 'Auto-Jacks Instant Jump & Saw-Blade Obstacle Clear'
+    perk: 'Hydraulic Hop Instant Jump & Blade-Bumper Obstacle Clear'
   },
   {
     id: 'PASS_RUNNER_86',
@@ -354,7 +354,7 @@ export const POP_CULTURE_ROSTER = [
   },
   {
     id: 'ARC_ROADSTER_88',
-    driver: 'Ada Voss & N.O.V.A.',
+    driver: 'Ada Voss & LUMEN',
     car: 'Mark-88 Arc Roadster',
     franchise: 'Voss Dynamics',
     massKg: 1380,
@@ -385,7 +385,7 @@ export const MULTIVERSE_POOL = [
   { driver: 'Vic Harlan', car: "'58 Crimson Widow", franchise: 'Haunted Garage', body: '#b91c1c', cabin: '#f8fafc', glow: '#ff1e1e', shape: 'MUSCLE' },
   { driver: 'Aya Kisaragi', car: 'Solace Type-S', franchise: 'Ridgeline Circuit', body: '#f8fafc', cabin: '#e11d48', glow: '#00f0ff', shape: 'ROCKET' },
   { driver: 'Sgt. Dana Pike', car: 'Frontier Scout Buggy', franchise: 'Colony Marines', body: '#3f6212', cabin: '#a3e635', glow: '#84cc16', shape: 'HEAVY_VAN' },
-  { driver: 'Coast-to-Coast Champ', car: 'La Bomba Lowrider', franchise: 'Boulevard Kings', body: '#eab308', cabin: '#7c3aed', glow: '#d946ef', shape: 'MUSCLE' }
+  { driver: 'Coast-to-Coast Champ', car: 'Boulevard Bomber Lowrider', franchise: 'Boulevard Kings', body: '#eab308', cabin: '#7c3aed', glow: '#d946ef', shape: 'MUSCLE' }
 ];
 
 // --- UPGRADE DEFINITIONS ---
@@ -431,8 +431,8 @@ export const CONTRACT_TEMPLATES = [
 ];
 
 export const JARVIS_MODES = [
-  { id: 'ASSIST', label: '🤖 AI: ASSIST (I)', desc: 'N.O.V.A. Smart Trajectory & Cornering Assist engaged.' },
-  { id: 'AUTOPILOT', label: '🤖 AI: AUTOPILOT (I)', desc: 'Full N.O.V.A. Autonomous Driving Protocol engaged. Sit back.' },
+  { id: 'ASSIST', label: '🤖 AI: ASSIST (I)', desc: 'LUMEN Smart Trajectory & Cornering Assist engaged.' },
+  { id: 'AUTOPILOT', label: '🤖 AI: AUTOPILOT (I)', desc: 'Full LUMEN Autonomous Driving Protocol engaged. Sit back.' },
   { id: 'MANUAL', label: '🤖 AI: MANUAL (I)', desc: 'Manual flight control transferred to you. AR HUD remains online.' }
 ];
 
@@ -459,6 +459,6 @@ export const CAMERA_MODES = [
 ];
 
 export const RIVAL_NAMES = [
-  'CYBER_BRUTE_88', 'GRIFT_2015', 'SPIKES_4X4', 'TWIN_TURBINE_X',
+  'CYBER_BRUTE_88', 'VANDAL_2015', 'SPIKES_4X4', 'TWIN_TURBINE_X',
   'RATTLE_TRAP', 'PROF_VOLT_85', 'NIGHT_DRIFT_Z'
 ];
