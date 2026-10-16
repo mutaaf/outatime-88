@@ -1,7 +1,7 @@
 ---
 id: 0005
 title: Remove per-frame allocations from renderScene's hot path
-status: ready
+status: proposed
 priority: P2
 size: M
 lens: performance
