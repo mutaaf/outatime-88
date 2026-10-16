@@ -6,18 +6,38 @@ anything. `CLAUDE.md` points here.
 ## 1 · Product vision
 
 OUTATIME 88 is a neon, 1985/88-flavoured time-travel arcade racer that runs in a browser
-tab. It mashes up three feelings: **Midnight Club** (open night streets, rival street crews,
-police heat), **Burnout** (boost, near-misses, side-slam takedowns, crash spectacle) and
-**Hot Wheels** (toy-car joy: loops, orange track, impossible jumps). The hook: build speed,
-hit **88 mph**, and the car jumps eras — the world, music and palette shift around you.
+tab. It mashes up three feelings: open night streets with rival crews and police heat,
+boost/near-miss/side-slam crash spectacle, and toy-car joy (loops, orange track, impossible
+jumps). The hook: build speed, hit **88 mph**, and the car jumps eras — the world, music and
+palette shift around you. Every name, car, rival and place in the game is our own invention;
+the genre homage lives in the *feel*, never in borrowed trademarks (invariant 3.7).
 
 It's for anyone with five minutes and a keyboard, phone, or gamepad. A run should feel
 fast, loud, readable and generous: you are always one good drift away from a warp.
 
-**North star for the Scout:** juicier arcade feel (speed sensation, impact, feedback),
-era-authentic 80s style (synthwave, CRT, LED time circuits), clearer readability at speed,
-more *original* content (districts, eras, rivals, cars of our own invention), and rock-solid
-touch/gamepad play. Depth over breadth: polish one moment until it sings before adding three.
+### The 10x pillars (north star — the Scout steers here, in this order)
+
+1. **Original identity.** One cohesive invented universe: our own cars, crews, rivals,
+   districts, eras and title treatment. A title screen with attitude. No trademarks.
+2. **Game feel.** Speed you can *feel*: speed lines, FOV kick and camera shake building to
+   88, a chromatic time-warp transition, crash slow-mo with sparks and debris, hit-stop and a
+   score chain on near-misses, boost trails. Every effect honors `prefers-reduced-motion`.
+   The warp is a climax you earn, not a constant: tension → release.
+3. **Readability.** At 120 mph the player must parse the screen in a glance: one
+   announcement channel (never two texts on top of each other), a compact phone HUD, clear
+   threat telegraphs. Clutter is a bug.
+4. **Sound.** A procedural synthwave score (bass/arp/drums) scheduled on the audio clock,
+   intensifying with speed and changing per era; engine pitch tied to speed; a master
+   compressor and buses so SFX never clip over music. Mute is remembered.
+5. **Content & progression.** Distinct eras as playable districts with their own palette,
+   props, hazards and music; a short campaign ladder with unlocks and local best times; a
+   ghost of your best run to race. All local (localStorage), no servers.
+6. **Controls everywhere.** Touch steering that feels analog, gamepad hints and rumble,
+   rebindable keys. Phone is a first-class platform, not a fallback.
+7. **Code health that enables the above.** Keep carving `main.js` (track generation,
+   renderer, HUD) into focused modules with tests; zero per-frame allocations in hot paths.
+
+Depth over breadth: polish one moment until it sings before adding three.
 
 ## 2 · Live
 
