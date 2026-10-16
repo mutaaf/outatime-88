@@ -12,7 +12,7 @@ setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
 SaveStore.load();
 
-// --- WORLD TOUR LEVELS (Midnight Club × Burnout × BTTF Campaigns) ---
+// --- WORLD TOUR LEVELS (Night Streets × Takedowns × Time-Warp Campaigns) ---
 
 // --- ADDICTING LIVE STREET CONTRACTS (Mini-Missions during gameplay) ---
 
@@ -42,7 +42,7 @@ const JarvisAI = {
   fireUnibeam() {
     SoundEngine.init();
     if (GameState.fluxCharge < 18 && GameState.specialCharges <= 0) {
-      this.setStatus('Sir, Arc Reactor needs 18% Flux energy to fire the Unibeam.', false);
+      this.setStatus('Arc Core needs 18% Flux energy to fire the Pulse Beam.', false);
       return;
     }
     GameState.fluxCharge = Math.max(0, GameState.fluxCharge - 18);
@@ -62,12 +62,12 @@ const JarvisAI = {
     }
 
     if (hitCar) {
-      triggerRivalTakedown(hitCar, '💠 STARK UNIBEAM TAKEDOWN!');
-      this.setStatus(`Target ${hitCar.name} neutralized via Mark-88 Arc Unibeam, Sir.`, true);
+      triggerRivalTakedown(hitCar, '💠 ARC PULSE TAKEDOWN!');
+      this.setStatus(`Target ${hitCar.name} neutralized via Mark-88 Arc Pulse Beam.`, true);
     } else {
       GameState.speed = Math.min(135, GameState.speed + 14);
-      this.setStatus('Arc Unibeam discharged. Repulsor overboost applied, Sir.', false);
-      triggerAnnouncement('💠 STARK UNIBEAM FIRED!', '+14 MPH REPULSOR THRUST!', 1100);
+      this.setStatus('Arc Pulse Beam discharged. Pulse overboost applied.', false);
+      triggerAnnouncement('💠 ARC PULSE BEAM FIRED!', '+14 MPH PULSE THRUST!', 1100);
     }
   }
 };
@@ -119,13 +119,13 @@ function populateChunkDecorations(startIdx, endIdx, patternType) {
     const seg = segments[i];
     if (!seg) continue;
 
-    // Midnight Club Smoke Flares on Checkpoints & Forks
+    // Night-Street Smoke Flares on Checkpoints & Forks
     if (seg.trackType === 'CHECKPOINT' && i === startIdx + 2) {
       seg.items.push({ offset: -1.15, type: 'MC_FLARE_GREEN' });
       seg.items.push({ offset: 1.15, type: 'MC_FLARE_GREEN' });
     }
 
-    // Roadside Streetlamps, Billboards & Hot Wheels Arches
+    // Roadside Streetlamps, Billboards & Orange-Track Arches
     if (i % 6 === 0) {
       const propTypes = ['STREET_LAMP', 'SIGN_88', 'PALM_TREE', 'CLOCK_TOWER_BILLBOARD', 'ARCH_HW'];
       const pType = propTypes[(i / 6) % propTypes.length | 0];
@@ -138,7 +138,7 @@ function populateChunkDecorations(startIdx, endIdx, patternType) {
       seg.items.push({ offset: 0, type: 'OVERHEAD_GATE' });
     }
 
-    // Animated 3D Power-Ups (Plutonium Cores, Hot Wheels Flame Coins) & Destructible 2026 Obstacles
+    // Animated 3D Power-Ups (Plutonium Cores, Orange-Track Flame Coins) & Destructible 2026 Obstacles
     if (i % 18 === 0 && seg.trackType !== 'CHECKPOINT') {
       const lane = ((i * 19) % 3) - 1;
       const isPlutonium = (i % 12 === 0) || (patternType === 'STUNT_LOOP');
@@ -257,16 +257,16 @@ const LiveTraffic = {
   init() {
     this.prevPlayerZ = (GameState.trackPos || 0) + ROAD_CFG.playerZOffset;
 
-    // ONLY 2 Well-Spaced Hero Pop-Culture Rivals (Plenty of open road to race & duel!)
+    // ONLY 2 Well-Spaced Hero Rivals (Plenty of open road to race & duel!)
     const initialRivals = [
-      POP_CULTURE_ROSTER[1], // Dom's 1970 Charger R/T
-      POP_CULTURE_ROSTER[2]  // Brian's Skyline GT-R R34
+      POP_CULTURE_ROSTER[1], // Dez's '70 Brawler 440
+      POP_CULTURE_ROSTER[2]  // Kai's '99 Kestrel GT-4R
     ];
     this.racers = initialRivals.map((rc, idx) => new RigidBody3D({
       id: rc.id,
       kind: 'RIVAL',
       name: `${rc.driver.split(' ')[0].toUpperCase()} • ${rc.car}`,
-      style: rc.shape === 'CHARGER' ? 'CHARGER' : 'TUNER_WING',
+      style: rc.shape === 'MUSCLE' ? 'MUSCLE' : 'TUNER_WING',
       massKg: rc.massKg || 1500,
       restitution: 0.48,
       halfW: 0.14,
@@ -771,8 +771,8 @@ function updateContractHud() {
 function applyPlayerDamage(rawDmg, reasonText) {
   if (GameState.invulnTimer > 0 || GameState.agroTimer > 0 || GameState.warpActiveTimer > 0) return;
   const charObj = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-  if (charObj.id === 'DOM_CHARGER' && reasonText.includes('BARRIER')) {
-    // Dom's 1,780kg Charger smashes barriers with 0 damage!
+  if (charObj.id === 'IRON_SAINT_BRAWLER' && reasonText.includes('BARRIER')) {
+    // Dez's 1,780kg Brawler smashes barriers with 0 damage!
     return;
   }
   const massReduction = Math.max(0.65, 1350 / (charObj.massKg || 1350));
@@ -816,7 +816,7 @@ function performHumanTrick(direction) {
     let basePts = 1200;
 
     if (direction === 'LEFT') {
-      trickName = '🌪️ McFLY KICKFLIP';
+      trickName = '🌪️ HOVER KICKFLIP';
       GameState.stuntSpinAngle = 360;
       GameState.airLandingBoostMph = Math.min(32, GameState.airLandingBoostMph + 14);
     } else if (direction === 'RIGHT') {
@@ -824,7 +824,7 @@ function performHumanTrick(direction) {
       GameState.stuntSpinAngle = -360;
       GameState.airLandingBoostMph = Math.min(32, GameState.airLandingBoostMph + 14);
     } else if (direction === 'UP') {
-      trickName = '🦅 DOC BACKFLIP';
+      trickName = '🦅 PROFESSOR BACKFLIP';
       GameState.trickPitchAngle = 360;
       GameState.playerVY = Math.max(GameState.playerVY, 240); // Slight air-hang extension!
       GameState.airLandingBoostMph = Math.min(36, GameState.airLandingBoostMph + 18);
@@ -929,7 +929,7 @@ function spawnObstacleShatter(offsetFromCenter, primaryColor, accentColor, label
   }
 }
 
-// --- BURNOUT STYLE RIVAL TAKEDOWN ---
+// --- SIDE-SLAM RIVAL TAKEDOWN ---
 function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
   if (car.takenDown) return;
   car.takenDown = true;
@@ -951,7 +951,7 @@ function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
   GameState.runCoins += 15;
   SaveStore.data.fluxCoins += 15;
   GameState.screenShake = 0.42;
-  GameState.takedownSlowMoTimer = 0.35; // Brief dramatic Burnout impact slow-mo!
+  GameState.takedownSlowMoTimer = 0.35; // Brief dramatic impact slow-mo!
 
   // Launch flying wreck into 3D space
   GameState.flyingWrecks.push({
@@ -984,7 +984,7 @@ function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
   SaveStore.save();
 }
 
-// --- MIDNIGHT CLUB SPECIAL ABILITIES (ZONE / AGRO / ROAR) ---
+// --- STREET-CREW SPECIAL ABILITIES (ZONE / AGRO / ROAR) ---
 function activateMidnightSpecial(type) {
   SoundEngine.init();
   const tint = document.getElementById('abilityTintOverlay');
@@ -1033,7 +1033,7 @@ function activateMidnightSpecial(type) {
     }
     if (wreckedCount === 0) {
       GameState.speed = Math.max(GameState.speed + 22, 92);
-      triggerAnnouncement('🟣 1.21 GW ROAR SHOCKWAVE!', 'HIGHWAY CLEARED + TURBO SURGE!', 1500);
+      triggerAnnouncement('🟣 1.88 GW ROAR SHOCKWAVE!', 'HIGHWAY CLEARED + TURBO SURGE!', 1500);
     }
   }
   updateLiveHud();
@@ -1163,16 +1163,16 @@ function updateGame(rawDt) {
     GameState.score += Math.floor(450 * rawDt * GameState.combo);
   }
 
-  // Update Invulnerability & Stark Nanotech Regen + Temple-Run Progressive Wave Tier
+  // Update Invulnerability & Voss Nanotech Regen + Temple-Run Progressive Wave Tier
   if (GameState.invulnTimer > 0) GameState.invulnTimer = Math.max(0, GameState.invulnTimer - rawDt);
   const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-  if (activeChar.id === 'STARK_MARK88_CAR' && GameState.hp < GameState.maxHp) {
+  if (activeChar.id === 'ARC_ROADSTER_88' && GameState.hp < GameState.maxHp) {
     GameState.hp = Math.min(GameState.maxHp, GameState.hp + 2.0 * rawDt);
   }
   const newWave = 1 + Math.floor(GameState.distance / 550);
   if (newWave > GameState.waveTier) {
     GameState.waveTier = newWave;
-    triggerAnnouncement(`🌊 WAVE ${GameState.waveTier} REACHED!`, 'TEMPLE-RUN SPEED & OBSTACLE INTENSITY UP!', 1400);
+    triggerAnnouncement(`🌊 WAVE ${GameState.waveTier} REACHED!`, 'SPEED & OBSTACLE INTENSITY UP!', 1400);
   }
 
   // 1. Real Newtonian Speed, Slope Gravity (g * sin(theta)), Mass & 6-Speed Gearbox
@@ -1272,7 +1272,7 @@ function updateGame(rawDt) {
   }
   if (Math.abs(gp.steer) > 0.05) steerInput += gp.steer;
 
-  // Scan upcoming road curvature & threats for J.A.R.V.I.S. AR HUD and Co-Pilot
+  // Scan upcoming road curvature & threats for N.O.V.A. AR HUD and Co-Pilot
   let curveAhead = 0;
   let nearestThreat = null;
   let bestCollectible = null;
@@ -1300,7 +1300,7 @@ function updateGame(rawDt) {
     GameState.unibeamTimer = Math.max(0, GameState.unibeamTimer - rawDt);
   }
 
-  // J.A.R.V.I.S. Co-Pilot Steering Logic (Mode 0: Smart Assist, Mode 1: Full Autopilot)
+  // N.O.V.A. Co-Pilot Steering Logic (Mode 0: Smart Assist, Mode 1: Full Autopilot)
   if (GameState.jarvisMode === 1) {
     // FULL AUTOPILOT: Steer toward optimal lane, dodge non-rammable traffic, grab plutonium, and auto-warp!
     let desiredX = 0;
@@ -1320,7 +1320,7 @@ function updateGame(rawDt) {
       InputState.boostPressed = true;
     }
   } else if (GameState.jarvisMode === 0 && Math.abs(steerInput) < 0.08) {
-    // SMART ASSIST: Gently keep DeLorean centered on curves & nudge away from head-on bumper hits
+    // SMART ASSIST: Gently keep the player car centered on curves & nudge away from head-on bumper hits
     const recenter = -GameState.playerX * 0.35 + (currentSeg ? currentSeg.curve * 0.08 : 0);
     steerInput += Math.max(-0.45, Math.min(0.45, recenter));
     if (nearestThreat && nearestThreat.distSegs < 8 && Math.abs(GameState.playerX - nearestThreat.car.offset) < 0.25) {
@@ -1328,16 +1328,16 @@ function updateGame(rawDt) {
     }
   }
 
-  // Periodic J.A.R.V.I.S. Tactical Telemetry Advisories
+  // Periodic N.O.V.A. Tactical Telemetry Advisories
   if (Math.floor(GameState.trackPos / 1800) !== Math.floor((GameState.trackPos - worldSpeed * dt) / 1800)) {
     if (GameState.fluxCharge >= 90) {
-      JarvisAI.setStatus('Arc-Flux core at maximum capacity. Accelerate to 88 MPH for temporal jump, Sir.', false);
+      JarvisAI.setStatus('Arc-Flux core at maximum capacity. Accelerate to 88 MPH for temporal jump.', false);
     } else if (nearestThreat && nearestThreat.distSegs < 15) {
-      JarvisAI.setStatus(`Target locked: ${nearestThreat.car.name} (${nearestThreat.distSegs * 8}m ahead). Press B for Unibeam.`, false);
+      JarvisAI.setStatus(`Target locked: ${nearestThreat.car.name} (${nearestThreat.distSegs * 8}m ahead). Press B for Pulse Beam.`, false);
     } else if (Math.abs(curveAhead) > 6) {
-      JarvisAI.setStatus(`Sharp ${curveAhead > 0 ? 'right' : 'left'} apex ahead. Recommend counter-steer drift, Sir.`, false);
+      JarvisAI.setStatus(`Sharp ${curveAhead > 0 ? 'right' : 'left'} apex ahead. Recommend counter-steer drift.`, false);
     } else {
-      JarvisAI.setStatus(`Velocity ${Math.round(GameState.speed)} MPH. Trajectory & Arc-Reactor nominal, Sir.`, false);
+      JarvisAI.setStatus(`Velocity ${Math.round(GameState.speed)} MPH. Trajectory & Arc Core nominal.`, false);
     }
   }
 
@@ -1428,7 +1428,7 @@ function updateGame(rawDt) {
   }
   if (GameState.slamCooldown > 0) GameState.slamCooldown -= rawDt;
 
-  // Strict Rigid-Body Hot Wheels Side-Wall Containment (Car half-width = 0.14, Wall = ±0.86 -> Max X = ±0.72)
+  // Strict Rigid-Body Toy-Track Side-Wall Containment (Car half-width = 0.14, Wall = ±0.86 -> Max X = ±0.72)
   const MAX_TRACK_X = 0.72;
   if (GameState.playerX < -MAX_TRACK_X) {
     GameState.playerX = -MAX_TRACK_X;
@@ -1470,7 +1470,7 @@ function updateGame(rawDt) {
         triggerAnnouncement('WANGAN TURBO SHORTCUT!', '+7.0s BONUS TIME!', 1400);
       } else {
         GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 35);
-        triggerAnnouncement('HOT WHEELS SKY-LOOP!', '+35% FLUX CAPACITOR CHARGE!', 1400);
+        triggerAnnouncement('ORANGE TRACK SKY-LOOP!', '+35% FLUX CAPACITOR CHARGE!', 1400);
       }
       generateNextTrackBiome(chosen);
     }
@@ -1480,7 +1480,7 @@ function updateGame(rawDt) {
   if (currentSeg && currentSeg.trackType === 'JUMP_RAMP' && GameState.playerY <= 2 && GameState.speed > 52) {
     GameState.playerVY = 560 + GameState.speed * 3.6;
     SoundEngine.playStunt();
-    triggerAnnouncement('MEGA HOT WHEELS LAUNCH!', 'PRESS SPACE OR HOVER FOR MID-AIR TRICK!', 1500);
+    triggerAnnouncement('MEGA TOY-TRACK LAUNCH!', 'PRESS SPACE OR HOVER FOR MID-AIR TRICK!', 1500);
   }
 
   if (InputState.hoverPressed || gp.hover) {
@@ -1542,7 +1542,7 @@ function updateGame(rawDt) {
     GameState.phaseJukeTimer = Math.max(0, GameState.phaseJukeTimer - rawDt);
   }
 
-  // 5. Fast & Furious Slipstream Drafting Wake Detection behind Moving Rivals & Traffic
+  // 5. Street-Racer Slipstream Drafting Wake Detection behind Moving Rivals & Traffic
   GameState.draftingCar = null;
   const allMoving = LiveTraffic.racers.concat(LiveTraffic.traffic);
   for (let m = 0; m < allMoving.length; m++) {
@@ -1582,7 +1582,7 @@ function updateGame(rawDt) {
       GameState.score += stuntPts;
       GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 25);
       SoundEngine.playStunt();
-      triggerAnnouncement('McFLY BARREL ROLL!', `+${stuntPts} PTS!`, 1200);
+      triggerAnnouncement('FLUX BARREL ROLL!', `+${stuntPts} PTS!`, 1200);
     } else if (GameState.fluxCharge >= 35) {
       GameState.speed = Math.max(GameState.speed + 26, 92);
       if (GameState.fluxCharge >= 92 || GameState.speed >= 88) {
@@ -1664,7 +1664,7 @@ function updateGame(rawDt) {
             SaveStore.data.fluxCoins += 8;
             const pts = 500 * GameState.combo;
             GameState.score += pts;
-            spawnAcquireAnimation('PLUTONIUM', item.offset - GameState.playerX, `+${pts} ⚡ 1.21GW!`);
+            spawnAcquireAnimation('PLUTONIUM', item.offset - GameState.playerX, `+${pts} ⚡ 1.88GW!`);
           } else {
             GameState.fluxCharge = Math.min(100, GameState.fluxCharge + 12);
             GameState.runCoins += 4;
@@ -1720,7 +1720,7 @@ function updateGame(rawDt) {
             }
           } else {
             item.smashed = true;
-            applyPlayerDamage(15, 'HIGH TRON GATE HIT');
+            applyPlayerDamage(15, 'HIGH LIGHT GATE HIT');
             GameState.speed = Math.max(26, GameState.speed * 0.75);
             spawnObstacleShatter(item.offset - GameState.playerX, '#00f0ff', '#d946ef', '💥 HOLD DRIFT (S/DOWN) TO SLIDE UNDER!');
           }
@@ -1854,7 +1854,7 @@ function updateGame(rawDt) {
     d.vy += 680 * rawDt; // Gravity
     if (d.y > 20) {
       d.y = 20;
-      d.vy = -d.vy * 0.55; // Bounce off the Hot Wheels track!
+      d.vy = -d.vy * 0.55; // Bounce off the orange toy-track!
     }
     d.rot += d.vRot * rawDt;
     d.life -= rawDt;
@@ -1922,7 +1922,7 @@ function updateInteractiveCoach(currentSegIdx) {
       descEl.textContent = `Solution 1: Press JUMP / HOVER (W, ▲, H, or Swipe Up) to hop over • Solution 2: Steer ${openDir}!`;
     } else if (t === 'HIGH_TRON_GATE') {
       iconEl.textContent = '🔵';
-      titleEl.textContent = 'HIGH TRON GATE AHEAD • CHOOSE 1 OF 2 SOLUTIONS:';
+      titleEl.textContent = 'HIGH LIGHT GATE AHEAD • CHOOSE 1 OF 2 SOLUTIONS:';
       descEl.textContent = `Solution 1: Hold DRIFT / SLIDE (S, ▼, or Swipe Down) to duck under • Solution 2: Steer ${openDir}!`;
     } else if (t === 'FLUX_CRATE') {
       iconEl.textContent = '📦';
@@ -1939,12 +1939,12 @@ function updateInteractiveCoach(currentSegIdx) {
     }
   } else if (GameState.fluxCharge >= 95) {
     iconEl.textContent = '⚡';
-    titleEl.textContent = '1.21 GW FLUX FULL • READY FOR 88 MPH TIME WARP!';
+    titleEl.textContent = '1.88 GW FLUX FULL • READY FOR 88 MPH TIME WARP!';
     descEl.textContent = 'Press SPACEBAR or tap ⚡ 88 MPH WARP to blast into the next Era with full invincibility!';
   } else {
     iconEl.textContent = '🎓';
     titleEl.textContent = `WAVE ${GameState.waveTier} • DRIVING TIP`;
-    descEl.textContent = 'Draft in the green wake behind rivals for a Slipstream Slingshot, or press N to switch Pop-Culture Cars!';
+    descEl.textContent = 'Draft in the green wake behind rivals for a Slipstream Slingshot, or press N to switch cars!';
   }
 }
 
@@ -2112,7 +2112,7 @@ function renderRadarMinimap(baseIndex) {
     }
   }
 
-  // Player DeLorean Arrow at bottom center
+  // Player Car Arrow at bottom center
   radarCtx.fillStyle = '#00f0ff';
   radarCtx.beginPath();
   radarCtx.moveTo(w / 2, h - 16);
@@ -2122,7 +2122,7 @@ function renderRadarMinimap(baseIndex) {
   radarCtx.fill();
 }
 
-// --- PSEUDO-3D OUTRUN / MIDNIGHT CLUB RENDERER ---
+// --- PSEUDO-3D NIGHT-STREET RENDERER ---
 const mainCanvas = document.getElementById('gameCanvas');
 const mainCtx = mainCanvas.getContext('2d');
 const pixelCanvas = document.createElement('canvas');
@@ -2223,7 +2223,7 @@ function renderScene() {
   ctx.closePath();
   ctx.fill();
 
-  // Hill Valley 2026 Distant City Lights & Iconic Courthouse Clock Tower Silhouette
+  // Clock Hollow 2026 Distant City Lights & Iconic Courthouse Clock Tower Silhouette
   ctx.fillStyle = '#0b0518';
   const bldgStep = Math.max(16, Math.floor(rw / 24));
   for (let bx = 0; bx < rw; bx += bldgStep) {
@@ -2261,7 +2261,7 @@ function renderScene() {
   ctx.fillStyle = gndGrad;
   ctx.fillRect(0, horizonY, rw, rh - horizonY);
 
-  // 2. Project & Draw Seamless 3D Hot Wheels Track Segments (Zero Distracting Blue Bars!)
+  // 2. Project & Draw Seamless 3D Orange Toy-Track Segments (Zero Distracting Blue Bars!)
   const baseIndex = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   const basePercent = (GameState.trackPos % ROAD_CFG.segLength) / ROAD_CFG.segLength;
   const baseSeg = segments[baseIndex] || segments[0];
@@ -2335,7 +2335,7 @@ function renderScene() {
     const railW2 = w2 * 1.12;
     drawPolygon(ctx, x1 - railW1, y1 + slabH1, x1 + railW1, y1 + slabH1, x2 + railW2, y2 + slabH2, x2 - railW2, y2 + slabH2, '#4a1202');
 
-    // 2. Seamless Anodized Tangerine-Orange Hot Wheels Track Deck (Zero Blue Bars!)
+    // 2. Seamless Anodized Tangerine-Orange Toy-Track Deck (Zero Blue Bars!)
     let surfaceColor = isAlt ? eraCfg.trackA : eraCfg.trackB;
     if (seg.trackType === 'BOOSTER') {
       surfaceColor = isAlt ? '#ea580c' : '#d9460f';
@@ -2386,7 +2386,7 @@ function renderScene() {
     maxY = y2;
   }
 
-  // 3. Draw Scenery, Midnight Club Smoke Flares, Collectibles & Rival/Police Cars
+  // 3. Draw Scenery, Night-Street Smoke Flares, Collectibles & Rival/Police Cars
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
     const seg = visibleSegments[i];
     const roadX = seg.p1.screen.x;
@@ -2420,7 +2420,7 @@ function renderScene() {
         ctx.arc(roadX, roadY, roadW * 1.05, Math.PI, 0);
         ctx.stroke();
 
-        // Animated Spinning Green Hot Wheels Booster Rollers on the Track Sides!
+        // Animated Spinning Green Toy-Track Booster Rollers on the Track Sides!
         if (seg.trackType === 'BOOSTER' && roadW > 20) {
           const spinAngle = nowSec * 18;
           const rollerR = Math.max(4, roadW * 0.10);
@@ -2464,7 +2464,7 @@ function renderScene() {
         ctx.arc(orbX, orbY, Math.max(2, pr * 0.28), 0, Math.PI * 2);
         ctx.fill();
       } else if (item.type === 'HW_COIN') {
-        // Animated 3D Spinning Hot Wheels Flame Medallion!
+        // Animated 3D Spinning Orange-Track Flame Medallion!
         const cyCoin = roadY - itemH * 0.58 + bobY;
         const rCoin = Math.max(3, itemW * 0.40);
         const spinScaleX = Math.max(0.22, Math.abs(Math.cos(nowSec * 5.5 + (item.phase || 0))));
@@ -2545,7 +2545,7 @@ function renderScene() {
           ctx.fillText('🔽 SLIDE (S) OR DODGE', itemX, roadY - gateH - 4);
         }
       } else if (item.type === 'HOLO_BARRIER') {
-        // Animated 2026 Hill Valley Laser-Chevron Obstacle with Rotating Beacon!
+        // Animated 2026 Clock Hollow Laser-Chevron Obstacle with Rotating Beacon!
         const barW = Math.max(8, itemW * 1.15);
         const barH = Math.max(5, itemH * 0.68);
         ctx.fillStyle = '#1e293b';
@@ -2682,7 +2682,7 @@ function renderScene() {
       ctx.restore();
     }
 
-    // Render Live Moving Fast & Furious Rivals & Highway Traffic on this Segment!
+    // Render Live Moving Street Rivals & Highway Traffic on this Segment!
     const allMovingCars = LiveTraffic.racers.concat(LiveTraffic.traffic);
     for (let m = 0; m < allMovingCars.length; m++) {
       const mv = allMovingCars[m];
@@ -2709,7 +2709,7 @@ function renderScene() {
         ctx.fill();
       }
 
-      // 1. Wet Asphalt Neon Underglow (for Fast & Furious Rivals) or Dark Shadow
+      // 1. Wet Asphalt Neon Underglow (for Street Rivals) or Dark Shadow
       if (mv.underglow) {
         ctx.fillStyle = mv.underglow;
         ctx.globalAlpha = 0.55;
@@ -2753,8 +2753,8 @@ function renderScene() {
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(cx - cw * 0.28, roadYifted - ch * 1.02, cw * 0.56, ch * 0.30);
 
-        // Dom's Charger Chrome Supercharger Blower OR Brian's Carbon GT Spoiler Wing!
-        if (mv.style === 'CHARGER') {
+        // Dez's Brawler Chrome Blower OR Kai's Carbon GT Spoiler Wing!
+        if (mv.style === 'MUSCLE') {
           ctx.fillStyle = '#e2e8f0';
           ctx.fillRect(cx - cw * 0.12, roadY - ch * 1.20, cw * 0.24, ch * 0.15);
         } else if (mv.style === 'TUNER_WING') {
@@ -2783,7 +2783,7 @@ function renderScene() {
         ctx.fillRect(cx + cw * 0.24, roadY - ch * 0.54, cw * 0.22, ch * 0.16);
       }
 
-      // Compact Rival Tag (Only for the 3 Fast & Furious Hero Rivals when close!)
+      // Compact Rival Tag (Only for the Hero Rivals when close!)
       if (mv.underglow && roadW > 55) {
         ctx.fillStyle = mv.underglow;
         ctx.font = 'bold 9px Orbitron, sans-serif';
@@ -2806,7 +2806,7 @@ function renderScene() {
     ctx.restore();
   }
 
-  // 4.5 J.A.R.V.I.S. Holographic AR Racing Line, Target Lock-On Reticles & Unibeam Laser
+  // 4.5 N.O.V.A. Holographic AR Racing Line, Target Lock-On Reticles & Pulse Beam Laser
   if (GameState.jarvisArEnabled) {
     // Project Optimal Racing Line Chevrons on the Road
     ctx.strokeStyle = 'rgba(0, 240, 255, 0.38)';
@@ -2823,7 +2823,7 @@ function renderScene() {
       ctx.stroke();
     }
 
-    // Draw Stark Target Lock-On Diamond Bracket around Primary Threat Ahead
+    // Draw Arc Target Lock-On Diamond Bracket around Primary Threat Ahead
     if (GameState.lockedTarget && GameState.lockedTarget.seg && GameState.lockedTarget.seg.p1 && GameState.lockedTarget.seg.p1.screen) {
       const tSeg = GameState.lockedTarget.seg;
       const tCar = GameState.lockedTarget.car;
@@ -2850,7 +2850,7 @@ function renderScene() {
       }
     }
 
-    // Draw Stark Arc Unibeam Laser when fired!
+    // Draw Arc Pulse Beam Laser when fired!
     if (GameState.unibeamTimer > 0) {
       const bx = GameState.unibeamTargetX || (rw * 0.5);
       const by = GameState.unibeamTargetY || (rh * 0.48);
@@ -2881,10 +2881,10 @@ function renderScene() {
   }
 
   if (GameState.cameraMode !== 2) {
-    drawDeLorean(ctx, rw, rh, eraCfg);
+    drawPlayerCar(ctx, rw, rh, eraCfg);
   }
 
-  // 5.2 Render Animated Power-Ups Magnetically Arcing into the DeLorean's Mr. Fusion Core!
+  // 5.2 Render Animated Power-Ups Magnetically Arcing into the player car's Fusion Core!
   const carCenterX = rw * 0.5;
   const carCenterY = rh * 0.81;
   for (let i = 0; i < GameState.pickupAnimations.length; i++) {
@@ -2929,7 +2929,7 @@ function renderScene() {
     ctx.restore();
   }
 
-  // 5.4 Render 3D Spinning Debris Shards Bouncing off the Hot Wheels Track!
+  // 5.4 Render 3D Spinning Debris Shards Bouncing off the Orange Toy-Track!
   for (let i = 0; i < GameState.debrisShards.length; i++) {
     const d = GameState.debrisShards[i];
     ctx.save();
@@ -2940,7 +2940,7 @@ function renderScene() {
     ctx.restore();
   }
 
-  // 5.5 Draw Iron Man / J.A.R.V.I.S. Curved Helmet Visor Telemetry Brackets on Screen Edges
+  // 5.5 Draw N.O.V.A. Curved Helmet Visor Telemetry Brackets on Screen Edges
   if (GameState.jarvisArEnabled) {
     ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)';
     ctx.lineWidth = 1.5;
@@ -2966,7 +2966,7 @@ function renderScene() {
   mainCtx.restore();
 }
 
-function drawDeLorean(ctx, rw, rh, eraCfg) {
+function drawPlayerCar(ctx, rw, rh, eraCfg) {
   const carW = Math.max(58, Math.floor(rw * 0.22));
   const carH = Math.max(32, Math.floor(carW * 0.54));
   const cx = GameState.playerScreenX || Math.floor(rw * 0.5);
@@ -3101,20 +3101,20 @@ function drawDeLorean(ctx, rw, rh, eraCfg) {
   ctx.closePath();
   ctx.fill();
 
-  // Rear Black Louvers & Mr. Fusion Reactor
+  // Rear Black Louvers & Fusion Canister Reactor
   ctx.fillStyle = '#1e293b';
   ctx.fillRect(-carW * 0.26, -carH * 0.46, carW * 0.52, carH * 0.28);
 
-  // Pop-Culture Vehicle Signature Details (Charger Blower, K.I.T.T. Scanner, Light-Cycle Canopy, or Flux Core)
-  if (activeChar.shape === 'CHARGER') {
+  // Vehicle Signature Details (Muscle Blower, Sentry Scanner, Light-Cycle Canopy, or Flux Core)
+  if (activeChar.shape === 'MUSCLE') {
     ctx.fillStyle = '#e2e8f0';
     ctx.fillRect(-carW * 0.12, -carH * 0.64, carW * 0.24, carH * 0.18);
-  } else if (activeChar.shape === 'KITT') {
+  } else if (activeChar.shape === 'SCANNER') {
     const scanX = Math.sin(Date.now() * 0.008) * (carW * 0.28);
     ctx.fillStyle = '#ff1e1e';
     ctx.fillRect(scanX - carW * 0.08, -carH * 0.12, carW * 0.16, carH * 0.08);
   }
-  // Stark Industries Circular Arc Reactor Core + Flux Capacitor Y-Matrix
+  // Voss Dynamics Circular Arc Core + Flux Capacitor Y-Matrix
   ctx.fillStyle = '#00f0ff';
   ctx.beginPath();
   ctx.arc(0, -carH * 0.32, Math.max(3.5, carW * 0.065), 0, Math.PI * 2);
@@ -3205,7 +3205,7 @@ function selectCharacterByIndex(idx) {
 
 function summonMultiverseRacer() {
   const base = MULTIVERSE_POOL[Math.floor(Math.random() * MULTIVERSE_POOL.length)];
-  const suffixes = ['2026 Turbo Spec', 'Outatime Edition', 'Cyber-Mod', 'Hot Wheels Custom', 'Hyper-Shift'];
+  const suffixes = ['2026 Turbo Spec', 'Outatime Edition', 'Cyber-Mod', 'Toy-Track Custom', 'Hyper-Shift'];
   const suf = suffixes[Math.floor(Math.random() * suffixes.length)];
   const newEntry = {
     id: 'MULTI_' + Date.now(),
@@ -3659,7 +3659,7 @@ function bindAllControls() {
   document.getElementById('btnAbilityZone').addEventListener('click', () => activateMidnightSpecial('ZONE'));
   document.getElementById('btnAbilityAgro').addEventListener('click', () => activateMidnightSpecial('AGRO'));
   document.getElementById('btnAbilityRoar').addEventListener('click', () => activateMidnightSpecial('ROAR'));
-  document.getElementById('btnStarkUnibeam').addEventListener('click', () => { JarvisAI.fireUnibeam(); });
+  document.getElementById('btnPulseBeam').addEventListener('click', () => { JarvisAI.fireUnibeam(); });
   document.getElementById('btnJarvisMode').addEventListener('click', cycleJarvisMode);
   document.getElementById('btnJarvisArToggle').addEventListener('click', toggleJarvisArHud);
   document.getElementById('btnTwoWheel').addEventListener('click', () => { SoundEngine.init(); InputState.twoWheelPressed = true; });
@@ -3781,7 +3781,7 @@ function bindAllControls() {
     });
   }
 
-  // Temple Run / Tron Touch Swipe Gesture Support directly on gameCanvas!
+  // Touch Swipe Gesture Support directly on gameCanvas!
   let touchStartX = 0;
   let touchStartY = 0;
   mainCanvas.addEventListener('pointerdown', (e) => {
@@ -3853,8 +3853,8 @@ function toggleJarvisArHud() {
   }
   JarvisAI.setStatus(
     GameState.jarvisArEnabled
-      ? 'Holographic Mark-88 AR Visor & Target Lock restored, Sir.'
-      : 'AR Visor projection minimized for unobstructed street view, Sir.',
+      ? 'Holographic Mark-88 AR Visor & Target Lock restored.'
+      : 'AR Visor projection minimized for unobstructed street view.',
     false
   );
 }

@@ -4,14 +4,14 @@
 export const WORLD_LEVELS = [
   {
     index: 0,
-    id: 'LVL1_HILL_VALLEY',
-    name: 'LVL 1: HILL VALLEY 2026 3D',
-    subtitle: '3D Hot Wheels Track • Courthouse Clock Tower',
+    id: 'LVL1_CLOCK_HOLLOW',
+    name: 'LVL 1: CLOCK HOLLOW 2026 3D',
+    subtitle: '3D Orange Toy-Track • Town Square Clock Tower',
     startEra: 0,
     startingHeat: 1,
     rivalDensity: 1.0,
     goalDesc: 'Beat 7 Street Rivals & Hit 88 MPH',
-    bossName: 'NEEDLES_4X4',
+    bossName: 'SPIKES_4X4',
     bonusReward: 150
   },
   {
@@ -23,7 +23,7 @@ export const WORLD_LEVELS = [
     startingHeat: 2,
     rivalDensity: 1.15,
     goalDesc: 'Score 3 Rival Takedowns & Clear Canyon Gaps',
-    bossName: 'MAD_DOG_85',
+    bossName: 'RATTLER_85',
     bonusReward: 220
   },
   {
@@ -34,8 +34,8 @@ export const WORLD_LEVELS = [
     startEra: 2,
     startingHeat: 3,
     rivalDensity: 1.3,
-    goalDesc: 'Chain Drifts & Defeat Griff\'s Hover Crew',
-    bossName: 'GRIFF_BMW_2015',
+    goalDesc: 'Chain Drifts & Defeat Grift\'s Hover Crew',
+    bossName: 'GRIFT_HOVER_2015',
     bonusReward: 300
   },
   {
@@ -46,20 +46,20 @@ export const WORLD_LEVELS = [
     startEra: 3,
     startingHeat: 5,
     rivalDensity: 1.45,
-    goalDesc: 'Survive Heat 5 Roadblocks & Beat Cyber-Biff',
-    bossName: 'CYBER_BIFF_88',
+    goalDesc: 'Survive Heat 5 Roadblocks & Beat Cyber-Brute',
+    bossName: 'CYBER_BRUTE_88',
     bonusReward: 450
   },
   {
     index: 4,
     id: 'LVL5_INFINITE_HW',
-    name: 'LVL 5: HOT WHEELS INFINITE',
+    name: 'LVL 5: ORANGE TRACK INFINITE',
     subtitle: 'Endless Era-Warping Loops & Split Crossroads',
     startEra: 0,
     startingHeat: 2,
     rivalDensity: 1.25,
     goalDesc: 'Endless High-Score & Time-Warp Marathon',
-    bossName: 'TWIN_MILL_APEX',
+    bossName: 'TWIN_TURBINE_APEX',
     bonusReward: 350
   }
 ];
@@ -68,7 +68,7 @@ export const WORLD_LEVELS = [
 export const ERAS = [
   {
     id: '2026',
-    name: '2026 • HILL VALLEY 3D',
+    name: '2026 • CLOCK HOLLOW 3D',
     presentDate: 'OCT 16 2026',
     destDate: 'OCT 26 1985',
     pixelScale: 1.0,
@@ -86,7 +86,7 @@ export const ERAS = [
   },
   {
     id: '1985',
-    name: '1985 • TWIN PINES 3D',
+    name: '1985 • LONE PINE 3D',
     presentDate: 'OCT 26 1985',
     destDate: 'SEP 02 1885',
     pixelScale: 1.0,
@@ -122,7 +122,7 @@ export const ERAS = [
   },
   {
     id: '2015',
-    name: '2015 • SKYWAY HILL VALLEY',
+    name: '2015 • SKYWAY CLOCK HOLLOW',
     presentDate: 'OCT 21 2015',
     destDate: 'NOV 12 2088',
     pixelScale: 1.0,
@@ -140,7 +140,7 @@ export const ERAS = [
   },
   {
     id: '2088',
-    name: '2088 • CYBER HILL VALLEY',
+    name: '2088 • CYBER CLOCK HOLLOW',
     presentDate: 'NOV 12 2088',
     destDate: 'OCT 16 2026',
     pixelScale: 1.0,
@@ -161,26 +161,26 @@ export const ERAS = [
 // --- DUB CUSTOMIZATION OPTIONS ---
 export const UNDERGLOW_OPTIONS = [
   { name: 'Cyber Cyan', color: '#00f0ff' },
-  { name: 'HW Orange', color: '#ff5500' },
+  { name: 'Track Orange', color: '#ff5500' },
   { name: 'DUB Purple', color: '#d946ef' },
   { name: 'Zone Green', color: '#10b981' },
   { name: 'Crimson Red', color: '#ef4444' }
 ];
 export const LIVERY_OPTIONS = [
-  { id: 'STARK_MK88', name: 'Stark Mark-88', body: '#b91c1c', cabin: '#facc15' },
-  { id: 'STAINLESS', name: 'Stainless DMC', body: '#94a3b8', cabin: '#cbd5e1' },
+  { id: 'ARC_MK88', name: 'Arc Mark-88', body: '#b91c1c', cabin: '#facc15' },
+  { id: 'STAINLESS', name: 'Brushed Stainless', body: '#94a3b8', cabin: '#cbd5e1' },
   { id: 'MIDNIGHT_BLACK', name: 'Midnight Matte', body: '#1e293b', cabin: '#475569' },
   { id: 'GOLD_88', name: 'Gold Chrome 88', body: '#eab308', cabin: '#fef08a' },
-  { id: 'CYBER_RED', name: 'Hot Wheels Red', body: '#dc2626', cabin: '#fca5a5' }
+  { id: 'CYBER_RED', name: 'Toy-Track Red', body: '#dc2626', cabin: '#fca5a5' }
 ];
 
-// --- INFINITE POP-CULTURE CHARACTER & VEHICLE MULTIVERSE ROSTER ---
+// --- ORIGINAL DRIVER & VEHICLE MULTIVERSE ROSTER ---
 export const POP_CULTURE_ROSTER = [
   {
-    id: 'BTTF_DELOREAN',
-    driver: 'Marty McFly & Doc Brown',
-    car: '1981 DeLorean DMC-12',
-    franchise: 'Back to the Future',
+    id: 'FLUX_COUPE_88',
+    driver: 'Rook & The Professor',
+    car: "'88 Flux Coupe Gull-Wing",
+    franchise: 'Chrono Crew',
     massKg: 1230,
     maxHp: 100,
     speedBonus: 4,
@@ -189,14 +189,14 @@ export const POP_CULTURE_ROSTER = [
     body: '#94a3b8',
     cabin: '#e2e8f0',
     glow: '#00f0ff',
-    shape: 'DELOREAN',
-    perk: '+25% Faster 1.21GW Flux Charge'
+    shape: 'GULLWING',
+    perk: '+25% Faster 1.88GW Flux Charge'
   },
   {
-    id: 'DOM_CHARGER',
-    driver: 'Dominic Toretto',
-    car: "1970 Dodge Charger R/T",
-    franchise: 'The Fast and the Furious',
+    id: 'IRON_SAINT_BRAWLER',
+    driver: 'Dez Navarro',
+    car: "'70 Brawler 440 Blower",
+    franchise: 'Southside Family',
     massKg: 1780,
     maxHp: 135,
     speedBonus: 6,
@@ -205,14 +205,14 @@ export const POP_CULTURE_ROSTER = [
     body: '#111827',
     cabin: '#475569',
     glow: '#ff5500',
-    shape: 'CHARGER',
+    shape: 'MUSCLE',
     perk: 'Heavy 1,780kg Muscle • Smashes Barriers with 0 Damage'
   },
   {
-    id: 'BRIAN_SKYLINE',
-    driver: "Brian O'Conner",
-    car: '1999 Skyline GT-R R34',
-    franchise: '2 Fast 2 Furious',
+    id: 'BLUE_KESTREL',
+    driver: 'Kai Mercer',
+    car: "'99 Kestrel GT-4R",
+    franchise: 'Harbor Tuners',
     massKg: 1430,
     maxHp: 105,
     speedBonus: 7,
@@ -225,10 +225,10 @@ export const POP_CULTURE_ROSTER = [
     perk: '2x Slipstream Wake & Precision Drift Control'
   },
   {
-    id: 'TRON_LIGHTCYCLE',
-    driver: 'Kevin & Sam Flynn',
-    car: 'Gen-5 Light Cycle',
-    franchise: 'TRON: Legacy',
+    id: 'GRID_CYCLE',
+    driver: 'Vex & Ion Arden',
+    car: 'Gen-5 Grid Cycle',
+    franchise: 'The Gridline',
     massKg: 680,
     maxHp: 95,
     speedBonus: 9,
@@ -241,10 +241,10 @@ export const POP_CULTURE_ROSTER = [
     perk: 'Narrow Cyber-Hitbox • Leaves Neon Light-Ribbon'
   },
   {
-    id: 'KNIGHT_RIDER_KITT',
-    driver: 'Michael Knight',
-    car: 'K.I.T.T. Trans Am 2000',
-    franchise: 'Knight Rider',
+    id: 'NIGHT_SENTINEL',
+    driver: 'Cal Steele',
+    car: 'SENTRY-2000 Talking Coupe',
+    franchise: 'Night Sentinel Foundation',
     massKg: 1520,
     maxHp: 125,
     speedBonus: 7,
@@ -253,14 +253,14 @@ export const POP_CULTURE_ROSTER = [
     body: '#090a0f',
     cabin: '#ef4444',
     glow: '#ef4444',
-    shape: 'KITT',
+    shape: 'SCANNER',
     perk: 'Turbo-Boost Super Jump (+35% Jump Height)'
   },
   {
-    id: 'SPEED_RACER_MACH5',
-    driver: 'Speed Racer',
-    car: 'The Mach 5',
-    franchise: 'Speed Racer',
+    id: 'GO_ROCKET_5',
+    driver: 'Rin Takamura',
+    car: 'The Go-Rocket 5',
+    franchise: 'Takamura Racing',
     massKg: 1180,
     maxHp: 105,
     speedBonus: 8,
@@ -269,14 +269,14 @@ export const POP_CULTURE_ROSTER = [
     body: '#f8fafc',
     cabin: '#ef4444',
     glow: '#facc15',
-    shape: 'MACH5',
+    shape: 'ROCKET',
     perk: 'Auto-Jacks Instant Jump & Saw-Blade Obstacle Clear'
   },
   {
-    id: 'HAN_RX7',
-    driver: 'Takumi Fujiwara',
-    car: 'Toyota AE86 Trueno',
-    franchise: 'Initial D',
+    id: 'PASS_RUNNER_86',
+    driver: 'Yuto Hanada',
+    car: "'86 Pass-Runner Hatch",
+    franchise: 'Mountain Pass Night Crew',
     massKg: 940,
     maxHp: 100,
     speedBonus: 5,
@@ -289,10 +289,10 @@ export const POP_CULTURE_ROSTER = [
     perk: 'Gutter-Run Drift Master • Zero Speed Loss in Turns'
   },
   {
-    id: 'AKIRA_KANEDA_BIKE',
-    driver: 'Shotaro Kaneda',
+    id: 'NEO_CAPSULE_BIKE',
+    driver: 'Ren Kurogane',
     car: 'Capsule Cyber-Bike',
-    franchise: 'Akira',
+    franchise: 'Neo-Bay Riders',
     massKg: 720,
     maxHp: 95,
     speedBonus: 9,
@@ -305,10 +305,10 @@ export const POP_CULTURE_ROSTER = [
     perk: 'Iconic Electric Power-Slide & Narrow Gap Threading'
   },
   {
-    id: 'MAD_MAX_INTERCEPTOR',
-    driver: 'Max Rockatansky',
-    car: 'V8 Pursuit Special',
-    franchise: 'Mad Max: Fury Road',
+    id: 'DUST_PURSUIT_V8',
+    driver: 'Wade Kessler',
+    car: 'V8 Dust Pursuit Special',
+    franchise: 'Outback Wastes',
     massKg: 1850,
     maxHp: 145,
     speedBonus: 6,
@@ -317,14 +317,14 @@ export const POP_CULTURE_ROSTER = [
     body: '#1c1917',
     cabin: '#78716c',
     glow: '#f97316',
-    shape: 'CHARGER',
+    shape: 'MUSCLE',
     perk: '+45 Armor HP & Supercharged Wasteland Ramming'
   },
   {
-    id: 'ATEAM_VANDURA',
-    driver: 'B.A. Baracus',
-    car: '1983 GMC Vandura',
-    franchise: 'The A-Team',
+    id: 'BULLDOG_VAN',
+    driver: 'Big Tank Ortiz',
+    car: "'83 Bulldog Cargo Van",
+    franchise: 'The Fix-It Four',
     massKg: 2350,
     maxHp: 160,
     speedBonus: 3,
@@ -337,10 +337,10 @@ export const POP_CULTURE_ROSTER = [
     perk: '2,350kg Heavy Tank • Maximum 160 HP Juggernaut'
   },
   {
-    id: 'HW_TWIN_MILL',
-    driver: 'Vert Wheeler',
-    car: 'Twin Mill III',
-    franchise: 'Hot Wheels: World Race',
+    id: 'TWIN_TURBINE',
+    driver: 'Vera Sparks',
+    car: 'Twin Turbine III',
+    franchise: 'Orange Track League',
     massKg: 1310,
     maxHp: 110,
     speedBonus: 10,
@@ -349,14 +349,14 @@ export const POP_CULTURE_ROSTER = [
     body: '#16a34a',
     cabin: '#fde047',
     glow: '#22c55e',
-    shape: 'CHARGER',
+    shape: 'MUSCLE',
     perk: 'Dual Exposed V8 Engines • +30% Booster Pad Kick'
   },
   {
-    id: 'STARK_MARK88_CAR',
-    driver: 'Tony Stark & J.A.R.V.I.S.',
+    id: 'ARC_ROADSTER_88',
+    driver: 'Ada Voss & N.O.V.A.',
     car: 'Mark-88 Arc Roadster',
-    franchise: 'Stark Industries',
+    franchise: 'Voss Dynamics',
     massKg: 1380,
     maxHp: 130,
     speedBonus: 8,
@@ -365,27 +365,27 @@ export const POP_CULTURE_ROSTER = [
     body: '#b91c1c',
     cabin: '#facc15',
     glow: '#00f0ff',
-    shape: 'DELOREAN',
+    shape: 'GULLWING',
     perk: 'Nanotech Self-Healing Hull (+2 HP/sec Regen)'
   }
 ];
 
 export const MULTIVERSE_POOL = [
-  { driver: 'Egon & Ray', car: 'Ecto-1 Cadillac', franchise: 'Ghostbusters', body: '#f8fafc', cabin: '#dc2626', glow: '#22c55e', shape: 'HEAVY_VAN' },
-  { driver: 'Jim Douglas', car: 'Herbie #53 Beetle', franchise: 'The Love Bug', body: '#f8fafc', cabin: '#2563eb', glow: '#ef4444', shape: 'TUNER_WING' },
-  { driver: 'OutRun Hero', car: '1986 Testarossa Spider', franchise: 'Sega OutRun', body: '#dc2626', cabin: '#fde047', glow: '#ff5500', shape: 'DELOREAN' },
-  { driver: 'Razor / Player', car: 'BMW M3 GTR Most Wanted', franchise: 'Need for Speed', body: '#e2e8f0', cabin: '#1d4ed8', glow: '#38bdf8', shape: 'TUNER_WING' },
-  { driver: 'Captain Falcon', car: 'Blue Falcon #07', franchise: 'F-Zero GX', body: '#1d4ed8', cabin: '#facc15', glow: '#00f0ff', shape: 'MACH5' },
-  { driver: 'V (Night City)', car: 'Quadra Turbo-R V-Tech', franchise: 'Cyberpunk 2077', body: '#1e293b', cabin: '#00f0ff', glow: '#ff007f', shape: 'DELOREAN' },
-  { driver: 'Bruce Wayne', car: 'Wayne Tech Tumbler', franchise: 'The Dark Knight', body: '#090a0f', cabin: '#f59e0b', glow: '#f59e0b', shape: 'HEAVY_VAN' },
-  { driver: 'Suki', car: 'Honda S2000 Pink Spec', franchise: '2 Fast 2 Furious', body: '#ec4899', cabin: '#fbcfe8', glow: '#f43f5e', shape: 'TUNER_WING' },
-  { driver: 'Han Lue', car: 'Veilside Fortune RX-7', franchise: 'Tokyo Drift', body: '#ea580c', cabin: '#090a0f', glow: '#ff5500', shape: 'TUNER_WING' },
-  { driver: 'Bo & Luke', car: '1969 Charger Stock Car', franchise: 'Hazzard County', body: '#ea580c', cabin: '#fef08a', glow: '#f59e0b', shape: 'CHARGER' },
-  { driver: 'Bandit', car: '1977 Black & Gold Trans Am', franchise: 'Smokey and the Bandit', body: '#090a0f', cabin: '#eab308', glow: '#eab308', shape: 'KITT' },
-  { driver: 'Arnie Cunningham', car: '1958 Plymouth Fury', franchise: 'Christine', body: '#b91c1c', cabin: '#f8fafc', glow: '#ff1e1e', shape: 'CHARGER' },
-  { driver: 'Reiko Nagase', car: 'Kamata Fiera Type-S', franchise: 'Ridge Racer', body: '#f8fafc', cabin: '#e11d48', glow: '#00f0ff', shape: 'MACH5' },
-  { driver: 'Master Chief', car: 'M12 LRV Warthog', franchise: 'Halo UNSC', body: '#3f6212', cabin: '#a3e635', glow: '#84cc16', shape: 'HEAVY_VAN' },
-  { driver: "Cruis'n Champion", car: 'La Bomba Lowrider', franchise: "Cruis'n USA", body: '#eab308', cabin: '#7c3aed', glow: '#d946ef', shape: 'CHARGER' }
+  { driver: 'Drs. Penn & Okafor', car: 'Spectre-1 Wagon', franchise: 'Paranormal Patrol', body: '#f8fafc', cabin: '#dc2626', glow: '#22c55e', shape: 'HEAVY_VAN' },
+  { driver: 'Lulu Baxter', car: 'Lucky Bug #35', franchise: 'Garage Gremlins', body: '#f8fafc', cabin: '#2563eb', glow: '#ef4444', shape: 'TUNER_WING' },
+  { driver: 'Sunset Hero', car: "'86 Rosso Spider", franchise: 'Coastline Cruisers', body: '#dc2626', cabin: '#fde047', glow: '#ff5500', shape: 'GULLWING' },
+  { driver: 'Blade Ito', car: 'M-Spec Street Legend', franchise: 'Harbor Ten', body: '#e2e8f0', cabin: '#1d4ed8', glow: '#38bdf8', shape: 'TUNER_WING' },
+  { driver: 'Commander Vireo', car: 'Blue Vireo #07', franchise: 'Zero-G League', body: '#1d4ed8', cabin: '#facc15', glow: '#00f0ff', shape: 'ROCKET' },
+  { driver: 'Nyx Halden', car: 'Turbo-R Vector', franchise: 'Neon Sprawl', body: '#1e293b', cabin: '#00f0ff', glow: '#ff007f', shape: 'GULLWING' },
+  { driver: 'The Night Warden', car: 'Warden Tank Coupe', franchise: 'Old Harbor City', body: '#090a0f', cabin: '#f59e0b', glow: '#f59e0b', shape: 'HEAVY_VAN' },
+  { driver: 'Mika Rose', car: 'Pink Spec Roadster S2', franchise: 'Harbor Tuners', body: '#ec4899', cabin: '#fbcfe8', glow: '#f43f5e', shape: 'TUNER_WING' },
+  { driver: 'Jun Sato', car: 'Fortune Widebody Rotary', franchise: 'Drift Kings East', body: '#ea580c', cabin: '#090a0f', glow: '#ff5500', shape: 'TUNER_WING' },
+  { driver: 'Cody & Clay Brandt', car: "'69 Moonshine Stocker", franchise: 'Backroads County', body: '#ea580c', cabin: '#fef08a', glow: '#f59e0b', shape: 'MUSCLE' },
+  { driver: 'The Outlaw', car: "'77 Black & Gold Eagle", franchise: 'Long-Haul Run', body: '#090a0f', cabin: '#eab308', glow: '#eab308', shape: 'SCANNER' },
+  { driver: 'Vic Harlan', car: "'58 Crimson Widow", franchise: 'Haunted Garage', body: '#b91c1c', cabin: '#f8fafc', glow: '#ff1e1e', shape: 'MUSCLE' },
+  { driver: 'Aya Kisaragi', car: 'Solace Type-S', franchise: 'Ridgeline Circuit', body: '#f8fafc', cabin: '#e11d48', glow: '#00f0ff', shape: 'ROCKET' },
+  { driver: 'Sgt. Dana Pike', car: 'Frontier Scout Buggy', franchise: 'Colony Marines', body: '#3f6212', cabin: '#a3e635', glow: '#84cc16', shape: 'HEAVY_VAN' },
+  { driver: 'Coast-to-Coast Champ', car: 'La Bomba Lowrider', franchise: 'Boulevard Kings', body: '#eab308', cabin: '#7c3aed', glow: '#d946ef', shape: 'MUSCLE' }
 ];
 
 // --- UPGRADE DEFINITIONS ---
@@ -399,14 +399,14 @@ export const UPGRADE_DEFS = [
   },
   {
     key: 'tires',
-    title: 'Midnight Club Drift Spec Tires',
+    title: 'Night-Run Drift Spec Tires',
     desc: 'Sharper counter-steer drift control & faster Tier-3 boost.',
     icon: '🛞',
     baseCost: 45
   },
   {
     key: 'flux',
-    title: 'Mr. Fusion + ZONE/AGRO Core',
+    title: 'Fusion Canister + ZONE/AGRO Core',
     desc: 'Faster Flux & Special Ability charge + longer duration.',
     icon: '⚡',
     baseCost: 60
@@ -431,9 +431,9 @@ export const CONTRACT_TEMPLATES = [
 ];
 
 export const JARVIS_MODES = [
-  { id: 'ASSIST', label: '🤖 AI: ASSIST (I)', desc: 'J.A.R.V.I.S. Smart Trajectory & Cornering Assist engaged, Sir.' },
-  { id: 'AUTOPILOT', label: '🤖 AI: AUTOPILOT (I)', desc: 'Full J.A.R.V.I.S. Autonomous Driving Protocol engaged. Sit back, Sir.' },
-  { id: 'MANUAL', label: '🤖 AI: MANUAL (I)', desc: 'Manual flight control transferred to you, Sir. AR HUD remains online.' }
+  { id: 'ASSIST', label: '🤖 AI: ASSIST (I)', desc: 'N.O.V.A. Smart Trajectory & Cornering Assist engaged.' },
+  { id: 'AUTOPILOT', label: '🤖 AI: AUTOPILOT (I)', desc: 'Full N.O.V.A. Autonomous Driving Protocol engaged. Sit back.' },
+  { id: 'MANUAL', label: '🤖 AI: MANUAL (I)', desc: 'Manual flight control transferred to you. AR HUD remains online.' }
 ];
 
 export const ROAD_CFG = {
@@ -459,6 +459,6 @@ export const CAMERA_MODES = [
 ];
 
 export const RIVAL_NAMES = [
-  'CYBER_BIFF_88', 'GRIFF_2015', 'NEEDLES_4X4', 'TWIN_MILL_X',
-  'BONE_SHAKER', 'DOC_BROWN_85', 'TOKYO_DRIFT_Z'
+  'CYBER_BRUTE_88', 'GRIFT_2015', 'SPIKES_4X4', 'TWIN_TURBINE_X',
+  'RATTLE_TRAP', 'PROF_VOLT_85', 'NIGHT_DRIFT_Z'
 ];

@@ -44,6 +44,34 @@ describe('SaveStore', () => {
     expect(SaveStore.data.upgrades).toEqual({ engine: 1, tires: 2, flux: 1, hover: 1 });
   });
 
+  it('loads a real old-shape save and migrates the renamed livery id', async () => {
+    // Shape written by the pre-0001 build: every field present, legacy livery id.
+    const oldSave = {
+      bestScore: 31337, fluxCoins: 990, unlockedLevel: 5, selectedLevel: 3,
+      underglow: '#d946ef', livery: 'STARK_MK88',
+      upgrades: { engine: 3, tires: 2, flux: 4, hover: 1 },
+      tiltSensitivity: 1.4, muted: true, volume: 0.5,
+    };
+    storage.setItem('outatime_cruisn_88_save_v2', JSON.stringify(oldSave));
+    const { SaveStore } = await import('../../src/save.js');
+    const { LIVERY_OPTIONS } = await import('../../src/data.js');
+    SaveStore.load();
+    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88' });
+    expect(LIVERY_OPTIONS.map((l) => l.id)).toContain(SaveStore.data.livery);
+  });
+
+  it('keeps every unrenamed livery id as saved', async () => {
+    const { LIVERY_OPTIONS } = await import('../../src/data.js');
+    for (const { id } of LIVERY_OPTIONS) {
+      storage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ livery: id, selectedLevel: 2 }));
+      vi.resetModules();
+      const { SaveStore } = await import('../../src/save.js');
+      SaveStore.load();
+      expect(SaveStore.data.livery).toBe(id);
+      expect(SaveStore.data.selectedLevel).toBe(2);
+    }
+  });
+
   it('survives corrupt JSON and a throwing storage', async () => {
     storage.setItem('outatime_cruisn_88_save_v2', '{not json');
     const { SaveStore } = await import('../../src/save.js');
