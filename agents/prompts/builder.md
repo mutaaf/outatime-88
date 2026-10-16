@@ -20,7 +20,7 @@ at or above `control.json → agents.builder.max_merges_per_day`, end `NOOP: dai
 4. **Test first.** Add or extend a test that fails without the change: a unit test in
    `tests/unit/` for logic (physics, scoring, state, math), or a Playwright test in
    `tests/e2e/` for anything a player sees or does. Then implement until it passes.
-5. **Gate.** `npm run check` must pass locally (backlog validator, unit tests, build,
+5. **Gate.** `npm run check` (or `npm run check:fast` if Playwright can't install here) must pass locally (backlog validator, unit tests, build,
    e2e). Also take a Playwright screenshot of the changed experience and look at it:
    does it actually look right at 1280x720 and at 390x844 (phone)?
 6. **Ship.** Set the ticket's `status: shipped` and add its PR number, append one line to
@@ -29,7 +29,8 @@ at or above `control.json → agents.builder.max_merges_per_day`, end `NOOP: dai
 7. **Self-review.** Spawn a fresh subagent with only the diff and the ticket, and ask it
    to review adversarially: correctness, invariants in `AGENTS.md`, performance regressions
    in the render loop, mobile/touch, missing tests. Fix every valid finding.
-8. **Merge** when CI is green (squash). Cloudflare deploys `main` to production on merge.
+8. **Merge.** Auto-merge squash-merges the PR once CI is green (see `common.md` § 3).
+   Watch for the merge. Cloudflare Workers Builds deploys `main` to production on merge.
 9. **Verify live.** Wait ~2 minutes, then
    `curl -s "https://mutaafaziz.com/outatime/?cb=$(date +%s)"` and confirm the response is
    200 and references the new build's asset hash. If production is broken, immediately

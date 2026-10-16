@@ -13,7 +13,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "check": "node scripts/check-backlog.mjs && npm run lint && npm test && npm run e2e",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check:fast": "node scripts/check-backlog.mjs && npm run lint && npm test && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

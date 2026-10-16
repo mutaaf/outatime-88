@@ -92,6 +92,7 @@ let `npm run lint` (no-undef) prove nothing was left dangling.
 | `npm run e2e` | Playwright e2e (builds first) |
 | `npm run lint` | ESLint correctness rules (undefined identifiers, import misuse) |
 | `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
+| `npm run check:fast` | Everything but e2e, for sandboxes that can't install Playwright browsers. CI still runs the full gate. |
 
 Budgets: JS ≤ 60 kB gzipped (today ~34 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
 

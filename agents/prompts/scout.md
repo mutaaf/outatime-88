@@ -17,6 +17,8 @@ the Builder can ship it in one PR without asking anyone.
    use `npm run preview` with Playwright (headless Chromium, WebGL via SwiftShader) to load
    it, take screenshots of key states (title, first seconds of play, HUD, a menu), and
    read the console. Look at the screenshots. Note anything ugly, confusing, broken, or slow.
+   If Playwright can't install in this sandbox, review the latest merged PR's Cloudflare
+   preview and CI artifacts instead, and read the render/HUD code critically.
 3. **Discover.** Use web search for real reference material relevant to the vision in
    `AGENTS.md` (real-world data, genre classics, design writing, accessibility guidance,
    browser game performance techniques). Cite the source URL in any ticket it inspires.
@@ -32,5 +34,5 @@ the Builder can ship it in one PR without asking anyone.
    generate vanity work (badges, share cards, marketing, leaderboards that need a server).
    Each ticket must have checkable acceptance criteria and a test plan.
 6. Run `node scripts/check-backlog.mjs`. Fix until it passes.
-7. Open a PR, wait for CI, merge when green (backlog-only PRs are safe to self-merge).
+7. Open a PR; auto-merge lands it when CI is green. Watch CI and fix any failure.
    If nothing needed changing, end `NOOP`.
