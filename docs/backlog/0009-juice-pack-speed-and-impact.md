@@ -1,12 +1,12 @@
 ---
 id: 0009
 title: Juice pack — speed lines, FOV kick toward 88, chromatic warp, crash slow-mo, near-miss hit-stop
-status: ready
+status: shipped
 priority: P1
 size: L
 lens: player-feel
 created: 2026-10-16
-pr:
+pr: 5
 ---
 
 ## Why
