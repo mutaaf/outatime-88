@@ -9,7 +9,7 @@
 const _ = null;
 
 export const ERA_SCORES = {
-  // Present-day neon: classic minor-key outrun, driving eighths.
+  // Present-day neon: classic minor-key synthwave, driving eighths.
   '2026': {
     bpm: 112, root: 45, scale: [0, 2, 3, 5, 7, 8, 10], wave: 'sawtooth',
     bass: [0, _, 0, _, 0, _, 0, 2, 5, _, 5, _, 4, _, 4, 3],
