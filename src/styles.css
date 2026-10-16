@@ -117,3 +117,37 @@ html, body {
   #announcerContainer { top: calc(max(4px, env(safe-area-inset-top)) + 64px) !important; }
   #coachCard { max-width: 92vw; padding: 6px 10px !important; }
 }
+
+/* Title identity (pillar 1): a chrome-and-neon wordmark that owns the screen. */
+.wordmark {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: baseline;
+  gap: 0.18em;
+  flex-wrap: wrap;
+}
+.wordmark-chrome {
+  background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 38%, #475569 50%, #f1f5f9 53%, #cbd5e1 75%, #64748b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.35)) drop-shadow(0 2px 0 rgba(255, 0, 127, 0.55));
+}
+.wordmark-88 {
+  font-style: italic;
+  display: inline-block;
+  transform: skewX(-10deg);
+  background: linear-gradient(180deg, #ffd000 0%, #ff8800 45%, #ff3b00 55%, #ff007f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(255, 102, 0, 0.75));
+  font-size: 1.25em;
+}
+.wordmark-tagline { text-shadow: 0 0 10px rgba(0, 240, 255, 0.45); }
+#howToPlay > summary { list-style: none; }
+#howToPlay > summary::-webkit-details-marker { display: none; }
+.start-cta { box-shadow: 0 0 28px rgba(255, 102, 0, 0.55), inset 0 -3px 0 rgba(0, 0, 0, 0.25); }

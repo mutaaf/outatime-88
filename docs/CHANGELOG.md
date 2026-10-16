@@ -9,3 +9,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-16 · 0009 0014 0003 · Speed you can feel: speed lines and a push-in toward 88, a chromatic time-warp tunnel, crash slow-mo with spark showers, near-miss hit-stop chains; the warp is now earned (no more instant warps from boost); everything calms down under reduced motion
 2026-10-16 · 0002 · Readable at speed: one announcement at a time (big moments preempt, repeats don't flicker), a coach that only teaches what you haven't learned yet in one short line, and a slim one-row phone HUD so the road is visible
 2026-10-16 · 0011 · A campaign ladder: bronze/silver/gold targets on every level, your best on each card, the next target on the results screen, and new players unlock levels by earning bronze
+2026-10-16 · 0017 · A title screen with attitude: chrome-and-neon OUTATIME 88 wordmark, one-line tagline, how-to-play tucked away, and START always on screen
