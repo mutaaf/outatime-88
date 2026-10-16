@@ -99,3 +99,21 @@ html, body {
 .siren-active {
   border-color: #38bdf8;
 }
+
+/* Compact phone HUD (pillar 3, ticket 0002): one slim row so the road stays visible.
+   The era/clock panel, streak/distance readouts, draft bar and garage button live on the
+   title/garage screens and in announcements instead. */
+@media (max-width: 640px) {
+  #leftHudPanel,
+  .hud-phone-hide,
+  #btnGarageOpen { display: none !important; }
+  header { padding: max(4px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)) !important; }
+  header > div:first-child { flex-wrap: nowrap !important; gap: 4px !important; }
+  #centerHudPanel, #rightHudPanel { padding: 3px 6px !important; gap: 6px !important; }
+  #rightHudPanel .led-box { min-width: 60px !important; padding: 2px 6px !important; }
+  #fluxHudCol { width: 64px !important; }
+  #btnAudioToggle { padding: 4px 8px !important; }
+  #interactiveCoachBanner { top: calc(max(4px, env(safe-area-inset-top)) + 64px) !important; }
+  #announcerContainer { top: calc(max(4px, env(safe-area-inset-top)) + 64px) !important; }
+  #coachCard { max-width: 92vw; padding: 6px 10px !important; }
+}

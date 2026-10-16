@@ -9,6 +9,7 @@ import { RigidBody3D } from './physics.js';
 import { projectPoint } from './projection.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain, watchReducedMotion } from './fx.js';
+import { createAnnouncer } from './announcer.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -740,23 +741,32 @@ function initTrack() {
 }
 
 // --- ANNOUNCER & CONTRACT PROGRESSION ---
-let announcerTimeout = null;
-function triggerAnnouncement(mainText, subText = '', duration = 950) {
-  const mainEl = document.getElementById('announcerMain');
-  const subEl = document.getElementById('announcerSub');
-  if (!mainEl || !subEl) return;
-  mainEl.textContent = mainText;
-  subEl.textContent = subText;
-  mainEl.style.opacity = '1';
-  mainEl.style.transform = 'scale(1.06)';
-  subEl.style.opacity = subText ? '1' : '0';
-
-  if (announcerTimeout) clearTimeout(announcerTimeout);
-  announcerTimeout = setTimeout(() => {
+// One announcement channel (ticket 0002): src/announcer.js decides what is visible; this
+// only paints it. Priority is inferred from the text unless a caller passes one.
+const announcer = createAnnouncer({
+  now: () => performance.now(),
+  show(msg) {
+    const mainEl = document.getElementById('announcerMain');
+    const subEl = document.getElementById('announcerSub');
+    if (!mainEl || !subEl) return;
+    mainEl.textContent = msg.main;
+    subEl.textContent = msg.sub;
+    mainEl.style.opacity = '1';
+    mainEl.style.transform = 'scale(1.06)';
+    subEl.style.opacity = msg.sub ? '1' : '0';
+  },
+  hide() {
+    const mainEl = document.getElementById('announcerMain');
+    const subEl = document.getElementById('announcerSub');
+    if (!mainEl || !subEl) return;
     mainEl.style.opacity = '0';
     mainEl.style.transform = 'scale(0.9)';
     subEl.style.opacity = '0';
-  }, duration);
+  },
+});
+
+function triggerAnnouncement(mainText, subText = '', duration = 950, priority) {
+  announcer.push(mainText, subText, duration, priority);
 }
 
 function advanceContractProgress(type, amount) {
@@ -1919,24 +1929,32 @@ function updateGame(rawDt) {
   updateLiveHud();
 }
 
+// Coach (ticket 0002): teaches only what you haven't learned yet, in one short line, and
+// always yields to the announcer so two messages never stack.
+const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', HIGH_LIGHT_GATE: 'slide', FLUX_CRATE: 'smash' };
+const COACH_LEARNED_AFTER = 2;
+
+function hideCoach(banner) {
+  banner.style.opacity = '0';
+  banner.style.pointerEvents = 'none';
+}
+
 function updateInteractiveCoach(currentSegIdx) {
   const banner = document.getElementById('interactiveCoachBanner');
   if (!banner) return;
-  if (GameState.coachDismissed) {
-    banner.style.opacity = '0';
-    banner.style.pointerEvents = 'none';
-    return;
-  }
+  if (GameState.coachDismissed || announcer.isVisible()) { hideCoach(banner); return; }
 
-  // Scan upcoming physical RigidBody3D obstacles within 2,800 Z-units to coach the player!
+  // Nearest un-hit obstacle within ~2,800 Z-units that the player still needs coaching on.
   let foundObs = null;
   let bestDz = 999999;
   for (let i = 0; i < LiveTraffic.obstacles.length; i++) {
     const ob = LiveTraffic.obstacles[i];
+    const lesson = COACH_LESSON[ob.type] || 'steer';
+    if (GameState.lessonsCleared[lesson] >= COACH_LEARNED_AFTER && ob.type !== 'REPAIR_WRENCH') continue;
     const dz = ob.worldZ - (GameState.trackPos + ROAD_CFG.playerZOffset);
     if (ob.hitCount === 0 && dz > 150 && dz < 2800 && dz < bestDz) {
       bestDz = dz;
-      foundObs = { item: ob, dist: Math.round(dz / 200) };
+      foundObs = { item: ob };
     }
   }
 
@@ -1945,44 +1963,41 @@ function updateInteractiveCoach(currentSegIdx) {
   const descEl = document.getElementById('coachDesc');
   if (!iconEl || !titleEl || !descEl) return;
 
-  banner.style.opacity = '1';
   if (foundObs) {
     const t = foundObs.item.type;
-    const openDir = foundObs.item.offset >= 0 ? 'LEFT (◀ / A)' : 'RIGHT (▶ / D)';
+    const open = foundObs.item.offset >= 0 ? '◀ LEFT' : 'RIGHT ▶';
     if (t === 'PINE_TREE_HAZARD') {
-      iconEl.textContent = '🌲';
-      titleEl.textContent = 'TWIN-PINES SLALOM TREE • HUMAN SKILL EDGE:';
-      descEl.textContent = `Graze the golden ring around the tree for a +11 MPH Slingshot & +2x Streak, or double-tap ${openDir} to Phase-Juke!`;
+      iconEl.textContent = '🌲'; titleEl.textContent = 'TREE AHEAD';
+      descEl.textContent = `Graze the gold ring for a slingshot — or go ${open}`;
     } else if (t === 'LOW_LASER_BAR') {
-      iconEl.textContent = '🟠';
-      titleEl.textContent = 'LOW LASER AHEAD • CHOOSE 1 OF 2 SOLUTIONS:';
-      descEl.textContent = `Solution 1: Press JUMP / HOVER (W, ▲, H, or Swipe Up) to hop over • Solution 2: Steer ${openDir}!`;
+      iconEl.textContent = '🟠'; titleEl.textContent = 'LOW LASER';
+      descEl.textContent = `Hop it (W / ▲ / swipe up) — or go ${open}`;
     } else if (t === 'HIGH_LIGHT_GATE') {
-      iconEl.textContent = '🔵';
-      titleEl.textContent = 'HIGH LIGHT GATE AHEAD • CHOOSE 1 OF 2 SOLUTIONS:';
-      descEl.textContent = `Solution 1: Hold DRIFT / SLIDE (S, ▼, or Swipe Down) to duck under • Solution 2: Steer ${openDir}!`;
+      iconEl.textContent = '🔵'; titleEl.textContent = 'HIGH GATE';
+      descEl.textContent = `Hold drift to duck (S / ▼ / swipe down) — or go ${open}`;
     } else if (t === 'FLUX_CRATE') {
-      iconEl.textContent = '📦';
-      titleEl.textContent = 'BLUE FLUX CRATE AHEAD • 2 SOLUTIONS:';
-      descEl.textContent = `Solution 1: Smash straight through it for +18% Flux & +8 HP • Solution 2: Steer ${openDir}!`;
+      iconEl.textContent = '📦'; titleEl.textContent = 'FLUX CRATE';
+      descEl.textContent = 'Smash straight through it for flux + HP';
     } else if (t === 'REPAIR_WRENCH') {
-      iconEl.textContent = '🔧';
-      titleEl.textContent = 'NANO-WRENCH REPAIR AHEAD!';
-      descEl.textContent = `Steer toward the green wrench in lane ${foundObs.item.offset < 0 ? 'LEFT' : (foundObs.item.offset > 0 ? 'RIGHT' : 'CENTER')} to heal +25 HP!`;
+      if (GameState.hp >= GameState.maxHp) { hideCoach(banner); return; }
+      iconEl.textContent = '🔧'; titleEl.textContent = 'REPAIR';
+      descEl.textContent = `Grab the wrench (${foundObs.item.offset < 0 ? 'left' : (foundObs.item.offset > 0 ? 'right' : 'center')}) for +25 HP`;
     } else {
-      iconEl.textContent = '⚡';
-      titleEl.textContent = 'BARRIER AHEAD • CHOOSE 1 OF 2 SOLUTIONS:';
-      descEl.textContent = `Solution 1: Steer ${openDir} into the open lane • Solution 2: Jump (W/H) or Boost-Smash (Space)!`;
+      iconEl.textContent = '⚡'; titleEl.textContent = 'BARRIER';
+      descEl.textContent = `Go ${open}, jump it, or boost-smash it`;
     }
-  } else if (GameState.fluxCharge >= 95) {
-    iconEl.textContent = '⚡';
-    titleEl.textContent = '1.88 GW FLUX FULL • READY FOR 88 MPH TIME WARP!';
-    descEl.textContent = 'Press SPACEBAR or tap ⚡ 88 MPH WARP to blast into the next Era with full invincibility!';
+  } else if (GameState.fluxCharge >= 95 && GameState.timeWarps === 0) {
+    iconEl.textContent = '⚡'; titleEl.textContent = 'FLUX FULL';
+    descEl.textContent = 'Hold 88 mph — or hit SPACE / ⚡ — to jump eras';
+  } else if (GameState.distance < 300) { // just after the green light
+    iconEl.textContent = '🎓'; titleEl.textContent = 'TIP';
+    descEl.textContent = 'Draft the green wake behind rivals for a slingshot';
   } else {
-    iconEl.textContent = '🎓';
-    titleEl.textContent = `WAVE ${GameState.waveTier} • DRIVING TIP`;
-    descEl.textContent = 'Draft in the green wake behind rivals for a Slipstream Slingshot, or press N to switch cars!';
+    hideCoach(banner);
+    return;
   }
+  banner.style.opacity = '1';
+  banner.style.pointerEvents = '';
 }
 
 function updateLiveHud() {
@@ -4037,6 +4052,7 @@ function mainLoop(timestamp) {
     }
   }
 
+  announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
   renderScene();
   rafId = requestAnimationFrame(mainLoop);
@@ -4044,7 +4060,7 @@ function mainLoop(timestamp) {
 
 window.onload = () => {
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
-  if (new URLSearchParams(location.search).has('debug')) window.__OT = { GameState };
+  if (new URLSearchParams(location.search).has('debug')) window.__OT = { GameState, announce: triggerAnnouncement };
   resizeCanvases();
   GameState.levelIndex = SaveStore.data.selectedLevel || 0;
   initTrack();

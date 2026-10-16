@@ -24,7 +24,7 @@
     <div class="flex flex-wrap items-start justify-between gap-1.5 sm:gap-2">
       
       <!-- Left: Time Dials + GPS Radar Minimap -->
-      <div class="pointer-events-auto flex items-center gap-2 bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-1.5 backdrop-blur-md shadow-xl">
+      <div id="leftHudPanel" class="pointer-events-auto flex items-center gap-2 bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-1.5 backdrop-blur-md shadow-xl">
         <!-- Live GPS Street Radar Canvas -->
         <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-950 border-2 border-cyan-400/70 shadow-[0_0_12px_rgba(0,240,255,0.3)] overflow-hidden flex-shrink-0">
           <canvas id="radarCanvas" width="68" height="68" class="w-full h-full block"></canvas>
@@ -69,13 +69,13 @@
             <div id="hpBarFill" class="h-full bg-gradient-to-r from-emerald-500 to-lime-400 transition-all duration-150" style="width: 100%"></div>
           </div>
         </div>
-        <div class="h-6 w-px bg-slate-700"></div>
-        <div class="text-center">
+        <div class="hud-phone-hide h-6 w-px bg-slate-700"></div>
+        <div class="hud-phone-hide text-center">
           <div class="text-[7px] sm:text-[8px] font-arcade text-yellow-400 tracking-widest">STREAK • MULT</div>
           <div id="streakMultDisplay" class="font-arcade text-xs sm:text-base font-black led-amber">🌲0 • x1</div>
         </div>
-        <div class="h-6 w-px bg-slate-700"></div>
-        <div class="text-center">
+        <div class="hud-phone-hide h-6 w-px bg-slate-700"></div>
+        <div class="hud-phone-hide text-center">
           <div class="text-[7px] sm:text-[8px] font-arcade text-emerald-400 tracking-widest">RUN DIST</div>
           <div id="distMetersDisplay" class="font-arcade text-xs sm:text-base font-black led-green">0m</div>
         </div>
@@ -102,7 +102,7 @@
       </div>
 
       <!-- Right: 6-Speed Tachometer + 88 MPH Speedometer + Flux & Slipstream + Quick Controls -->
-      <div class="pointer-events-auto flex items-center gap-2 bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-1.5 backdrop-blur-md shadow-xl">
+      <div id="rightHudPanel" class="pointer-events-auto flex items-center gap-2 bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-1.5 backdrop-blur-md shadow-xl">
         <!-- Digital 88 MPH + Gear & RPM Readout -->
         <div class="led-box rounded-lg px-2 py-1 text-right min-w-[86px] sm:min-w-[104px]">
           <div class="flex items-center justify-between text-[8px] font-arcade text-slate-400">
@@ -120,23 +120,23 @@
         </div>
 
         <!-- Flux Core + Street-Crew Special & Slipstream Bars -->
-        <div class="flex flex-col w-24 sm:w-32 gap-0.5">
+        <div id="fluxHudCol" class="flex flex-col w-24 sm:w-32 gap-0.5">
           <div class="flex justify-between text-[8px] font-arcade">
-            <span class="text-cyan-300 font-bold">1.88GW FLUX</span>
+            <span class="text-cyan-300 font-bold"><span class="hud-phone-hide">1.88GW </span>FLUX</span>
             <span id="fluxPctText" class="text-yellow-300 font-bold">0%</span>
           </div>
           <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
             <div id="fluxBarFill" class="h-full bg-gradient-to-r from-cyan-400 via-blue-500 to-yellow-300 transition-all duration-75" style="width: 0%"></div>
           </div>
           <!-- Slipstream / Drift Boost Tier Bar -->
-          <div class="flex justify-between text-[7px] font-arcade mt-0.5">
+          <div class="hud-phone-hide flex justify-between text-[7px] font-arcade mt-0.5">
             <span id="driftDraftLabel" class="text-emerald-300 font-bold">SLIPSTREAM / DRIFT</span>
             <span id="specialChargesText" class="text-fuchsia-300 font-bold">⚡x3</span>
           </div>
-          <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+          <div class="hud-phone-hide w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
             <div id="draftBarFill" class="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-fuchsia-500 transition-all duration-75" style="width: 0%"></div>
           </div>
-          <div id="fluxReadyHint" class="text-[7px] font-arcade text-slate-400 truncate">
+          <div id="fluxReadyHint" class="hud-phone-hide text-[7px] font-arcade text-slate-400 truncate">
             HIT 88 MPH TO WARP!
           </div>
         </div>

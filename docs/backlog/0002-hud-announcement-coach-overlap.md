@@ -1,12 +1,12 @@
 ---
 id: 0002
 title: One announcement channel and a compact phone HUD so nothing ever overlaps
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-16
-pr:
+pr: 6
 ---
 
 ## Why
