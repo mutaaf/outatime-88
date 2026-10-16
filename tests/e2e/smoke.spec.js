@@ -31,6 +31,12 @@ test('a race starts and advances under keyboard input', async ({ page }) => {
 });
 
 test('level selection persists across reload under the same save key', async ({ page }) => {
+  // A returning player with every level open (new players start with level 1 only, ticket 0011).
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('outatime_cruisn_88_save_v2')) {
+      localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ unlockedLevel: 5 }));
+    }
+  });
   await page.goto(APP);
   const cards = page.locator('#levelSelectGrid > button');
   await expect(cards).toHaveCount(5);

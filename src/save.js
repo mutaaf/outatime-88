@@ -12,7 +12,10 @@ export const SaveStore = {
   data: {
     bestScore: 0,
     fluxCoins: 250,
-    unlockedLevel: 5,
+    // Campaign ladder (ticket 0011): new players start with level 1 open; a bronze opens the
+    // next. Old saves stored unlockedLevel: 5, so they keep everything open.
+    unlockedLevel: 1,
+    progress: {},
     selectedLevel: 0,
     underglow: '#00f0ff',
     livery: 'STAINLESS',

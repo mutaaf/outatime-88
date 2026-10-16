@@ -56,7 +56,7 @@ describe('SaveStore', () => {
     const { SaveStore } = await import('../../src/save.js');
     const { LIVERY_OPTIONS } = await import('../../src/data.js');
     SaveStore.load();
-    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88' });
+    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {} }); // progress: new default (ticket 0011)
     expect(LIVERY_OPTIONS.map((l) => l.id)).toContain(SaveStore.data.livery);
   });
 
@@ -80,5 +80,25 @@ describe('SaveStore', () => {
     vi.stubGlobal('localStorage', { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } });
     expect(() => SaveStore.load()).not.toThrow();
     expect(() => SaveStore.save()).not.toThrow();
+  });
+
+  it('migrates an old-shape save (no progress, all levels open) without losing anything', async () => {
+    storage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({
+      bestScore: 123456, fluxCoins: 900, unlockedLevel: 5, selectedLevel: 3, underglow: '#ff5500',
+      livery: 'STAINLESS', upgrades: { engine: 2, tires: 1, flux: 3, hover: 1 }, muted: true, volume: 0.4,
+    }));
+    const { SaveStore } = await import('../../src/save.js');
+    SaveStore.load();
+    expect(SaveStore.data.unlockedLevel).toBe(5);
+    expect(SaveStore.data.progress).toEqual({});
+    expect(SaveStore.data.bestScore).toBe(123456);
+    expect(SaveStore.data.upgrades.flux).toBe(3);
+  });
+
+  it('a brand-new player starts with only the first level open', async () => {
+    const { SaveStore } = await import('../../src/save.js');
+    SaveStore.load();
+    expect(SaveStore.data.unlockedLevel).toBe(1);
+    expect(SaveStore.data.progress).toEqual({});
   });
 });
