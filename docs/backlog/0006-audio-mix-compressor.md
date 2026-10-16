@@ -1,12 +1,12 @@
 ---
 id: 0006
 title: Add a bus compressor and per-bus volumes so SFX never clip over music
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-16
-pr:
+pr: 4
 ---
 
 ## Why

@@ -1,6 +1,10 @@
-// Synthesized audio engine (Web Audio): engine RPM, SFX, synthwave music loop.
+// Synthesized audio engine (Web Audio): engine voice, SFX, procedural synthwave score.
+// Graph (ticket 0006): musicBus / sfxBus / engineBus → compressor → masterGain → destination,
+// so stacked crashes and warps duck under a limiter instead of clipping over the music.
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
+import { ERAS } from './data.js';
+import { createScheduler } from './music.js';
 
 // UI callbacks live in main.js; it registers them at startup via setAudioHooks().
 const hooks = { syncAudioUI() {}, triggerAnnouncement() {} };
@@ -12,15 +16,38 @@ export const SoundEngine = {
   muted: Boolean(SaveStore.data.muted),
   volume: typeof SaveStore.data.volume === 'number' ? SaveStore.data.volume : 0.8,
   musicTimer: null,
-  stepIdx: 0,
+  scheduler: null,
+  musicBus: null,
+  sfxBus: null,
+  engineBus: null,
+  compressor: null,
+  engineOsc: null,
+  engineSub: null,
+  engineFilter: null,
   init() {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
-        this.ctx = new AudioCtx();
-        this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime);
-        this.masterGain.connect(this.ctx.destination);
+        const ctx = new AudioCtx();
+        this.ctx = ctx;
+        this.masterGain = ctx.createGain();
+        this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, ctx.currentTime);
+        this.compressor = ctx.createDynamicsCompressor();
+        this.compressor.threshold.setValueAtTime(-14, ctx.currentTime);
+        this.compressor.knee.setValueAtTime(10, ctx.currentTime);
+        this.compressor.ratio.setValueAtTime(6, ctx.currentTime);
+        this.compressor.attack.setValueAtTime(0.004, ctx.currentTime);
+        this.compressor.release.setValueAtTime(0.18, ctx.currentTime);
+        this.musicBus = ctx.createGain();
+        this.musicBus.gain.setValueAtTime(0.55, ctx.currentTime);
+        this.sfxBus = ctx.createGain();
+        this.sfxBus.gain.setValueAtTime(0.9, ctx.currentTime);
+        this.engineBus = ctx.createGain();
+        this.engineBus.gain.setValueAtTime(0.0001, ctx.currentTime);
+        for (const bus of [this.musicBus, this.sfxBus, this.engineBus]) bus.connect(this.compressor);
+        this.compressor.connect(this.masterGain);
+        this.masterGain.connect(ctx.destination);
+        this.buildEngineVoice();
       }
     }
     if (this.ctx) {
@@ -79,8 +106,39 @@ export const SoundEngine = {
     }
     hooks.syncAudioUI();
   },
+  // Two detuned saws through a lowpass: a growl whose pitch and brightness track speed.
+  buildEngineVoice() {
+    const ctx = this.ctx;
+    this.engineFilter = ctx.createBiquadFilter();
+    this.engineFilter.type = 'lowpass';
+    this.engineFilter.frequency.setValueAtTime(400, ctx.currentTime);
+    this.engineOsc = ctx.createOscillator();
+    this.engineOsc.type = 'sawtooth';
+    this.engineOsc.frequency.setValueAtTime(48, ctx.currentTime);
+    this.engineSub = ctx.createOscillator();
+    this.engineSub.type = 'square';
+    this.engineSub.frequency.setValueAtTime(24, ctx.currentTime);
+    this.engineOsc.connect(this.engineFilter);
+    this.engineSub.connect(this.engineFilter);
+    this.engineFilter.connect(this.engineBus);
+    this.engineOsc.start(ctx.currentTime);
+    this.engineSub.start(ctx.currentTime);
+  },
+  /** Called every frame; cheap (three param targets, no allocation). */
+  updateEngine(speedMph, playing) {
+    if (!this.ctx || !this.engineOsc) return;
+    const t = this.ctx.currentTime;
+    const s = Math.max(0, speedMph);
+    // Gear-ish sawtooth on top of a smooth climb, so it revs, shifts and revs again.
+    const gearPhase = (s % 26) / 26;
+    const hz = 42 + s * 0.9 + gearPhase * 38;
+    this.engineOsc.frequency.setTargetAtTime(hz, t, 0.05);
+    this.engineSub.frequency.setTargetAtTime(hz / 2, t, 0.05);
+    this.engineFilter.frequency.setTargetAtTime(300 + s * 18, t, 0.08);
+    this.engineBus.gain.setTargetAtTime(playing ? 0.05 + Math.min(1, s / 120) * 0.07 : 0.0001, t, 0.12);
+  },
   playTone(freq, type, duration, vol = 0.12, slideTo = null) {
-    if (this.muted || this.volume <= 0 || !this.ctx || !this.masterGain) return;
+    if (this.muted || this.volume <= 0 || !this.ctx || !this.sfxBus) return;
     try {
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
@@ -94,7 +152,7 @@ export const SoundEngine = {
       gain.gain.setValueAtTime(scaledVol, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
       osc.connect(gain);
-      gain.connect(this.masterGain);
+      gain.connect(this.sfxBus);
       osc.start(now);
       osc.stop(now + duration);
     } catch (e) {}
@@ -142,37 +200,20 @@ export const SoundEngine = {
   playCrash() {
     this.playTone(130, 'sawtooth', 0.32, 0.2, 32);
   },
+  // Procedural score (ticket 0010): src/music.js schedules notes ~120 ms ahead on the
+  // audio clock; this interval only wakes the scheduler, so main-thread jank can't smear timing.
   startMusicLoop() {
+    if (!this.ctx || !this.musicBus) return;
+    if (!this.scheduler) {
+      this.scheduler = createScheduler(this.ctx, this.musicBus, () => ({
+        playing: GameState.status === 'PLAYING' && !this.muted,
+        speed: GameState.speed,
+        eraId: (ERAS[GameState.eraIndex] || ERAS[0]).id,
+        warp: GameState.warpActiveTimer > 0,
+      }));
+    }
     if (this.musicTimer) clearInterval(this.musicTimer);
-    const bassPattern = [110, 110, 220, 110, 130.81, 130.81, 146.83, 164.81];
-    const leadPattern = [440, 523.25, 659.25, 523.25, 587.33, 698.46, 659.25, 493.88];
-    this.musicTimer = setInterval(() => {
-      if (this.muted || !this.ctx || GameState.status !== 'PLAYING') return;
-      const isRetro = (GameState.eraIndex === 0);
-      const slowMoFactor = GameState.zoneTimer > 0 ? 0.65 : 1.0;
-      const bassFreq = bassPattern[this.stepIdx % bassPattern.length] * slowMoFactor;
-      const leadFreq = leadPattern[this.stepIdx % leadPattern.length] * slowMoFactor;
-      if (bassFreq) {
-        this.playTone(
-          bassFreq * (GameState.speed > 88 ? 1.122 : 1),
-          isRetro ? 'square' : 'sawtooth',
-          0.13,
-          0.055
-        );
-      }
-      if (leadFreq && (this.stepIdx % 2 === 0 || GameState.speed > 70)) {
-        this.playTone(
-          leadFreq,
-          isRetro ? 'square' : 'triangle',
-          0.10,
-          0.04
-        );
-      }
-      // Subtle Police Siren chirp at Heat >= 3
-      if (GameState.heatLevel >= 3 && this.stepIdx % 8 === 0) {
-        this.playTone(680, 'sine', 0.14, 0.035, 920);
-      }
-      this.stepIdx++;
-    }, 155);
+    this.scheduler.reset();
+    this.musicTimer = setInterval(() => this.scheduler.tick(), 25);
   }
 };
