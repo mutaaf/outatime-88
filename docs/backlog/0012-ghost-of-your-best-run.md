@@ -1,7 +1,7 @@
 ---
 id: 0012
 title: Race a translucent ghost of your best run on each level
-status: proposed
+status: ready
 priority: P2
 size: M
 lens: content
