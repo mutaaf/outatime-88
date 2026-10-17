@@ -52,4 +52,28 @@ export const MIGRATIONS = [
       'CREATE INDEX IF NOT EXISTS throttle_key ON throttle (key, at)',
     ],
   },
+  {
+    // Competition (tickets 0051–0053): per-track boards, car classes and a payload version so
+    // new scoring rules (e.g. a per-car penalty breakdown) can be validated per version.
+    v: 2,
+    sql: [
+      "ALTER TABLE scores ADD COLUMN car TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE scores ADD COLUMN cls TEXT NOT NULL DEFAULT ''",
+      'ALTER TABLE scores ADD COLUMN pv INTEGER NOT NULL DEFAULT 1',
+      'CREATE INDEX IF NOT EXISTS scores_level ON scores (mode, level, score DESC)',
+      'CREATE INDEX IF NOT EXISTS scores_initials ON scores (initials, mode)',
+      // Weekly season champions, filled lazily once a week has closed.
+      `CREATE TABLE IF NOT EXISTS champions (
+        week TEXT NOT NULL, mode TEXT NOT NULL, initials TEXT NOT NULL, score INTEGER NOT NULL,
+        PRIMARY KEY (week, mode)
+      )`,
+      // One ghost (compact position trace, src/ghost-codec.js) per initials per track.
+      `CREATE TABLE IF NOT EXISTS ghosts (
+        run_id TEXT PRIMARY KEY, mode TEXT NOT NULL, level INTEGER NOT NULL,
+        initials TEXT NOT NULL, dev TEXT NOT NULL, score INTEGER NOT NULL,
+        trace TEXT NOT NULL, created_at INTEGER NOT NULL
+      )`,
+      'CREATE INDEX IF NOT EXISTS ghosts_board ON ghosts (mode, level, score DESC)',
+    ],
+  },
 ];

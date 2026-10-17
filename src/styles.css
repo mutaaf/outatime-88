@@ -485,3 +485,35 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 }
 .friends-cta:hover, .friends-cta:focus-visible { background: rgba(0, 240, 255, 0.16); box-shadow: 0 0 30px rgba(0, 240, 255, 0.6); }
 @media (max-height: 430px) { .friends-cta { min-height: 44px; font-size: 11px; } }
+
+/* Competition (ticket 0091): rank card, rival line, podium board. */
+.title-rival { min-height: 1.2em; max-width: min(92vw, 34rem); font-size: 10px; font-weight: 900; letter-spacing: 0.12em; color: #fde68a; text-shadow: 0 0 10px rgba(255, 136, 0, 0.6); }
+.title-rival:empty { display: none; }
+.rank-card { margin-top: 2px; padding: 8px 10px; border-radius: 14px; background: linear-gradient(135deg, rgba(255, 0, 127, 0.18), rgba(0, 240, 255, 0.12)); border: 1px solid rgba(255, 0, 127, 0.55); font-family: 'Orbitron', sans-serif; }
+.rank-card-in { animation: rankPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@keyframes rankPop { from { transform: scale(0.85); opacity: 0; } to { transform: none; opacity: 1; } }
+.rank-main { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 4px 10px; }
+.rank-label { font-size: 10px; font-weight: 900; letter-spacing: 0.2em; color: #f0abfc; }
+.rank-num { font-family: 'Press Start 2P', monospace; font-size: 26px; color: #fff; text-shadow: 0 0 16px rgba(0, 240, 255, 0.8); font-variant-numeric: tabular-nums; }
+.rank-move { font-size: 13px; font-weight: 900; }
+.rank-up { color: #4ade80; }
+.rank-down { color: #fda4af; }
+.rank-new { color: #ffd000; }
+.rank-same { color: #94a3b8; }
+.rank-pb { padding: 2px 8px; border-radius: 999px; background: #ffd000; color: #1a0b00; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; }
+.rank-target { margin-top: 4px; font-size: 11px; font-weight: 900; color: #fde68a; letter-spacing: 0.04em; }
+.rank-chips { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.rank-chip { padding: 2px 8px; border-radius: 999px; background: rgba(2, 6, 23, 0.8); border: 1px solid #334155; font-size: 9px; font-weight: 900; letter-spacing: 0.1em; color: #cbd5e1; }
+.rank-chip.rank-up { color: #4ade80; border-color: rgba(74, 222, 128, 0.5); }
+.rank-streak { color: #fdba74; border-color: rgba(253, 186, 116, 0.6); }
+.board-tab { min-height: 44px; }
+.board-row-in { animation: rowIn 0.35s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
+@keyframes rowIn { from { transform: translateX(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
+.board-row.p1 { background: linear-gradient(90deg, rgba(255, 208, 0, 0.28), rgba(2, 6, 23, 0.7)); border: 1px solid rgba(255, 208, 0, 0.7); }
+.board-row.p2 { background: linear-gradient(90deg, rgba(203, 213, 225, 0.22), rgba(2, 6, 23, 0.7)); border: 1px solid rgba(203, 213, 225, 0.5); }
+.board-row.p3 { background: linear-gradient(90deg, rgba(251, 146, 60, 0.22), rgba(2, 6, 23, 0.7)); border: 1px solid rgba(251, 146, 60, 0.5); }
+.board-row.p1 .rk, .board-row.p2 .rk, .board-row.p3 .rk { font-size: 16px; }
+.board-row.me { box-shadow: 0 0 0 2px #ff8800, 0 0 18px rgba(255, 136, 0, 0.45); }
+.board-row .badges { font-style: normal; letter-spacing: 0; }
+.board-gap { text-align: center; color: #64748b; font-weight: 900; line-height: 1; }
+@media (prefers-reduced-motion: reduce) { .rank-card-in, .board-row-in { animation: none; } }
