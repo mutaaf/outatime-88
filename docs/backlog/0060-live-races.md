@@ -36,5 +36,10 @@ across two tablets is the game's best moment; it has to work with zero setup.
 - [x] Unit: room state machine, CPU grid, finish order, limits, interpolation, clock sync
 - [ ] Verified on production with two real browsers
 
+## Test plan
+Unit: `tests/unit/live-room.test.js`, `tests/unit/live-client.test.js`. e2e:
+`tests/e2e/live.spec.js` drives two browsers against `wrangler dev` (real Worker + Durable
+Objects). After merge: two real browsers on production create, join, race and finish.
+
 ## Out of scope
 Car-to-car collisions over the network; live races posting to the global leaderboard.
