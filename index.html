@@ -200,14 +200,14 @@
   </header>
 
   <!-- LIVE DRIFT / SLIPSTREAM / 2-WHEEL FLOATING TELEMETRY PILL -->
-  <div id="liveStuntTelemetry" class="pointer-events-none absolute inset-x-0 top-36 sm:top-40 z-20 flex justify-center">
+  <div id="liveStuntTelemetry" class="slot-telemetry pointer-events-none absolute inset-x-0 z-20 flex justify-center">
     <div id="driftCounterBox" class="hidden px-4 py-1 rounded-full bg-slate-950/90 border-2 border-cyan-400 text-cyan-300 font-arcade text-xs sm:text-sm font-black tracking-wider shadow-[0_0_20px_rgba(0,240,255,0.6)]">
       🔥 DRIFTING: +0 PTS • TIER 1
     </div>
   </div>
 
   <!-- INTERACTIVE GETTING-STARTED DRIVING COACH TOOLTIP (Guides player on 2-Solution Obstacles as they drive!) -->
-  <div id="interactiveCoachBanner" class="pointer-events-none absolute inset-x-0 top-16 sm:top-20 z-20 flex justify-center px-3 transition-opacity duration-200">
+  <div id="interactiveCoachBanner" class="slot-message pointer-events-none absolute inset-x-0 z-20 flex justify-center px-3 transition-opacity duration-200">
     <div id="coachCard" class="pointer-events-auto flex items-center gap-2.5 bg-slate-950/92 border-2 border-cyan-400 rounded-2xl px-3.5 py-2 shadow-[0_0_25px_rgba(0,240,255,0.35)] max-w-xl">
       <span id="coachIcon" class="text-lg sm:text-xl">🎓</span>
       <div class="text-left">
@@ -225,7 +225,7 @@
   </div>
 
   <!-- COMPACT NON-INTRUSIVE EVENT TOAST BANNER (Keeps windshield clear!) -->
-  <div id="announcerContainer" class="pointer-events-none absolute inset-x-0 top-20 sm:top-24 z-20 flex flex-col items-center justify-center px-4 text-center">
+  <div id="announcerContainer" class="slot-message pointer-events-none absolute inset-x-0 z-20 flex flex-col items-center justify-center px-4 text-center">
     <div id="announcerMain" class="px-3.5 py-1 rounded-full bg-slate-950/85 border border-amber-400/60 font-arcade text-xs sm:text-base font-bold tracking-wider uppercase text-amber-300 shadow-lg opacity-0 transition-all duration-300 scale-95">
       CHECKPOINT REACHED
     </div>
@@ -235,7 +235,7 @@
   </div>
 
   <!-- SPLIT TRACK / STREET SHORTCUT CHOICE BANNER -->
-  <div id="forkChoiceBanner" class="hidden pointer-events-none absolute inset-x-0 top-44 sm:top-48 z-20 flex justify-center gap-4 sm:gap-12 px-4">
+  <div id="forkChoiceBanner" class="slot-fork hidden pointer-events-none absolute inset-x-0 z-20 flex justify-center gap-3 sm:gap-12 px-3">
     <div id="forkLeftCard" class="px-3 py-1.5 rounded-xl bg-slate-950/90 border-2 border-cyan-400 text-cyan-300 font-arcade text-xs sm:text-sm font-bold shadow-lg">
       ⬅ LEFT: SKY-LOOP SHORTCUT (2X FLUX ⚡)
     </div>
@@ -244,41 +244,37 @@
     </div>
   </div>
 
-  <!-- STREAMLINED 5-BUTTON ARCADE CONTROLS (Clean & Clutter-Free + Full Swipe / Keyboard / Tilt Support) -->
-  <div id="touchControlsLayer" class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between p-3 sm:p-4">
-    
-    <!-- Left Side: Clean Left / Right Steering Paddles -->
-    <div class="pointer-events-auto flex items-center gap-2">
-      <button id="btnSteerLeft" aria-label="Steer Left" class="arcade-pedal w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-900/85 active:bg-orange-600/80 border-2 border-orange-500/80 flex items-center justify-center text-2xl font-black text-orange-300 shadow-lg">
+  <!-- ARCADE TOUCH CONTROLS: steer pair left, three action pads right, driver badge between
+       (full HUD only). Compact layout and sizing live in styles.css (ticket 0021). -->
+  <div id="touchControlsLayer" class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between">
+
+    <div class="steer-group pointer-events-auto flex items-center">
+      <button id="btnSteerLeft" aria-label="Steer Left" class="arcade-pedal steer-pad rounded-2xl bg-slate-900/85 active:bg-orange-600/80 border-2 border-orange-500/80 flex items-center justify-center font-black text-orange-300 shadow-lg">
         ◀
       </button>
-      <button id="btnSteerRight" aria-label="Steer Right" class="arcade-pedal w-14 h-13 sm:w-16 sm:h-16 rounded-2xl bg-slate-900/85 active:bg-orange-600/80 border-2 border-orange-500/80 flex items-center justify-center text-2xl font-black text-orange-300 shadow-lg">
+      <button id="btnSteerRight" aria-label="Steer Right" class="arcade-pedal steer-pad rounded-2xl bg-slate-900/85 active:bg-orange-600/80 border-2 border-orange-500/80 flex items-center justify-center font-black text-orange-300 shadow-lg">
         ▶
       </button>
     </div>
 
-    <!-- Center: Active Driver & Car Badge + Character Switch Button -->
-    <div class="pointer-events-auto hidden sm:flex items-center gap-2 bg-slate-950/90 border border-slate-700 rounded-2xl px-3 py-1.5 shadow-xl">
-      <span id="activeDriverBadge" class="font-arcade text-[10px] font-bold text-cyan-300">
+    <div id="driverBadgeBar" class="pointer-events-auto flex items-center gap-2 min-w-0 bg-slate-950/90 border border-slate-700 rounded-2xl px-3 py-1.5 shadow-xl">
+      <span id="activeDriverBadge" class="font-arcade text-[10px] font-bold text-cyan-300 truncate">
         🏎️ ROOK & THE PROFESSOR • '88 FLUX COUPE GULL-WING
       </span>
-      <button id="btnQuickSwitchCar" title="Switch Driver & Car (Or Generate New!)" class="px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/40 border border-orange-400 text-[9px] font-arcade font-bold text-orange-200 transition">
+      <button id="btnQuickSwitchCar" title="Switch Driver & Car (Or Generate New!)" class="shrink-0 px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/40 border border-orange-400 text-[9px] font-arcade font-bold text-orange-200 transition">
         🎲 NEXT CAR (N)
       </button>
     </div>
 
-    <!-- Right Side: 3 Core Action Pedals (JUMP/HOVER over low lasers, DRIFT/SLIDE under high gates, 88 WARP/BOOST) -->
-    <div class="pointer-events-auto flex items-center gap-2">
-      <button id="btnBrakeDrift" title="Hold to Drift Corners OR Duck-Slide Under High Gates (S / Down / Swipe Down)" class="arcade-pedal px-3.5 py-3 rounded-2xl bg-red-950/90 active:bg-red-700 border-2 border-red-500/80 text-red-200 font-arcade text-[10px] sm:text-xs font-bold shadow-lg">
-        🔥 DRIFT / BRAKE (S)
+    <div class="action-group pointer-events-auto flex items-end">
+      <button id="btnBrakeDrift" aria-label="Drift / brake / slide under gates" title="Hold to Drift Corners OR Duck-Slide Under High Gates (S / Down / Swipe Down)" class="arcade-pedal action-pad rounded-2xl bg-red-950/90 active:bg-red-700 border-2 border-red-500/80 text-red-200 font-arcade font-bold shadow-lg">
+        <span class="pad-icon">🔥</span><span class="pad-label">DRIFT</span><span class="pad-key">S</span>
       </button>
-      <button id="btnHoverStunt" title="Jump Over Low Lasers & Ramps OR Engage Hover (W / Up / H / Swipe Up)" class="arcade-pedal px-3.5 py-2.5 rounded-2xl bg-fuchsia-900/85 hover:bg-fuchsia-700/85 border-2 border-fuchsia-400 text-fuchsia-100 font-arcade text-[10px] sm:text-xs font-bold shadow-lg flex flex-col items-center">
-        <span>🛸 HOVER / STUNT</span>
-        <span class="text-[7px] text-fuchsia-300">KEY: H / E</span>
+      <button id="btnHoverStunt" aria-label="Jump / hover" title="Jump Over Low Lasers & Ramps OR Engage Hover (W / Up / H / Swipe Up)" class="arcade-pedal action-pad rounded-2xl bg-fuchsia-900/85 hover:bg-fuchsia-700/85 border-2 border-fuchsia-400 text-fuchsia-100 font-arcade font-bold shadow-lg">
+        <span class="pad-icon">🛸</span><span class="pad-label">JUMP</span><span class="pad-key">W / H</span>
       </button>
-      <button id="btnFluxBoost" title="Smash Crates & Trigger 88 MPH Time Warp (Spacebar)" class="arcade-pedal flux-btn px-3.5 py-2.5 rounded-2xl border-2 border-white text-slate-950 font-arcade text-[10px] sm:text-xs font-black shadow-xl flex flex-col items-center">
-        <span>⚡ 88 MPH WARP</span>
-        <span class="text-[7px] text-slate-900 font-bold">SPACEBAR</span>
+      <button id="btnFluxBoost" aria-label="88 mph time warp" title="Smash Crates & Trigger 88 MPH Time Warp (Spacebar)" class="arcade-pedal action-pad action-pad-hero flux-btn rounded-2xl border-2 border-white text-slate-950 font-arcade font-black shadow-xl">
+        <span class="pad-icon">⚡</span><span class="pad-label">WARP</span><span class="pad-key">SPACE</span>
       </button>
     </div>
 

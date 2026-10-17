@@ -1,0 +1,76 @@
+// Zero overlaps (ticket 0021): on every screen shape we ship to, the HUD panels, the floating
+// message lane and the touch controls never cover each other and never hang off-screen.
+import { test, expect } from '@playwright/test';
+import { APP, watchPage } from './helpers.js';
+
+const VIEWPORTS = [
+  { width: 390, height: 844 },
+  { width: 360, height: 640 },
+  { width: 430, height: 932 },
+  { width: 844, height: 390 },
+  { width: 768, height: 1024 },
+  { width: 1024, height: 768 },
+  { width: 1280, height: 720 },
+];
+
+const PANELS = ['#leftHudPanel', '#centerHudPanel', '#rightHudPanel'];
+const OVERLAYS = ['#announcerMain', '#coachCard', '#driftCounterBox', '#forkLeftCard', '#forkRightCard'];
+const CONTROLS = ['#btnSteerLeft', '#btnSteerRight', '#btnBrakeDrift', '#btnHoverStunt', '#btnFluxBoost', '#driverBadgeBar'];
+
+const overlap = (a, b) =>
+  a.x < b.x + b.width - 1 && b.x < a.x + a.width - 1 && a.y < b.y + b.height - 1 && b.y < a.y + a.height - 1;
+
+async function boxes(page, sels) {
+  return page.evaluate((list) => {
+    const out = {};
+    for (const s of list) {
+      const el = document.querySelector(s);
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width && r.height) out[s] = { x: r.x, y: r.y, width: r.width, height: r.height };
+    }
+    return out;
+  }, sels);
+}
+
+for (const vp of VIEWPORTS) {
+  test(`no HUD/overlay/control overlaps at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace());
+    await page.waitForTimeout(600);
+    // Put every floating element on screen at once so their slots can be measured.
+    await page.evaluate(() => {
+      window.__OT.pause(); // freeze the sim so nothing re-hides what we reveal below
+      for (const id of ['interactiveCoachBanner', 'announcerMain']) document.getElementById(id).style.opacity = '1';
+      document.getElementById('driftCounterBox').classList.remove('hidden');
+      document.getElementById('forkChoiceBanner').classList.remove('hidden');
+    });
+    await page.waitForTimeout(100);
+    const all = await boxes(page, [...PANELS, ...OVERLAYS, ...CONTROLS]);
+
+    for (const [sel, b] of Object.entries(all)) {
+      expect(b.x, `${sel} left edge`).toBeGreaterThanOrEqual(-1);
+      expect(b.y, `${sel} top edge`).toBeGreaterThanOrEqual(-1);
+      expect(b.x + b.width, `${sel} right edge`).toBeLessThanOrEqual(vp.width + 1);
+      expect(b.y + b.height, `${sel} bottom edge`).toBeLessThanOrEqual(vp.height + 1);
+    }
+    for (const sel of CONTROLS.slice(0, 5)) {
+      expect(all[sel], `${sel} visible`).toBeTruthy();
+      expect(Math.min(all[sel].width, all[sel].height), `${sel} touch target`).toBeGreaterThanOrEqual(44);
+    }
+    // Announcer and coach share one lane by design (never shown together), so they're not paired.
+    const sameLane = (a, b) => new Set([a, b]).size === 2 && [a, b].every((s) => s === '#announcerMain' || s === '#coachCard');
+    const keys = Object.keys(all);
+    for (let i = 0; i < keys.length; i++) {
+      for (let j = i + 1; j < keys.length; j++) {
+        if (sameLane(keys[i], keys[j])) continue;
+        expect(overlap(all[keys[i]], all[keys[j]]), `${keys[i]} overlaps ${keys[j]}`).toBeFalsy();
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+}
