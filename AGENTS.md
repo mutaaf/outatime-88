@@ -63,8 +63,7 @@ Depth over breadth: polish one moment until it sings before adding three.
 3. **Allowed runtime hosts:** **our own origin only** — everything (code, CSS, fonts via
    `@fontsource`) is bundled, and the one API is `/outatime/api/*` on the same origin (the
    leaderboard Worker, src/worker/). No third-party host, ever. The e2e smoke test fails on
-   any non-localhost request. The leaderboard stores 3-letter initials and a daily-salted IP
-   hash for rate limiting — no accounts, no personal data.
+   any non-localhost request. No accounts and no personal data: see § Privacy model.
    No analytics, ads, trackers, fonts or scripts from CDNs. Everything else is bundled.
 4. **Frame budget.** The render loop must hold 60fps on a mid-range laptop and stay
    playable on a recent phone. No per-frame allocations in hot paths (reuse vectors and
@@ -76,12 +75,38 @@ Depth over breadth: polish one moment until it sings before adding three.
    change the meaning of an existing field. Add fields by adding defaults to `SaveStore.data`;
    `load()` merges saved data over defaults, so old saves keep working. A breaking change needs
    a versioned migration *from* the old key, plus a unit test with a real old-shape save.
+   Identity (ticket 0090) adds two versioned keys that follow the same rules:
+   `outatime88_identity_v1` (this device's racers and their credentials, also mirrored in
+   IndexedDB `outatime88`/`kv`) and `outatime88_racer_saves_v1` (saves of racers who aren't
+   playing right now on a shared device). The live save always stays under the main key.
 7. **IP caution.** The title is an homage; the game itself must stay original. Do not add
    trademarked logos, brand marks, real film/TV character names or likenesses, real car-maker
    badges, or quoted film dialogue/music. Existing named homages in `src/data.js` are legacy
    debt being replaced (see the backlog), not precedent — new content uses invented names.
 8. **Accessibility floor.** Respect `prefers-reduced-motion` for screen shake/flashes;
    every control has a keyboard path; text meets 4.5:1 contrast on HUD backgrounds.
+
+## 3½ · Privacy model (ticket 0090 — players are kids; keep it this way)
+
+- **No login, no PII.** A racer is a random 12-character public id issued by the Worker on
+  first visit. The profile is 3-letter initials, a car id, friends (other public ids) and a
+  small progression blob. No names, emails, ages, device identifiers, IMEI/MAC, fingerprints
+  or location — ever. Browsers can't read IMEI/MAC, and fingerprinting is off the table.
+- **Proof of racer** is a credential `pub.sig` (HMAC with a key that never leaves D1): an
+  HttpOnly, Secure, SameSite=Lax first-party cookie scoped to `/outatime/`, mirrored by the
+  client to localStorage + IndexedDB and sent as `x-ot-id` if the cookie is lost. It is a
+  secret: never put it in a URL, log, room message or share card. Share `publicId()`.
+- **IP is never identity and never kept.** It is used only transiently for rate limits:
+  hashed with a rotating salt, code-redeem throttle rows are deleted after an hour, and score
+  rows wipe their address hash once the 10-minute submit window has passed.
+- **Moving devices without accounts:** a 6-character link code (10 minutes, single use, shown
+  as a QR) or a long-lived recovery code ("Save my racer", for a grown-up to write down).
+  Both are stored only as salted hashes, and redemption is rate-limited.
+- **Shared devices:** "Switch racer" keeps each sibling's racer and local save on one iPad.
+  "Forget this device" removes the racer from every local store and clears the cookie.
+- **For other features:** `src/identity.js` is the client API (publicId, profile, addFriends,
+  saveProfileData…); `src/worker/identity.js` is the server side. Reuse them — don't invent
+  another id.
 
 ## 4 · System map
 
@@ -98,6 +123,11 @@ src/cars.js         Car ratings (same 30-point budget each), unlock rules, carPa
                       numbers a car drives with; career counters. Balance is unit-tested.
 src/state.js        GameState — the one mutable state object every system reads/writes
 src/save.js         SaveStore (localStorage persistence, see invariant 6)
+src/identity.js     Zero-login identity client: who is playing, friends, link/recovery codes (0090)
+src/racer-ui.js     The RACER panel (switch racer, link a device, save my racer, forget)
+src/racer-saves.js  One local save per racer on a shared device; merges server bests
+src/qr.js           On-device QR encoder (links, invites, share cards) — no QR service
+src/worker/identity.js  Identity routes: /api/me, /link, /recovery, /use, /forget
 src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks
 src/input.js        InputState + pollGamepad()
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound)

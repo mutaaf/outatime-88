@@ -1,7 +1,7 @@
 import './fonts.js';
 import './styles.css';
 import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
-import { SaveStore } from './save.js';
+import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
@@ -25,6 +25,8 @@ import { beginRun, submitRun, fetchBoard, normalizeInitials, rankLine } from './
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen } from './settings-ui.js';
 import { carParams, isOwned, unlockProgress, recordRace } from './cars.js';
+import { initRacer } from './racer-ui.js';
+import { setProfile } from './identity.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -4038,6 +4040,7 @@ function bindAllControls() {
     if (!ini) { input.focus(); return; }
     SaveStore.data.initials = ini;
     SaveStore.save();
+    setProfile({ initials: ini });
     postScore(ini);
   });
   // Typing initials must not steer the car or trigger shortcuts.
@@ -4473,4 +4476,13 @@ window.onload = () => {
   updateLiveHud();
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(mainLoop);
+  // Zero-login identity (ticket 0090): silent, never blocks the title.
+  initRacer({ SaveStore, freshSaveData, levels: WORLD_LEVELS, onChange: renderRacerPill });
 };
+
+function renderRacerPill(p) {
+  const name = document.getElementById('racerPillName');
+  if (name) name.textContent = p?.initials || SaveStore.data.initials || 'RACER';
+  const best = document.getElementById('titleBestScore');
+  if (best) best.textContent = SaveStore.data.bestScore.toLocaleString();
+}

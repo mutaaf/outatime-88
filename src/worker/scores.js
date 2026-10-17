@@ -6,8 +6,10 @@
 //                              → { ok, rank: { all, daily }, best }
 //   GET  /outatime/api/scores?board=all|daily&mode=ARCADE|INFINITE|DAILY&limit=10
 //                              → { board, mode, day, entries: [{ rank, initials, score }] }
+//   /outatime/api/me, /link, /recovery, /use, /forget → zero-login identity (identity.js)
 
-import { SCHEMA } from './schema.js';
+import { SCHEMA, MIGRATIONS } from './schema.js';
+import { handleIdentity, whoIs } from './identity.js';
 import { cleanInitials } from './initials.js';
 import { implausible } from './plausible.js';
 import { signToken, verifyToken, randomId } from './token.js';
@@ -26,14 +28,30 @@ export const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 let schemaReady = null;
 export async function ensureSchema(db) {
   if (!schemaReady) {
-    schemaReady = db.batch(SCHEMA.map((sql) => db.prepare(sql))).catch((e) => { schemaReady = null; throw e; });
+    schemaReady = db.batch(SCHEMA.map((sql) => db.prepare(sql))).then(() => migrate(db))
+      .catch((e) => { schemaReady = null; throw e; });
   }
   return schemaReady;
 }
 export function resetSchemaCache() { schemaReady = null; }
 
+async function migrate(db) {
+  const row = await db.prepare("SELECT value FROM meta WHERE key = 'schema_v'").first();
+  let v = Number(row?.value || 0);
+  for (const m of MIGRATIONS) {
+    if (m.v <= v) continue;
+    for (const sql of m.sql) {
+      try { await db.prepare(sql).run(); } catch (e) {
+        if (!/duplicate column/i.test(String(e?.message))) throw e;
+      }
+    }
+    v = m.v;
+    await db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_v', ?)").bind(String(v)).run();
+  }
+}
+
 /** The HMAC key: generated once, stored in D1, never sent anywhere. */
-async function signingSecret(db) {
+export async function signingSecret(db) {
   const row = await db.prepare("SELECT value FROM meta WHERE key = 'hmac'").first();
   if (row) return row.value;
   const fresh = randomId(32);
@@ -72,7 +90,7 @@ async function rankOf(db, score, mode, day) {
   return (row?.above ?? 0) + 1;
 }
 
-export async function submitScore(body, { db, now, ip }) {
+export async function submitScore(body, { db, now, ip, request }) {
   await ensureSchema(db);
   if (!body || typeof body !== 'object') return json(400, { error: 'bad body' });
   const initials = cleanInitials(body.initials);
@@ -92,15 +110,25 @@ export async function submitScore(body, { db, now, ip }) {
 
   const day = utcDay(t);
   const iph = await ipHash(ip || 'unknown', day, secret);
+  // The racer this device is (ticket 0090): cookie, or the mirrored header. '' = anonymous.
+  const dev = request ? (await whoIs(request, secret)).pub || '' : '';
   const recent = await db.prepare('SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ? AND created_at > ?')
     .bind(iph, t - RATE.windowMs).first();
   if ((recent?.n ?? 0) >= RATE.maxSubmits) return json(429, { error: 'slow down' });
 
   const res = await db.prepare(
-    `INSERT OR IGNORE INTO scores (run_id, initials, score, distance, duration_ms, warps, level, mode, day, created_at, ip_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).bind(payload.id, initials, run.score, run.distance, run.durationMs, run.warps, level, mode, day, t, iph).run();
+    `INSERT OR IGNORE INTO scores (run_id, initials, score, distance, duration_ms, warps, level, mode, day, created_at, ip_hash, dev)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(payload.id, initials, run.score, run.distance, run.durationMs, run.warps, level, mode, day, t, iph, dev).run();
   if (!res.meta || res.meta.changes === 0) return json(409, { error: 'run already submitted' });
+  // The address hash only exists for the rate-limit window, then it's wiped (AGENTS.md privacy).
+  await db.prepare("UPDATE scores SET ip_hash = '' WHERE ip_hash != '' AND created_at < ?").bind(t - RATE.windowMs).run();
+  if (dev) {
+    await db.prepare(
+      `INSERT INTO profiles (pub, initials, created_at, seen_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(pub) DO UPDATE SET seen_at = excluded.seen_at, initials = CASE WHEN profiles.initials = '' THEN excluded.initials ELSE profiles.initials END`,
+    ).bind(dev, initials, t, t).run();
+  }
 
   const [all, daily] = await Promise.all([rankOf(db, run.score, mode), rankOf(db, run.score, mode, day)]);
   return json(200, { ok: true, initials, score: run.score, mode, day, rank: { all, daily } });
@@ -123,13 +151,16 @@ export async function handleApi(request, deps) {
   const path = url.pathname.replace(/\/+$/, '');
   if (!deps.db) return json(503, { error: 'leaderboard offline' });
   try {
+    await ensureSchema(deps.db);
+    const ident = await handleIdentity(request, path, { ...deps, secret: () => signingSecret(deps.db) });
+    if (ident) return ident;
     if (path === '/outatime/api/run' && request.method === 'POST') return await issueRun(deps);
     if (path === '/outatime/api/scores' && request.method === 'GET') return await readBoard(url.searchParams, deps);
     if (path === '/outatime/api/scores' && request.method === 'POST') {
       if ((request.headers.get('content-length') | 0) > 2048) return json(413, { error: 'too large' });
       let body;
       try { body = await request.json(); } catch { return json(400, { error: 'bad json' }); }
-      return await submitScore(body, deps);
+      return await submitScore(body, { ...deps, request });
     }
     return json(404, { error: 'not found' });
   } catch (e) {

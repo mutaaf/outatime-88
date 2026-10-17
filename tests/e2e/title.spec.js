@@ -31,9 +31,9 @@ for (const vp of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { wi
     await page.setViewportSize(vp);
     await page.goto(`${APP}?debug`);
     // Few things to read: PLAY, five small icons (settings added in 0050), the 2D/3D chip
-    // (0040, operator request), and the TILT chip on touch screens only.
+    // (0040, operator request), the racer/stats chip (0090), and the TILT chip on touch only.
     const buttons = await page.locator('#titleScreen button:visible').count();
-    expect(buttons).toBeLessThanOrEqual(7);
+    expect(buttons).toBeLessThanOrEqual(8);
     // Tap the empty middle of the screen (the car on the road), not a button.
     await page.mouse.click(vp.width / 2, vp.height / 2);
     await expect(page.locator('#titleScreen')).toBeHidden();

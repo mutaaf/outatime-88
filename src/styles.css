@@ -410,3 +410,59 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
   .spd-num { font-size: 26px; }
   .hud-pos, .hud-speed { min-width: 0; }
 }
+/* RACER panel (ticket 0090): who's playing, link a device, recovery code. */
+.racer-pill { min-height: 44px; color: #e2e8f0; }
+.racer-pill-name { color: #fff; font-weight: 900; letter-spacing: 0.2em; padding-right: 10px; border-right: 1px solid rgba(148, 163, 184, 0.35); }
+.racer-pill:hover, .racer-pill:focus-visible { border-color: #ff007f; box-shadow: 0 0 18px rgba(255, 0, 127, 0.45); }
+.racer-modal {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-start; justify-content: center;
+  overflow-y: auto; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  background: rgba(2, 6, 23, 0.9); backdrop-filter: blur(8px);
+}
+.racer-modal.hidden { display: none; }
+.racer-card {
+  position: relative; width: 100%; max-width: 30rem; margin: auto; padding: 18px 16px 14px; border-radius: 22px;
+  background: linear-gradient(160deg, #150a2e 0%, #0b0518 60%); border: 2px solid #ff007f;
+  box-shadow: 0 0 50px rgba(255, 0, 127, 0.35), inset 0 0 30px rgba(0, 240, 255, 0.06);
+  color: #e2e8f0; font-family: 'Orbitron', sans-serif;
+}
+.racer-close { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border-radius: 999px; color: #94a3b8; font-size: 18px; }
+.racer-head { display: flex; align-items: center; gap: 14px; padding-right: 40px; }
+.racer-badge {
+  flex: none; min-width: 84px; padding: 10px 12px; border-radius: 14px; text-align: center;
+  font-family: 'Press Start 2P', monospace; font-size: 20px; color: #fff; letter-spacing: 0.12em;
+  background: linear-gradient(135deg, #ff5500, #ff007f); box-shadow: 0 0 24px rgba(255, 85, 0, 0.5);
+}
+.racer-kicker { font-size: 10px; font-weight: 900; letter-spacing: 0.22em; color: #00f0ff; }
+.racer-sub { margin-top: 4px; font-size: 11px; color: #cbd5e1; line-height: 1.4; }
+.racer-sec { margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(148, 163, 184, 0.22); }
+.racer-sec h3 { font-size: 10px; font-weight: 900; letter-spacing: 0.22em; color: #ffd000; margin-bottom: 8px; }
+.racer-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.racer-chip {
+  min-height: 44px; min-width: 64px; padding: 0 14px; border-radius: 12px; border: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.9); color: #fff; font-weight: 900; letter-spacing: 0.22em; font-size: 13px;
+}
+.racer-chip.on { border-color: #00f0ff; background: rgba(0, 240, 255, 0.16); box-shadow: 0 0 14px rgba(0, 240, 255, 0.35); }
+.racer-chip-add { color: #ffd000; letter-spacing: 0.1em; font-size: 11px; }
+.racer-btn {
+  min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #00f0ff; color: #e0fbff;
+  background: rgba(0, 240, 255, 0.1); font-weight: 900; font-size: 11px; letter-spacing: 0.12em;
+}
+.racer-btn-hot { border-color: #ff5500; background: linear-gradient(135deg, #ff5500, #ff007f); color: #fff; }
+.racer-linkbox { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.racer-linkbox.hidden, .racer-recovery.hidden { display: none; }
+.racer-qr { width: 132px; height: 132px; border-radius: 10px; image-rendering: pixelated; flex: none; }
+.racer-code { font-family: 'Press Start 2P', monospace; font-size: 20px; color: #fff; letter-spacing: 0.14em; text-shadow: 0 0 14px rgba(0, 240, 255, 0.6); }
+.racer-code-long { font-size: 15px; word-break: break-all; }
+.racer-note { margin-top: 6px; font-size: 10px; color: #cbd5e1; line-height: 1.5; }
+.racer-join { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.racer-join label { font-size: 10px; font-weight: 900; letter-spacing: 0.14em; color: #00f0ff; }
+.racer-join input {
+  flex: 1 1 8rem; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid #475569;
+  background: #020617; color: #fff; font-family: 'Press Start 2P', monospace; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.racer-msg { min-height: 1.2em; margin-top: 8px; font-size: 11px; font-weight: 800; color: #cbd5e1; }
+.racer-msg[data-tone="bad"] { color: #fda4af; }
+.racer-msg[data-tone="good"] { color: #86efac; }
+.racer-forget { display: block; margin: 16px auto 0; min-height: 44px; padding: 0 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; color: #94a3b8; text-decoration: underline; text-underline-offset: 4px; }
+.racer-forget[data-armed="1"] { color: #fda4af; }
