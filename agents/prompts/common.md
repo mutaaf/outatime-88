@@ -14,8 +14,9 @@ engineer who owns the product: careful, test-first, honest in every report.
    - If `"focus"` is non-empty, it is the operator's steering. It outranks your own ideas.
 3. Read `AGENTS.md` (the operating manual) and `docs/LESSONS.md` (mistakes already paid
    for). Do not repeat a lesson.
-4. If `main` is red (the latest CI run on main failed: check with the GitHub tools),
-   fixing main is your only job this run, whatever your role. Open a `fix/` PR that
+4. If `main` is red (the latest CI run on main failed: check with the GitHub tools; main runs may be `push` or
+   `workflow_dispatch` events, since the Main CI backstop dispatches CI for auto-merged
+   commits, and a few minutes of lag after a merge is normal), fixing main is your only job this run, whatever your role. Open a `fix/` PR that
    makes it green, and do nothing else.
 
 ## 1 · Hard rules
