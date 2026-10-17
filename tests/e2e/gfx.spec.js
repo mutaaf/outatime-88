@@ -73,3 +73,12 @@ test('2D: the governor trades road resolution, never the simulation', async ({ p
   expect(r.q).toBeLessThan(1);
   expect(r.w).toBe(Math.max(320, r.cssW)); // the visible canvas stays full size; only the road buffer shrinks
 });
+
+test('the 2D era backdrops follow the graphics tier', async ({ page }) => {
+  await page.goto(APP + '?debug&gfx=low');
+  await gfxReady(page);
+  await page.waitForFunction(() => { const b = window.__OT.backdrop(); return b && b.q === 'low'; }, null, { timeout: 15_000 });
+  await page.goto(APP + '?debug&gfx=ultra');
+  await gfxReady(page);
+  await page.waitForFunction(() => { const b = window.__OT.backdrop(); return b && b.q === 'ultra'; }, null, { timeout: 15_000 });
+});
