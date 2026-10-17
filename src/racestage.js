@@ -3,6 +3,7 @@
 import { SoundEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
+import { finishResults, resultHeadline, lineupCall } from './racecall.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -102,3 +103,74 @@ export const stage = {
 };
 
 export const reducedMotion = () => Boolean(GameState.reducedMotion);
+
+/**
+ * The results screen's race half (ticket 0052): finish order, headline, NEXT, and
+ * GameState.lastResult (the run's story, used by the share card). Lives in this lazy chunk so
+ * the main bundle stays small; main.js passes in what it owns.
+ */
+export function renderResults({ badgeText, lvl, next, racers, speedToWorld, playerZ, me, color, unlockedLevel, fieldSize }) {
+  stage.hide();
+  GameState.racePhase = 'RACING';
+  const infinite = GameState.mode === 'INFINITE' || !GameState.raceLength;
+  const outcome = /WRECKED/.test(badgeText || '') ? 'wrecked' : GameState.finishTime != null ? 'finished' : 'timeup';
+  const field = racers.map((r) => ({
+    id: r.id, driver: r.driver, short: r.short, car: r.car, color: r.color, mph: r.pace,
+    progress: GameState.distance + (r.worldZ - playerZ) / speedToWorld, finishTime: r.finishTime,
+  }));
+  field.push({ id: 'YOU', isPlayer: true, driver: 'YOU', short: 'YOU', car: me.car, color,
+    mph: Math.max(30, GameState.speed), progress: GameState.distance, finishTime: GameState.finishTime });
+  const rows = infinite ? [] : finishResults(field, { elapsed: GameState.raceTime, length: GameState.raceLength, playerOutcome: outcome });
+  const mine = rows.find((r) => r.isPlayer);
+  const place = mine ? mine.place : GameState.racePosition;
+  if (mine) GameState.racePosition = place;
+  const aheadRow = rows[place - 2];
+  const aheadField = aheadRow && field.find((f) => f.id === aheadRow.id);
+  const beatBy = aheadRow && aheadRow.finished && GameState.finishTime != null ? Math.max(0, GameState.finishTime - (aheadField.finishTime || 0)) : null;
+  const head = infinite ? { title: 'STREET RUN SUMMARY', line: '' } : resultHeadline(place, rows.length, { startPos: fieldSize, beatBy, outcome });
+  $('endModalTitle').textContent = head.title;
+  const headLine = $('endHeadline');
+  headLine.textContent = head.line;
+  headLine.classList.toggle('hidden', !head.line);
+  headLine.classList.remove('is-win');
+  $('endPodiumBox').classList.toggle('hidden', infinite);
+  stage.podium(rows);
+  $('gameOverModal').dataset.place = infinite ? '' : String(place);
+  // Next: the following level when it's open (daily runs have no "next").
+  const nextOpen = !GameState.daily && next && next.index < unlockedLevel;
+  const nextBtn = $('btnNextRace');
+  nextBtn.classList.toggle('hidden', !nextOpen);
+  nextBtn.dataset.level = nextOpen ? String(next.index) : '';
+  GameState.lastResult = {
+    place, total: rows.length, outcome, rows, levelIndex: lvl.index, levelName: lvl.name,
+    time: GameState.finishTime != null ? GameState.finishTime : GameState.raceTime,
+    beat: rows.filter((r) => r.place > place).map((r) => r.name), daily: Boolean(GameState.daily), headline: head, beatBy,
+  };
+}
+
+/** Shows and sounds the start timeline's events; `hooks` { field(), announceLevel(), go() }. */
+export function playStartEvents(events, hooks) {
+  for (const ev of events) {
+    if (ev.type === 'card') {
+      const field = hooks.field();
+      const r = field[ev.index];
+      const call = lineupCall(r, ev.index, field.length);
+      stage.card(r, call, ev.index, field.length);
+      cardSting(ev.index);
+      say(call.say);
+    } else if (ev.type === 'grid') {
+      stage.grid(hooks.field());
+    } else if (ev.type === 'light') {
+      stage.lights(ev.n);
+      lightBeep();
+      if (ev.n === 3) hooks.announceLevel();
+    } else if (ev.type === 'go') {
+      stage.lights('go');
+      goBeep();
+      say('Go!');
+      hooks.go();
+    } else if (ev.type === 'done') {
+      stage.hide();
+    }
+  }
+}

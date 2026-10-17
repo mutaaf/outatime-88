@@ -2066,79 +2066,6 @@ function updateLiveHud(forceHud) {
   if (comboPill) comboPill.textContent = `x${GameState.combo}`;
 }
 
-// --- LIVE GPS STREET RADAR MINIMAP RENDERER ---
-const radarCanvas = document.getElementById('radarCanvas');
-const radarCtx = radarCanvas ? radarCanvas.getContext('2d') : null;
-
-function renderRadarMinimap(baseIndex) {
-  if (!radarCtx) return;
-  const w = radarCanvas.width;
-  const h = radarCanvas.height;
-  radarCtx.clearRect(0, 0, w, h);
-
-  // Dark Radar Grid
-  radarCtx.fillStyle = '#040814';
-  radarCtx.fillRect(0, 0, w, h);
-  radarCtx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
-  radarCtx.lineWidth = 1;
-  radarCtx.beginPath();
-  radarCtx.arc(w / 2, h / 2, w * 0.36, 0, Math.PI * 2);
-  radarCtx.stroke();
-
-  // Plot upcoming road curvature & rival/police/checkpoint dots
-  let rx = w / 2;
-  let ry = h - 12;
-  let angle = 0;
-
-  radarCtx.strokeStyle = '#ff5500';
-  radarCtx.lineWidth = 3;
-  radarCtx.beginPath();
-  radarCtx.moveTo(rx, ry);
-
-  for (let n = 0; n < 45; n += 2) {
-    const seg = track.segments[baseIndex + n];
-    if (!seg) break;
-    angle += seg.curve * 0.015;
-    rx += Math.sin(angle) * 1.9;
-    ry -= Math.cos(angle) * 1.9;
-    radarCtx.lineTo(rx, ry);
-  }
-  radarCtx.stroke();
-
-  // Re-walk to draw rival & cop dots on the radar
-  rx = w / 2;
-  ry = h - 12;
-  angle = 0;
-  for (let n = 0; n < 42; n++) {
-    const seg = track.segments[baseIndex + n];
-    if (!seg) break;
-    angle += seg.curve * 0.0075;
-    rx += Math.sin(angle) * 0.95;
-    ry -= Math.cos(angle) * 0.95;
-
-    if (seg.trackType === 'CHECKPOINT' && n % 4 === 0) {
-      radarCtx.fillStyle = '#10b981';
-      radarCtx.fillRect(rx - 2, ry - 2, 4, 4);
-    }
-    for (let c = 0; c < seg.cars.length; c++) {
-      const car = seg.cars[c];
-      if (car.takenDown) continue;
-      radarCtx.fillStyle = car.type === 'POLICE_INTERCEPTOR'
-        ? ((Math.floor(Date.now() / 480) % 2 === 0) ? '#ef4444' : '#3b82f6')
-        : (car.type === 'STREET_RIVAL' ? '#facc15' : '#94a3b8');
-      radarCtx.fillRect(rx + car.offset * 5 - 1.5, ry - 1.5, 3, 3);
-    }
-  }
-
-  // Player Car Arrow at bottom center
-  radarCtx.fillStyle = '#00f0ff';
-  radarCtx.beginPath();
-  radarCtx.moveTo(w / 2, h - 16);
-  radarCtx.lineTo(w / 2 - 4, h - 8);
-  radarCtx.lineTo(w / 2 + 4, h - 8);
-  radarCtx.closePath();
-  radarCtx.fill();
-}
 
 // --- PSEUDO-3D NIGHT-STREET RENDERER ---
 const mainCanvas = document.getElementById('gameCanvas');
@@ -2301,7 +2228,6 @@ function renderScene() {
     return;
   }
 
-  renderRadarMinimap(baseIndex);
 
   const playerElevation = baseSeg.p1.world.y + (baseSeg.p2.world.y - baseSeg.p1.world.y) * basePercent;
   let playerCurveX = 0;
@@ -3967,37 +3893,20 @@ function applyLaunch(result) {
   if (result === 'perfect') { SoundEngine.playTone(660, 'sawtooth', 0.25, 0.14, 1320); burstSparks(18, 190, 1); }
 }
 
-function handleStartEvents(events) {
-  for (const ev of events) {
-    if (ev.type === 'card') {
-      const field = gridOrder();
-      const r = field[ev.index];
-      const call = RC.lineupCall(r, ev.index, field.length);
-      RC.stage.card(r, call, ev.index, field.length);
-      RC.cardSting(ev.index);
-      RC.say(call.say);
-    } else if (ev.type === 'grid') {
-      RC.stage.grid(gridOrder());
-    } else if (ev.type === 'light') {
-      RC.stage.lights(ev.n);
-      RC.lightBeep();
-      if (ev.n === 3) {
-        const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
-        triggerAnnouncement(GameState.daily ? `📅 DAILY: ${GameState.daily.modifier.name}` : `🏁 ${lvl.name} 🏁`, 'TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', 2400, 1);
-      }
-    } else if (ev.type === 'go') {
-      RC.stage.lights('go');
-      RC.goBeep();
-      RC.say('Go!');
-      GameState.racePhase = 'RACING';
-      GameState.speed = 26;
-      if (launchPressAt != null) applyLaunch(RC.judgeLaunch(launchPressAt));
-      onboarding.start(performance.now());
-    } else if (ev.type === 'done') {
-      RC.stage.hide();
-    }
-  }
-}
+const startHooks = {
+  field: () => gridOrder(),
+  announceLevel() {
+    const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
+    triggerAnnouncement(GameState.daily ? `📅 DAILY: ${GameState.daily.modifier.name}` : `🏁 ${lvl.name} 🏁`, 'TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', 2400, 1);
+  },
+  go() {
+    GameState.racePhase = 'RACING';
+    GameState.speed = 26;
+    if (launchPressAt != null) applyLaunch(RC.judgeLaunch(launchPressAt));
+    onboarding.start(performance.now());
+  },
+};
+const handleStartEvents = (events) => RC.playStartEvents(events, startHooks);
 
 function updateRaceStart(rawDt) {
   if (startSeq.inLineup && (skipRequested || InputState.boostPressed)) {
@@ -4071,46 +3980,12 @@ function finishRace() {
 /** Finish order for the whole field, a headline for how it went, Retry / Next (ticket 0052). */
 function renderRaceResults(badgeText, lvl) {
   if (!RC) return; // the ceremony chunk never loaded: plain results
-  RC.stage.hide();
-  GameState.racePhase = 'RACING';
-  const infinite = GameState.mode === 'INFINITE' || !GameState.raceLength;
-  const outcome = /WRECKED/.test(badgeText || '') ? 'wrecked' : GameState.finishTime != null ? 'finished' : 'timeup';
-  const speedToWorld = LiveTraffic.speedToWorld();
-  const playerZ = GameState.trackPos + ROAD_CFG.playerZOffset;
-  const field = LiveTraffic.racers.map((r) => ({
-    id: r.id, driver: r.driver, short: r.short, car: r.car, color: r.color, mph: r.pace,
-    progress: GameState.distance + (r.worldZ - playerZ) / speedToWorld, finishTime: r.finishTime,
-  }));
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-  field.push({ id: 'YOU', isPlayer: true, driver: 'YOU', short: 'YOU', car: me.car, color: SaveStore.data.underglow || me.glow,
-    mph: Math.max(30, GameState.speed), progress: GameState.distance, finishTime: GameState.finishTime });
-  const rows = infinite ? [] : RC.finishResults(field, { elapsed: GameState.raceTime, length: GameState.raceLength, playerOutcome: outcome });
-  const mine = rows.find((r) => r.isPlayer);
-  const place = mine ? mine.place : GameState.racePosition;
-  if (mine) GameState.racePosition = place;
-  const aheadRow = rows[place - 2];
-  const beatBy = aheadRow && GameState.finishTime != null && rows[place - 2].finished
-    ? Math.max(0, GameState.finishTime - (field.find((f) => f.id === aheadRow.id).finishTime || 0)) : null;
-  const head = infinite ? { title: 'STREET RUN SUMMARY', line: '' } : RC.resultHeadline(place, rows.length, { startPos: FIELD_SIZE, beatBy, outcome });
-  document.getElementById('endModalTitle').textContent = head.title;
-  const headLine = document.getElementById('endHeadline');
-  headLine.textContent = head.line;
-  headLine.classList.toggle('hidden', !head.line);
-  document.getElementById('endPodiumBox').classList.toggle('hidden', infinite);
-  RC.stage.podium(rows);
-  document.getElementById('gameOverModal').dataset.place = infinite ? '' : String(place);
-  // Next: the following level when it's open (daily runs have no "next").
-  const next = WORLD_LEVELS[lvl.index + 1];
-  const nextOpen = !GameState.daily && next && next.index < (SaveStore.data.unlockedLevel || 1);
-  const nextBtn = document.getElementById('btnNextRace');
-  nextBtn.classList.toggle('hidden', !nextOpen);
-  nextBtn.dataset.level = nextOpen ? String(next.index) : '';
-  // For the share card (ticket 0053) and anyone else who wants the run's story.
-  GameState.lastResult = {
-    place, total: rows.length, outcome, rows, levelIndex: lvl.index, levelName: lvl.name,
-    time: GameState.finishTime != null ? GameState.finishTime : GameState.raceTime,
-    beat: rows.filter((r) => r.place > place).map((r) => r.name), daily: Boolean(GameState.daily), headline: head,
-  };
+  RC.renderResults({
+    badgeText, lvl, next: WORLD_LEVELS[lvl.index + 1], racers: LiveTraffic.racers, speedToWorld: LiveTraffic.speedToWorld(),
+    playerZ: GameState.trackPos + ROAD_CFG.playerZOffset, me, color: SaveStore.data.underglow || me.glow,
+    unlockedLevel: SaveStore.data.unlockedLevel || 1, fieldSize: FIELD_SIZE,
+  });
 }
 
 function endRaceRun(customBadgeText = null) {
@@ -4672,7 +4547,6 @@ function renderFrame(dt) {
   const feel = speedFeel(GameState.status === 'PLAYING' ? GameState.speed : 0, GameState.reducedMotion);
   view3d.render(dt, feel);
   renderOverlayFx(feel);
-  renderRadarMinimap(Math.floor(GameState.trackPos / ROAD_CFG.segLength));
 }
 
 // --- TOUCH CONTROLS (ticket 0061) ---
