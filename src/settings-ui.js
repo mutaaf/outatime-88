@@ -165,14 +165,16 @@ function loadPanel() {
 
 export function openSettings() {
   // A live race (sprint 3) can't pause — friends are still driving — so settings open over it.
-  resumeOnClose = GameState.status === 'PLAYING' && GameState.mode !== 'LIVE';
-  if (resumeOnClose) GameState.status = 'PAUSED';
+  // Already paused counts too: the back gesture, the controls panel and the layout editor all
+  // reopen this panel over a paused race, and RESUME must still resume it.
+  resumeOnClose = GameState.mode !== 'LIVE' && (GameState.status === 'PLAYING' || GameState.status === 'PAUSED');
+  if (GameState.status === 'PLAYING' && resumeOnClose) GameState.status = 'PAUSED';
   return loadPanel().then((p) => p.open());
 }
 
 export function closeSettings() {
   $('settingsModal').classList.add('hidden');
-  if (resumeOnClose && GameState.status === 'PAUSED' && $('garageModal').classList.contains('hidden')) GameState.status = 'PLAYING';
+  if (resumeOnClose && GameState.status === 'PAUSED' && $('garageModal').classList.contains('hidden') && !$('tcCoach')) GameState.status = 'PLAYING';
   resumeOnClose = false;
 }
 
@@ -193,6 +195,11 @@ export function initSettings({ announce } = {}) {
     if (b) b.addEventListener('click', (e) => { e.stopPropagation(); openSettings(); });
   }
   $('btnSettingsDone').addEventListener('click', closeSettings);
+  // Switching apps mid-race pauses with the panel up, so coming back shows ▶ RESUME instead
+  // of a race that kept going (or a frozen-looking frame) behind your back.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && GameState.status === 'PLAYING' && GameState.mode !== 'LIVE' && !settingsOpen()) openSettings();
+  });
   $('settingsModal').addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
   // While the panel is open the race neither steers nor starts behind it: keys aimed at the
   // panel's own controls stop at the panel; anything else stops before the game sees it.

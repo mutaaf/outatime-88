@@ -482,6 +482,9 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 .race-stage { position: fixed; inset: 0; z-index: 25; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px; padding: 16px; pointer-events: none; font-family: 'Orbitron', sans-serif; }
 body.race-starting .race-stage { pointer-events: auto; background: radial-gradient(ellipse at center, rgba(5, 5, 13, 0.15), rgba(5, 5, 13, 0.6)); }
+/* Touch screens: thumbs go down during the lineup and lights, so touches must reach the
+   controls underneath (stick, ⚡ rocket start). Only the skip button stays on top. */
+html.touch-ui body.race-starting .race-stage { pointer-events: none; }
 body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHint { visibility: hidden; }
 .rc-card { display: flex; align-items: center; gap: clamp(12px, 2.4vmin, 26px); max-width: min(92vw, 640px); padding: clamp(12px, 2vmin, 22px) clamp(16px, 3vmin, 32px);
   border-radius: 24px; background: linear-gradient(120deg, rgba(10, 6, 30, 0.94), rgba(30, 6, 40, 0.9)); border: 2px solid #ff2bd6;

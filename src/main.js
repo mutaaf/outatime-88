@@ -4135,7 +4135,11 @@ function updateRaceCeremony(rawDt) {
 /** Tap/click/Enter during the lineup skips to the lights. */
 function bindRaceStageSkip() {
   const req = () => { if (GameState.racePhase === 'START' && startSeq && startSeq.inLineup) skipRequested = true; };
-  document.getElementById('raceStage').addEventListener('pointerdown', req);
+  // On touch screens the stage lets touches through to the controls (styles.css), so a touch
+  // on the controls skips the lineup too, while the same thumb keeps steering.
+  window.addEventListener('pointerdown', (e) => {
+    if (e.target && e.target.closest && e.target.closest('#raceStage, #touchControlsLayer')) req();
+  }, true);
   window.addEventListener('keydown', (e) => { if (e.code === 'Enter' || e.code === 'Escape') req(); });
 }
 
