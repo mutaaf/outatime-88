@@ -23,10 +23,20 @@ const VIEWPORTS = [
 // The race HUD's blocks (src/hud.js hudRects() returns the same set at runtime).
 const PANELS = HUD_PANELS;
 const OVERLAYS = ['#announcerMain', '#coachCard', '#driftCounterBox', '#forkLeftCard', '#forkRightCard'];
-const CONTROLS = ['#btnSteerLeft', '#btnSteerRight', '#btnBrakeDrift', '#btnHoverStunt', '#btnFluxBoost', '#driverBadgeBar'];
+// Touch controls get their own exhaustive spec (touch-layouts.spec.js); here the default
+// layout is checked alongside the HUD on the original viewport list.
+const CONTROLS = ['#tcStick', '#tcBoost', '#tcDrift', '#tcJump', '#tcSpecial', '#tcPause', '#tcHorn', '#tcRear', '#tcCamera', '#tcRespawn'];
+test.use({ hasTouch: true });
 
 const overlap = (a, b) =>
   a.x < b.x + b.width - 1 && b.x < a.x + a.width - 1 && a.y < b.y + b.height - 1 && b.y < a.y + a.height - 1;
+
+const discs = (a, b) => Math.hypot(a.x + a.width / 2 - b.x - b.width / 2, a.y + a.height / 2 - b.y - b.height / 2) < a.width / 2 + b.width / 2 - 1;
+const discBox = (d, b) => {
+  const cx = d.x + d.width / 2; const cy = d.y + d.height / 2;
+  const nx = Math.max(b.x, Math.min(cx, b.x + b.width)); const ny = Math.max(b.y, Math.min(cy, b.y + b.height));
+  return Math.hypot(cx - nx, cy - ny) < d.width / 2 - 1;
+};
 
 async function boxes(page, sels) {
   return page.evaluate((list) => {
@@ -47,6 +57,7 @@ for (const vp of VIEWPORTS) {
   test(`no HUD/overlay/control overlaps at ${vp.width}x${vp.height}`, async ({ page }) => {
     const problems = watchPage(page);
     await page.setViewportSize(vp);
+    await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ controls: { coachSeen: true } })));
     await page.goto(`${APP}?debug`);
     await page.evaluate(() => window.__OT.startRace());
     await page.waitForTimeout(600);
@@ -67,7 +78,7 @@ for (const vp of VIEWPORTS) {
       expect(b.y + b.height, `${sel} bottom edge`).toBeLessThanOrEqual(vp.height + 1);
     }
     for (const sel of PANELS) expect(all[sel], `${sel} visible`).toBeTruthy();
-    for (const sel of CONTROLS.slice(0, 5)) {
+    for (const sel of CONTROLS) {
       expect(all[sel], `${sel} visible`).toBeTruthy();
       expect(Math.min(all[sel].width, all[sel].height), `${sel} touch target`).toBeGreaterThanOrEqual(44);
     }
@@ -77,7 +88,10 @@ for (const vp of VIEWPORTS) {
     for (let i = 0; i < keys.length; i++) {
       for (let j = i + 1; j < keys.length; j++) {
         if (sameLane(keys[i], keys[j])) continue;
-        expect(overlap(all[keys[i]], all[keys[j]]), `${keys[i]} overlaps ${keys[j]}`).toBeFalsy();
+        const ci = CONTROLS.includes(keys[i]); const cj = CONTROLS.includes(keys[j]);
+        // Touch controls are discs: compared as circles (each other) or circle-vs-box (HUD).
+        const hit = ci && cj ? discs(all[keys[i]], all[keys[j]]) : ci ? discBox(all[keys[i]], all[keys[j]]) : cj ? discBox(all[keys[j]], all[keys[i]]) : overlap(all[keys[i]], all[keys[j]]);
+        expect(hit, `${keys[i]} overlaps ${keys[j]}`).toBeFalsy();
       }
     }
     expect(problems).toEqual([]);

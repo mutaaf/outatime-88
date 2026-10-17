@@ -17,7 +17,18 @@ export const InputState = {
   tiltEnabled: false,
   tiltRawAngle: 0,
   tiltZeroOffset: 0,
-  tiltSteerVal: 0
+  tiltSteerVal: 0,
+  // Touch controls (ticket 0061, src/touch/): written once per frame by the controller's
+  // sample(). Analog steer in about -1.25..1.25; gas/brake holds; camera look for the 3D view
+  // (yaw/pitch -1..1, springing back to 0; zoom 0.6..1.6 scales the chase distance); lookBack
+  // while LOOK BACK is held (2D draws a rear-view mirror).
+  touchSteerVal: 0,
+  touchUp: false,
+  touchDown: false,
+  lookBack: false,
+  lookYaw: 0,
+  lookPitch: 0,
+  lookZoom: 1
 };
 
 export function pollGamepad() {

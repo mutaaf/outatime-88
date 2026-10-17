@@ -75,8 +75,10 @@ Depth over breadth: polish one moment until it sings before adding three.
 4. **Frame budget.** The render loop must hold 60fps on a mid-range laptop and stay
    playable on a recent phone. No per-frame allocations in hot paths (reuse vectors and
    arrays), no layout thrash from the HUD.
-5. **Mobile.** Touch controls work at 390x844, touch targets ≥44px, no page scroll or
-   zoom while playing, safe-area insets respected.
+5. **Mobile.** Touch controls work on every phone and tablet viewport in both orientations
+   (`tests/e2e/touch-layouts.spec.js`), touch targets ≥44px, no page scroll or zoom while
+   playing, safe-area insets respected, any number of fingers at once. Touch input reaches the
+   sim only through `InputState` (see `src/touch/`), sampled once per frame.
 6. **Save data compatibility.** One key: `outatime_cruisn_88_save_v2` (`src/save.js`). Cars live in
    `garage` (owned/selected/paint) and `career` (counters) — normalised by `ensureGarage()`. Never rename it or
    change the meaning of an existing field. Add fields by adding defaults to `SaveStore.data`;
@@ -165,6 +167,18 @@ src/live/           Live races, a lazy chunk (loaded on RACE FRIENDS or a ?room=
                       identity.js (seats follow the racer, 0090) · share.js · live.css
 src/settings.js     Settings rules: defaults/normalise (SaveStore.data.settings), difficulty, motion, tilt maths
 src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor()
+src/touch/          Touch controls (ticket 0061), Roblox/Fortnite style:
+                      touch-ui.js (one full-screen Pointer Events surface: thumbstick / D-pad /
+                      tilt, action arc, shortcuts, look-drag; sample() writes InputState
+                      .touchSteerVal/.touchUp/.touchDown/.lookYaw/.lookPitch/.lookZoom/.lookBack
+                      once per frame) · stick.js (dead zone, curve, recentering, 8-way D-pad) ·
+                      buttons.js (hit test, slide-between-buttons) · layouts.js (6 presets ×
+                      device class × orientation, fit search, overlap rules) · settings.js
+                      (SaveStore.data.controls, normalised when the kit loads) · mirror.js (2D
+                      rear-view mirror) · bridge.js (the kit's entry: game hooks, race start,
+                      back-gesture pause) · panel.js + editor.js (Controls panel, HUD layout
+                      editor, thumb guide; lazy). The whole kit is one lazy chunk, loaded only
+                      on touch devices or on a first touch.
 src/worker/         Edge Worker for /outatime/api/* only (operator-owned, frozen):
                       index.js (routing) · scores.js (run tokens, submit, boards on D1)
                       token.js (HMAC run tokens) · plausible.js (anti-cheat bounds)
@@ -208,7 +222,7 @@ New things the 3D view should draw: cars (incl. remote/ghost cars) go in
 | `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
 | `npm run check:fast` | Everything but e2e, for sandboxes that can't install Playwright browsers. CI still runs the full gate. |
 
-Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 60 kB gzipped (today ~49 kB; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
+Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 60 kB gzipped (today ~56 kB; keep anything not needed on the first frame lazy — the touch kit (`bridge-*.js`, ~11 kB) loads only on touch devices and its Controls panel/editor (`panel-*.js`) on first open; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
 
 ## 6 · The agents
 

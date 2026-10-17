@@ -46,7 +46,10 @@ export const SaveStore = {
     // Cars you own, the one you drive, paint per car (ticket 0071). See src/cars.js.
     garage: null,
     // Career counters that unlock cars: races, wins, takedowns, warps, rivals, daily streak.
-    career: null
+    career: null,
+    // Touch controls (ticket 0061): preset, movement mode, feel sliders, HUD layout edits.
+    // Defaults and repair live in src/touch/settings.js, applied when the touch kit loads.
+    controls: {}
   },
   load() {
     try {
@@ -56,6 +59,7 @@ export const SaveStore = {
         this.data = Object.assign({}, this.data, parsed);
         this.data.upgrades = Object.assign({ engine: 1, tires: 1, flux: 1, hover: 1 }, parsed.upgrades || {});
         this.data.settings = normalizeSettings(parsed.settings);
+        if (!this.data.controls || typeof this.data.controls !== 'object') this.data.controls = {};
         if (Object.hasOwn(LEGACY_LIVERY_IDS, this.data.livery)) this.data.livery = LEGACY_LIVERY_IDS[this.data.livery];
       }
     } catch (e) {}

@@ -214,6 +214,11 @@ export const SoundEngine = {
     this.playTone(330, 'triangle', 0.2, 0.15, 990);
     setTimeout(() => this.playTone(660, 'square', 0.25, 0.14, 1320), 85);
   },
+  /** Two-tone car horn (touch HONK button, ticket 0061). */
+  playHorn() {
+    this.playTone(392, 'square', 0.32, 0.09);
+    this.playTone(494, 'square', 0.32, 0.07);
+  },
   playCrash() {
     this.playTone(130, 'sawtooth', 0.32, 0.2, 32);
   },
