@@ -35,7 +35,9 @@ export const SaveStore = {
     muted: false,
     volume: 0.8,
     // Settings panel (ticket 0050); see src/settings.js for the keys and their defaults.
-    settings: normalizeSettings()
+    settings: normalizeSettings(),
+    // Renderer (ticket 0040): 'auto' | '2d' | '3d'. Old saves get 'auto' (= 2D today).
+    renderMode: 'auto'
   },
   load() {
     try {

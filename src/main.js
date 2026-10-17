@@ -8,6 +8,8 @@ import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
 import { projectPoint } from './projection.js';
 import { contactZ, cameraDepth } from './contact.js';
+import { hasWebGL, isLowEnd, resolveRenderMode, toggledPref } from './render-mode.js';
+import { loadView3D } from './render3d-loader.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
@@ -2802,6 +2804,59 @@ function renderScene() {
     drawPlayerCar(ctx, rw, rh, eraCfg);
   }
 
+  drawCarFx(ctx, rw, rh);
+
+  // 5.5 Draw LUMEN Curved Helmet Visor Telemetry Brackets on Screen Edges
+  if (GameState.jarvisArEnabled) {
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)';
+    ctx.lineWidth = 1.5;
+    // Left Visor Arc
+    ctx.beginPath();
+    ctx.arc(rw * 0.14, rh * 0.52, rh * 0.34, Math.PI * 0.72, Math.PI * 1.28);
+    ctx.stroke();
+    // Right Visor Arc
+    ctx.beginPath();
+    ctx.arc(rw * 0.86, rh * 0.52, rh * 0.34, -Math.PI * 0.28, Math.PI * 0.28);
+    ctx.stroke();
+
+    // Clean, word-free visor arcs
+  }
+
+  ctx.restore();
+
+  // 6. Blit onto Main Display Canvas
+  mainCtx.save();
+  mainCtx.imageSmoothingEnabled = (eraCfg.pixelScale === 1.0);
+  mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+  const playing = GameState.status === 'PLAYING';
+  const feel = speedFeel(playing ? GameState.speed : 0, GameState.reducedMotion);
+  // FOV push-in toward the vanishing point as you approach 88 (crop the source a touch).
+  const cropW = pixelCanvas.width / feel.fov;
+  const cropH = pixelCanvas.height / feel.fov;
+  const cropX = (pixelCanvas.width - cropW) * 0.5;
+  const cropY = (pixelCanvas.height - cropH) * 0.46;
+  const shakeX = feel.shake * Math.sin(fxClock * 61.0) * (mainCanvas.width / 1280);
+  const shakeY = feel.shake * Math.sin(fxClock * 47.0 + 1.3) * (mainCanvas.width / 1280);
+  mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX, shakeY, mainCanvas.width, mainCanvas.height);
+  // Time-warp chromatic split: two offset additive ghosts for ~0.9 s after a warp.
+  if (GameState.warpFxTimer > 0 && !GameState.reducedMotion) {
+    const k = GameState.warpFxTimer / 0.9;
+    const off = 10 * k * (mainCanvas.width / 1280);
+    mainCtx.globalCompositeOperation = 'lighter';
+    mainCtx.globalAlpha = 0.22 * k;
+    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, mainCanvas.width, mainCanvas.height);
+    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, mainCanvas.width, mainCanvas.height);
+    mainCtx.globalAlpha = 1;
+    mainCtx.globalCompositeOperation = 'source-over';
+    drawWarpTunnel(mainCtx, k);
+  }
+  drawSpeedLines(mainCtx, feel.lines);
+  drawSparks(mainCtx, rw, rh);
+  mainCtx.restore();
+}
+
+/** Pickups flying into the car, hit shockwaves and debris (screen space; both renderers). */
+function drawCarFx(ctx, rw, rh) {
   // 5.2 Render Animated Power-Ups Magnetically Arcing into the player car's Fusion Core!
   const carCenterX = rw * 0.5;
   const carCenterY = rh * 0.81;
@@ -2858,53 +2913,6 @@ function renderScene() {
     ctx.restore();
   }
 
-  // 5.5 Draw LUMEN Curved Helmet Visor Telemetry Brackets on Screen Edges
-  if (GameState.jarvisArEnabled) {
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)';
-    ctx.lineWidth = 1.5;
-    // Left Visor Arc
-    ctx.beginPath();
-    ctx.arc(rw * 0.14, rh * 0.52, rh * 0.34, Math.PI * 0.72, Math.PI * 1.28);
-    ctx.stroke();
-    // Right Visor Arc
-    ctx.beginPath();
-    ctx.arc(rw * 0.86, rh * 0.52, rh * 0.34, -Math.PI * 0.28, Math.PI * 0.28);
-    ctx.stroke();
-
-    // Clean, word-free visor arcs
-  }
-
-  ctx.restore();
-
-  // 6. Blit onto Main Display Canvas
-  mainCtx.save();
-  mainCtx.imageSmoothingEnabled = (eraCfg.pixelScale === 1.0);
-  mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-  const playing = GameState.status === 'PLAYING';
-  const feel = speedFeel(playing ? GameState.speed : 0, GameState.reducedMotion);
-  // FOV push-in toward the vanishing point as you approach 88 (crop the source a touch).
-  const cropW = pixelCanvas.width / feel.fov;
-  const cropH = pixelCanvas.height / feel.fov;
-  const cropX = (pixelCanvas.width - cropW) * 0.5;
-  const cropY = (pixelCanvas.height - cropH) * 0.46;
-  const shakeX = feel.shake * Math.sin(fxClock * 61.0) * (mainCanvas.width / 1280);
-  const shakeY = feel.shake * Math.sin(fxClock * 47.0 + 1.3) * (mainCanvas.width / 1280);
-  mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX, shakeY, mainCanvas.width, mainCanvas.height);
-  // Time-warp chromatic split: two offset additive ghosts for ~0.9 s after a warp.
-  if (GameState.warpFxTimer > 0 && !GameState.reducedMotion) {
-    const k = GameState.warpFxTimer / 0.9;
-    const off = 10 * k * (mainCanvas.width / 1280);
-    mainCtx.globalCompositeOperation = 'lighter';
-    mainCtx.globalAlpha = 0.22 * k;
-    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, mainCanvas.width, mainCanvas.height);
-    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, mainCanvas.width, mainCanvas.height);
-    mainCtx.globalAlpha = 1;
-    mainCtx.globalCompositeOperation = 'source-over';
-    drawWarpTunnel(mainCtx, k);
-  }
-  drawSpeedLines(mainCtx, feel.lines);
-  drawSparks(mainCtx, rw, rh);
-  mainCtx.restore();
 }
 
 /** Streaks rushing out of the vanishing point, only in the outer band so the road stays clear. */
@@ -3759,6 +3767,7 @@ function bindAllControls() {
     if (e.code === 'KeyG') cyclePaceMode();
     if (e.code === 'KeyC') cycleCameraMode();
     if (e.code === 'KeyV') cycleVisualMode();
+    if (e.code === 'KeyT') toggleRenderMode();
     if (e.code === 'KeyM') SoundEngine.toggleMute();
     if (['KeyP', 'Escape'].includes(e.code)) toggleGarageModal();
   });
@@ -3894,6 +3903,9 @@ function bindAllControls() {
   document.getElementById('btnCloseEvents').addEventListener('click', closeEventsPanel);
   document.getElementById('btnStartEvent').addEventListener('click', () => startNewRace());
   document.getElementById('btnOpenLeaderboard').addEventListener('click', () => openLeaderboard());
+  document.getElementById('btnViewMode').addEventListener('click', (e) => { e.stopPropagation(); toggleRenderMode(); });
+  document.getElementById('setView2d').addEventListener('click', () => setRenderMode('2d'));
+  document.getElementById('setView3d').addEventListener('click', () => setRenderMode('3d'));
   document.getElementById('btnOpenLeaderboardFromEnd').addEventListener('click', () => {
     openLeaderboard(GameState.daily ? { board: 'daily', mode: 'DAILY' } : { board: 'all', mode: 'ARCADE' });
   });
@@ -4008,7 +4020,7 @@ function bindAllControls() {
 
   window.addEventListener('resize', () => {
     resizeCanvases();
-    renderScene();
+    if (!view3d) renderScene();
   });
 }
 
@@ -4104,6 +4116,128 @@ function toggleGarageModal() {
   }
 }
 
+// ── 2D / 3D view (ticket 0040) ───────────────────────────────────────────────
+// The 3D view is a second renderer over the same simulation, loaded on demand. In 3D the
+// 2D canvas stays on top, transparent, for screen-space FX (speed lines, sparks, warp).
+const webglOk = hasWebGL();
+let activeView = '2d';
+let view3d = null;
+let view3dLoading = false;
+const carsFor3D = [];
+
+/** Every car the 3D view should draw. Remote/ghost cars belong here too. */
+function collectCarsFor3D(out) {
+  let n = 0;
+  for (let i = 0; i < LiveTraffic.racers.length; i++) out[n++] = LiveTraffic.racers[i];
+  for (let i = 0; i < LiveTraffic.traffic.length; i++) out[n++] = LiveTraffic.traffic[i];
+  out.length = n;
+  return n;
+}
+
+function playerPaint() {
+  const livery = LIVERY_OPTIONS.find((l) => l.id === SaveStore.data.livery);
+  const ch = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  return { body: (livery && livery.body) || ch.body, underglow: SaveStore.data.underglow || ch.glow };
+}
+
+function setCanvasLayering(on) {
+  mainCanvas.style.position = on ? 'relative' : '';
+  mainCanvas.style.zIndex = on ? '1' : '';
+}
+
+async function enable3D() {
+  if (view3d || view3dLoading || !webglOk) return;
+  view3dLoading = true;
+  syncViewModeUI();
+  try {
+    const { createView3D } = await loadView3D();
+    if (activeView !== '3d') return; // switched back while loading
+    view3d = createView3D({
+      container: document.getElementById('canvasContainer'),
+      state: GameState,
+      track,
+      era: getActiveEraRenderConfig,
+      collectCars: collectCarsFor3D,
+      obstacles: () => LiveTraffic.obstacles,
+      player: playerPaint,
+      onLost: () => {
+        setRenderMode('2d', { persist: false });
+        triggerAnnouncement('3D VIEW LOST', 'BACK TO 2D', 1600);
+      },
+    });
+    setCanvasLayering(true);
+  } catch (err) {
+    console.warn('3D view unavailable, staying in 2D', err);
+    activeView = '2d';
+  } finally {
+    view3dLoading = false;
+    syncViewModeUI();
+  }
+}
+
+function disable3D() {
+  if (view3d) { view3d.dispose(); view3d = null; }
+  setCanvasLayering(false);
+}
+
+function setRenderMode(mode, { persist = true } = {}) {
+  activeView = mode === '3d' && webglOk ? '3d' : '2d';
+  if (persist) { SaveStore.data.renderMode = activeView; SaveStore.save(); }
+  if (activeView === '3d') enable3D(); else disable3D();
+  syncViewModeUI();
+}
+
+function toggleRenderMode() {
+  setRenderMode(toggledPref(activeView));
+  triggerAnnouncement(activeView === '3d' ? '🧊 3D VIEW' : '🎞️ 2D VIEW', '', 900);
+}
+
+function syncViewModeUI() {
+  const on = activeView === '3d';
+  const t = document.getElementById('btnViewMode');
+  if (t) {
+    t.setAttribute('aria-pressed', on ? 'true' : 'false');
+    t.setAttribute('aria-busy', view3dLoading ? 'true' : 'false');
+    t.disabled = !webglOk;
+    t.title = webglOk ? 'Switch between the 2D and 3D view (T)' : '3D needs WebGL, which this browser has turned off';
+  }
+  for (const [id, mine] of [['setView2d', false], ['setView3d', true]]) {
+    const b = document.getElementById(id);
+    if (!b) continue;
+    b.setAttribute('aria-pressed', on === mine ? 'true' : 'false');
+    if (mine) b.disabled = !webglOk;
+  }
+  const note = document.getElementById('setViewNote');
+  if (note) {
+    note.textContent = !webglOk ? '3D needs WebGL, which this browser has turned off.'
+      : view3dLoading ? 'Loading the 3D view…'
+        : '3D draws the same race in real 3D. Press T to flip mid-race.';
+  }
+}
+
+/** Screen-space FX over the 3D view (the 2D canvas, cleared to transparent each frame). */
+function renderOverlayFx(feel) {
+  const scale = getActiveEraRenderConfig().pixelScale || 1.0;
+  const rw = Math.max(240, Math.floor(mainCanvas.width / scale));
+  const rh = roadCanvasHeight();
+  mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+  mainCtx.save();
+  if (GameState.warpFxTimer > 0 && !GameState.reducedMotion) drawWarpTunnel(mainCtx, GameState.warpFxTimer / 0.9);
+  drawSpeedLines(mainCtx, feel.lines);
+  drawSparks(mainCtx, rw, rh);
+  mainCtx.scale(mainCanvas.width / rw, mainCanvas.height / rh);
+  drawCarFx(mainCtx, rw, rh);
+  mainCtx.restore();
+}
+
+function renderFrame(dt) {
+  if (!view3d) { renderScene(); return; }
+  const feel = speedFeel(GameState.status === 'PLAYING' ? GameState.speed : 0, GameState.reducedMotion);
+  view3d.render(dt, feel);
+  renderOverlayFx(feel);
+  renderRadarMinimap(Math.floor(GameState.trackPos / ROAD_CFG.segLength));
+}
+
 let lastFrameTime = 0;
 let rafId = null;
 
@@ -4125,7 +4259,7 @@ function mainLoop(timestamp) {
   syncContactZ();
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
-  renderScene();
+  renderFrame(dt);
   rafId = requestAnimationFrame(mainLoop);
 }
 
@@ -4135,6 +4269,8 @@ window.onload = () => {
     GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
+    view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
+    setView: (m) => setRenderMode(m, { persist: false }),
   };
   initSettings({ announce: triggerAnnouncement });
   watchLayout();
@@ -4142,6 +4278,12 @@ window.onload = () => {
   GameState.levelIndex = SaveStore.data.selectedLevel || 0;
   initTrack();
   bindAllControls();
+  setRenderMode(resolveRenderMode({
+    saved: SaveStore.data.renderMode,
+    query: new URLSearchParams(location.search).get('view'),
+    webgl: webglOk,
+    lowEnd: isLowEnd(),
+  }), { persist: false });
   renderCharacterRosterGrid();
   selectCharacterByIndex(0);
   renderLevelSelectGrid();

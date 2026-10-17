@@ -100,6 +100,14 @@ src/input.js        InputState + pollGamepad()
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound)
 src/projection.js   projectPoint() — world → screen road projection
 src/contact.js      contactZ() — the tyre contact Z the physics uses (sim-owned; renderers never write sim state)
+src/render-mode.js  2D/3D choice: resolveRenderMode() (URL ?view= → saved → auto=2D; never 3D without WebGL)
+src/render-pose.js  bodyPose()/playerPose() — the ONLY way renderers read positions (see sim/render rule)
+src/render3d-loader.js  Lazy entry points into the three.js chunk: loadView3D(), loadCarPreview()
+src/render3d/       The 3D view (three.js, own chunk, never imported statically):
+                      path.js (pure: track segments → 3D centreline) · view.js (scene, camera, road
+                      chunks, instanced props, cars, flux trails, adaptive resolution) ·
+                      meshes.js (low-poly cars/props/obstacles/sky) · preview.js (one car on a
+                      turntable in any canvas — for the garage)
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/settings.js     Settings rules: defaults/normalise (SaveStore.data.settings), difficulty, motion, tilt maths
@@ -121,7 +129,13 @@ system into its own module with explicit imports, never change behavior in the s
 let `npm run lint` (no-undef) prove nothing was left dangling.
 **Sim/render rule:** renderers only read `GameState`, `track` and the traffic bodies; any
 value the simulation needs is computed in the update step (see `src/contact.js`), so the
-game plays identically whichever renderer is on.
+game plays identically whichever renderer is on. Renderers read positions through
+`src/render-pose.js`: a fixed-timestep sim publishes interpolated transforms as
+`renderZ/renderOffset/renderY/renderRot/renderYaw` on bodies and
+`renderPlayerZ/renderPlayerX/renderPlayerY` on GameState, and both views pick them up.
+New things the 3D view should draw: cars (incl. remote/ghost cars) go in
+`collectCarsFor3D()` in main.js; obstacles/knockables in the `obstacles` getter passed to
+`createView3D`. In 3D the 2D canvas stays on top (transparent) for screen-space FX.
 
 ## 5 · Commands
 
@@ -136,7 +150,7 @@ game plays identically whichever renderer is on.
 | `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
 | `npm run check:fast` | Everything but e2e, for sandboxes that can't install Playwright browsers. CI still runs the full gate. |
 
-Budgets: JS ≤ 60 kB gzipped (today ~34 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
+Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 60 kB gzipped (today ~45 kB; it must never import three statically), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
 
 ## 6 · The agents
 
