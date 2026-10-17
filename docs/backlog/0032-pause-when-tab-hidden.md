@@ -1,12 +1,12 @@
 ---
 id: 0032
 title: Pause the race when the tab is hidden or the window loses visibility
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-17
-pr:
+pr: 49
 ---
 
 ## Why
@@ -23,10 +23,10 @@ set `PAUSED` and show the existing pause/settings overlay. Resume stays an expli
 Also suspend the audio context on hide and resume on return if it was running.
 
 ## Acceptance criteria
-- [ ] Solo race: dispatching a hidden `visibilitychange` sets status `PAUSED` and the clock stops
-- [ ] Live race: the same event does not pause (existing live behavior unchanged)
-- [ ] Returning does not auto-resume; the pause overlay is shown and a tap/key resumes
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse
+- [x] Solo race: dispatching a hidden `visibilitychange` sets status `PAUSED` and the clock stops
+- [x] Live race: the same event does not pause (existing live behavior unchanged)
+- [x] Returning does not auto-resume; the pause overlay is shown and a tap/key resumes
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse
 
 ## Test plan
 e2e in `tests/e2e/race.spec.js`: override `document.hidden`/`visibilityState`, dispatch the
