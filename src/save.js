@@ -74,4 +74,5 @@ export const SaveStore = {
 // A pristine save for a brand-new racer on a shared device (ticket 0090), captured before
 // load() ever runs.
 const FRESH = JSON.stringify(SaveStore.data);
-export const freshSaveData = () => JSON.parse(FRESH);
+// Garage/career are filled in (ticket 0071) so a swapped-in save is drivable before reload.
+export const freshSaveData = () => ensureGarage(JSON.parse(FRESH));
