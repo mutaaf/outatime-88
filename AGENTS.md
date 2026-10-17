@@ -135,7 +135,8 @@ src/cars.js         Car ratings (same 30-point budget each), unlock rules, carPa
 src/state.js        GameState — the one mutable state object every system reads/writes
 src/save.js         SaveStore (localStorage persistence, see invariant 6)
 src/identity.js     Zero-login identity client: who is playing, friends, link/recovery codes (0090)
-src/racer-ui.js     The RACER panel (switch racer, link a device, save my racer, forget)
+src/racer-ui.js     Boots identity, syncs the save with the racer, friends from `from=` links
+src/racer-panel.js  The RACER panel (switch, link a device, save my racer, forget) — lazy chunk
 src/racer-saves.js  One local save per racer on a shared device; merges server bests
 src/qr.js           On-device QR encoder (links, invites, share cards) — no QR service
 src/worker/identity.js  Identity routes: /api/me, /link, /recovery, /use, /forget
