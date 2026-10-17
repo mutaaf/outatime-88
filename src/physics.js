@@ -60,6 +60,7 @@ export class RigidBody3D {
     this.sleeping = false;
     this.restTime = 0;
     this.knockable = Boolean(opts.knockable);
+    this.chained = false;
     this.active = true;
     return this;
   }

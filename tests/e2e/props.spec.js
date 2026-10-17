@@ -46,3 +46,24 @@ test('props stay pooled: a long race never grows past the pool', async ({ page }
   expect(r.bodies).toBe(r.stats.bodies);
   expect(problems).toEqual([]);
 });
+
+test('a pile of knocked cones does not farm chain-reaction points', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug`);
+  await page.evaluate(() => window.__OT.startRace());
+  await page.keyboard.down('ArrowUp');
+  await page.waitForFunction(() => window.__OT.GameState.speed > 40, null, { timeout: 15000 });
+  await page.evaluate(() => {
+    const T = window.__OT.traffic(); const G = window.__OT.GameState;
+    const z = G.visualPlayerZ || G.trackPos + 1250;
+    for (let k = 0; k < 6; k++) T.props.spawn(T.obstacleOpts(700 + k, 'TRAFFIC_CONE', z + 900 + k * 40, G.playerX + (k % 2 ? 0.03 : -0.03)));
+    T.rebuildBodyLists();
+    window.__chains = 0;
+    const orig = T.onChain;
+    T.onChain = function (a, b) { const before = G.score; orig.call(this, a, b); if (G.score > before) window.__chains++; };
+  });
+  await page.waitForTimeout(3000);
+  await page.keyboard.up('ArrowUp');
+  expect(await page.evaluate(() => window.__chains)).toBe(0);
+  expect(problems).toEqual([]);
+});

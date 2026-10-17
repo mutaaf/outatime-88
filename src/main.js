@@ -316,6 +316,11 @@ const LiveTraffic = {
 
   // A knocked obstacle slamming into something end-on (solver in src/world.js).
   onChain(a, b) {
+    // Once per knocked body, and not for props bumping each other (ticket 0074): a pile of
+    // cones in contact would otherwise pay +1000 every sub-step.
+    const hit = a.kind === 'OBSTACLE' && a.hitCount > 0 ? a : b;
+    if (hit.knockable || hit.chained) return;
+    hit.chained = true;
     spawnObstacleShatter(b.offset - GameState.playerX, '#00f0ff', '#ff5500', '🎯 CHAIN-REACTION PHYSICS HIT! +1000');
     GameState.score += 1000 * GameState.combo;
   },
