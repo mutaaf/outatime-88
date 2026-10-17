@@ -102,6 +102,8 @@ src/projection.js   projectPoint() — world → screen road projection
 src/contact.js      contactZ() — the tyre contact Z the physics uses (sim-owned; renderers never write sim state)
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
+src/settings.js     Settings rules: defaults/normalise (SaveStore.data.settings), difficulty, motion, tilt maths
+src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor()
 src/worker/         Edge Worker for /outatime/api/* only (operator-owned, frozen):
                       index.js (routing) · scores.js (run tokens, submit, boards on D1)
                       token.js (HMAC run tokens) · plausible.js (anti-cheat bounds)

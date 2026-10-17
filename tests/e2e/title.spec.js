@@ -30,9 +30,10 @@ for (const vp of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { wi
     const problems = watchPage(page);
     await page.setViewportSize(vp);
     await page.goto(`${APP}?debug`);
-    // Few things to read: PLAY plus at most four small icons.
+    // Few things to read: PLAY, five small icons (settings added in 0050), and the TILT chip
+    // on touch screens only.
     const buttons = await page.locator('#titleScreen button:visible').count();
-    expect(buttons).toBeLessThanOrEqual(5);
+    expect(buttons).toBeLessThanOrEqual(6);
     // Tap the empty middle of the screen (the car on the road), not a button.
     await page.mouse.click(vp.width / 2, vp.height / 2);
     await expect(page.locator('#titleScreen')).toBeHidden();

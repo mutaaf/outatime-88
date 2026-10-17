@@ -125,6 +125,7 @@ html, body {
 [data-hud="compact"] #leftHudPanel,
 [data-hud="compact"] .hud-phone-hide,
 [data-hud="compact"] #btnGarageOpen,
+[data-hud="compact"] #btnAudioToggle, /* sound lives in the settings gear on phones (ticket 0050) */
 [data-hud="compact"] #driverBadgeBar { display: none !important; }
 [data-hud="compact"] header { padding: max(4px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)) !important; }
 [data-hud="compact"] header > div:first-child { flex-wrap: nowrap !important; gap: 4px !important; }
@@ -133,7 +134,7 @@ html, body {
 [data-hud="compact"] #fluxHudCol { width: 64px !important; }
 [data-hud="compact"] #centerHudPanel > div:first-child { min-width: 56px !important; }
 [data-hud="compact"] #hpTextDisplay { display: none; }
-[data-hud="compact"] #btnAudioToggle { padding: 4px 8px !important; }
+[data-hud="compact"] #btnHudSettings { padding: 4px 8px !important; }
 [data-hud="compact"] #coachCard { max-width: 92vw; padding: 5px 10px !important; gap: 8px !important; }
 [data-hud="compact"] #coachDesc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 [data-hud="compact"] #forkChoiceBanner > div { font-size: 10px !important; padding: 4px 8px !important; max-width: 46vw; }
@@ -150,7 +151,7 @@ html, body {
 [data-hud="compact"] .action-pad .pad-key { display: none; }
 @media (max-width: 380px) {
   [data-hud="compact"] #fluxHudCol { width: 44px !important; }
-  [data-hud="compact"] #btnAudioToggle { padding: 4px 5px !important; }
+  [data-hud="compact"] #btnHudSettings { padding: 4px 5px !important; }
   [data-hud="compact"] header > div:first-child > div { gap: 4px !important; }
   [data-hud="compact"] #centerHudPanel > div:first-child { min-width: 44px !important; }
 }
@@ -273,3 +274,38 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 #howToPlay > summary { list-style: none; }
 #howToPlay > summary::-webkit-details-marker { display: none; }
 .start-cta { box-shadow: 0 0 28px rgba(255, 102, 0, 0.55), inset 0 -3px 0 rgba(0, 0, 0, 0.25); }
+
+/* Settings (ticket 0050) */
+.settings-card { box-shadow: 0 0 50px rgba(0, 240, 255, 0.25); }
+.set-section { margin-top: 14px; padding: 12px; border-radius: 16px; background: rgba(2, 6, 23, 0.85); border: 1px solid #1e293b; }
+.set-section h3 { font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 0.14em; color: #67e8f9; margin-bottom: 6px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; font-size: 14px; font-weight: 600; color: #e2e8f0; }
+.set-row b { color: #fcd34d; font-family: 'Orbitron', sans-serif; font-size: 12px; margin-left: 6px; }
+.set-label { margin: 8px 0 4px; font-size: 12px; font-weight: 700; color: #cbd5e1; }
+.set-status { font-size: 12px; line-height: 1.35; color: #cbd5e1; min-height: 1.35em; }
+.set-status[data-status="on"] { color: #6ee7b7; }
+.set-status[data-status="denied"], .set-status[data-status="unsupported"], .set-status[data-status="nosignal"] { color: #fda4af; }
+.set-range { width: min(58%, 260px); height: 32px; accent-color: #22d3ee; cursor: pointer; }
+.set-btn { min-height: 44px; padding: 0 14px; border-radius: 12px; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800;
+  color: #fde68a; background: rgba(245, 158, 11, 0.16); border: 1px solid rgba(251, 191, 36, 0.6); }
+#btnEditControls.hidden { display: none; }
+.set-btn.is-off, .tilt-meter.is-off { opacity: 0.4; pointer-events: none; }
+.switch { position: relative; flex-shrink: 0; width: 64px; height: 36px; border-radius: 9999px; background: #334155; border: 2px solid #475569; transition: background 0.15s; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 9999px; background: #e2e8f0; transition: transform 0.15s; }
+.switch[aria-checked="true"] { background: #f97316; border-color: #fdba74; }
+.switch[aria-checked="true"] i { transform: translateX(28px); background: #fff; }
+.seg { display: flex; gap: 6px; }
+.seg button { flex: 1; min-height: 44px; padding: 4px 6px; border-radius: 12px; font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 800;
+  letter-spacing: 0.06em; color: #cbd5e1; background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; }
+.seg button[aria-pressed="true"] { color: #fff; border-color: #22d3ee; background: rgba(34, 211, 238, 0.18); box-shadow: 0 0 12px rgba(34, 211, 238, 0.3); }
+.tilt-meter { position: relative; flex: 1; height: 14px; border-radius: 9999px; background: #1e293b; border: 1px solid #475569; }
+.tilt-mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #64748b; }
+.tilt-dot { position: absolute; top: -3px; left: 50%; width: 18px; height: 18px; margin-left: -9px; border-radius: 9999px; background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
+.title-tilt { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 9999px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: #fde68a;
+  background: rgba(2, 6, 23, 0.82); border: 2px solid rgba(251, 191, 36, 0.7); }
+.title-tilt.hidden { display: none; }
+.title-tilt b { padding: 2px 8px; border-radius: 9999px; background: #334155; color: #e2e8f0; }
+.title-tilt[aria-pressed="true"] b { background: #f97316; color: #fff; }
+/* Calm mode (settings or OS): no looping UI animations. */
+[data-motion="reduce"] .play-cta, [data-motion="reduce"] .steer-hint, [data-motion="reduce"] .timer-urgent { animation: none !important; }

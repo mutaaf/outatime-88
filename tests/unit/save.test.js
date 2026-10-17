@@ -55,8 +55,10 @@ describe('SaveStore', () => {
     storage.setItem('outatime_cruisn_88_save_v2', JSON.stringify(oldSave));
     const { SaveStore } = await import('../../src/save.js');
     const { LIVERY_OPTIONS } = await import('../../src/data.js');
+    const { SETTINGS_DEFAULTS } = await import('../../src/settings.js');
     SaveStore.load();
-    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '' }); // new defaults: progress (0011), onboarded (0022), initials (0025)
+    // new defaults: progress (0011), onboarded (0022), initials (0025), settings (0050)
+    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS } });
     expect(LIVERY_OPTIONS.map((l) => l.id)).toContain(SaveStore.data.livery);
   });
 

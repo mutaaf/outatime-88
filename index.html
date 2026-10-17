@@ -148,6 +148,9 @@
           <button id="btnAudioToggle" title="Mute / Unmute All Sound (Key: M)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-200 transition">
             🔊
           </button>
+          <button id="btnHudSettings" type="button" title="Pause & settings (P)" aria-label="Pause and settings" class="hud-gear px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-200 transition">
+            ⚙️
+          </button>
           <button id="btnGarageOpen" title="Select Car Character & Upgrades (Key: P)" class="px-2.5 py-1.5 rounded-lg bg-orange-600/90 hover:bg-orange-500 border border-orange-400 text-[10px] font-arcade font-bold text-white transition">
             🔧 GARAGE
           </button>
@@ -321,6 +324,7 @@
         <span class="play-cta-label">▶ PLAY</span>
         <span id="playHint" class="play-cta-hint">TAP ANYWHERE</span>
       </button>
+      <button id="btnTitleTilt" type="button" class="title-tilt hidden" aria-pressed="false" aria-label="Tilt steering"><span aria-hidden="true">📱</span> TILT STEERING <b>OFF</b></button>
       <div id="titleEventChip" class="font-arcade text-[10px] sm:text-xs text-orange-200/90 tracking-wider"></div>
     </div>
 
@@ -333,6 +337,7 @@
       <div class="flex gap-3">
         <button id="btnOpenGarageFromTitle" type="button" class="title-icon" aria-label="Garage"><span>🔧</span><small>GARAGE</small></button>
         <button id="btnMuteStartModal" type="button" class="title-icon" aria-label="Sound"><span id="titleSoundIcon">🔊</span><small>SOUND</small></button>
+        <button id="btnOpenSettings" type="button" class="title-icon" aria-label="Settings"><span>⚙️</span><small>SETTINGS</small></button>
       </div>
     </nav>
   </div>
@@ -493,6 +498,9 @@
         <button id="btnChangeEventFromGarage" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-arcade text-xs font-bold">
           🌍 CHANGE LEVEL
         </button>
+        <button id="btnSettingsFromGarage" type="button" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-cyan-400/60 text-cyan-200 font-arcade text-xs font-bold">
+          ⚙️ SETTINGS
+        </button>
         <button id="btnResumeFromGarage" class="px-6 py-2.5 rounded-xl hw-badge text-slate-950 font-arcade text-xs sm:text-sm font-black uppercase">
           BACK TO THE TRACK ➔
         </button>
@@ -527,6 +535,64 @@
       <ol id="boardList" class="mt-2 space-y-1 min-h-[120px]" aria-live="polite"></ol>
       <div id="boardStatus" class="mt-1 text-center font-arcade text-[10px] text-slate-400"></div>
       <div class="mt-2 text-center font-arcade text-[10px] text-slate-400">YOUR BEST <span id="boardYourBest" class="led-cyan font-black">0</span></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS (ticket 0050): one panel from the title gear, the HUD gear (pauses) and the garage. -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 flex justify-center overflow-y-auto bg-slate-950/90 backdrop-blur-md p-3" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="settings-card m-auto w-full max-w-lg rounded-3xl bg-slate-900 border-2 border-cyan-400/80 p-4 sm:p-6">
+      <div class="flex items-center justify-between gap-2">
+        <h2 id="settingsTitle" class="font-arcade text-lg sm:text-2xl font-black text-white tracking-wider">⚙️ SETTINGS</h2>
+        <button id="btnSettingsDone" type="button" class="min-h-[44px] px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs sm:text-sm font-black">✓ DONE</button>
+      </div>
+
+      <section class="set-section" aria-labelledby="setHeadTilt">
+        <h3 id="setHeadTilt">📱 TILT STEERING</h3>
+        <div class="set-row">
+          <span>Steer by tilting</span>
+          <button id="setTilt" type="button" role="switch" aria-checked="false" class="switch" aria-label="Tilt steering"><i></i></button>
+        </div>
+        <p id="tiltStatus" class="set-status" role="status" aria-live="polite"></p>
+        <div class="set-row">
+          <div id="setTiltMeter" class="tilt-meter is-off" aria-hidden="true"><span class="tilt-mid"></span><span id="setTiltDot" class="tilt-dot"></span></div>
+          <button id="setTiltRecenter" type="button" class="set-btn is-off">🎯 RECENTER</button>
+        </div>
+        <label class="set-row" for="setTiltSens"><span>Sensitivity <b id="setTiltSensValue">1.0x</b></span>
+          <input id="setTiltSens" type="range" min="0.4" max="2.2" step="0.1" value="1" class="set-range" /></label>
+        <div class="set-row">
+          <span>Invert left / right</span>
+          <button id="setTiltInvert" type="button" role="switch" aria-checked="false" class="switch" aria-label="Invert tilt"><i></i></button>
+        </div>
+      </section>
+
+      <section class="set-section" aria-labelledby="setHeadControls">
+        <h3 id="setHeadControls">🎮 TOUCH CONTROLS</h3>
+        <p class="set-status">Tap the on-screen pads, or tilt, or plug in a gamepad.</p>
+        <button id="btnEditControls" type="button" class="set-btn hidden mt-2">✋ EDIT CONTROLS</button>
+      </section>
+
+      <section class="set-section" aria-labelledby="setHeadSound">
+        <h3 id="setHeadSound">🔊 SOUND</h3>
+        <label class="set-row" for="setMaster"><span>Master</span><input id="setMaster" type="range" min="0" max="100" step="5" class="set-range" /></label>
+        <label class="set-row" for="setMusic"><span>Music</span><input id="setMusic" type="range" min="0" max="100" step="5" class="set-range" /></label>
+        <label class="set-row" for="setSfx"><span>Engine &amp; effects</span><input id="setSfx" type="range" min="0" max="100" step="5" class="set-range" /></label>
+      </section>
+
+      <section class="set-section" aria-labelledby="setHeadGame">
+        <h3 id="setHeadGame">🏁 RACE</h3>
+        <div class="set-label">Difficulty</div>
+        <div class="seg" data-setting="difficulty" role="group" aria-label="Difficulty">
+          <button type="button" data-value="easy">EASY</button>
+          <button type="button" data-value="normal">NORMAL</button>
+          <button type="button" data-value="hard">HARD</button>
+        </div>
+        <div class="set-label">Screen shake &amp; flashes</div>
+        <div class="seg" data-setting="motion" role="group" aria-label="Motion">
+          <button type="button" data-value="auto">AUTO</button>
+          <button type="button" data-value="reduce">CALM</button>
+          <button type="button" data-value="full">FULL</button>
+        </div>
+      </section>
     </div>
   </div>
 

@@ -9,7 +9,7 @@ import { RigidBody3D } from './physics.js';
 import { projectPoint } from './projection.js';
 import { contactZ, cameraDepth } from './contact.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
-import { speedFeel, createParticlePool, createHitStop, nearMissChain, watchReducedMotion } from './fx.js';
+import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress.js';
 import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
@@ -18,6 +18,7 @@ import { createRaceClock } from './race.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, normalizeInitials, rankLine } from './leaderboard.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
+import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen } from './settings-ui.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -28,7 +29,7 @@ const sparks = createParticlePool(160);
 const hitStop = createHitStop();
 const nearMisses = nearMissChain();
 let fxClock = 0;
-watchReducedMotion((reduce) => { GameState.reducedMotion = reduce; });
+// Reduced motion = the OS setting or the settings panel's choice (src/settings-ui.js).
 
 /** Shower of sparks from the player car (pixel-canvas coords are mapped at draw time). */
 function burstSparks(count, hue, power = 1) {
@@ -286,7 +287,7 @@ const LiveTraffic = {
       }
 
       const relZ = r.worldZ - playerZ;
-      let targetMph = Math.max(50, GameState.speed * (0.92 + i * 0.03));
+      let targetMph = Math.max(50, GameState.speed * (0.92 + i * 0.03) * currentDifficulty().rivalPace);
       if (relZ < -600) { targetMph = GameState.speed + 18; r.nosActive = true; }
       else if (relZ > 4800) { targetMph = Math.max(42, GameState.speed - 16); r.nosActive = false; }
       else { r.nosActive = (Math.sin(Date.now() * 0.0025 + i * 2) > 0.65); }
@@ -640,7 +641,8 @@ function applyPlayerDamage(rawDmg, reasonText) {
     return;
   }
   const massReduction = Math.max(0.65, 1350 / (charObj.massKg || 1350));
-  const finalDmg = Math.max(6, Math.round(rawDmg * massReduction));
+  const dmgScale = currentDifficulty().damage; // settings → difficulty (ticket 0050)
+  const finalDmg = Math.round(Math.max(6, rawDmg * massReduction) * dmgScale);
   GameState.hp = Math.max(0, GameState.hp - finalDmg);
   GameState.invulnTimer = 1.1; // 1.1s invulnerability frames
   SoundEngine.playCrash();
@@ -1150,7 +1152,7 @@ function updateGame(rawDt) {
   if (InputState.right) steerInput += 1;
   if (Math.abs(InputState.wheelSteerVal) > 0.02) steerInput += InputState.wheelSteerVal;
   if (InputState.tiltEnabled && Math.abs(InputState.tiltSteerVal) > 0.03) {
-    steerInput += InputState.tiltSteerVal * SaveStore.data.tiltSensitivity;
+    steerInput += InputState.tiltSteerVal; // sensitivity and invert are already applied (src/settings.js)
   }
   if (Math.abs(gp.steer) > 0.05) steerInput += gp.steer;
 
@@ -3700,69 +3702,12 @@ function endRaceRun(customBadgeText = null) {
   offerScoreSubmission();
 }
 
-// --- ACCELEROMETER / DEVICEORIENTATION ---
-function handleDeviceOrientation(e) {
-  if (!InputState.tiltEnabled) return;
-  const isLandscape = window.innerWidth > window.innerHeight;
-  let rawDeg = isLandscape ? (e.beta || 0) : (e.gamma || 0);
-  if (rawDeg === 0 && e.gamma) rawDeg = e.gamma;
-  InputState.tiltRawAngle = rawDeg;
-
-  const calibrated = rawDeg - InputState.tiltZeroOffset;
-  const clamped = Math.max(-28, Math.min(28, calibrated));
-  InputState.tiltSteerVal = Math.abs(clamped) < 2.0 ? 0 : (clamped / 24);
-
-  const dot = document.getElementById('tiltIndicatorDot');
-  if (dot) {
-    const pct = Math.max(8, Math.min(92, 50 + InputState.tiltSteerVal * 42));
-    dot.style.left = `${pct}%`;
-  }
-}
-
-async function toggleAccelerometerTilt(forceEnable = null) {
-  const targetState = forceEnable !== null ? forceEnable : !InputState.tiltEnabled;
-  if (targetState) {
-    try {
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        const resp = await DeviceOrientationEvent.requestPermission();
-        if (resp !== 'granted') {
-          triggerAnnouncement('TILT PERMISSION BLOCKED', 'USING TOUCH WHEEL & KEYS INSTEAD', 1800);
-          return;
-        }
-      }
-    } catch (err) {}
-    window.addEventListener('deviceorientation', handleDeviceOrientation, true);
-    InputState.tiltEnabled = true;
-    InputState.tiltZeroOffset = InputState.tiltRawAngle || 0;
-  } else {
-    InputState.tiltEnabled = false;
-    InputState.tiltSteerVal = 0;
-  }
-
-  const tiltBtn = document.getElementById('btnTiltToggle');
-  const tiltModalBtn = document.getElementById('btnEnableTiltModal');
-  const tiltHud = document.getElementById('tiltHudBar');
-  const sensorStatus = document.getElementById('sensorStatusText');
-
-  if (tiltBtn) {
-    tiltBtn.textContent = InputState.tiltEnabled ? 'TILT: ON' : 'TILT: OFF';
-    tiltBtn.className = InputState.tiltEnabled
-      ? 'px-2 py-1 rounded-lg bg-amber-500 text-slate-950 border border-amber-300 text-[9px] font-arcade font-bold transition'
-      : 'px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[9px] font-arcade font-bold text-amber-300 transition';
-  }
-  if (tiltModalBtn) {
-    tiltModalBtn.textContent = InputState.tiltEnabled ? '📱 TILT STEERING: ACTIVE ✓' : '📱 ENABLE TILT STEERING';
-  }
-  if (tiltHud) tiltHud.classList.toggle('hidden', !InputState.tiltEnabled);
-  if (sensorStatus && InputState.tiltEnabled) {
-    sensorStatus.textContent = 'Accelerometer Tilt Steering enabled! Tilt device left/right to steer.';
-  }
-}
+// Tilt steering lives in src/settings-ui.js (ticket 0050).
 
 // --- EVENT LISTENERS & CONTROLS BINDING ---
 function bindAllControls() {
   window.addEventListener('keydown', (e) => {
-    if (titleVisible() && document.getElementById('startModal').classList.contains('hidden')
+    if (titleVisible() && !settingsOpen() && document.getElementById('startModal').classList.contains('hidden')
         && document.getElementById('garageModal').classList.contains('hidden')
         && document.getElementById('leaderboardModal').classList.contains('hidden')
         && ['Enter', 'Space', 'NumpadEnter'].includes(e.code)) {
@@ -3914,12 +3859,9 @@ function bindAllControls() {
   document.getElementById('btnPaceMode').addEventListener('click', cyclePaceMode);
   document.getElementById('btnCameraMode').addEventListener('click', cycleCameraMode);
   document.getElementById('btnVisualMode').addEventListener('click', cycleVisualMode);
-  document.getElementById('btnTiltToggle').addEventListener('click', () => toggleAccelerometerTilt());
-  document.getElementById('btnEnableTiltModal').addEventListener('click', () => toggleAccelerometerTilt(true));
-  document.getElementById('btnCalibrateTilt').addEventListener('click', () => {
-    InputState.tiltZeroOffset = InputState.tiltRawAngle || 0;
-    triggerAnnouncement('📱 TILT CENTERED!', 'NEUTRAL STEERING CALIBRATED', 1100);
-  });
+  document.getElementById('btnTiltToggle').addEventListener('click', () => toggleTilt());
+  document.getElementById('btnEnableTiltModal').addEventListener('click', () => toggleTilt(true));
+  document.getElementById('btnCalibrateTilt').addEventListener('click', recenterTilt);
 
   document.getElementById('btnAudioToggle').addEventListener('click', () => {
     SoundEngine.init();
@@ -4096,6 +4038,7 @@ function syncAudioUI() {
   if (volSlider) {
     volSlider.value = isMuted ? 0 : Math.round(SoundEngine.volume * 100);
   }
+  refreshSettingsPanel();
 }
 
 function cycleJarvisMode() {
@@ -4171,7 +4114,7 @@ function mainLoop(timestamp) {
 
   if (GameState.status === 'PLAYING') {
     updateGame(dt);
-  } else {
+  } else if (GameState.status !== 'PAUSED') { // attract mode rolls the road; a pause freezes it
     GameState.trackPos += 1350 * dt;
     const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
     if (track.segments.length - currentSegIdx < ROAD_CFG.drawDistance + 60) {
@@ -4189,10 +4132,11 @@ function mainLoop(timestamp) {
 window.onload = () => {
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
   if (new URLSearchParams(location.search).has('debug')) window.__OT = {
-    GameState, announce: triggerAnnouncement, startRace: startNewRace,
+    GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
   };
+  initSettings({ announce: triggerAnnouncement });
   watchLayout();
   resizeCanvases();
   GameState.levelIndex = SaveStore.data.selectedLevel || 0;
