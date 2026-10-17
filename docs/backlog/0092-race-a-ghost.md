@@ -1,12 +1,12 @@
 ---
 id: 0092
 title: Race a ghost — your rival's best line, live on your HUD strip
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: content
 created: 2026-10-17
-pr:
+pr: 41
 ---
 
 ## Why
