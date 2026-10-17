@@ -277,60 +277,40 @@
     </div>
   </div>
 
-  <!-- ARCADE TOUCH CONTROLS: steer pair left, three action pads right, driver badge between
-       (full HUD only). Compact layout and sizing live in styles.css (ticket 0021). -->
-  <div id="touchControlsLayer" class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between">
+  <!-- TOUCH CONTROLS (ticket 0041): filled by src/touch/controller.js on touch devices —
+       thumbstick or D-pad, an arc of action buttons, shortcuts. Layout from src/touch/layouts.js. -->
+  <div id="touchControlsLayer"></div>
 
-    <div class="steer-group pointer-events-auto relative flex items-center">
-      <!-- First-run steering prompt (ticket 0022); shown by src/onboarding.js until you steer. -->
-      <div id="steerHint" class="steer-hint hidden pointer-events-none absolute bottom-full left-0 mb-2 whitespace-nowrap px-3 py-1.5 rounded-full bg-slate-950/90 border-2 border-orange-400 font-arcade text-[11px] font-black text-orange-200" role="status">
-        <span class="hint-touch">◀ TAP TO STEER ▶</span><span class="hint-keys">◀ A / D TO STEER ▶</span>
-      </div>
-      <button id="btnSteerLeft" aria-label="Steer Left" class="arcade-pedal steer-pad rounded-2xl bg-slate-900/85 active:bg-orange-600/80 border-2 border-orange-500/80 flex items-center justify-center font-black text-orange-300 shadow-lg">
-        ◀
-      </button>
-      <button id="btnSteerRight" aria-label="Steer Right" class="arcade-pedal steer-pad rounded-2xl bg-slate-900/85 active:bg-orange-600/80 border-2 border-orange-500/80 flex items-center justify-center font-black text-orange-300 shadow-lg">
-        ▶
-      </button>
-    </div>
+  <!-- First-run steering prompt (ticket 0022); shown by src/onboarding.js until you steer.
+       On touch screens the controller parks it over the thumbstick. -->
+  <div id="steerHint" class="steer-hint hidden pointer-events-none fixed z-20 whitespace-nowrap px-3 py-1.5 rounded-full bg-slate-950/90 border-2 border-orange-400 font-arcade text-[11px] font-black text-orange-200" role="status">
+    <span class="hint-touch">👍 THUMB HERE TO STEER</span><span class="hint-keys">◀ A / D TO STEER ▶</span>
+  </div>
 
-    <div id="driverBadgeBar" class="pointer-events-auto flex items-center gap-2 min-w-0 bg-slate-950/90 border border-slate-700 rounded-2xl px-3 py-1.5 shadow-xl">
-      <span id="activeDriverBadge" class="font-arcade text-[10px] font-bold text-cyan-300 truncate">
-        🏎️ ROOK & THE PROFESSOR • '88 FLUX COUPE GULL-WING
-      </span>
-      <button id="btnQuickSwitchCar" title="Switch Driver & Car (Or Generate New!)" class="shrink-0 px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/40 border border-orange-400 text-[9px] font-arcade font-bold text-orange-200 transition">
-        🎲 NEXT CAR (N)
-      </button>
-    </div>
+  <!-- Driver badge: keyboard/mouse play on the full HUD only. -->
+  <div id="driverBadgeBar" class="driver-badge pointer-events-auto fixed z-20 flex items-center gap-2 min-w-0 bg-slate-950/90 border border-slate-700 rounded-2xl px-3 py-1.5 shadow-xl">
+    <span id="activeDriverBadge" class="font-arcade text-[10px] font-bold text-cyan-300 truncate">
+      🏎️ ROOK & THE PROFESSOR • '88 FLUX COUPE GULL-WING
+    </span>
+    <button id="btnQuickSwitchCar" title="Switch Driver & Car (Or Generate New!)" class="shrink-0 px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/40 border border-orange-400 text-[9px] font-arcade font-bold text-orange-200 transition">
+      🎲 NEXT CAR (N)
+    </button>
+  </div>
 
-    <div class="action-group pointer-events-auto flex items-end">
-      <button id="btnBrakeDrift" aria-label="Drift / brake / slide under gates" title="Hold to Drift Corners OR Duck-Slide Under High Gates (S / Down / Swipe Down)" class="arcade-pedal action-pad rounded-2xl bg-red-950/90 active:bg-red-700 border-2 border-red-500/80 text-red-200 font-arcade font-bold shadow-lg">
-        <span class="pad-icon">🔥</span><span class="pad-label">DRIFT</span><span class="pad-key">S</span>
-      </button>
-      <button id="btnHoverStunt" aria-label="Jump / hover" title="Jump Over Low Lasers & Ramps OR Engage Hover (W / Up / H / Swipe Up)" class="arcade-pedal action-pad rounded-2xl bg-fuchsia-900/85 hover:bg-fuchsia-700/85 border-2 border-fuchsia-400 text-fuchsia-100 font-arcade font-bold shadow-lg">
-        <span class="pad-icon">🛸</span><span class="pad-label">JUMP</span><span class="pad-key">W / H</span>
-      </button>
-      <button id="btnFluxBoost" aria-label="88 mph time warp" title="Smash Crates & Trigger 88 MPH Time Warp (Spacebar)" class="arcade-pedal action-pad action-pad-hero flux-btn rounded-2xl border-2 border-white text-slate-950 font-arcade font-black shadow-xl">
-        <span class="pad-icon">⚡</span><span class="pad-label">WARP</span><span class="pad-key">SPACE</span>
-      </button>
-    </div>
-
-    <!-- Hidden Pro Controls Drawer (Preserves all legacy DOM IDs for keyboard shortcuts & zero-regression check) -->
-    <div id="proControlsDrawer" class="hidden">
-      <button id="btnPulseBeam">💠 PULSE BEAM (B)</button>
-      <button id="btnTwoWheel">📐 2-WHEEL (Q)</button>
-      <button id="btnSideSlam">💥 SLAM RIVAL (F)</button>
-      <div id="virtualWheel"><div id="wheelSpoke">88</div></div>
-      <button id="btnAbilityZone">🟢 ZONE (Z)</button>
-      <button id="btnAbilityAgro">🔴 AGRO (X)</button>
-      <button id="btnAbilityRoar">🟣 ROAR (R)</button>
-      <span id="eraStep0">1985 8-BIT</span>
-      <span id="eraStep1">1885 16-BIT</span>
-      <span id="eraStep2">2015 DUB NEON</span>
-      <span id="eraStep3">2088 HD ULTRA</span>
-      <button id="btnGasPedal">🟢 AUTO-GAS: ON (W)</button>
-    </div>
-
+  <!-- Hidden Pro Controls Drawer (Preserves all legacy DOM IDs for keyboard shortcuts & zero-regression check) -->
+  <div id="proControlsDrawer" class="hidden">
+    <button id="btnPulseBeam">💠 PULSE BEAM (B)</button>
+    <button id="btnTwoWheel">📐 2-WHEEL (Q)</button>
+    <button id="btnSideSlam">💥 SLAM RIVAL (F)</button>
+    <div id="virtualWheel"><div id="wheelSpoke">88</div></div>
+    <button id="btnAbilityZone">🟢 ZONE (Z)</button>
+    <button id="btnAbilityAgro">🔴 AGRO (X)</button>
+    <button id="btnAbilityRoar">🟣 ROAR (R)</button>
+    <span id="eraStep0">1985 8-BIT</span>
+    <span id="eraStep1">1885 16-BIT</span>
+    <span id="eraStep2">2015 DUB NEON</span>
+    <span id="eraStep3">2088 HD ULTRA</span>
+    <button id="btnGasPedal">🟢 AUTO-GAS: ON (W)</button>
   </div>
 
   <!-- ONE-TAP TITLE (ticket 0022): the car on the attract-mode road is the hero; tap anywhere
@@ -647,8 +627,11 @@
 
       <section class="set-section" aria-labelledby="setHeadControls">
         <h3 id="setHeadControls">🎮 TOUCH CONTROLS</h3>
-        <p class="set-status">Tap the on-screen pads, or tilt, or plug in a gamepad.</p>
-        <button id="btnEditControls" type="button" class="set-btn hidden mt-2">✋ EDIT CONTROLS</button>
+        <p class="set-status">Thumbstick, D-pad or tilt; six button layouts (Roblox, Fortnite, left-handed…); drag any button where your thumbs like it.</p>
+        <div class="flex flex-wrap gap-2 mt-2">
+          <button id="btnOpenControls" type="button" class="set-btn">🎮 STEERING &amp; BUTTONS</button>
+          <button id="btnEditControls" type="button" class="set-btn hidden">✋ EDIT CONTROLS</button>
+        </div>
       </section>
 
       <section class="set-section" aria-labelledby="setHeadSound">

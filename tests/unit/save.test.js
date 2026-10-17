@@ -57,9 +57,9 @@ describe('SaveStore', () => {
     const { LIVERY_OPTIONS } = await import('../../src/data.js');
     const { SETTINGS_DEFAULTS } = await import('../../src/settings.js');
     SaveStore.load();
-    // new defaults: progress (0011), onboarded (0022), initials (0025), settings (0050), renderMode (0040), liveName (0060)
+    // new defaults: progress (0011), onboarded (0022), initials (0025), settings (0050), renderMode (0040), liveName (0060), controls (0061)
     const { garage, career, ...rest } = SaveStore.data;
-    expect(rest).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS }, renderMode: 'auto', liveName: '' });
+    expect(rest).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS }, renderMode: 'auto', liveName: '', controls: {} });
     // Garage + career (0071): an old save drives a starter car with zeroed counters.
     expect(garage.owned).toEqual(['FLUX_COUPE_88', 'PASS_RUNNER_86']);
     expect(garage.selected).toBe('FLUX_COUPE_88');
@@ -84,6 +84,15 @@ describe('SaveStore', () => {
     expect(d.garage.owned).toEqual(['FLUX_COUPE_88', 'PASS_RUNNER_86']);
     expect(d.garage.paint).toEqual({});
     expect(d.career.races).toBe(0);
+  });
+
+  it('keeps saved touch controls (the touch kit fills in new fields when it loads)', async () => {
+    storage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ controls: { preset: 'claw', sensitivity: 1.3, layouts: { 'phone-portrait': { items: { boost: { fx: 0.5, fy: 0.9, s: 1, o: 1, h: 0 } } } } } }));
+    const { SaveStore } = await import('../../src/save.js');
+    const { normalizeControls } = await import('../../src/touch/settings.js');
+    SaveStore.load();
+    expect(normalizeControls(SaveStore.data.controls)).toMatchObject({ preset: 'claw', sensitivity: 1.3, autoAccel: true, haptics: true });
+    expect(SaveStore.data.controls.layouts['phone-portrait'].items.boost.fx).toBe(0.5);
   });
 
   it('keeps every unrenamed livery id as saved', async () => {

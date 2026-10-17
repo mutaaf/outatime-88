@@ -9,6 +9,7 @@ import {
   Float32BufferAttribute,
 } from 'three';
 import { ROAD_CFG } from '../data.js';
+import { InputState } from '../input.js';
 import { createTrackPath } from './path.js';
 import { bodyPose, playerPose } from '../render-pose.js';
 import { buildCar, buildObstacle, propKinds, mountainRing, NEON_CYAN, NEON_PINK } from './meshes.js';
@@ -444,6 +445,9 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   }
 
   const camLook = new Vector3();
+  const orbitPivot = new Vector3();
+  const orbitOff = new Vector3();
+  let orbitBack = 0; // 0..1 eased LOOK BACK
   let sunHeading = 0;
   let groundY = 0;
   let camInit = false;
@@ -488,6 +492,27 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     if (!s.reducedMotion) {
       const mag = (feel.shake * 0.02) + Math.min(1, s.screenShake || 0) * 0.25;
       if (mag > 0) { camera.position.x += Math.sin(t * 61) * mag; camera.position.y += Math.sin(t * 47 + 1.3) * mag; }
+    }
+    // Touch look (ticket 0061): drag the right side to orbit the chase camera around the car,
+    // pinch to change the chase distance, hold LOOK BACK to swing round. Springs back in the
+    // input layer, so this only reads InputState. The hood cam (lag 0) stays put.
+    orbitBack += ((InputState.lookBack ? 1 : 0) - orbitBack) * Math.min(1, dt * 10);
+    const yaw = (InputState.lookYaw || 0) * 1.9 + orbitBack * Math.PI;
+    const pitch = (InputState.lookPitch || 0) * 0.45;
+    const zoom = InputState.lookZoom || 1;
+    if (rig.lag !== 0 && (yaw !== 0 || pitch !== 0 || zoom !== 1)) {
+      path.at(pz, pp.x, pose);
+      orbitPivot.set(pose.x, pose.y + 1.1 + ly, -pose.z);
+      orbitOff.subVectors(camera.position, orbitPivot).multiplyScalar(zoom);
+      const c = Math.cos(yaw), sn = Math.sin(yaw);
+      const ox = orbitOff.x * c - orbitOff.z * sn;
+      orbitOff.z = orbitOff.x * sn + orbitOff.z * c;
+      orbitOff.x = ox;
+      orbitOff.y = Math.max(0.6, orbitOff.y + pitch * orbitOff.length());
+      camera.position.addVectors(orbitPivot, orbitOff);
+      // Aim between the road ahead and the car as the orbit grows.
+      const w = Math.min(1, Math.abs(yaw) / 1.2 + Math.abs(pitch));
+      camLook.lerp(orbitPivot, w);
     }
     camera.lookAt(camLook);
     const warpKick = (!s.reducedMotion && s.warpFxTimer > 0) ? (s.warpFxTimer / 0.9) * 16 : 0;

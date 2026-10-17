@@ -106,19 +106,11 @@ html, body {
 .slot-telemetry { top: var(--slot-telemetry, 136px); }
 .slot-fork { top: var(--slot-fork, 176px); }
 
-#touchControlsLayer {
-  gap: 12px;
-  padding: 16px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-}
-.steer-group, .action-group { gap: 8px; flex-shrink: 0; }
-#driverBadgeBar { flex: 0 1 auto; max-width: 46vw; }
-.steer-pad { width: 64px; height: 64px; font-size: 24px; }
-.action-pad {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 6px;
-  min-width: 112px; min-height: 52px; padding: 8px 14px; font-size: 12px; line-height: 1.1;
-}
-.action-pad .pad-icon { font-size: 14px; }
-.action-pad .pad-key { flex-basis: 100%; text-align: center; font-size: 8px; opacity: 0.75; }
+/* Driver badge: bottom centre on the full HUD with keyboard/mouse; touch screens use that room
+   for controls (ticket 0061). Steer prompt: bottom-left until the touch controller moves it. */
+#driverBadgeBar { left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: 46vw; }
+.touch-ui #driverBadgeBar { display: none !important; }
+#steerHint { left: max(16px, env(safe-area-inset-left)); bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)); }
 
 /* Compact HUD: phones (either orientation) and small tablets. One slim HUD row, no driver
    badge, and square thumb pads sized to the screen so nothing clips at 360px. */
@@ -138,26 +130,11 @@ html, body {
 [data-hud="compact"] #coachCard { max-width: 92vw; padding: 5px 10px !important; gap: 8px !important; }
 [data-hud="compact"] #coachDesc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 [data-hud="compact"] #forkChoiceBanner > div { font-size: 10px !important; padding: 4px 8px !important; max-width: 46vw; }
-[data-hud="compact"] #touchControlsLayer {
-  padding: 10px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
-}
-[data-hud="compact"] .steer-group, [data-hud="compact"] .action-group { gap: 6px; }
-[data-hud="compact"] .steer-pad { width: clamp(48px, 15vw, 64px); height: clamp(48px, 15vw, 64px); font-size: 22px; }
-[data-hud="compact"] .action-pad {
-  flex-direction: column; flex-wrap: nowrap; min-width: 0; min-height: 0; padding: 0; row-gap: 2px;
-  width: clamp(50px, 16vw, 72px); height: clamp(50px, 16vw, 72px); font-size: 9px;
-}
-[data-hud="compact"] .action-pad .pad-icon { font-size: 18px; line-height: 1; }
-[data-hud="compact"] .action-pad .pad-key { display: none; }
 @media (max-width: 380px) {
   [data-hud="compact"] #fluxHudCol { width: 44px !important; }
   [data-hud="compact"] #btnHudSettings { padding: 4px 5px !important; }
   [data-hud="compact"] #legacyHud > div:first-child > div { gap: 4px !important; }
   [data-hud="compact"] #centerHudPanel > div:first-child { min-width: 44px !important; }
-}
-@media (max-height: 520px) {
-  [data-hud="compact"] .steer-pad { width: 56px; height: 56px; }
-  [data-hud="compact"] .action-pad { width: 60px; height: 60px; }
 }
 
 /* Race clock (ticket 0016): the last stretch reads at a glance. */
@@ -198,7 +175,7 @@ html, body {
 /* One-tap title (ticket 0022): the attract-mode road and car show through the middle; a
    dark fade top and bottom keeps the wordmark and PLAY readable. */
 /* On the title the race UI stays out of the way; the attract-mode road keeps rolling. */
-body.on-title header, body.on-title #touchControlsLayer, body.on-title #interactiveCoachBanner,
+body.on-title header, body.on-title #touchControlsLayer, body.on-title #steerHint, body.on-title #driverBadgeBar, body.on-title #interactiveCoachBanner,
 body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-title #forkChoiceBanner { visibility: hidden; }
 .title-icons { padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
 .title-screen {
@@ -234,6 +211,7 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 @keyframes hint-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 .steer-hint .hint-keys { display: none; }
 @media (pointer: fine) { .steer-hint .hint-touch { display: none; } .steer-hint .hint-keys { display: inline; } }
+.touch-ui .steer-hint .hint-touch { display: inline; } .touch-ui .steer-hint .hint-keys { display: none; }
 @media (max-height: 520px) {
   .title-screen { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(10px, env(safe-area-inset-bottom)); }
   .title-screen .wordmark { font-size: 2.4rem; }

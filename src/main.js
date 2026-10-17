@@ -24,7 +24,7 @@ import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
 import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
-import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen } from './settings-ui.js';
+import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
 import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
 import { carParams, isOwned, unlockProgress, recordRace, ensureGarage } from './cars.js';
 import { initRacer } from './racer-ui.js';
@@ -1138,8 +1138,8 @@ function updateGame(rawDt) {
   const targetMaxSpeed = (GameState.warpActiveTimer > 0 || GameState.agroTimer > 0 || isOnBooster) ? warpMaxMph : baseMaxMph;
 
   const gp = pollGamepad();
-  const accelerating = GameState.autoGas || InputState.up || gp.gas;
-  const braking = InputState.down || gp.brake;
+  const accelerating = GameState.autoGas || InputState.up || InputState.touchUp || gp.gas;
+  const braking = InputState.down || InputState.touchDown || gp.brake;
 
   const paceCfg = PACE_MODES[GameState.paceMode] || PACE_MODES[0];
   if (braking) {
@@ -1228,6 +1228,7 @@ function updateGame(rawDt) {
   if (InputState.left) steerInput -= 1;
   if (InputState.right) steerInput += 1;
   if (Math.abs(InputState.wheelSteerVal) > 0.02) steerInput += InputState.wheelSteerVal;
+  if (Math.abs(InputState.touchSteerVal) > 0.01) steerInput += InputState.touchSteerVal;
   if (InputState.tiltEnabled && Math.abs(InputState.tiltSteerVal) > 0.03) {
     steerInput += InputState.tiltSteerVal; // sensitivity and invert are already applied (src/settings.js)
   }
@@ -3574,7 +3575,7 @@ function setSteerHint(on) {
 }
 
 function updateOnboarding() {
-  if (InputState.left || InputState.right || Math.abs(GameState.playerVX) > 0.6) onboarding.steer();
+  if (InputState.left || InputState.right || Math.abs(InputState.touchSteerVal) > 0.2 || Math.abs(GameState.playerVX) > 0.6) onboarding.steer();
   setSteerHint(onboarding.hint(performance.now()) === 'steer');
 }
 
@@ -3875,6 +3876,8 @@ function startNewRace(opts) {
   if (coachBanner) hideCoach(coachBanner);
   coachYieldUntil = performance.now() + 350;
   document.getElementById('leaderboardModal').classList.add('hidden');
+  GameState.autoGas = SaveStore.data.controls.autoAccel !== false;
+  if (touch) touch.raceStart();
 
   if (daily) applyDailyModifier(daily.modifier.id);
   if (liveRace) { currentRun = null; return; } // live races don't post to the solo leaderboard
@@ -4023,42 +4026,6 @@ function bindAllControls() {
     if (['ArrowDown', 'KeyS', 'ShiftLeft', 'ShiftRight'].includes(e.code)) InputState.down = false;
   });
 
-  function bindHoldButton(id, onDown, onUp) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const start = (ev) => { ev.preventDefault(); el.classList.add('active-press'); onDown(); };
-    const end = (ev) => { ev.preventDefault(); el.classList.remove('active-press'); onUp(); };
-    el.addEventListener('pointerdown', start);
-    el.addEventListener('pointerup', end);
-    el.addEventListener('pointerleave', end);
-    el.addEventListener('pointercancel', end);
-  }
-
-  bindHoldButton('btnSteerLeft', () => {
-    onboarding.steer(); // a tap is shorter than a frame: count it on the event itself
-    if (GameState.playerY > 10) performHumanTrick('LEFT');
-    else {
-      const now = performance.now();
-      if (now - GameState.lastLeftTap < 280) performHumanTrick('JUKE_LEFT');
-      GameState.lastLeftTap = now;
-    }
-    InputState.left = true;
-  }, () => { InputState.left = false; });
-  bindHoldButton('btnSteerRight', () => {
-    onboarding.steer();
-    if (GameState.playerY > 10) performHumanTrick('RIGHT');
-    else {
-      const now = performance.now();
-      if (now - GameState.lastRightTap < 280) performHumanTrick('JUKE_RIGHT');
-      GameState.lastRightTap = now;
-    }
-    InputState.right = true;
-  }, () => { InputState.right = false; });
-  bindHoldButton('btnBrakeDrift', () => {
-    if (GameState.playerY > 12) performHumanTrick('DOWN');
-    InputState.down = true;
-  }, () => { InputState.down = false; });
-
   const wheel = document.getElementById('virtualWheel');
   const spoke = document.getElementById('wheelSpoke');
   if (wheel) {
@@ -4088,12 +4055,6 @@ function bindAllControls() {
     wheel.addEventListener('pointercancel', releaseWheel);
   }
 
-  document.getElementById('btnFluxBoost').addEventListener('click', () => { SoundEngine.init(); InputState.boostPressed = true; });
-  document.getElementById('btnHoverStunt').addEventListener('click', () => {
-    SoundEngine.init();
-    if (GameState.playerY > 12) performHumanTrick('UP');
-    else InputState.hoverPressed = true;
-  });
   document.getElementById('btnAbilityZone').addEventListener('click', () => activateMidnightSpecial('ZONE'));
   document.getElementById('btnAbilityAgro').addEventListener('click', () => activateMidnightSpecial('AGRO'));
   document.getElementById('btnAbilityRoar').addEventListener('click', () => activateMidnightSpecial('ROAR'));
@@ -4491,6 +4452,48 @@ function renderFrame(dt) {
   renderRadarMinimap(Math.floor(GameState.trackPos / ROAD_CFG.segLength));
 }
 
+// --- TOUCH CONTROLS (ticket 0061) ---
+// Thumbstick / D-pad / tilt, an action arc and shortcuts (src/touch/). Touch devices (or any
+// device's first touch) load the kit as its own chunk; desktops never download it.
+let touch = null;
+let touchLoading = null;
+const canTouch = () => (navigator.maxTouchPoints || 0) > 0
+  || (typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches);
+
+/** `show` = put the controls on screen (a touch device); the settings buttons only need the code. */
+function loadTouch(show = true) {
+  touchLoading = touchLoading || import('./touch/bridge.js').then(({ connectTouch }) => {
+    touch = connectTouch({
+      performHumanTrick, activateMidnightSpecial, cycleCameraMode, openSettings, recenterTilt, toggleTilt,
+      announce: triggerAnnouncement, traffic: () => LiveTraffic, onboarding: () => onboarding, is3D: () => !!view3d,
+    });
+    return touch;
+  });
+  return touchLoading.then((t) => { if (show) t.show(); return t; });
+}
+
+function initTouchControls() {
+  if (canTouch()) loadTouch();
+  else {
+    const first = (e) => {
+      if (e.pointerType !== 'touch') return;
+      window.removeEventListener('pointerdown', first, true);
+      loadTouch();
+    };
+    window.addEventListener('pointerdown', first, true);
+  }
+  // Settings gear: STEERING & BUTTONS opens the Controls panel; EDIT CONTROLS opens the HUD
+  // layout editor directly (one tap from the gear).
+  document.getElementById('btnOpenControls').addEventListener('click', () => {
+    document.getElementById('settingsModal').classList.add('hidden');
+    loadTouch(false).then((t) => t.openPanel(openSettings));
+  });
+  registerControlsEditor(({ resume }) => loadTouch(false).then((t) => t.openEditor(() => {
+    openSettings();
+    if (resume && GameState.status !== 'PAUSED') resume();
+  })));
+}
+
 let lastFrameTime = 0;
 let rafId = null;
 
@@ -4548,6 +4551,7 @@ function mainLoop(timestamp) {
   const dt = Math.min(0.05, frameSeconds); // wall-clock frame time for attract mode and render FX
   lastFrameTime = timestamp;
 
+  if (touch) touch.sample(dt);
   if (GameState.status === 'PLAYING') {
     const steps = simClock.advance(frameSeconds);
     for (let i = 0; i < steps && GameState.status === 'PLAYING'; i++) {
@@ -4575,6 +4579,7 @@ function mainLoop(timestamp) {
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
   if (GameState.status === 'PLAYING') renderBlended(simClock.alpha, dt);
   else renderFrame(dt);
+  if (touch) touch.render();
   rafId = requestAnimationFrame(mainLoop);
 }
 
@@ -4586,9 +4591,13 @@ window.onload = () => {
     finishRun: () => endRaceRun('🏁 FINISH!'),
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
     setView: (m) => setRenderMode(m, { persist: false }),
+    input: InputState,
+    controls: () => SaveStore.data.controls,
+    touch: () => touch && touch.controls,
   };
   initSettings({ announce: triggerAnnouncement });
   watchLayout();
+  initTouchControls();
   resizeCanvases();
   GameState.levelIndex = SaveStore.data.selectedLevel || 0;
   initTrack();
