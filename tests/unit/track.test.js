@@ -3,11 +3,19 @@ import { track, generateNextTrackBiome, buildInitialTrack, resetTrack } from '..
 import { GameState } from '../../src/state.js';
 import { ROAD_CFG, WORLD_LEVELS } from '../../src/data.js';
 
-// Items that sit on the road surface and can occupy a lane. Roadside props (|offset| > 1)
-// and overhead rings don't block anything.
+// Anything on the road surface that the player must avoid occupies a lane: segment cars
+// (traffic, roadblocks) and non-pickup items. Roadside props (|offset| >= 1), overhead
+// rings and collectible pickups don't block. Today generation places no obstacles, so this
+// guards future content tickets; the sanity test below proves the check can fail.
 const LANES = [-1, 0, 1];
-const laneOf = (offset) => Math.round(offset / 0.52);
-const blocksLane = (item) => Math.abs(item.offset) < 1 && item.type !== 'OVERHEAD_GATE' && item.collected === undefined;
+const laneOf = (offset) => Math.max(-1, Math.min(1, Math.round(offset / 0.52)));
+const PASSABLE = new Set(['OVERHEAD_GATE', 'PLUTONIUM', 'HW_COIN', 'REPAIR_WRENCH']);
+function openLanes(seg) {
+  const blocked = new Set();
+  for (const it of seg.items) if (Math.abs(it.offset) < 1 && !PASSABLE.has(it.type)) blocked.add(laneOf(it.offset));
+  for (const car of seg.cars) if (Math.abs(car.offset) < 1) blocked.add(laneOf(car.offset));
+  return LANES.filter(l => !blocked.has(l));
+}
 
 function generate(biomes, levelIndex = 0) {
   GameState.levelIndex = levelIndex;
@@ -39,11 +47,16 @@ describe('track generation (ticket 0004)', () => {
     }
   });
 
+  it('the open-lane check detects a fully blocked row', () => {
+    const wall = { items: [{ offset: -0.52, type: 'HOLO_BARRIER' }, { offset: 0.52, type: 'HOLO_BARRIER' }], cars: [{ offset: 0 }] };
+    expect(openLanes(wall)).toEqual([]);
+    expect(openLanes({ items: [{ offset: 0, type: 'HW_COIN' }, { offset: 0, type: 'OVERHEAD_GATE' }, { offset: 1.42, type: 'STREET_LAMP' }], cars: [] })).toEqual(LANES);
+  });
+
   it('every row leaves at least one lane open', () => {
     for (let lvl = 0; lvl < WORLD_LEVELS.length; lvl++) {
       for (const seg of generate(20, lvl)) {
-        const blocked = new Set(seg.items.filter(blocksLane).map(it => laneOf(it.offset)));
-        expect(LANES.some(l => !blocked.has(l)), `segment ${seg.index}`).toBe(true);
+        expect(openLanes(seg).length, `segment ${seg.index}`).toBeGreaterThan(0);
       }
     }
   });
