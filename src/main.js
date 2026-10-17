@@ -25,7 +25,7 @@ import { beginRun, submitRun, fetchBoard, normalizeInitials, rankLine } from './
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen } from './settings-ui.js';
 import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
-import { carParams, isOwned, unlockProgress, recordRace } from './cars.js';
+import { carParams, isOwned, unlockProgress, recordRace, ensureGarage } from './cars.js';
 import { initRacer } from './racer-ui.js';
 import { setProfile } from './identity.js';
 import { LIVE } from './worker/live-rules.js';
@@ -3323,7 +3323,8 @@ function activeCarParams() {
 
 /** Body/cabin colours for a car: its garage paint (ticket 0071) or the factory colours. */
 function carPaint(c) {
-  const paintId = SaveStore.data.garage.paint[c.id];
+  // ensureGarage: a racer switch can swap SaveStore.data for a save without garage fields.
+  const paintId = ensureGarage(SaveStore.data).garage.paint[c.id];
   const paint = paintId ? LIVERY_OPTIONS.find((l) => l.id === paintId) : null;
   return { body: (paint || c).body || '#94a3b8', cabin: (paint || c).cabin || '#cbd5e1' };
 }

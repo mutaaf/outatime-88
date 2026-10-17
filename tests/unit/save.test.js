@@ -78,6 +78,14 @@ describe('SaveStore', () => {
     expect(SaveStore.data.garage.owned).not.toContain('GRID_CYCLE');
   });
 
+  it('a fresh racer save has a drivable garage before any reload (0071 + 0090)', async () => {
+    const { freshSaveData } = await import('../../src/save.js');
+    const d = freshSaveData();
+    expect(d.garage.owned).toEqual(['FLUX_COUPE_88', 'PASS_RUNNER_86']);
+    expect(d.garage.paint).toEqual({});
+    expect(d.career.races).toBe(0);
+  });
+
   it('keeps every unrenamed livery id as saved', async () => {
     const { LIVERY_OPTIONS } = await import('../../src/data.js');
     for (const { id } of LIVERY_OPTIONS) {
