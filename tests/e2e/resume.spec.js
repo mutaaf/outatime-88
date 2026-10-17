@@ -38,7 +38,7 @@ async function expectRunsAfterResume(page, resume) {
   await page.waitForTimeout(800);
   const p3 = await progress(page);
   expect(p3.d - p2.d).toBeGreaterThan(5);
-  expect(p3.f - p2.f).toBeGreaterThan(10);
+  expect(p3.f - p2.f).toBeGreaterThan(3); // CI's software GPU draws ~10 fps
 }
 
 const resumeButton = (page) => () => page.locator('#btnSettingsDone').tap();
