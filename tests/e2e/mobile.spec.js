@@ -17,3 +17,13 @@ test('phone: touch start, no page scroll, race advances', async ({ page }) => {
   expect(await canvasLitFraction(page)).toBeGreaterThan(0.05);
   expect(problems).toEqual([]);
 });
+
+test('phone: a quick tap on a steer pad clears the first-run steer prompt', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(APP);
+  await page.locator('#btnStartRace').tap();
+  await expect(page.locator('#steerHint')).toBeVisible({ timeout: 3000 });
+  await page.locator('#btnSteerLeft').tap();
+  await expect(page.locator('#steerHint')).toBeHidden();
+  expect(problems).toEqual([]);
+});

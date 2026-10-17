@@ -3627,6 +3627,10 @@ function startNewRace(opts) {
 
   onboarding = createOnboarding({ newPlayer: isNewPlayer(SaveStore.data) });
   onboarding.start(performance.now());
+  // The attract-mode coach must not linger into the race under the level intro.
+  const coachBanner = document.getElementById('interactiveCoachBanner');
+  if (coachBanner) hideCoach(coachBanner);
+  coachYieldUntil = performance.now() + 350;
   document.getElementById('leaderboardModal').classList.add('hidden');
 
   if (daily) applyDailyModifier(daily.modifier.id);
@@ -3748,6 +3752,7 @@ function bindAllControls() {
       startNewRace();
       return;
     }
+    if (['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(e.code)) onboarding.steer();
     if (['ArrowLeft', 'KeyA'].includes(e.code)) {
       if (!InputState.left) {
         if (GameState.playerY > 10) {
@@ -3814,6 +3819,7 @@ function bindAllControls() {
   }
 
   bindHoldButton('btnSteerLeft', () => {
+    onboarding.steer(); // a tap is shorter than a frame: count it on the event itself
     if (GameState.playerY > 10) performHumanTrick('LEFT');
     else {
       const now = performance.now();
@@ -3823,6 +3829,7 @@ function bindAllControls() {
     InputState.left = true;
   }, () => { InputState.left = false; });
   bindHoldButton('btnSteerRight', () => {
+    onboarding.steer();
     if (GameState.playerY > 10) performHumanTrick('RIGHT');
     else {
       const now = performance.now();
@@ -4027,6 +4034,7 @@ function bindAllControls() {
     const dy = e.clientY - touchStartY;
     if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy)) {
       GameState.playerVX += (dx > 0 ? 1.15 : -1.15);
+      onboarding.steer();
     } else if (dy < -28 && Math.abs(dy) > Math.abs(dx)) {
       InputState.hoverPressed = true; // Swipe Up -> Jump / Hover!
     } else if (dy > 28 && Math.abs(dy) > Math.abs(dx)) {
