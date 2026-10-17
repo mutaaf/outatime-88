@@ -410,10 +410,15 @@ export function createLive(hooks) {
       sock && sock.send({ t: 'set', ready: act === 'rematch' ? true : !(mine && mine.ready) });
     } else if (act === 'start') sock && sock.send({ t: 'start' });
     else if (act === 'car') {
+      // Step to the next car you own (locked cars are skipped, 0071).
       const n = POP_CULTURE_ROSTER.length;
-      const next = ((GameState.selectedCharIdx | 0) + Number(b.dataset.dir) + n) % n;
-      hooks.selectCar(next);
-      sock && sock.send({ t: 'set', car: next });
+      const dir = Number(b.dataset.dir);
+      let next = GameState.selectedCharIdx | 0;
+      for (let i = 0; i < n; i++) {
+        next = (next + dir + n) % n;
+        if (hooks.selectCar(next) !== false) break;
+      }
+      sock && sock.send({ t: 'set', car: GameState.selectedCharIdx | 0 });
     } else if (act === 'name') editName();
     else if (act === 'level' || act === 'len') sock && sock.send({ t: 'cfg', [act]: Number(b.dataset.v) });
   }
