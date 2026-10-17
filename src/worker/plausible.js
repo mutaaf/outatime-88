@@ -2,6 +2,8 @@
 // and impossible scores, not to second-guess great runs. Calibrated against the campaign
 // ladder (src/progress.js: level-1 gold ≈ 2.5M in a ~1-minute run ≈ 40k pts/s).
 
+import { penaltyMismatch } from '../scoring.js';
+
 export const LIMITS = {
   minDurationMs: 4000,          // a run shorter than this can't have scored anything real
   maxDurationMs: 2 * 3600e3,    // tokens expire after two hours
@@ -27,8 +29,13 @@ export function implausible(run, tokenAgeMs) {
   if (durationMs < LIMITS.minDurationMs) return 'run too short';
   if (durationMs > tokenAgeMs + LIMITS.clockSlackMs) return 'run longer than its token';
   const secs = Math.min(durationMs, tokenAgeMs + LIMITS.clockSlackMs) / 1000;
-  if (score > LIMITS.maxScore) return 'score over cap';
-  if (score > LIMITS.maxPointsPerSec * secs + 50000) return 'score too fast';
+  // Penalty scoring (ticket 0073): the score must equal earned − the penalty recomputed from
+  // the run log; the rate limits apply to what was earned before penalties.
+  const mismatch = penaltyMismatch(run);
+  if (mismatch) return mismatch;
+  const earned = Number.isInteger(run.earned) ? run.earned : score;
+  if (score > LIMITS.maxScore || earned > LIMITS.maxScore) return 'score over cap';
+  if (earned > LIMITS.maxPointsPerSec * secs + 50000) return 'score too fast';
   if (distance > LIMITS.maxMetersPerSec * secs + 200) return 'distance too fast';
   if (warps > LIMITS.maxWarps) return 'too many warps';
   return null;

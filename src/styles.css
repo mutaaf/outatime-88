@@ -466,3 +466,14 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 .racer-msg[data-tone="good"] { color: #86efac; }
 .racer-forget { display: block; margin: 16px auto 0; min-height: 44px; padding: 0 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; color: #94a3b8; text-decoration: underline; text-underline-offset: 4px; }
 .racer-forget[data-armed="1"] { color: #fda4af; }
+/* Penalty popup by the score (ticket 0073): floats up and fades. */
+.hud-speed { position: relative; }
+.hud-penalty { position: absolute; right: 6px; bottom: 100%; margin-bottom: 4px; pointer-events: none; white-space: nowrap; opacity: 0;
+  font-family: 'Orbitron', sans-serif; font-size: clamp(11px, 1.8vmin, 16px); font-weight: 900; color: #ff4d6d;
+  text-shadow: 0 0 10px rgba(255, 77, 109, 0.8), 0 1px 0 #000; }
+.hud-penalty.show { animation: penalty-float 0.9s ease-out both; }
+@keyframes penalty-float { 0% { opacity: 0; transform: translateY(6px) scale(1.25); } 15% { opacity: 1; transform: translateY(0) scale(1); }
+  70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+[data-motion="reduce"] .hud-penalty.show { animation: penalty-fade 0.9s linear both; }
+@media (prefers-reduced-motion: reduce) { .hud-penalty.show { animation: penalty-fade 0.9s linear both; } }
+@keyframes penalty-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }

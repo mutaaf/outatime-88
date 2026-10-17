@@ -30,6 +30,20 @@ describe('plausibility', () => {
     expect(implausible({ ...ok, score: LIMITS.maxPointsPerSec * 61 + 60000 }, 61000)).toMatch(/score/);
     expect(implausible({ ...ok, distance: LIMITS.maxMetersPerSec * 61 + 500 }, 61000)).toMatch(/distance/);
   });
+  it('penalty scoring (0073): score must equal earned minus the recomputed penalty', () => {
+    const pen = { obstacle: [80], traffic: [60], wallMs: 1500 };
+    // 5000+150*80 + 6000+180*60 + 4000*1.5 = 17000 + 16800 + 6000 = 39800
+    expect(implausible({ ...ok, earned: 439800, pen }, 61000)).toBeNull();
+    expect(implausible({ ...ok, earned: 400000, pen }, 61000)).toMatch(/penalt/);
+    expect(implausible({ ...ok, earned: 439800, pen: { ...pen, obstacle: [80.5] } }, 61000)).toMatch(/log/);
+    expect(implausible({ ...ok, earned: 439800, pen: { ...pen, wallMs: 99e6 } }, 61000)).toMatch(/log/);
+    expect(implausible({ ...ok, earned: 439800 }, 61000)).toMatch(/log/);
+    // A score floored at zero by penalties is still consistent.
+    expect(implausible({ ...ok, score: 0, earned: 20000, pen }, 61000)).toBeNull();
+    // Rate limits apply to what was earned before penalties.
+    const huge = LIMITS.maxPointsPerSec * 61 + 60000;
+    expect(implausible({ ...ok, score: huge - 39800 - 1000, earned: huge - 1000 + 1000, pen }, 61000)).toMatch(/score/);
+  });
   it('rejects junk numbers, tiny runs and stale tokens', () => {
     expect(implausible({ ...ok, score: -1 }, 61000)).toMatch(/bad/);
     expect(implausible({ ...ok, score: 1.5 }, 61000)).toMatch(/bad/);

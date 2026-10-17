@@ -24,6 +24,7 @@ import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, normalizeInitials, rankLine } from './leaderboard.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen } from './settings-ui.js';
+import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
 import { carParams, isOwned, unlockProgress, recordRace } from './cars.js';
 import { initRacer } from './racer-ui.js';
 import { setProfile } from './identity.js';
@@ -675,8 +676,33 @@ function updateContractHud() {
 }
 
 // --- 2026 3D ANIMATED POWER-UP ACQUISITION & OBSTACLE IMPACT FX ---
+// Penalty scoring (ticket 0073): every hit and wall scrape costs points, shown as a red
+// popup by the score; the run log lets the server recompute the exact total.
+const penaltyPopup = { pts: 0, label: '', until: 0, drawn: 0 };
+function chargePenalty(pts, label) {
+  if (!pts) return;
+  GameState.score -= pts;
+  const now = performance.now();
+  if (now > penaltyPopup.until || penaltyPopup.label !== label) penaltyPopup.pts = 0;
+  penaltyPopup.pts += pts;
+  penaltyPopup.label = label;
+  penaltyPopup.until = now + 900;
+  // Wall scrapes charge every step; repaint the popup at most ~10x a second.
+  if (now - penaltyPopup.drawn < 100 && penaltyPopup.pts !== pts) return;
+  penaltyPopup.drawn = now;
+  const el = document.getElementById('hudPenalty');
+  if (!el) return;
+  el.textContent = `−${penaltyPopup.pts.toLocaleString()} ${label}`;
+  el.classList.remove('show');
+  void el.offsetWidth; // restart the float-up animation
+  el.classList.add('show');
+}
+
 function applyPlayerDamage(rawDmg, reasonText) {
   if (GameState.invulnTimer > 0 || GameState.agroTimer > 0 || GameState.warpActiveTimer > 0) return;
+  const hitKind = reasonText.includes('TRAFFIC') ? 'traffic' : 'obstacle';
+  const impactMph = Math.max(GameState.speed, GameState.prevSpeed || 0);
+  chargePenalty(logHit(GameState.penaltyLog, hitKind, impactMph), hitKind === 'traffic' ? 'TRAFFIC CRASH' : reasonText.replace('IMPACT', 'HIT'));
   const charObj = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   if (charObj.id === 'IRON_SAINT_BRAWLER' && reasonText.includes('BARRIER')) {
     // Dez's 1,780kg Brawler smashes barriers with 0 damage!
@@ -1362,6 +1388,7 @@ function updateGame(rawDt) {
   const MAX_TRACK_X = 0.72;
   if (GameState.playerX < -MAX_TRACK_X) {
     GameState.playerX = -MAX_TRACK_X;
+    chargePenalty(logWall(GameState.penaltyLog, rawDt * 1000, GameState.speed), 'WALL SCRAPE');
     if (GameState.playerVX < 0) {
       GameState.playerVX = -GameState.playerVX * 0.42; // Elastic guardrail rebound impulse
       GameState.speed = Math.max(25, GameState.speed - 12 * rawDt);
@@ -1369,6 +1396,7 @@ function updateGame(rawDt) {
     }
   } else if (GameState.playerX > MAX_TRACK_X) {
     GameState.playerX = MAX_TRACK_X;
+    chargePenalty(logWall(GameState.penaltyLog, rawDt * 1000, GameState.speed), 'WALL SCRAPE');
     if (GameState.playerVX > 0) {
       GameState.playerVX = -GameState.playerVX * 0.42;
       GameState.speed = Math.max(25, GameState.speed - 12 * rawDt);
@@ -3368,6 +3396,23 @@ function renderRunMedal(lvl, result) {
   }
 }
 
+/** Results: what the run earned, what sloppy driving cost, and why (ticket 0073). */
+function renderScoreSheet(sheet) {
+  const el = document.getElementById('endPenaltyText');
+  if (!el) return;
+  if (!sheet.penalty) {
+    el.textContent = 'CLEAN RUN — NO PENALTIES ✨';
+    el.className = 'mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-emerald-300';
+    return;
+  }
+  const why = [];
+  if (sheet.obstacleHits) why.push(`${sheet.obstacleHits} HIT${sheet.obstacleHits > 1 ? 'S' : ''}`);
+  if (sheet.trafficHits) why.push(`${sheet.trafficHits} CRASH${sheet.trafficHits > 1 ? 'ES' : ''}`);
+  if (sheet.wallSec) why.push(`${sheet.wallSec}s WALL`);
+  el.textContent = `${sheet.earned.toLocaleString()} − ${sheet.penalty.toLocaleString()} (${why.join(' · ')})`;
+  el.className = 'mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-rose-300';
+}
+
 /** Results line for cars a race just unlocked (the garage plays the full reveal). */
 function announceNewCars(ids) {
   if (!ids.length) return;
@@ -3582,7 +3627,7 @@ async function postScore(initials) {
   if (!token) { rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY'; return; }
   const r = await submitRun({
     token, initials, score: run.score, distance: run.distance, durationMs: run.durationMs,
-    warps: run.warps, level: run.level, mode: run.mode, car: run.car,
+    warps: run.warps, level: run.level, mode: run.mode, car: run.car, earned: run.earned, pen: run.pen,
   });
   if (r.ok) rankEl.textContent = `🏆 ${initials} ${rankLine(r.body.rank)}`;
   else if (r.status === 400) { rankEl.textContent = 'PICK OTHER INITIALS'; SaveStore.data.initials = ''; SaveStore.save(); currentRun = run; form.classList.remove('hidden'); }
@@ -3639,6 +3684,7 @@ function startNewRace(opts) {
   GameState.waveTier = 1;
   GameState.isDuckSliding = false;
   GameState.score = 0;
+  GameState.penaltyLog = createPenaltyLog();
   GameState.runCoins = 0;
   GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0;
   GameState.timeWarps = 0;
@@ -3725,6 +3771,10 @@ function endRaceRun(customBadgeText = null) {
     badgeEl.textContent = customBadgeText || 'EVENT COMPLETE!';
   }
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
+  // Penalties (ticket 0073) were charged live; the final score never goes below zero.
+  const penLog = GameState.penaltyLog || createPenaltyLog();
+  const scoreSheet = breakdown(Math.round(GameState.score) + penaltyPoints(penLog), penLog);
+  GameState.score = scoreSheet.final;
   if (GameState.racePosition <= 3) {
     GameState.runCoins += lvl.bonusReward;
     SaveStore.data.fluxCoins += lvl.bonusReward;
@@ -3753,7 +3803,9 @@ function endRaceRun(customBadgeText = null) {
   }
   announceNewCars(newCars);
   if (currentRun) {
-    currentRun.score = Math.max(0, Math.round(GameState.score));
+    currentRun.score = scoreSheet.final;
+    currentRun.earned = scoreSheet.earned;
+    currentRun.pen = logPayload(penLog);
     currentRun.distance = Math.max(0, Math.round(GameState.distance));
     currentRun.durationMs = Math.round(performance.now() - currentRun.t0);
     currentRun.warps = GameState.timeWarps;
@@ -3761,6 +3813,7 @@ function endRaceRun(customBadgeText = null) {
   }
 
   document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
+  renderScoreSheet(scoreSheet);
   document.getElementById('endWarpsText').textContent = `${ordinal(GameState.racePosition)} • ${GameState.timeWarps} WARPS`;
   document.getElementById('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
   document.getElementById('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;

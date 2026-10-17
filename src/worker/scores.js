@@ -104,7 +104,7 @@ export async function submitScore(body, { db, now, ip, request }) {
   const payload = await verifyToken(body.token, secret);
   if (!payload) return json(403, { error: 'invalid run token' });
   const t = now();
-  const run = { score: body.score, distance: body.distance, durationMs: body.durationMs, warps: body.warps };
+  const run = { score: body.score, distance: body.distance, durationMs: body.durationMs, warps: body.warps, earned: body.earned, pen: body.pen };
   const why = implausible(run, t - payload.t);
   if (why) return json(422, { error: `rejected: ${why}` });
 
