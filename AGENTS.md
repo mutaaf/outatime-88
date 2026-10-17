@@ -146,7 +146,10 @@ src/compete-ui.js   Rank card after a run, rival line on the title, podium board
 src/ghost-codec.js  Compact ghost traces (distance + lane at 5 Hz), shared with the Worker
 src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks
 src/input.js        InputState + pollGamepad()
-src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound)
+src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound, static/sleep, reset() for pools)
+src/materials.js    Per-object materials (mass, bounce, friction, static/knockable, damage) + impulse maths
+src/world.js        World step: integrate awake bodies, Z-hash broadphase (broadphase.js), pair solver,
+                      prop pool (cones/barrels). Bench: tests/unit/world.test.js, numbers in docs/PERF.md
 src/projection.js   projectPoint() — world → screen road projection
 src/contact.js      contactZ() — the tyre contact Z the physics uses (sim-owned; renderers never write sim state)
 src/render-mode.js  2D/3D choice: resolveRenderMode() (URL ?view= → saved → auto=2D; never 3D without WebGL)

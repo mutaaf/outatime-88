@@ -2,6 +2,11 @@
 
 export class RigidBody3D {
   constructor(opts) {
+    this.reset(opts);
+  }
+
+  /** (Re)initialise in place, so pools can recycle bodies without allocating (ticket 0074). */
+  reset(opts) {
     this.id = opts.id || ('RB_' + Math.random());
     this.kind = opts.kind || 'OBSTACLE'; // 'RIVAL', 'TRAFFIC', 'OBSTACLE'
     this.type = opts.type || 'HOLO_BARRIER';
@@ -21,9 +26,11 @@ export class RigidBody3D {
     this.targetOffset = this.offset;
     // 6-DOF Mass, Moment of Inertia, Restitution, Friction & Aerodynamic Drag
     this.massKg = opts.massKg || 150;
-    this.invMass = 1 / Math.max(10, this.massKg);
-    this.inertia = this.massKg * 0.18;       // Rotational moment of inertia I = m * r^2
-    this.invInertia = 1 / this.inertia;
+    // Static bodies (infinite mass, e.g. a tree) never move; impulses can't change them.
+    this.isStatic = !Number.isFinite(this.massKg);
+    this.invMass = this.isStatic ? 0 : 1 / Math.max(1, this.massKg);
+    this.inertia = this.isStatic ? Infinity : this.massKg * 0.18; // I = m * r^2
+    this.invInertia = this.isStatic ? 0 : 1 / this.inertia;
     this.restitution = opts.restitution !== undefined ? opts.restitution : 0.52;
     this.friction = opts.friction !== undefined ? opts.friction : 2.4;
     this.dragCoeff = opts.dragCoeff || 0.0012;
@@ -49,9 +56,22 @@ export class RigidBody3D {
     this.takenDown = false;
     this.collected = false;
     this.respawnTimer = 0;
+    // Sleeping (ticket 0074): props at rest skip integration until something hits them.
+    this.sleeping = false;
+    this.restTime = 0;
+    this.knockable = Boolean(opts.knockable);
+    this.active = true;
+    return this;
+  }
+
+  wake() {
+    this.sleeping = false;
+    this.restTime = 0;
   }
 
   applyImpulseAndTorque(jx, jy, jz, contactLeverX) {
+    if (this.isStatic) return;
+    this.wake();
     this.vx += jx * this.invMass;
     this.vy += jy * this.invMass;
     this.vz += jz * this.invMass;
@@ -63,6 +83,7 @@ export class RigidBody3D {
   }
 
   stepSubPhysics(subDt, subRawDt) {
+    if (this.isStatic || this.sleeping) return;
     // 1. Integrate 3D Linear & Angular Velocities
     this.offset += this.vx * subDt;
     this.y += this.vy * subRawDt;
@@ -100,6 +121,7 @@ export class RigidBody3D {
         this.vx *= Math.max(0, 1 - this.friction * subRawDt);
         this.vz *= Math.max(0, 1 - this.friction * subRawDt);
         this.vYaw *= Math.max(0, 1 - 4.0 * subRawDt);
+        this.vRot *= Math.max(0, 1 - 5.0 * subRawDt); // rolling friction: a tumble stops
       } else {
         // Air drag while flying
         this.vz *= Math.max(0, 1 - 0.35 * subRawDt);
@@ -127,6 +149,16 @@ export class RigidBody3D {
       if (this.vx > 0) {
         this.vx = -this.vx * this.restitution;
         this.vYaw -= 1.8;
+      }
+    }
+
+    // 6. Fall asleep once settled on the ground (obstacles/props only; cars always drive).
+    if (this.kind === 'OBSTACLE') {
+      const still = this.y <= 0 && this.vy === 0 && Math.abs(this.vx) < 0.01 && Math.abs(this.vz) < 4 && Math.abs(this.vRot) < 0.2;
+      this.restTime = still ? this.restTime + subRawDt : 0;
+      if (this.restTime > 0.35) {
+        this.sleeping = true;
+        this.vx = 0; this.vz = 0; this.vRot = 0; this.vYaw = 0;
       }
     }
   }
