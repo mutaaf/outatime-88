@@ -28,3 +28,19 @@ test('live races are a lazy chunk in their own budget (solo players never downlo
   const main = files.find((f) => /^index-.*\.js$/.test(f));
   expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toContain('liveRoot');
 });
+
+test('era backdrops are lazy chunks, each small (ticket 0100)', () => {
+  const files = readdirSync(DIR);
+  const scenes = files.filter((f) => /^s\d{4}-.*\.js$/.test(f));
+  expect(scenes.length).toBe(6);
+  const stage = files.filter((f) => /^stage-.*\.js$/.test(f));
+  expect(stage.length).toBe(1);
+  // the scenes' shared kit: whatever chunk the 2026 scene imports
+  const shared = [...readFileSync(`${DIR}/${scenes[0]}`, 'utf8').matchAll(/from"\.\/([\w-]+\.js)"/g)].map((m) => m[1]);
+  let total = gz(stage[0]);
+  for (const f of scenes) { expect(gz(f), f).toBeLessThan(5); total += gz(f); }
+  for (const f of new Set(shared)) { expect(gz(f), f).toBeLessThan(6); total += gz(f); }
+  expect(total).toBeLessThan(25);
+  const main = files.find((f) => /^index-.*\.js$/.test(f));
+  expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toContain('GIANT ANTS ATE OHIO');
+});

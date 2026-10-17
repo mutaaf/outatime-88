@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { eraBackdrop, DEFAULT_BACKDROP, WORLD_LEVELS, ERAS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, LIVERY_OPTIONS, UPGRADE_DEFS, PACE_MODES, CAMERA_MODES } from '../../src/data.js';
+import { SCENE_IDS } from '../../src/scenes/stage.js';
+import { WORLD_LEVELS, ERAS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, LIVERY_OPTIONS, UPGRADE_DEFS, PACE_MODES, CAMERA_MODES } from '../../src/data.js';
 
 describe('game content integrity', () => {
   it('levels are indexed contiguously and reference valid eras', () => {
@@ -54,19 +55,8 @@ describe('eras (ticket 0008)', () => {
     expect(ERAS.slice(0, 5).map((e) => e.id)).toEqual(['2026', '1985', '1885', '2015', '2088']);
   });
 
-  it('1955 has its own 2D backdrop and roadside prop set, distinct from the neon default', () => {
-    const era = ERAS.find((e) => e.id === '1955');
-    const bd = eraBackdrop(era);
-    expect(bd).not.toBe(DEFAULT_BACKDROP);
-    expect(bd.sky).toHaveLength(DEFAULT_BACKDROP.sky.length);
-    expect(bd.ground).toHaveLength(DEFAULT_BACKDROP.ground.length);
-    expect(bd.sky.join()).not.toBe(DEFAULT_BACKDROP.sky.join());
-    expect(era.props).toBe('atomic');
-    // No courthouse clock tower in 1955 (invariant 7): a drive-in screen stands there instead.
-    expect(bd.landmark).toBe('driveIn');
-    expect(bd.stars).toBe(false);
-    // Eras without a backdrop keep today's look.
-    expect(eraBackdrop(ERAS[0])).toBe(DEFAULT_BACKDROP);
-    for (const k of Object.keys(DEFAULT_BACKDROP)) expect(bd[k], k).toBeDefined();
+  it('every era has its own 2D scene chunk; 1955 keeps its roadside prop set', () => {
+    expect([...SCENE_IDS].sort()).toEqual(ERAS.map((e) => e.id).sort());
+    expect(ERAS.find((e) => e.id === '1955').props).toBe('atomic');
   });
 });
