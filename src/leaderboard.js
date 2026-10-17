@@ -49,6 +49,12 @@ export async function fetchStanding({ initials, mode = 'ARCADE', level, since })
   return r.ok && r.body.boards ? r.body : null;
 }
 
+/** A ghost to race on a track: that player's best, else the track record (ticket 0092). */
+export async function fetchGhost(mode, level, initials) {
+  const r = await call(`/ghost?${query({ mode, level, initials })}`, { method: 'GET' });
+  return r.ok && typeof r.body.trace === 'string' ? r.body : null;
+}
+
 /** Past weekly champions, newest first. */
 export async function fetchHall(mode = 'ARCADE') {
   const r = await call(`/hall?mode=${mode}`, { method: 'GET' });

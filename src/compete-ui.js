@@ -77,7 +77,7 @@ function countTo(node, from, to, reduced, prefix = '#') {
  * (climbable), chips show all-time / today / track, and the target line says exactly who to
  * beat next.
  */
-export function renderRankCard(host, res, { reduced = false } = {}) {
+export function renderRankCard(host, res, { reduced = false, onGhost = null } = {}) {
   host.textContent = '';
   const boards = res?.boards;
   if (!boards) return false;
@@ -104,6 +104,14 @@ export function renderRankCard(host, res, { reduced = false } = {}) {
   }
   if (res.streak?.days) chips.append(el('span', 'rank-chip rank-streak', `🔥 ${res.streak.days}-DAY STREAK`));
   card.append(chips);
+  // Race the ghost of the player just above you on this track (or your own best at #1).
+  if (onGhost && boards.track) {
+    const who = boards.track.ahead?.initials || res.initials;
+    const b = el('button', 'rank-ghost', who === res.initials ? '👻 RACE YOUR BEST' : `👻 RACE ${who}'S GHOST`);
+    b.type = 'button';
+    b.addEventListener('click', () => onGhost(who));
+    card.append(b);
+  }
   host.append(card);
   countTo(num, head.prevRank ?? null, head.rank, reduced);
   return true;
