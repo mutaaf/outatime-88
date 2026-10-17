@@ -6,6 +6,13 @@ import { createBackend } from './backend.js';
 const SAVE_KEY = 'outatime_cruisn_88_save_v2';
 const ID_KEY = 'outatime88_identity_v1';
 const activePub = (page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}').racers?.[0]?.pub, ID_KEY);
+// Switching/joining/forgetting reloads the page: wait for the new document, not the old one.
+async function clickAndReload(page, locator) {
+  const nav = page.waitForEvent('framenavigated', (f) => f === page.mainFrame());
+  await locator.click();
+  await nav;
+  await page.waitForLoadState('load');
+}
 const pillReads = (page, text) => expect(page.locator('#racerPillName')).toHaveText(text, { timeout: 15000 });
 
 async function open(context, backend, { save } = {}) {
@@ -60,8 +67,7 @@ test('a link code moves a racer to a second device (QR deep link, one tap)', asy
   await expect(b.locator('#racerModal')).toBeVisible();
   await expect(b.locator('[data-racer-input]')).toHaveValue(code);
   expect(new URL(b.url()).search).toBe(''); // the code doesn't linger in the address bar
-  await b.locator('.racer-join button[type=submit]').click();
-  await b.waitForLoadState('load');
+  await clickAndReload(b, b.locator('.racer-join button[type=submit]'));
   await pillReads(b, 'CLD');
   expect(await activePub(b)).toBe(await activePub(a.page));
   // Single use: the same code on a third device fails politely.
@@ -79,15 +85,13 @@ test('siblings on one device switch racers with one tap and keep their own saves
   const { page, problems } = await open(context, backend, { save: { initials: 'CLD', bestScore: 5000, fluxCoins: 777 } });
   await pillReads(page, 'CLD');
   await page.locator('#btnRacer').click();
-  await page.locator('.racer-chip-add').click();
-  await page.waitForLoadState('load');
+  await clickAndReload(page, page.locator('.racer-chip-add'));
   await pillReads(page, 'RACER');
   await expect(page.locator('#titleBestScore')).toHaveText('0');
 
   await page.locator('#btnRacer').click();
   await expect(page.locator('.racer-chip')).toHaveCount(3); // CLD, the new racer, + NEW RACER
-  await page.locator('.racer-chip', { hasText: 'CLD' }).click();
-  await page.waitForLoadState('load');
+  await clickAndReload(page, page.locator('.racer-chip', { hasText: 'CLD' }));
   await pillReads(page, 'CLD');
   await expect(page.locator('#titleBestScore')).toHaveText('5,000');
   await expect(page.locator('#titleTotalWarps')).toContainText('777');
@@ -102,8 +106,7 @@ test('forget this device takes two taps and starts a fresh racer', async ({ cont
   await page.locator('#btnRacer').click();
   await page.locator('[data-racer-forget]').click();
   await expect(page.locator('[data-racer-forget]')).toContainText('TAP AGAIN');
-  await page.locator('[data-racer-forget]').click();
-  await page.waitForLoadState('load');
+  await clickAndReload(page, page.locator('[data-racer-forget]'));
   await pillReads(page, 'RACER');
   await expect.poll(() => activePub(page)).not.toBe(before);
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).racers.map((r) => r.pub), ID_KEY)).not.toContain(before);
