@@ -121,6 +121,19 @@ describe('starting', () => {
     r.tick(10 + LIVE.countdownMs, Math.random);
     expect(r.state).toBe('RACING');
   });
+  it('CPU names are unique and never copy a human', () => {
+    for (let seed = 0; seed < 40; seed++) {
+      const r = room();
+      const a = r.join({ name: 'MOX' }, 0, mint).player;
+      r.start(a.id, 0, () => seed / 40);
+      const names = [...r.racers.map((p) => p.name), ...r.cpus.map((c) => c.name)];
+      expect(new Set(names).size).toBe(names.length);
+    }
+  });
+  it('a never-joined room still has an idle wake-up', () => {
+    const r = room();
+    expect(r.nextWake(0)).toBe(LIVE.idleMs);
+  });
   it('a solo host still gets a full grid', () => {
     const r = room();
     const a = r.join({ name: 'ACE' }, 0, mint).player;

@@ -1,12 +1,12 @@
 ---
 id: 0060
 title: Race friends live — share a link, join in one tap, synced start, results, rematch
-status: in-progress
+status: shipped
 priority: P1
 size: L
 lens: player-feel
 created: 2026-10-17
-pr:
+pr: 30
 ---
 
 ## Why
@@ -34,7 +34,7 @@ across two tablets is the game's best moment; it has to work with zero setup.
 - [x] e2e: reload slides back into the same seat; quick race auto-starts
 - [x] e2e: lobby has no overlaps and ≥44 px targets on phones and tablets, both orientations
 - [x] Unit: room state machine, CPU grid, finish order, limits, interpolation, clock sync
-- [ ] Verified on production with two real browsers
+- [x] Verified on production with two real browsers (2026-10-17: synced green 12 ms apart, identical results, rematch)
 
 ## Test plan
 Unit: `tests/unit/live-room.test.js`, `tests/unit/live-client.test.js`. e2e:
