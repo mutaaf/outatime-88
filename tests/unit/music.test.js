@@ -16,6 +16,11 @@ describe('score tables', () => {
     expect(scoreFor('no-such-era')).toBe(DEFAULT_SCORE);
   });
 
+  it('every era has its own score, not the fallback (1955 included, ticket 0008)', () => {
+    for (const era of ERAS) expect(ERA_SCORES[era.id], era.id).toBeDefined();
+    expect(ERA_SCORES['1955'].bpm).toBeLessThan(110);
+  });
+
   it('eras sound different from each other (tempo or scale differs)', () => {
     const sigs = new Set(Object.values(ERA_SCORES).map((s) => `${s.bpm}:${s.scale.join(',')}:${s.root}`));
     expect(sigs.size).toBe(Object.keys(ERA_SCORES).length);

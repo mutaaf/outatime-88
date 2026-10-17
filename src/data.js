@@ -142,7 +142,7 @@ export const ERAS = [
     id: '2088',
     name: '2088 • CYBER CLOCK HOLLOW',
     presentDate: 'NOV 12 2088',
-    destDate: 'OCT 16 2026',
+    destDate: 'JUN 18 1955',
     pixelScale: 1.0,
     scanlines: false,
     skyTop: '#060318',
@@ -155,8 +155,61 @@ export const ERAS = [
     railColor: '#ffaa00',
     wetReflection: true,
     sunStyle: 'synthwave-sun'
+  },
+  {
+    // Appended (not inserted) so every existing era index stays put (ticket 0008).
+    id: '1955',
+    name: '1955 • ATOMIC DINER STRIP',
+    presentDate: 'JUN 18 1955',
+    destDate: 'OCT 16 2026',
+    pixelScale: 1.0,
+    scanlines: false,
+    skyTop: '#3d7ea6',
+    skyBot: '#f6b7c8',
+    horizonGlow: '#ffd59e',
+    groundA: '#2f6b5e',
+    groundB: '#285c51',
+    trackA: '#e4503a',
+    trackB: '#d94a35',
+    railColor: '#f2f2e9',
+    wetReflection: false,
+    sunStyle: 'atomic-sun',
+    props: 'atomic',
+    backdrop: {
+      sky: ['#2e6f99', '#4f93b8', '#8fc4d6', '#f6b7c8', '#ffd59e'],
+      stars: false,
+      halo: ['rgba(255, 240, 200, 0.55)', 'rgba(255, 183, 200, 0.22)', 'rgba(255, 183, 200, 0)'],
+      sun: ['#fffbea', '#ffe8a3', '#ffb3c7'],
+      hills: '#5f9e8f',
+      city: '#3f6f73',
+      tower: '#2f5a5e',
+      towerTrim: '#f2f2e9',
+      clock: '#ff7aa8',
+      landmark: 'driveIn',
+      ground: ['#6fb8a3', '#3f8a78', '#24584d']
+    }
   }
 ];
+
+// The 2D renderer's sky, sun, horizon and ground. An era may bring its own `backdrop`;
+// the neon-night default is what every era drew before ticket 0008.
+export const DEFAULT_BACKDROP = {
+  sky: ['#04030c', '#100826', '#2d114d', '#7c1d54', '#ff6a2b'],
+  stars: true,
+  halo: ['rgba(255, 160, 60, 0.45)', 'rgba(255, 60, 120, 0.18)', 'rgba(255, 60, 120, 0)'],
+  sun: ['#fff3b0', '#ff7b00', '#ff006e'],
+  hills: '#16092b',
+  city: '#0b0518',
+  tower: '#1e1026',
+  towerTrim: '#cbd5e1',
+  clock: '#fef08a',
+  landmark: 'clockTower',
+  ground: ['#190b2e', '#0b0719', '#05040d']
+};
+
+export function eraBackdrop(era) {
+  return (era && era.backdrop) || DEFAULT_BACKDROP;
+}
 
 // --- DUB CUSTOMIZATION OPTIONS ---
 export const UNDERGLOW_OPTIONS = [
