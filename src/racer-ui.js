@@ -8,7 +8,6 @@ import {
   redeemCode, switchRacer, newRacer, forgetDevice, bests, setProfile, addFriends, PUB_RE,
 } from './identity.js';
 import { swapSave, dropSave, mergeServerBests } from './racer-saves.js';
-import { qrToCanvas } from './qr.js';
 
 let deps = null; // { SaveStore, freshSaveData, levels, reload }
 let modal = null;
@@ -144,7 +143,8 @@ async function showLinkCode() {
   $('[data-racer-code]').textContent = `${r.code.slice(0, 3)} ${r.code.slice(3)}`;
   const url = new URL(deps.baseUrl || `${location.origin}${import.meta.env.BASE_URL}`);
   url.searchParams.set('link', r.code);
-  qrToCanvas(url.toString(), $('[data-racer-qr]'), { size: 168 });
+  // The QR encoder loads on demand (it's only needed here and in live rooms).
+  import('./qr.js').then(({ qrToCanvas }) => qrToCanvas(url.toString(), $('[data-racer-qr]'), { size: 168 }));
   clearInterval(linkTimer);
   const tick = () => {
     const left = Math.max(0, r.expiresAt - Date.now());

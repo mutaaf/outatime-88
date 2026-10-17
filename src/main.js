@@ -24,7 +24,8 @@ import { createHud } from './hud.js';
 import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
-import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
+// Leaderboard/rank UI loads after the first network answer, not at boot (main bundle budget).
+const competeUI = () => import('./compete-ui.js');
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
 import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
@@ -3624,17 +3625,18 @@ function renderBoard(data, view) {
   else status.textContent = view.board === 'friends'
     ? 'NO FRIENDS HERE YET — SEND A CHALLENGE OR RACE IN A ROOM'
     : 'NO SCORES YET — BE THE FIRST';
-  renderBoardRows(list, data, {
+  competeUI().then(({ renderBoardRows }) => renderBoardRows(list, data, {
     me: SaveStore.data.initials,
     champion: hallCache?.champions?.[0]?.initials || null,
     medal: (e) => (lvl ? MEDAL_ICON[medalFor(lvl.id, e.score)] || '' : ''),
     reduced: GameState.reducedMotion,
-  });
+  }));
 }
 
-function renderSeason() {
+async function renderSeason() {
   const el = document.getElementById('boardSeason');
   if (!el) return;
+  const { timeLeft } = await competeUI();
   const champ = hallCache?.champions?.[0];
   const end = hallCache?.season?.endsAt;
   el.textContent = [end ? `⏳ SEASON ENDS IN ${timeLeft(end, Date.now())}` : '', champ ? `LAST WEEK 👑 ${champ.initials}` : ''].filter(Boolean).join(' · ');
@@ -3673,7 +3675,7 @@ async function refreshRival() {
   if (!s) return;
   try { localStorage.setItem(COMPETE_KEY, JSON.stringify({ seen: Date.now() })); } catch { /* blocked */ }
   const line = document.getElementById('titleRival');
-  if (line) line.textContent = rivalLine(s);
+  if (line) line.textContent = (await competeUI()).rivalLine(s);
   const streak = document.getElementById('dailyStreak');
   if (streak) streak.textContent = s.streak?.days ? `🔥 ${s.streak.days}-DAY STREAK${s.streak.today ? '' : ' — PLAY TODAY TO KEEP IT'}` : '';
 }
@@ -3697,6 +3699,7 @@ async function postScore(initials) {
     warps: run.warps, level: run.level, mode: run.mode, car: run.car, earned: run.earned, pen: run.pen,
   });
   if (r.ok) {
+    const { renderRankCard } = await competeUI();
     const card = document.getElementById('endRankCard');
     const rich = card && renderRankCard(card, r.body, { reduced: GameState.reducedMotion });
     rankEl.textContent = rich ? '' : `🏆 ${initials} ${rankLine(r.body.rank)}`;
