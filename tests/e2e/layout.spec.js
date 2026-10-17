@@ -74,3 +74,19 @@ for (const vp of VIEWPORTS) {
     expect(problems).toEqual([]);
   });
 }
+
+for (const vp of [{ width: 844, height: 390 }, { width: 360, height: 640 }, { width: 1280, height: 720 }]) {
+  test(`results screen fits with RACE AGAIN on screen at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace());
+    await page.waitForTimeout(300);
+    await page.evaluate(() => { window.__OT.GameState.score = 734210; window.__OT.finishRun(); });
+    await expect(page.locator('#gameOverModal')).toBeVisible();
+    for (const sel of ['#endScoreText', '#endBoardBox', '#btnPlayAgain']) {
+      await expect(page.locator(sel)).toBeInViewport({ ratio: 1 });
+    }
+    expect(problems).toEqual([]);
+  });
+}

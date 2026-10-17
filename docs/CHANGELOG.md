@@ -14,3 +14,5 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0021 · No more overlaps: a slim one-row HUD on phones in both orientations and small tablets, thumb-sized DRIFT / JUMP / WARP pads that never clip, and tips that never land on the HUD or on each other
 2026-10-17 · 0022 · One-tap start: the title is now just the car, OUTATIME 88 and a big PLAY — tap anywhere to race; events, garage and sound are small icons, and new players get a steering prompt in the race instead of a manual
 2026-10-17 · 0016 · Races have an ending: every time bonus is worth a bit less than the last, each level has a hard finish, a visible race clock turns red for the FINAL STRETCH, and medal targets are re-measured for the shorter, tenser runs
+2026-10-17 · 0024 0025 · A global leaderboard: tap 🏆 on the title for all-time and today's best, enter three initials once and every run posts itself with your rank; scores are checked on the server so the board stays honest
+2026-10-17 · 0023 · Daily challenge: one road and one twist a day (heat wave, glass chassis, flux storm, rush hour) — the same for everyone, with its own board

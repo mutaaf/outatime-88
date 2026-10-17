@@ -14,6 +14,8 @@ import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress
 import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
+import { dailySpec, mulberry32, utcDay } from './daily.js';
+import { beginRun, submitRun, fetchBoard, normalizeInitials, rankLine } from './leaderboard.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
@@ -268,7 +270,7 @@ const LiveTraffic = {
         r.respawnTimer -= rawDt;
         if (r.respawnTimer <= 0) {
           const pool = POP_CULTURE_ROSTER.concat(MULTIVERSE_POOL);
-          const pick = pool[Math.floor(Math.random() * pool.length)];
+          const pick = pool[Math.floor(trafficRand() * pool.length)];
           r.name = `${pick.driver.split(' ')[0].toUpperCase()} • ${pick.car}`;
           r.bodyColor = pick.body;
           r.accentColor = pick.cabin;
@@ -403,7 +405,7 @@ const LiveTraffic = {
         tr.takenDown = false;
         tr.y = 0; tr.vy = 0; tr.vx = 0; tr.rot = 0; tr.vRot = 0; tr.yaw = 0; tr.vYaw = 0;
         const maxT = Math.max(playerZ + 12000, ...this.traffic.map(t => t.worldZ));
-        tr.worldZ = maxT + 4800 + Math.random() * 2200;
+        tr.worldZ = maxT + (4800 + trafficRand() * 2200) * GameState.trafficGapScale;
         tr.prevZ = tr.worldZ;
         tr.offset = lanes[(i + GameState.waveTier) % 4];
         tr.nearMissed = false;
@@ -3438,10 +3440,131 @@ function updateOnboarding() {
   setSteerHint(onboarding.hint(performance.now()) === 'steer');
 }
 
+// --- DAILY CHALLENGE & GLOBAL LEADERBOARD (tickets 0023, 0025) ---
+// Traffic draws from this; a daily run swaps in a date-seeded RNG so everyone meets the
+// same rivals. Visual FX keep Math.random (they don't change the race).
+let trafficRand = Math.random;
+let currentRun = null; // { tokenPromise, t0, mode, level }
+let boardView = { board: 'all', mode: 'ARCADE' };
+
+function todaysDaily() { return dailySpec(utcDay(Date.now()), WORLD_LEVELS.length); }
+
+function applyDailyModifier(id) {
+  if (id === 'HEAT_WAVE') GameState.heatLevel += 2;
+  else if (id === 'GLASS_CHASSIS') { GameState.maxHp = Math.round(GameState.maxHp / 2); GameState.hp = GameState.maxHp; }
+  else if (id === 'FLUX_STORM') GameState.fluxCharge = Math.max(GameState.fluxCharge, 60);
+  else if (id === 'RUSH_HOUR') GameState.trafficGapScale = 0.66;
+}
+
+function renderDailyCard() {
+  const d = todaysDaily();
+  const lvl = WORLD_LEVELS[d.levelIndex];
+  const t = document.getElementById('dailyTitle');
+  const desc = document.getElementById('dailyDesc');
+  if (t) t.textContent = `${lvl.name.replace(/^LVL \d+:\s*/, '')} · ${d.modifier.name}`;
+  if (desc) desc.textContent = `${d.modifier.desc}. Same road for everyone today.`;
+}
+
+function renderBoard(data) {
+  const list = document.getElementById('boardList');
+  const status = document.getElementById('boardStatus');
+  if (!list || !status) return;
+  list.textContent = '';
+  if (!data) { status.textContent = 'LEADERBOARD OFFLINE — YOUR BEST IS SAVED ON THIS DEVICE'; return; }
+  status.textContent = data.entries.length ? '' : 'NO SCORES YET — BE THE FIRST';
+  const me = SaveStore.data.initials;
+  for (const e of data.entries) {
+    const li = document.createElement('li');
+    li.className = `board-row${e.initials === me ? ' me' : ''}`;
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = `#${e.rank}`;
+    const ini = document.createElement('span'); ini.className = 'in'; ini.textContent = e.initials;
+    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = e.score.toLocaleString();
+    li.append(rk, ini, sc);
+    list.appendChild(li);
+  }
+}
+
+async function loadBoard() {
+  document.querySelectorAll('.board-tab').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.board === boardView.board && b.dataset.mode === boardView.mode));
+  });
+  const status = document.getElementById('boardStatus');
+  if (status) status.textContent = 'LOADING…';
+  const view = { ...boardView };
+  const data = await fetchBoard(view.board, view.mode, 10);
+  if (view.board === boardView.board && view.mode === boardView.mode) renderBoard(data);
+}
+
+function openLeaderboard(view) {
+  if (view) boardView = view;
+  renderDailyCard();
+  const best = document.getElementById('boardYourBest');
+  if (best) best.textContent = SaveStore.data.bestScore.toLocaleString();
+  document.getElementById('leaderboardModal').classList.remove('hidden');
+  loadBoard();
+}
+
+function closeLeaderboard() {
+  document.getElementById('leaderboardModal').classList.add('hidden');
+}
+
+async function postScore(initials) {
+  const rankEl = document.getElementById('endRankText');
+  const form = document.getElementById('initialsForm');
+  const run = currentRun;
+  if (!run || !rankEl) return;
+  currentRun = null; // one submission per run
+  form.classList.add('hidden');
+  rankEl.textContent = 'POSTING…';
+  const token = await run.tokenPromise;
+  if (!token) { rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY'; return; }
+  const r = await submitRun({
+    token, initials, score: run.score, distance: run.distance, durationMs: run.durationMs,
+    warps: run.warps, level: run.level, mode: run.mode,
+  });
+  if (r.ok) rankEl.textContent = `🏆 ${initials} ${rankLine(r.body.rank)}`;
+  else if (r.status === 400) { rankEl.textContent = 'PICK OTHER INITIALS'; SaveStore.data.initials = ''; SaveStore.save(); currentRun = run; form.classList.remove('hidden'); }
+  else if (r.status === 0 || r.status === 503) rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY';
+  else rankEl.textContent = 'SCORE NOT ACCEPTED';
+}
+
+function offerScoreSubmission() {
+  const form = document.getElementById('initialsForm');
+  const rankEl = document.getElementById('endRankText');
+  if (!form || !rankEl) return;
+  rankEl.textContent = '';
+  form.classList.add('hidden');
+  if (!currentRun || currentRun.score <= 0) { currentRun = null; return; }
+  const saved = normalizeInitials(SaveStore.data.initials);
+  if (saved) { postScore(saved); return; }
+  form.classList.remove('hidden');
+  const input = document.getElementById('initialsInput');
+  if (input) { input.value = ''; if (!coarsePointer) input.focus(); }
+}
+
 // --- START / END / PAUSE FLOWS ---
-function startNewRace() {
+function startNewRace(opts) {
   SoundEngine.init();
   SoundEngine.startMusicLoop();
+
+  // A daily run (ticket 0023) borrows today's level and rules without touching your
+  // campaign selection; any other start (button, Enter, tap) is a normal race.
+  const daily = opts && opts.daily ? todaysDaily() : null;
+  GameState.daily = daily;
+  if (daily) {
+    if (GameState.savedLevelIndex === undefined) {
+      GameState.savedLevelIndex = GameState.levelIndex;
+      GameState.savedMode = GameState.mode;
+    }
+    GameState.levelIndex = daily.levelIndex;
+    GameState.mode = 'ARCADE';
+  } else if (GameState.savedLevelIndex !== undefined) {
+    GameState.levelIndex = GameState.savedLevelIndex;
+    GameState.mode = GameState.savedMode || 'ARCADE';
+    GameState.savedLevelIndex = undefined;
+  }
+  trafficRand = daily ? mulberry32(daily.seed) : Math.random;
+  GameState.trafficGapScale = 1;
 
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
 
@@ -3504,8 +3627,16 @@ function startNewRace() {
 
   onboarding = createOnboarding({ newPlayer: isNewPlayer(SaveStore.data) });
   onboarding.start(performance.now());
+  document.getElementById('leaderboardModal').classList.add('hidden');
 
-  triggerAnnouncement(`🏁 ${lvl.name} 🏁`, `GOAL: ${lvl.goalDesc.toUpperCase()}`, 2300);
+  if (daily) applyDailyModifier(daily.modifier.id);
+  currentRun = {
+    tokenPromise: beginRun(), t0: performance.now(), level: lvl.index,
+    mode: daily ? 'DAILY' : (GameState.mode === 'INFINITE' ? 'INFINITE' : 'ARCADE'),
+  };
+
+  if (daily) triggerAnnouncement(`📅 DAILY: ${daily.modifier.name}`, daily.modifier.desc.toUpperCase(), 2300);
+  else triggerAnnouncement(`🏁 ${lvl.name} 🏁`, `GOAL: ${lvl.goalDesc.toUpperCase()}`, 2300);
 }
 
 function endRaceRun(customBadgeText = null) {
@@ -3524,15 +3655,27 @@ function endRaceRun(customBadgeText = null) {
   }
   SaveStore.data.onboarded = true;
   setSteerHint(false);
-  const result = applyRunResult(SaveStore.data, { levelIndex: lvl.index, levelId: lvl.id, score: GameState.score }, WORLD_LEVELS.length);
+  // Daily runs count for the daily board, not the campaign ladder (their rules differ).
+  const result = GameState.daily ? null : applyRunResult(SaveStore.data, { levelIndex: lvl.index, levelId: lvl.id, score: GameState.score }, WORLD_LEVELS.length);
   SaveStore.save();
-  renderRunMedal(lvl, result);
+  if (result) renderRunMedal(lvl, result);
+  else {
+    document.getElementById('endMedalText').textContent = `📅 DAILY CHALLENGE · ${GameState.daily.modifier.name}`;
+    document.getElementById('endUnlockText').classList.add('hidden');
+  }
+  if (currentRun) {
+    currentRun.score = Math.max(0, Math.round(GameState.score));
+    currentRun.distance = Math.max(0, Math.round(GameState.distance));
+    currentRun.durationMs = Math.round(performance.now() - currentRun.t0);
+    currentRun.warps = GameState.timeWarps;
+  }
 
   document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
   document.getElementById('endWarpsText').textContent = `POS #${GameState.racePosition} • ${GameState.timeWarps} WARPS`;
   document.getElementById('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
   document.getElementById('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
   document.getElementById('gameOverModal').classList.remove('hidden');
+  offerScoreSubmission();
 }
 
 // --- ACCELEROMETER / DEVICEORIENTATION ---
@@ -3599,6 +3742,7 @@ function bindAllControls() {
   window.addEventListener('keydown', (e) => {
     if (titleVisible() && document.getElementById('startModal').classList.contains('hidden')
         && document.getElementById('garageModal').classList.contains('hidden')
+        && document.getElementById('leaderboardModal').classList.contains('hidden')
         && ['Enter', 'Space', 'NumpadEnter'].includes(e.code)) {
       e.preventDefault();
       startNewRace();
@@ -3781,7 +3925,28 @@ function bindAllControls() {
   document.getElementById('btnOpenGarageFromTitle').addEventListener('click', openGarageModal);
   document.getElementById('btnOpenEvents').addEventListener('click', openEventsPanel);
   document.getElementById('btnCloseEvents').addEventListener('click', closeEventsPanel);
-  document.getElementById('btnStartEvent').addEventListener('click', startNewRace);
+  document.getElementById('btnStartEvent').addEventListener('click', () => startNewRace());
+  document.getElementById('btnOpenLeaderboard').addEventListener('click', () => openLeaderboard());
+  document.getElementById('btnOpenLeaderboardFromEnd').addEventListener('click', () => {
+    openLeaderboard(GameState.daily ? { board: 'daily', mode: 'DAILY' } : { board: 'all', mode: 'ARCADE' });
+  });
+  document.getElementById('btnCloseLeaderboard').addEventListener('click', closeLeaderboard);
+  document.getElementById('btnPlayDaily').addEventListener('click', () => startNewRace({ daily: true }));
+  document.querySelectorAll('.board-tab').forEach((b) => b.addEventListener('click', () => {
+    boardView = { board: b.dataset.board, mode: b.dataset.mode };
+    loadBoard();
+  }));
+  document.getElementById('initialsForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('initialsInput');
+    const ini = normalizeInitials(input.value);
+    if (!ini) { input.focus(); return; }
+    SaveStore.data.initials = ini;
+    SaveStore.save();
+    postScore(ini);
+  });
+  // Typing initials must not steer the car or trigger shortcuts.
+  document.getElementById('initialsInput').addEventListener('keydown', (e) => e.stopPropagation());
   // Tap anywhere on the title (outside its icons) to race.
   document.getElementById('titleScreen').addEventListener('click', (e) => {
     if (!e.target.closest('button, nav, a')) startNewRace();
@@ -3870,8 +4035,8 @@ function bindAllControls() {
     }
   });
 
-  document.getElementById('btnStartRace').addEventListener('click', startNewRace);
-  document.getElementById('btnPlayAgain').addEventListener('click', startNewRace);
+  document.getElementById('btnStartRace').addEventListener('click', () => startNewRace());
+  document.getElementById('btnPlayAgain').addEventListener('click', () => startNewRace(GameState.daily ? { daily: true } : undefined));
 
   window.addEventListener('resize', () => {
     resizeCanvases();

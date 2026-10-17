@@ -29,6 +29,8 @@ export const SaveStore = {
     // First-run teaching (ticket 0022): set after your first finished run. Old saves don't
     // have it; isNewPlayer() also treats any recorded best score as already onboarded.
     onboarded: false,
+    // Leaderboard (ticket 0025): the player's 3-letter initials once entered ('' = never).
+    initials: '',
     muted: false,
     volume: 0.8
   },
