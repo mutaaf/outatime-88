@@ -7,6 +7,7 @@ import { SoundEngine, setAudioHooks } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
 import { projectPoint } from './projection.js';
+import { createFixedStep, lerp } from './fixedstep.js';
 import { contactZ, cameraDepth } from './contact.js';
 import { hasWebGL, isLowEnd, resolveRenderMode, toggledPref } from './render-mode.js';
 import { loadView3D } from './render3d-loader.js';
@@ -326,8 +327,8 @@ const LiveTraffic = {
       ob.prevOffset = ob.offset;
     }
 
-    // 2. Run 4x Sub-Stepped 240Hz Rigid-Body Physics Integration & All-Pairs Solver!
-    const SUB_STEPS = 4;
+    // 2. Sub-stepped 240 Hz rigid-body integration (2 sub-steps per 1/120 s sim step).
+    const SUB_STEPS = 2;
     const subDt = dt / SUB_STEPS;
     const subRawDt = rawDt / SUB_STEPS;
     const allBodies = this.racers.concat(this.traffic, this.obstacles);
@@ -1773,8 +1774,6 @@ function updateGame(rawDt) {
       endRaceRun('🏁 FINISH!');
     }
   }
-
-  updateLiveHud();
 }
 
 // Coach (ticket 0002): teaches only what you haven't learned yet, in one short line, and
@@ -4241,25 +4240,84 @@ function renderFrame(dt) {
 let lastFrameTime = 0;
 let rafId = null;
 
+// Fixed-timestep simulation (ticket 0070): the race always advances in 1/120 s steps, so
+// it plays identically at any display rate; the renderer blends the last two steps.
+const simClock = createFixedStep();
+const viewPrev = { trackPos: 0, playerX: 0, playerY: 0 };
+const viewHeld = { trackPos: 0, playerX: 0, playerY: 0 };
+const VIEW_KEYS = ['trackPos', 'playerX', 'playerY'];
+// Bigger jumps than this between two steps are teleports (race reset, recycle): don't blend.
+const VIEW_TELEPORT = 2500;
+
+function forEachBody(fn) {
+  for (let i = 0; i < LiveTraffic.racers.length; i++) fn(LiveTraffic.racers[i]);
+  for (let i = 0; i < LiveTraffic.traffic.length; i++) fn(LiveTraffic.traffic[i]);
+  for (let i = 0; i < LiveTraffic.obstacles.length; i++) fn(LiveTraffic.obstacles[i]);
+}
+const snapBody = (b) => { b.viewZ0 = b.worldZ; b.viewX0 = b.offset; };
+const holdBody = (b) => { b.viewZ1 = b.worldZ; b.viewX1 = b.offset; };
+const restoreBody = (b) => { b.worldZ = b.viewZ1; b.offset = b.viewX1; };
+let viewAlpha = 0;
+const blendBody = (b) => {
+  if (b.viewZ0 === undefined || Math.abs(b.worldZ - b.viewZ0) > VIEW_TELEPORT) return;
+  b.worldZ = lerp(b.viewZ0, b.worldZ, viewAlpha);
+  b.offset = lerp(b.viewX0, b.offset, viewAlpha);
+};
+
+function snapshotView() {
+  for (let i = 0; i < VIEW_KEYS.length; i++) viewPrev[VIEW_KEYS[i]] = GameState[VIEW_KEYS[i]];
+  forEachBody(snapBody);
+}
+
+/** Draws the frame at `alpha` between the previous and current sim step, then restores. */
+function renderBlended(alpha, frameDt) {
+  if (alpha <= 0 || alpha >= 1 || Math.abs(GameState.trackPos - viewPrev.trackPos) > VIEW_TELEPORT) {
+    renderFrame(frameDt);
+    return;
+  }
+  viewAlpha = alpha;
+  for (let i = 0; i < VIEW_KEYS.length; i++) {
+    const k = VIEW_KEYS[i];
+    viewHeld[k] = GameState[k];
+    GameState[k] = lerp(viewPrev[k], viewHeld[k], alpha);
+  }
+  forEachBody(holdBody);
+  forEachBody(blendBody);
+  renderFrame(frameDt);
+  forEachBody(restoreBody);
+  for (let i = 0; i < VIEW_KEYS.length; i++) GameState[VIEW_KEYS[i]] = viewHeld[VIEW_KEYS[i]];
+}
+
 function mainLoop(timestamp) {
   if (!lastFrameTime) lastFrameTime = timestamp;
-  const dt = Math.min(0.05, (timestamp - lastFrameTime) / 1000);
+  const frameSeconds = (timestamp - lastFrameTime) / 1000;
+  const dt = Math.min(0.05, frameSeconds); // wall-clock frame time for attract mode and render FX
   lastFrameTime = timestamp;
 
   if (GameState.status === 'PLAYING') {
-    updateGame(dt);
-  } else if (GameState.status !== 'PAUSED') { // attract mode rolls the road; a pause freezes it
-    GameState.trackPos += 1350 * dt;
-    const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
-    if (track.segments.length - currentSegIdx < ROAD_CFG.drawDistance + 60) {
-      generateNextTrackBiome();
+    const steps = simClock.advance(frameSeconds);
+    for (let i = 0; i < steps && GameState.status === 'PLAYING'; i++) {
+      snapshotView();
+      updateGame(simClock.step);
+      syncContactZ();
     }
+    updateLiveHud();
+  } else {
+    simClock.reset();
+    if (GameState.status !== 'PAUSED') { // attract mode rolls the road; a pause freezes it
+      GameState.trackPos += 1350 * dt;
+      const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
+      if (track.segments.length - currentSegIdx < ROAD_CFG.drawDistance + 60) {
+        generateNextTrackBiome();
+      }
+    }
+    syncContactZ();
   }
 
-  syncContactZ();
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
-  renderFrame(dt);
+  if (GameState.status === 'PLAYING') renderBlended(simClock.alpha, dt);
+  else renderFrame(dt);
   rafId = requestAnimationFrame(mainLoop);
 }
 
