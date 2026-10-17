@@ -196,6 +196,7 @@ src/worker/         Edge Worker for /outatime/api/* only (operator-owned, frozen
                       live.js (room routes) · room.js (RaceRoom DO) · match.js (MatchIndex DO)
                       room-core.js (pure room state machine) · live-rules.js (shared with
                       the client: codes, lengths, CPU racers, finish order, frame limits)
+scripts/sw-template.js  Service worker (built to dist/outatime/sw.js by vite.config.js). Never handles /outatime/api/*.
 src/fonts.js        Self-hosted @fontsource imports
 src/styles.css      Tailwind layers + the game's custom CSS (LED boxes, scanlines, buttons)
 tests/unit/         Vitest: pure logic (save, input, physics, projection, data integrity)

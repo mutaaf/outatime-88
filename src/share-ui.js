@@ -92,10 +92,13 @@ async function openSheet() {
   await showFormat(format);
 }
 
+let showSeq = 0;
 async function showFormat(fmt) {
   format = fmt;
+  const seq = ++showSeq;
   for (const b of document.querySelectorAll('#shareSheet [data-format]')) b.setAttribute('aria-pressed', String(b.dataset.format === fmt));
   const r = await render(fmt);
+  if (seq !== showSeq) return; // a newer pick finished rendering first; don't paint over it
   $('shareSheetImg').src = r.url;
   $('shareSheetImg').dataset.format = fmt;
 }

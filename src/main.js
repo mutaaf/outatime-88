@@ -4881,7 +4881,15 @@ function mainLoop(timestamp) {
   rafId = requestAnimationFrame(mainLoop);
 }
 
+// Offline + instant repeat loads (ticket 0075). Production builds only; the API, identity and
+// live rooms are never cached (see scripts/sw-template.js).
+function registerServiceWorker() {
+  if (!import.meta.env.PROD || !('serviceWorker' in navigator) || new URLSearchParams(location.search).has('nosw')) return;
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }).catch(() => {});
+}
+
 window.onload = () => {
+  registerServiceWorker();
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
   if (new URLSearchParams(location.search).has('debug')) window.__OT = {
     GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
