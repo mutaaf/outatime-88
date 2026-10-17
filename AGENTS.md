@@ -119,6 +119,7 @@ src/main.js         Entry + the remaining glue (~3.9k lines, being carved by the
                       renderScene() + drawDeLorean() (2D-canvas pseudo-3D renderer)
                       UI (roster, level select, garage) · bindAllControls() · mainLoop()
 src/data.js         Pure content tables: levels, eras, roster, upgrades, road/pace/camera config
+src/garage-ui.js    Garage showroom + NEW CAR reveal (lazy chunk with car-art.js turntable and garage.css)
 src/cars.js         Car ratings (same 30-point budget each), unlock rules, carParams() → the physics
                       numbers a car drives with; career counters. Balance is unit-tested.
 src/state.js        GameState — the one mutable state object every system reads/writes

@@ -3370,8 +3370,9 @@ function renderRunMedal(lvl, result) {
 
 /** Results line for cars a race just unlocked (the garage plays the full reveal). */
 function announceNewCars(ids) {
-  GameState.pendingCarReveals = ids;
   if (!ids.length) return;
+  // The full-screen reveal lands just after the results, so the score is seen first.
+  setTimeout(() => loadGarageUI().then((ui) => ui.queueReveals(ids)), 1100);
   const el = document.getElementById('endUnlockText');
   if (!el) return;
   const names = ids.map((id) => (POP_CULTURE_ROSTER.find((c) => c.id === id) || {}).car).filter(Boolean);
@@ -3434,94 +3435,33 @@ function renderLevelSelectGrid() {
   });
 }
 
-function renderGarageModal() {
-  const listEl = document.getElementById('upgradesList');
-  const coinsEl = document.getElementById('garageCoinsText');
-  const glowRow = document.getElementById('underglowSelectRow');
-  const livRow = document.getElementById('liverySelectRow');
-  if (!listEl || !coinsEl) return;
-
-  coinsEl.textContent = `⚡ ${SaveStore.data.fluxCoins}`;
-  listEl.innerHTML = '';
-
-  UPGRADE_DEFS.forEach((def) => {
-    const lvl = SaveStore.data.upgrades[def.key] || 1;
-    const isMax = lvl >= 5;
-    const cost = def.baseCost * lvl;
-    const canAfford = !isMax && SaveStore.data.fluxCoins >= cost;
-
-    const card = document.createElement('div');
-    card.className = 'p-3 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col justify-between gap-2';
-    card.innerHTML = `
-      <div>
-        <div class="flex items-center justify-between">
-          <span class="font-arcade text-xs font-bold text-white">${def.icon} ${def.title}</span>
-          <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-arcade text-[10px] font-bold">LVL ${lvl}/5</span>
-        </div>
-        <p class="text-[11px] text-slate-400 mt-1">${def.desc}</p>
-      </div>
-      <button data-upgrade="${def.key}" class="w-full py-2 px-3 rounded-xl font-arcade text-xs font-bold transition ${
-        isMax
-          ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/40 cursor-default'
-          : canAfford
-            ? 'hw-badge text-slate-950 hover:brightness-110'
-            : 'bg-slate-800 text-slate-400 border border-slate-700'
-      }">
-        ${isMax ? 'MAXED OUT ✓' : `UPGRADE • ⚡ ${cost}`}
-      </button>
-    `;
-    const btn = card.querySelector('button');
-    if (btn && !isMax) {
-      btn.addEventListener('click', () => {
-        if (SaveStore.data.fluxCoins >= cost && SaveStore.data.upgrades[def.key] < 5) {
-          SaveStore.data.fluxCoins -= cost;
-          SaveStore.data.upgrades[def.key]++;
-          SaveStore.save();
-          SoundEngine.playCoinPickup();
-          renderGarageModal();
+// The showroom is its own chunk (ticket 0072): it loads the first time the garage opens or a
+// car unlocks, so the race boots without it.
+let garageUI = null;
+let garageLoading = null;
+function loadGarageUI() {
+  if (garageUI) return Promise.resolve(garageUI);
+  if (!garageLoading) {
+    garageLoading = import('./garage-ui.js').then(({ createGarageUI }) => {
+      garageUI = createGarageUI({
+        save: SaveStore, roster: POP_CULTURE_ROSTER, liveries: LIVERY_OPTIONS, underglows: UNDERGLOW_OPTIONS,
+        upgradeDefs: UPGRADE_DEFS, sound: SoundEngine,
+        selectedIndex: () => GameState.selectedCharIdx,
+        drive: (i) => selectCharacterByIndex(i),
+        changed: () => {
+          renderCharacterRosterGrid();
           updateLiveHud();
-        }
+          document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
+        },
+        reducedMotion: () => GameState.reducedMotion,
       });
-    }
-    listEl.appendChild(card);
-  });
-
-  if (glowRow) {
-    glowRow.innerHTML = '';
-    UNDERGLOW_OPTIONS.forEach((opt) => {
-      const active = SaveStore.data.underglow === opt.color;
-      const b = document.createElement('button');
-      b.className = `px-2.5 py-1 rounded-lg font-arcade text-[10px] font-bold border transition ${
-        active ? 'border-white bg-slate-800 text-white' : 'border-slate-700 bg-slate-900 text-slate-400'
-      }`;
-      b.style.boxShadow = active ? `0 0 10px ${opt.color}` : 'none';
-      b.textContent = opt.name;
-      b.addEventListener('click', () => {
-        SaveStore.data.underglow = opt.color;
-        SaveStore.save();
-        renderGarageModal();
-      });
-      glowRow.appendChild(b);
+      return garageUI;
     });
   }
-
-  if (livRow) {
-    livRow.innerHTML = '';
-    LIVERY_OPTIONS.forEach((opt) => {
-      const active = SaveStore.data.livery === opt.id;
-      const b = document.createElement('button');
-      b.className = `px-2.5 py-1 rounded-lg font-arcade text-[10px] font-bold border transition ${
-        active ? 'border-orange-400 bg-orange-500/20 text-white' : 'border-slate-700 bg-slate-900 text-slate-400'
-      }`;
-      b.textContent = opt.name;
-      b.addEventListener('click', () => {
-        SaveStore.data.livery = opt.id;
-        SaveStore.save();
-        renderGarageModal();
-      });
-      livRow.appendChild(b);
-    });
-  }
+  return garageLoading;
+}
+function renderGarageModal() {
+  if (garageUI) garageUI.render();
 }
 
 // --- ONE-TAP TITLE & FIRST-RUN TEACHING (ticket 0022) ---
@@ -4002,7 +3942,8 @@ function bindAllControls() {
     SoundEngine.init();
     SoundEngine.toggleMute();
   });
-  document.getElementById('btnMuteGarageModal').addEventListener('click', () => {
+  const garageMuteBtn = document.getElementById('btnMuteGarageModal');
+  if (garageMuteBtn) garageMuteBtn.addEventListener('click', () => {
     SoundEngine.init();
     SoundEngine.toggleMute();
   });
@@ -4061,6 +4002,7 @@ function bindAllControls() {
     document.getElementById('gameOverModal').classList.add('hidden');
     openEventsPanel();
   });
+  document.getElementById('btnCloseGarage').addEventListener('click', toggleGarageModal);
   document.getElementById('btnResumeFromGarage').addEventListener('click', () => {
     document.getElementById('garageModal').classList.add('hidden');
     if (GameState.status === 'PAUSED') {
@@ -4219,10 +4161,15 @@ function cycleVisualMode() {
   updateEraHud();
 }
 
-function openGarageModal() {
+function openGarageModal(focusCarId) {
   if (GameState.status === 'PLAYING') GameState.status = 'PAUSED';
-  renderGarageModal();
-  document.getElementById('garageModal').classList.remove('hidden');
+  const focus = typeof focusCarId === 'string' ? focusCarId : null;
+  // Show it once its chunk (and styles) are in, so it never flashes unstyled.
+  loadGarageUI().then((ui) => {
+    if (GameState.status === 'PLAYING') return; // a race started while it loaded
+    document.getElementById('garageModal').classList.remove('hidden');
+    ui.open(focus);
+  });
 }
 
 function toggleGarageModal() {
