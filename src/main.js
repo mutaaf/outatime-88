@@ -1,6 +1,6 @@
 import './fonts.js';
 import './styles.css';
-import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES, RIVAL_NAMES } from './data.js';
+import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks } from './audio.js';
@@ -11,6 +11,7 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain, watchReducedMotion } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress.js';
+import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -93,180 +94,6 @@ const JarvisAI = {
   }
 };
 
-// --- MULTI-DEVICE INPUT SYSTEM ---
-
-let segments = [];
-let generatedCount = 0;
-
-function addSegment(curve, y, bank, trackType, forkInfo = null) {
-  const idx = segments.length;
-  segments.push({
-    index: idx,
-    p1: { world: { x: 0, y: idx === 0 ? 0 : segments[idx - 1].p2.world.y, z: idx * ROAD_CFG.segLength }, camera: {}, screen: {} },
-    p2: { world: { x: 0, y: y, z: (idx + 1) * ROAD_CFG.segLength }, camera: {}, screen: {} },
-    curve: curve,
-    bank: bank,
-    trackType: trackType,
-    forkInfo: forkInfo,
-    items: [],
-    cars: [],
-    flameLeft: false,
-    flameRight: false
-  });
-}
-
-function addRoadSection(enter, hold, leave, curve, yDelta, bank, trackType = 'STANDARD', forkInfo = null) {
-  const startY = segments.length === 0 ? 0 : segments[segments.length - 1].p2.world.y;
-  const endY = startY + yDelta;
-  const total = enter + hold + leave;
-  for (let n = 0; n < enter; n++) {
-    const t = n / enter;
-    const ease = t * t * (3 - 2 * t);
-    addSegment(curve * ease, startY + (endY - startY) * (n / total), bank * ease, trackType, forkInfo);
-  }
-  for (let n = 0; n < hold; n++) {
-    addSegment(curve, startY + (endY - startY) * ((enter + n) / total), bank, trackType, forkInfo);
-  }
-  for (let n = 0; n < leave; n++) {
-    const t = 1 - n / leave;
-    const ease = t * t * (3 - 2 * t);
-    addSegment(curve * ease, startY + (endY - startY) * ((enter + hold + n) / total), bank * ease, trackType, forkInfo);
-  }
-}
-
-function populateChunkDecorations(startIdx, endIdx, patternType) {
-  const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
-  for (let i = startIdx; i < endIdx; i++) {
-    const seg = segments[i];
-    if (!seg) continue;
-
-    // Night-Street Smoke Flares on Checkpoints & Forks
-    if (seg.trackType === 'CHECKPOINT' && i === startIdx + 2) {
-      seg.items.push({ offset: -1.15, type: 'MC_FLARE_GREEN' });
-      seg.items.push({ offset: 1.15, type: 'MC_FLARE_GREEN' });
-    }
-
-    // Roadside Streetlamps, Billboards & Orange-Track Arches
-    if (i % 6 === 0) {
-      const propTypes = ['STREET_LAMP', 'SIGN_88', 'PALM_TREE', 'CLOCK_TOWER_BILLBOARD', 'ARCH_HW'];
-      const pType = propTypes[(i / 6) % propTypes.length | 0];
-      seg.items.push({ offset: -1.42, type: pType });
-      seg.items.push({ offset: 1.42, type: pType });
-    }
-
-    // Overhead Loop & Tunnel Rings
-    if ((seg.trackType === 'LOOP' || seg.trackType === 'BOOSTER') && i % 3 === 0) {
-      seg.items.push({ offset: 0, type: 'OVERHEAD_GATE' });
-    }
-
-    // Animated 3D Power-Ups (Plutonium Cores, Orange-Track Flame Coins) & Destructible 2026 Obstacles
-    if (i % 18 === 0 && seg.trackType !== 'CHECKPOINT') {
-      const lane = ((i * 19) % 3) - 1;
-      const isPlutonium = (i % 12 === 0) || (patternType === 'STUNT_LOOP');
-      seg.items.push({
-        offset: lane * 0.52,
-        type: isPlutonium ? 'PLUTONIUM' : 'HW_COIN',
-        collected: false,
-        phase: i * 0.8
-      });
-    }
-
-    // Spawn Nano-Wrench HP Repair Pickups every 22 segments
-    if (i > 30 && i % 38 === 0 && seg.trackType !== 'CHECKPOINT') {
-      const healLane = (((i * 7) % 3) - 1) * 0.52;
-      seg.items.push({
-        offset: healLane,
-        type: 'REPAIR_WRENCH',
-        collected: false,
-        phase: i * 0.4
-      });
-    }
-
-    const spawnFreq = 999999;
-    if (false) {
-      const lane = (((i * 29) % 5) - 2) * 0.36;
-      const isCop = (GameState.heatLevel >= 2 && (i % (spawnFreq * 3) === 0));
-      const isRival = !isCop && (i % (spawnFreq * 2) === 0);
-      const rivalName = RIVAL_NAMES[(i / spawnFreq) % RIVAL_NAMES.length | 0];
-      seg.cars.push({
-        offset: lane,
-        type: isCop ? 'POLICE_INTERCEPTOR' : (isRival ? 'STREET_RIVAL' : 'TRAFFIC'),
-        name: isCop ? 'TIME-COP' : (isRival ? rivalName : 'TRAFFIC'),
-        speedMult: isCop ? 0.55 : (isRival ? 0.52 : 0.34),
-        nearMissed: false,
-        takenDown: false,
-        aiPhase: i * 0.7
-      });
-    }
-
-    if (false) {
-      const gapSide = (i % 2 === 0) ? -0.58 : 0.58;
-      seg.cars.push({
-        offset: -gapSide * 0.65,
-        type: 'POLICE_INTERCEPTOR',
-        name: 'ROADBLOCK',
-        speedMult: 0,
-        nearMissed: false,
-        takenDown: false,
-        aiPhase: 0
-      });
-    }
-  }
-}
-
-function generateNextTrackBiome(chosenBranch = null) {
-  const startIdx = segments.length;
-  generatedCount++;
-
-  if (generatedCount === 1) {
-    addRoadSection(8, 18, 8, 0, 0, 0, 'STANDARD');
-    addRoadSection(6, 14, 6, 0, 350, 0, 'BOOSTER');
-    addRoadSection(10, 20, 10, 0.75, -350, 0.15, 'STANDARD');
-    populateChunkDecorations(startIdx, segments.length, 'OPENING');
-    return;
-  }
-
-  if (generatedCount % 4 === 2 && !chosenBranch) {
-    addRoadSection(8, 20, 8, 0, 280, 0, 'SPLIT_FORK', {
-      leftLabel: 'SKY-LOOP SHORTCUT (2X FLUX)',
-      rightLabel: 'WANGAN TURBO TUNNEL (+TIME)'
-    });
-    populateChunkDecorations(startIdx, segments.length, 'FORK');
-    return;
-  }
-
-  const roll = chosenBranch === 'LEFT' ? 0 : (chosenBranch === 'RIGHT' ? 1 : ((generatedCount + GameState.levelIndex) % 5));
-
-  if (roll === 0) {
-    addRoadSection(8, 14, 8, 0, 0, 0, 'BOOSTER');
-    addRoadSection(12, 24, 12, 0.45, 650, 0.18, 'LOOP');
-    addRoadSection(12, 20, 12, -0.45, -650, -0.18, 'LOOP');
-    populateChunkDecorations(startIdx, segments.length, 'STUNT_LOOP');
-  } else if (roll === 1) {
-    addRoadSection(10, 20, 10, -0.95, 280, -0.22, 'BOOSTER');
-    addRoadSection(10, 20, 10, 0.95, -280, 0.22, 'BOOSTER');
-    populateChunkDecorations(startIdx, segments.length, 'SPEED_TUNNEL');
-  } else if (roll === 2) {
-    addRoadSection(10, 16, 8, 0, 520, 0, 'JUMP_RAMP');
-    addRoadSection(8, 18, 10, -0.7, -520, -0.15, 'STANDARD');
-    populateChunkDecorations(startIdx, segments.length, 'JUMP');
-  } else if (roll === 3) {
-    // Smooth Sweeping Mulholland S-Curves
-    addRoadSection(12, 22, 12, 1.15, 380, 0.25, 'STANDARD');
-    addRoadSection(12, 20, 12, -1.1, -380, -0.25, 'STANDARD');
-    populateChunkDecorations(startIdx, segments.length, 'CORKSCREW');
-  } else {
-    addRoadSection(10, 18, 10, 0.65, 320, 0.12, 'STANDARD');
-    addRoadSection(8, 14, 8, 0, -320, 0, 'CHECKPOINT');
-    populateChunkDecorations(startIdx, segments.length, 'CHECKPOINT');
-  }
-
-  if (generatedCount % 3 === 0) {
-    const cpStart = segments.length;
-    addRoadSection(4, 8, 4, 0, 0, 0, 'CHECKPOINT');
-    populateChunkDecorations(cpStart, segments.length, 'CHECKPOINT');
-  }
-}
 
 // --- 10X 6-DOF MULTI-BODY AUTOMOTIVE & RIGID-BODY PHYSICS ENGINE (240Hz SUB-STEPPED) ---
 
@@ -733,11 +560,7 @@ const LiveTraffic = {
   }
 };
 function initTrack() {
-  segments = [];
-  generatedCount = 0;
-  for (let i = 0; i < 6; i++) {
-    generateNextTrackBiome();
-  }
+  buildInitialTrack();
   LiveTraffic.init();
 }
 
@@ -1062,7 +885,7 @@ function activateMidnightSpecial(type) {
     const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
     let wreckedCount = 0;
     for (let n = 0; n < 18; n++) {
-      const seg = segments[currentSegIdx + n];
+      const seg = track.segments[currentSegIdx + n];
       if (!seg) continue;
       for (let c = 0; c < seg.cars.length; c++) {
         if (!seg.cars[c].takenDown) {
@@ -1185,11 +1008,11 @@ function updateGame(rawDt) {
 
   const cameraSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   const currentSegIdx = Math.floor((GameState.trackPos + ROAD_CFG.playerZOffset) / ROAD_CFG.segLength);
-  if (segments.length - currentSegIdx < ROAD_CFG.drawDistance + 85) {
+  if (track.segments.length - currentSegIdx < ROAD_CFG.drawDistance + 85) {
     generateNextTrackBiome();
   }
 
-  const currentSeg = segments[currentSegIdx] || segments[0];
+  const currentSeg = track.segments[currentSegIdx] || track.segments[0];
   const upg = SaveStore.data.upgrades;
 
   // Handle Midnight Special hotkeys
@@ -1323,7 +1146,7 @@ function updateGame(rawDt) {
   let nearestThreat = null;
   let bestCollectible = null;
   for (let look = 1; look <= 26; look++) {
-    const lSeg = segments[currentSegIdx + look];
+    const lSeg = track.segments[currentSegIdx + look];
     if (!lSeg) break;
     if (look <= 15) curveAhead += lSeg.curve;
     for (let c = 0; c < lSeg.cars.length; c++) {
@@ -1656,7 +1479,7 @@ function updateGame(rawDt) {
 
   // 7. Update AI Cars, Checkpoints, Collectibles & Side-Slam Takedowns
   for (let offset = -1; offset <= 16; offset++) {
-    const seg = segments[currentSegIdx + offset];
+    const seg = track.segments[currentSegIdx + offset];
     if (!seg) continue;
 
     // Move AI Rival & Police Cars dynamically across lanes
@@ -2131,7 +1954,7 @@ function renderRadarMinimap(baseIndex) {
   radarCtx.moveTo(rx, ry);
 
   for (let n = 0; n < 45; n += 2) {
-    const seg = segments[baseIndex + n];
+    const seg = track.segments[baseIndex + n];
     if (!seg) break;
     angle += seg.curve * 0.015;
     rx += Math.sin(angle) * 1.9;
@@ -2145,7 +1968,7 @@ function renderRadarMinimap(baseIndex) {
   ry = h - 12;
   angle = 0;
   for (let n = 0; n < 42; n++) {
-    const seg = segments[baseIndex + n];
+    const seg = track.segments[baseIndex + n];
     if (!seg) break;
     angle += seg.curve * 0.0075;
     rx += Math.sin(angle) * 0.95;
@@ -2317,7 +2140,7 @@ function renderScene() {
   // 2. Project & Draw Seamless 3D Orange Toy-Track Segments (Zero Distracting Blue Bars!)
   const baseIndex = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   const basePercent = (GameState.trackPos % ROAD_CFG.segLength) / ROAD_CFG.segLength;
-  const baseSeg = segments[baseIndex] || segments[0];
+  const baseSeg = track.segments[baseIndex] || track.segments[0];
   if (!baseSeg) {
     ctx.restore();
     return;
@@ -2329,7 +2152,7 @@ function renderScene() {
   let playerCurveX = 0;
   let playerCurveDX = -(baseSeg.curve * basePercent);
   for (let cStep = 0; cStep < 6; cStep++) {
-    const cSeg = segments[baseIndex + cStep];
+    const cSeg = track.segments[baseIndex + cStep];
     if (!cSeg) break;
     playerCurveX += playerCurveDX;
     playerCurveDX += cSeg.curve;
@@ -2347,7 +2170,7 @@ function renderScene() {
   let foundPlayerSeg = null;
 
   for (let n = 0; n < ROAD_CFG.drawDistance; n++) {
-    const seg = segments[baseIndex + n];
+    const seg = track.segments[baseIndex + n];
     if (!seg) break;
 
     seg.p1.world.x = x;
@@ -2924,7 +2747,7 @@ function renderScene() {
   }
 
   // 5. Lock Hero Car Screen X & Y to the Exact Track Segment Underneath the Tires (Zero Off-Track Drift!)
-  const playerSeg = foundPlayerSeg || segments[baseIndex + 6] || visibleSegments[0] || baseSeg;
+  const playerSeg = foundPlayerSeg || track.segments[baseIndex + 6] || visibleSegments[0] || baseSeg;
   if (playerSeg && playerSeg.p1 && playerSeg.p1.screen && playerSeg.p1.screen.w > 0) {
     const segRoadX = playerSeg.p1.screen.x;
     const segRoadW = playerSeg.p1.screen.w;
@@ -4086,7 +3909,7 @@ function mainLoop(timestamp) {
   } else {
     GameState.trackPos += 1350 * dt;
     const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
-    if (segments.length - currentSegIdx < ROAD_CFG.drawDistance + 60) {
+    if (track.segments.length - currentSegIdx < ROAD_CFG.drawDistance + 60) {
       generateNextTrackBiome();
     }
   }
