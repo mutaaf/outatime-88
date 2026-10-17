@@ -6,6 +6,8 @@ import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
+import { materialFor, impactVelocities } from './materials.js';
+import { createWorld, createPropPool } from './world.js';
 import { projectPoint } from './projection.js';
 import { createFixedStep, lerp } from './fixedstep.js';
 import { contactZ, cameraDepth } from './contact.js';
@@ -115,13 +117,34 @@ const JarvisAI = {
 
 // --- 10X 6-DOF MULTI-BODY AUTOMOTIVE & RIGID-BODY PHYSICS ENGINE (240Hz SUB-STEPPED) ---
 
+const PROP_POOL_SIZE = 24;
 const LiveTraffic = {
   racers: [],
   traffic: [],
   obstacles: [],
+  // Ticket 0074: one world stepper (Z-hash broadphase, sleeping, statics), a fixed pool of
+  // knockable props, and persistent body lists so the step never allocates.
+  world: createWorld(),
+  props: createPropPool(PROP_POOL_SIZE, () => new RigidBody3D({ kind: 'OBSTACLE', type: 'TRAFFIC_CONE' })),
+  bodies: [],          // racers + traffic + obstacles + live props (what the world steps)
+  drawObstacles: [],   // obstacles + live props (what the renderers draw)
+  nextPropZ: 0,
   prevPlayerZ: 0,
+  rebuildBodyLists() {
+    const b = this.bodies;
+    b.length = 0;
+    for (let i = 0; i < this.racers.length; i++) b.push(this.racers[i]);
+    for (let i = 0; i < this.traffic.length; i++) b.push(this.traffic[i]);
+    const d = this.drawObstacles;
+    d.length = 0;
+    for (let i = 0; i < this.obstacles.length; i++) { b.push(this.obstacles[i]); d.push(this.obstacles[i]); }
+    const live = this.props.live;
+    for (let i = 0; i < live.length; i++) { b.push(live[i]); d.push(live[i]); }
+  },
   init() {
     this.prevPlayerZ = (GameState.trackPos || 0) + ROAD_CFG.playerZOffset;
+    this.props.clear();
+    this.nextPropZ = this.prevPlayerZ + 9000;
 
     // The field (ticket 0051): five named rivals from the roster (never your own driver) on a
     // two-wide grid, you at the back. Each keeps its name for the whole race.
@@ -195,6 +218,7 @@ const LiveTraffic = {
       const lane = (i % 3 - 1) * 0.44;
       this.obstacles.push(this.createObstacleBody(i, oType, 3200 + i * 3800, lane));
     }
+    this.rebuildBodyLists();
   },
 
   /** Rival progress, finish times and your position (ticket 0051). */
@@ -229,81 +253,66 @@ const LiveTraffic = {
     return (11000 * paceCfg.mult) / 88;
   },
 
-  createObstacleBody(idx, oType, zPos, laneOffset) {
-    const isHighGate = (oType === 'HIGH_LIGHT_GATE');
-    const isLowLaser = (oType === 'LOW_LASER_BAR');
-    const isCrate = (oType === 'FLUX_CRATE');
-    return new RigidBody3D({
-      id: 'OBS_' + idx + '_' + Date.now(),
+  /** Body options for an obstacle or prop of `oType`, from its material (ticket 0074). */
+  obstacleOpts(idx, oType, zPos, laneOffset) {
+    const m = materialFor(oType);
+    return {
+      id: 'OBS_' + idx,
       kind: 'OBSTACLE',
       type: oType,
       name: oType,
       worldZ: zPos,
       offset: laneOffset,
-      massKg: isCrate ? 180 : (isLowLaser ? 240 : 320),
-      restitution: 0.65,
-      friction: 1.8,
-      halfW: 0.21,
-      height: isLowLaser ? 22 : (isHighGate ? 68 : 38),
-      clearanceY: isHighGate ? 24 : 0,
-      halfL: 145,
+      massKg: m.massKg,
+      restitution: m.restitution,
+      friction: m.friction,
+      knockable: m.knockable,
+      halfW: m.halfW,
+      height: m.height,
+      clearanceY: m.clearanceY || 0,
+      halfL: m.halfL,
       bodyColor: '#1e293b',
       accentColor: '#f59e0b'
-    });
+    };
+  },
+  createObstacleBody(idx, oType, zPos, laneOffset) {
+    return new RigidBody3D(this.obstacleOpts(idx, oType, zPos, laneOffset));
+  },
+
+  /** Cone chicanes and barrel clusters ahead of the player (pooled; deterministic on dailies). */
+  spawnProps(playerZ) {
+    if (playerZ + 9000 < this.nextPropZ) return;
+    const z = this.nextPropZ;
+    const pattern = Math.floor(trafficRand() * 3);
+    const side = trafficRand() < 0.5 ? -1 : 1;
+    if (pattern === 0) {
+      // a diagonal cone line closing one lane
+      for (let k = 0; k < 5; k++) this.props.spawn(this.obstacleOpts(100 + k, 'TRAFFIC_CONE', z + k * 140, side * (0.62 - k * 0.09)));
+    } else if (pattern === 1) {
+      // a cone gate: two rows, thread the middle
+      for (let k = 0; k < 3; k++) {
+        this.props.spawn(this.obstacleOpts(110 + k, 'TRAFFIC_CONE', z + k * 220, -0.3));
+        this.props.spawn(this.obstacleOpts(120 + k, 'TRAFFIC_CONE', z + k * 220, 0.3));
+      }
+    } else {
+      // three oil barrels huddled in a lane
+      const lane = side * 0.42;
+      this.props.spawn(this.obstacleOpts(130, 'OIL_BARREL', z, lane - 0.08));
+      this.props.spawn(this.obstacleOpts(131, 'OIL_BARREL', z, lane + 0.08));
+      this.props.spawn(this.obstacleOpts(132, 'OIL_BARREL', z + 110, lane));
+    }
+    this.nextPropZ = z + 7000 + trafficRand() * 5000;
+    this.rebuildBodyLists();
   },
 
   checkSweptOverlapZ(minZA, maxZA, halfLA, minZB, maxZB, halfLB) {
     return (maxZA + halfLA >= minZB - halfLB) && (minZA - halfLA <= maxZB + halfLB);
   },
 
-  // All-Pairs 3D Rigid-Body Impulse + Off-Center Torque Solver between any two non-player bodies (Car<->Car, Obstacle<->Car, Obstacle<->Obstacle)
-  solveBodyPairCollision(a, b) {
-    if (a === b || a.takenDown || b.takenDown) return;
-    const dz = Math.abs(a.worldZ - b.worldZ);
-    const minSepZ = a.halfL + b.halfL;
-    if (dz >= minSepZ) return;
-
-    const dx = Math.abs(a.offset - b.offset);
-    const minSepX = a.halfW + b.halfW;
-    if (dx >= minSepX) return;
-
-    const vertOverlap = (a.y < b.y + b.height) && (a.y + a.height > b.y + b.clearanceY);
-    if (!vertOverlap) return;
-
-    // Minimum Translation Vector (MTV) + Newtonian Impulse J = -(1+e)*(vRel.n)/(invMassA + invMassB)
-    const totalInvMass = a.invMass + b.invMass;
-    if (totalInvMass <= 0) return;
-
-    const e = Math.min(a.restitution, b.restitution);
-    const signX = a.offset <= b.offset ? -1 : 1;
-    const signZ = a.worldZ <= b.worldZ ? -1 : 1;
-    const penX = minSepX - dx;
-    const penZ = minSepZ - dz;
-
-    if (penX * 900 < penZ) {
-      // Lateral Side-to-Side Impact
-      a.offset += signX * penX * (a.invMass / totalInvMass);
-      b.offset -= signX * penX * (b.invMass / totalInvMass);
-      const vRelX = a.vx - b.vx;
-      const jx = -(1 + e) * vRelX / totalInvMass;
-      const lever = (a.worldZ - b.worldZ) / minSepZ;
-      a.applyImpulseAndTorque(jx, 45, 0, lever);
-      b.applyImpulseAndTorque(-jx, 45, 0, -lever);
-    } else {
-      // Longitudinal Bumper-to-Bumper / Obstacle Ricochet Impact
-      a.worldZ += signZ * penZ * (a.invMass / totalInvMass);
-      b.worldZ -= signZ * penZ * (b.invMass / totalInvMass);
-      const vRelZ = a.vz - b.vz;
-      const jz = -(1 + e) * vRelZ / totalInvMass;
-      const lever = a.offset - b.offset;
-      a.applyImpulseAndTorque(lever * 180, 140, jz, lever);
-      b.applyImpulseAndTorque(-lever * 180, 140, -jz, -lever);
-
-      if ((a.kind === 'OBSTACLE' && a.hitCount > 0) || (b.kind === 'OBSTACLE' && b.hitCount > 0)) {
-        spawnObstacleShatter(b.offset - GameState.playerX, '#00f0ff', '#ff5500', '🎯 CHAIN-REACTION PHYSICS HIT! +1000');
-        GameState.score += 1000 * GameState.combo;
-      }
-    }
+  // A knocked obstacle slamming into something end-on (solver in src/world.js).
+  onChain(a, b) {
+    spawnObstacleShatter(b.offset - GameState.playerX, '#00f0ff', '#ff5500', '🎯 CHAIN-REACTION PHYSICS HIT! +1000');
+    GameState.score += 1000 * GameState.combo;
   },
 
   update(dt, rawDt, paceMult) {
@@ -348,9 +357,9 @@ const LiveTraffic = {
       r.vz = r.mph * speedToWorld;
 
       // AI Rivals steer smoothly around obstacles & traffic
-      const hazards = this.traffic.concat(this.obstacles);
-      for (let h = 0; h < hazards.length; h++) {
-        const hz = hazards[h];
+      const nT = this.traffic.length;
+      for (let h = 0; h < nT + this.obstacles.length; h++) {
+        const hz = h < nT ? this.traffic[h] : this.obstacles[h - nT];
         const dz = hz.worldZ - r.worldZ;
         if (dz > 0 && dz < 850 && Math.abs(hz.offset - r.offset) < 0.30) {
           r.targetOffset = hz.offset >= 0 ? -0.46 : 0.46;
@@ -370,29 +379,17 @@ const LiveTraffic = {
       tr.prevOffset = tr.offset;
     }
 
-    for (let i = 0; i < this.obstacles.length; i++) {
-      const ob = this.obstacles[i];
+    for (let i = 0; i < this.drawObstacles.length; i++) {
+      const ob = this.drawObstacles[i];
       ob.prevZ = ob.worldZ;
       ob.prevOffset = ob.offset;
     }
 
-    // 2. Sub-stepped 240 Hz rigid-body integration (2 sub-steps per 1/120 s sim step).
-    const SUB_STEPS = 2;
-    const subDt = dt / SUB_STEPS;
-    const subRawDt = rawDt / SUB_STEPS;
-    const allBodies = this.racers.concat(this.traffic, this.obstacles);
-
-    for (let step = 0; step < SUB_STEPS; step++) {
-      for (let i = 0; i < allBodies.length; i++) {
-        if (!allBodies[i].takenDown) allBodies[i].stepSubPhysics(subDt, subRawDt);
-      }
-      // All-pairs rigid-body collision solver (Rivals <-> Traffic <-> Obstacles)
-      for (let i = 0; i < allBodies.length; i++) {
-        for (let j = i + 1; j < allBodies.length; j++) {
-          this.solveBodyPairCollision(allBodies[i], allBodies[j]);
-        }
-      }
-    }
+    // 2. Rigid-body world (ticket 0074): 240 Hz sub-steps, Z-hash broadphase, sleeping props.
+    this.props.retireBehind(playerZ, 1800);
+    if (this.props.live.length + this.obstacles.length + this.traffic.length + this.racers.length !== this.bodies.length) this.rebuildBodyLists();
+    this.spawnProps(playerZ);
+    this.world.step(this.bodies, dt, rawDt, this.onChain);
 
     // 3. Player ↔ Rivals Swept 3D Rigid-Body Collision + PIT-Maneuver Torque Solver
     for (let i = 0; i < this.racers.length; i++) {
@@ -525,8 +522,9 @@ const LiveTraffic = {
         const lanes = [-0.46, 0, 0.46];
         const nextLane = lanes[(i * 7 + GameState.waveTier) % 3];
         const spacing = Math.max(2400, 3800 - GameState.waveTier * 140);
-        const maxAheadZ = Math.max(playerZ + 4200, ...this.obstacles.map(o => o.worldZ));
-        this.obstacles[i] = this.createObstacleBody(i, nextType, maxAheadZ + spacing, nextLane);
+        let maxAheadZ = playerZ + 4200;
+        for (let k = 0; k < this.obstacles.length; k++) if (this.obstacles[k].worldZ > maxAheadZ) maxAheadZ = this.obstacles[k].worldZ;
+        ob.reset(this.obstacleOpts(i, nextType, maxAheadZ + spacing, nextLane));
         continue;
       }
 
@@ -591,12 +589,17 @@ const LiveTraffic = {
             }
 
             // 2. Push the obstacle ahead of the front bumper & launch it with 6-DOF Newtonian Impulse + Torque!
-            ob.worldZ = Math.max(ob.worldZ, playerZ + playerHalfL + ob.halfL + 40);
-            ob.prevZ = ob.worldZ;
-            const launchVZ = (playerWorldVZ * 1.65 + 1450) * ob.massKg;
-            const launchVX = -pushDir * (1.5 + Math.abs(leverX) * 2.5) * ob.massKg;
-            const launchVY = (420 + Math.random() * 160) * ob.massKg;
-            ob.applyImpulseAndTorque(launchVX, launchVY, launchVZ, leverX);
+            //    A static obstacle (a tree, ticket 0074) doesn't move: you bounce off it instead.
+            if (!ob.isStatic) {
+              ob.worldZ = Math.max(ob.worldZ, playerZ + playerHalfL + ob.halfL + 40);
+              ob.prevZ = ob.worldZ;
+              const launchVZ = (playerWorldVZ * 1.65 + 1450) * ob.massKg;
+              const launchVX = -pushDir * (1.5 + Math.abs(leverX) * 2.5) * ob.massKg;
+              const launchVY = (420 + Math.random() * 160) * ob.massKg;
+              ob.applyImpulseAndTorque(launchVX, launchVY, launchVZ, leverX);
+            } else {
+              GameState.playerVX = pushDir * 1.1;
+            }
 
             // 3. Compress 4-wheel suspension & pitch nose forward on impact!
             GameState.suspVel -= 220;
@@ -612,6 +615,45 @@ const LiveTraffic = {
           }
         }
       }
+    }
+
+    // 6. Player ↔ knockable props (ticket 0074): a real momentum exchange. A 4 kg cone is
+    //    swatted aside at nearly twice your speed and costs you almost nothing; a 95 kg
+    //    barrel takes a bite out of your speed. Both tumble, bounce and settle.
+    const props = this.props.live;
+    for (let i = 0; i < props.length; i++) {
+      const pr = props[i];
+      if (pr.hitCount > 0 && pr.vz > playerWorldVZ * 0.5) continue; // already swatted ahead of us
+      const minZ = Math.min(pr.prevZ, pr.worldZ);
+      const maxZ = Math.max(pr.prevZ, pr.worldZ);
+      if (!this.checkSweptOverlapZ(minPZ, maxPZ, playerHalfL * 0.9, minZ, maxZ, pr.halfL)) continue;
+      const lever = pr.offset - GameState.playerX;
+      if (Math.abs(lever) >= playerHalfW + pr.halfW) continue;
+      if (!(playerBotY < pr.y + pr.height && playerTopY > pr.y)) continue;
+      const mat = materialFor(pr.type);
+      const e = Math.min(mat.restitution + 0.25, 0.8);
+      const mph = GameState.speed;
+      const v = impactVelocities(playerMass, playerWorldVZ, mat.massKg, pr.vz, e);
+      GameState.speed = Math.max(18, GameState.speed * Math.max(0, v.car) / Math.max(1, playerWorldVZ));
+      pr.wake();
+      pr.hitCount++;
+      pr.worldZ = Math.max(pr.worldZ, playerZ + playerHalfL + pr.halfL + 6);
+      pr.prevZ = pr.worldZ;
+      pr.vz = v.body;
+      // Hit off-centre and it flies off to that side, spinning; light props pop up and tumble.
+      const sideDir = lever >= 0 ? 1 : -1;
+      pr.vx = sideDir * (0.35 + Math.abs(lever) * 6) * (mat.massKg < 20 ? 1.6 : 0.6);
+      pr.vy = (mat.massKg < 20 ? 300 : 140) + mph * (mat.massKg < 20 ? 2.2 : 0.6);
+      pr.vRot = sideDir * (mat.massKg < 20 ? 16 : 7);
+      pr.vYaw = sideDir * 5;
+      burstSparks(mat.massKg < 20 ? 6 : 12, mat.massKg < 20 ? 30 : 18, 0.7);
+      if (mat.damage > 0) {
+        applyPlayerDamage(mat.damage, 'BARREL HIT');
+      } else {
+        chargePenalty(logHit(GameState.penaltyLog, 'cone', mph), 'CONE HIT');
+        SoundEngine.playTone(420, 'square', 0.05, 0.06);
+      }
+      GameState.dodgeStreak = 0;
     }
   }
 };
@@ -2538,8 +2580,8 @@ function renderScene() {
     }
 
     // Render Live 3D Rigid-Body Obstacles on this Segment (Sleek 3D Street Barricades & Hurdles — Zero Distracting Blue Bars!)
-    for (let o = 0; o < LiveTraffic.obstacles.length; o++) {
-      const ob = LiveTraffic.obstacles[o];
+    for (let o = 0; o < LiveTraffic.drawObstacles.length; o++) {
+      const ob = LiveTraffic.drawObstacles[o];
       const obSegIdx = Math.floor(ob.worldZ / ROAD_CFG.segLength);
       if (obSegIdx !== seg.index) continue;
 
@@ -2559,7 +2601,31 @@ function renderScene() {
         ctx.fillRect(-ow * 0.52, oh * 0.42, ow * 1.04, 4);
       }
 
-      if (ob.type === 'PINE_TREE_HAZARD') {
+      if (ob.type === 'TRAFFIC_CONE') {
+        // 🔺 Traffic cone (ticket 0074): knockable, tumbles when hit.
+        const ch = oh * 1.5;
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(-ow * 0.55, oh * 0.32, ow * 1.1, oh * 0.18);
+        ctx.fillStyle = '#ff6a00';
+        ctx.beginPath();
+        ctx.moveTo(-ow * 0.42, oh * 0.34);
+        ctx.lineTo(0, oh * 0.34 - ch);
+        ctx.lineTo(ow * 0.42, oh * 0.34);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(-ow * 0.24, oh * 0.34 - ch * 0.55, ow * 0.48, Math.max(1.5, ch * 0.13));
+      } else if (ob.type === 'OIL_BARREL') {
+        // 🛢 Oil barrel (ticket 0074): heavy prop, rolls and tumbles.
+        const bh = oh * 1.6;
+        ctx.fillStyle = '#1d4ed8';
+        ctx.fillRect(-ow * 0.4, oh * 0.45 - bh, ow * 0.8, bh);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(-ow * 0.4, oh * 0.45 - bh * 0.72, ow * 0.8, Math.max(2, bh * 0.1));
+        ctx.fillRect(-ow * 0.4, oh * 0.45 - bh * 0.32, ow * 0.8, Math.max(2, bh * 0.1));
+        ctx.fillStyle = '#93c5fd';
+        ctx.fillRect(-ow * 0.4, oh * 0.45 - bh, ow * 0.8, Math.max(1.5, bh * 0.06));
+      } else if (ob.type === 'PINE_TREE_HAZARD') {
         // 🌲 3D TWIN-PINES SLALOM TREE (Dodge Around OR Graze the Golden Ring for +11 MPH Boost!)
         const treeH = oh * 2.35;
         // Golden Close-Shave Graze Ring on the track
@@ -3373,6 +3439,7 @@ function renderScoreSheet(sheet) {
   const why = [];
   if (sheet.obstacleHits) why.push(`${sheet.obstacleHits} HIT${sheet.obstacleHits > 1 ? 'S' : ''}`);
   if (sheet.trafficHits) why.push(`${sheet.trafficHits} CRASH${sheet.trafficHits > 1 ? 'ES' : ''}`);
+  if (sheet.coneHits) why.push(`${sheet.coneHits} CONE${sheet.coneHits > 1 ? 'S' : ''}`);
   if (sheet.wallSec) why.push(`${sheet.wallSec}s WALL`);
   el.textContent = `${sheet.earned.toLocaleString()} − ${sheet.penalty.toLocaleString()} (${why.join(' · ')})`;
   el.className = 'mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-rose-300';
@@ -4470,7 +4537,7 @@ async function enable3D() {
       track,
       era: getActiveEraRenderConfig,
       collectCars: collectCarsFor3D,
-      obstacles: () => LiveTraffic.obstacles,
+      obstacles: () => LiveTraffic.drawObstacles,
       player: playerPaint,
       onLost: () => {
         setRenderMode('2d', { persist: false });
@@ -4606,7 +4673,7 @@ const VIEW_TELEPORT = 2500;
 function forEachBody(fn) {
   for (let i = 0; i < LiveTraffic.racers.length; i++) fn(LiveTraffic.racers[i]);
   for (let i = 0; i < LiveTraffic.traffic.length; i++) fn(LiveTraffic.traffic[i]);
-  for (let i = 0; i < LiveTraffic.obstacles.length; i++) fn(LiveTraffic.obstacles[i]);
+  for (let i = 0; i < LiveTraffic.drawObstacles.length; i++) fn(LiveTraffic.drawObstacles[i]);
 }
 const snapBody = (b) => { b.viewZ0 = b.worldZ; b.viewX0 = b.offset; };
 const holdBody = (b) => { b.viewZ1 = b.worldZ; b.viewX1 = b.offset; };
@@ -4686,6 +4753,7 @@ window.onload = () => {
     GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
+    traffic: () => LiveTraffic,
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
     setView: (m) => setRenderMode(m, { persist: false }),
     input: InputState,

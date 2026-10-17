@@ -210,7 +210,26 @@ export function propKinds() {
 // ── Obstacles (few at a time: pooled groups) ──────────────────────────────────
 export function buildObstacle(type, width) {
   const g = new Group();
-  if (type === 'PINE_TREE_HAZARD') {
+  if (type === 'TRAFFIC_CONE') {
+    // ticket 0074: knockable props have their own small meshes (width is ignored)
+    const cone = new Mesh(new ConeGeometry(0.32, 0.9, 10), new MeshLambertMaterial({ color: '#ff6a00' }));
+    cone.position.y = 0.5;
+    const band = new Mesh(new CylinderGeometry(0.17, 0.22, 0.12, 10), new MeshBasicMaterial({ color: '#f8fafc' }));
+    band.position.y = 0.52;
+    const base = new Mesh(new BoxGeometry(0.75, 0.08, 0.75), new MeshLambertMaterial({ color: '#111827' }));
+    base.position.y = 0.04;
+    g.add(base, cone, band);
+  } else if (type === 'OIL_BARREL') {
+    const drum = new Mesh(new CylinderGeometry(0.45, 0.45, 1.25, 14), new MeshLambertMaterial({ color: '#1d4ed8' }));
+    drum.position.y = 0.63;
+    const ringMat = new MeshBasicMaterial({ color: '#fbbf24' });
+    for (const y of [0.35, 0.9]) {
+      const ring = new Mesh(new CylinderGeometry(0.47, 0.47, 0.08, 14), ringMat);
+      ring.position.y = y;
+      g.add(ring);
+    }
+    g.add(drum);
+  } else if (type === 'PINE_TREE_HAZARD') {
     const trunk = new Mesh(new CylinderGeometry(0.3, 0.4, 1.6, 6), new MeshLambertMaterial({ color: '#4a2a17' }));
     trunk.position.y = 0.8;
     const crown = new Mesh(new ConeGeometry(1.9, 5.2, 7), new MeshLambertMaterial({ color: '#0f7a3f' }));
