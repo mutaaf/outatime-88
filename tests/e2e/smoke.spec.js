@@ -38,12 +38,14 @@ test('level selection persists across reload under the same save key', async ({ 
     }
   });
   await page.goto(APP);
+  await page.locator('#btnOpenEvents').click();
   const cards = page.locator('#levelSelectGrid > button');
   await expect(cards).toHaveCount(5);
   await cards.nth(2).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('outatime_cruisn_88_save_v2')));
   expect(saved.selectedLevel).toBe(2);
   await page.reload();
+  await page.locator('#btnOpenEvents').click();
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem('outatime_cruisn_88_save_v2')));
   expect(after.selectedLevel).toBe(2);
   await expect(page.locator('#levelSelectGrid > button').nth(2)).toHaveClass(/border-orange-400/);

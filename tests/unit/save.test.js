@@ -56,7 +56,7 @@ describe('SaveStore', () => {
     const { SaveStore } = await import('../../src/save.js');
     const { LIVERY_OPTIONS } = await import('../../src/data.js');
     SaveStore.load();
-    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {} }); // progress: new default (ticket 0011)
+    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false }); // new defaults: progress (0011), onboarded (0022)
     expect(LIVERY_OPTIONS.map((l) => l.id)).toContain(SaveStore.data.livery);
   });
 

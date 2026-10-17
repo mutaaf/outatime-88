@@ -7,7 +7,7 @@
   <meta name="description" content="OUTATIME 88 — a neon time-travel arcade racer. Hit 88 mph to jump eras." />
   <meta name="theme-color" content="#05050d" />
 </head>
-<body class="relative w-full h-full select-none overflow-hidden bg-slate-950">
+<body class="on-title relative w-full h-full select-none overflow-hidden bg-slate-950">
 
   <!-- MAIN GAME CANVAS CONTAINER -->
   <div id="canvasContainer" class="relative w-full h-full overflow-hidden">
@@ -248,7 +248,11 @@
        (full HUD only). Compact layout and sizing live in styles.css (ticket 0021). -->
   <div id="touchControlsLayer" class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between">
 
-    <div class="steer-group pointer-events-auto flex items-center">
+    <div class="steer-group pointer-events-auto relative flex items-center">
+      <!-- First-run steering prompt (ticket 0022); shown by src/onboarding.js until you steer. -->
+      <div id="steerHint" class="steer-hint hidden pointer-events-none absolute bottom-full left-0 mb-2 whitespace-nowrap px-3 py-1.5 rounded-full bg-slate-950/90 border-2 border-orange-400 font-arcade text-[11px] font-black text-orange-200" role="status">
+        <span class="hint-touch">◀ TAP TO STEER ▶</span><span class="hint-keys">◀ A / D TO STEER ▶</span>
+      </div>
       <button id="btnSteerLeft" aria-label="Steer Left" class="arcade-pedal steer-pad rounded-2xl bg-slate-900/85 active:bg-orange-600/80 border-2 border-orange-500/80 flex items-center justify-center font-black text-orange-300 shadow-lg">
         ◀
       </button>
@@ -296,32 +300,49 @@
 
   </div>
 
+  <!-- ONE-TAP TITLE (ticket 0022): the car on the attract-mode road is the hero; tap anywhere
+       to race. Everything else is a small icon. -->
+  <div id="titleScreen" class="title-screen fixed inset-0 z-30 flex flex-col items-center justify-between text-center" role="dialog" aria-label="OUTATIME 88 title">
+    <div class="title-top px-4">
+      <h1 id="titleWordmark" class="wordmark justify-center text-5xl sm:text-7xl" aria-label="OUTATIME 88">
+        <span class="wordmark-chrome">OUTATIME</span><span class="wordmark-88">88</span>
+      </h1>
+      <p class="wordmark-tagline mt-2 font-arcade text-[11px] sm:text-sm text-cyan-200 tracking-[0.22em] uppercase">Hit 88. Jump eras.</p>
+      <div class="mt-3 inline-flex items-center gap-3 px-3 py-1 rounded-full bg-slate-950/70 border border-slate-700/80 font-arcade text-[10px] sm:text-xs">
+        <span class="text-slate-400">BEST</span><span id="titleBestScore" class="font-black led-cyan">0</span>
+        <span id="titleTotalWarps" class="led-amber font-bold">⚡ 0</span>
+      </div>
+    </div>
+
+    <div class="title-mid flex flex-col items-center gap-3 px-4">
+      <button id="btnStartRace" type="button" class="play-cta hw-badge rounded-full font-arcade font-black text-slate-950 uppercase">
+        <span class="play-cta-label">▶ PLAY</span>
+        <span id="playHint" class="play-cta-hint">TAP ANYWHERE</span>
+      </button>
+      <div id="titleEventChip" class="font-arcade text-[10px] sm:text-xs text-orange-200/90 tracking-wider"></div>
+    </div>
+
+    <!-- Icons live in the bottom corners so the car between them stays the hero. -->
+    <nav class="title-icons w-full flex items-end justify-between" aria-label="Menu">
+      <div class="flex gap-3">
+        <button id="btnOpenEvents" type="button" class="title-icon" aria-label="Events"><span>🗺️</span><small>EVENTS</small></button>
+      </div>
+      <div class="flex gap-3">
+        <button id="btnOpenGarageFromTitle" type="button" class="title-icon" aria-label="Garage"><span>🔧</span><small>GARAGE</small></button>
+        <button id="btnMuteStartModal" type="button" class="title-icon" aria-label="Sound"><span id="titleSoundIcon">🔊</span><small>SOUND</small></button>
+      </div>
+    </nav>
+  </div>
+
   <!-- TITLE / WORLD TOUR LEVEL SELECT MODAL -->
-  <div id="startModal" class="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto">
+  <div id="startModal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto">
     <div class="relative w-full max-w-3xl rounded-3xl bg-slate-900/95 border-2 border-orange-500/80 shadow-[0_0_60px_rgba(255,85,0,0.4)] p-4 sm:p-6 my-auto">
       
-      <!-- Top Title Banner -->
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-        <div>
-          <div class="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-0.5 rounded-full hw-badge text-slate-950 font-arcade text-[9px] sm:text-[10px] font-black uppercase tracking-wider">
-            <span>🔥 NIGHT-STREET DUB</span>
-            <span>×</span>
-            <span>💥 SIDE-SLAM TAKEDOWN</span>
-            <span>×</span>
-            <span>⚡ 88 MPH ORANGE TRACK</span>
-          </div>
-          <h1 id="titleWordmark" class="wordmark mt-2 text-4xl sm:text-6xl" aria-label="OUTATIME 88">
-            <span class="wordmark-chrome">OUTATIME</span><span class="wordmark-88">88</span>
-          </h1>
-          <p class="wordmark-tagline mt-1 font-arcade text-[11px] sm:text-sm text-cyan-200 tracking-[0.18em] uppercase">
-            Hit 88. Jump eras. Leave fire on the asphalt.
-          </p>
-        </div>
-        <div class="led-box rounded-xl px-3 py-1.5 text-right self-stretch sm:self-auto flex sm:flex-col justify-between items-center sm:items-end">
-          <div class="text-[8px] font-arcade text-slate-400">STREET REP / BEST</div>
-          <div id="titleBestScore" class="font-arcade text-base sm:text-lg font-black led-cyan">0</div>
-          <div id="titleTotalWarps" class="text-[10px] font-arcade led-amber">⚡ 0 FLUX CASH</div>
-        </div>
+      <!-- Events panel header (ticket 0022): the title screen now leads; this panel picks
+           driver, track and ruleset for players who want them. -->
+      <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <h2 class="font-arcade text-lg sm:text-2xl font-black text-white tracking-wider">🗺️ EVENTS</h2>
+        <button id="btnCloseEvents" type="button" aria-label="Back to title" class="min-w-[44px] min-h-[44px] px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-arcade text-xs font-bold">✕ BACK</button>
       </div>
 
       <!-- HOW TO PLAY: collapsed by default so the title screen leads with the race (pillar 1) -->
@@ -401,19 +422,13 @@
             <button id="btnEnableTiltModal" class="flex-1 px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-amber-200 font-arcade text-[10px] font-bold transition">
               📱 ENABLE TILT STEERING
             </button>
-            <button id="btnMuteStartModal" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-arcade text-[10px] font-bold transition">
-              🔊 SOUND: ON
-            </button>
-            <button id="btnOpenGarageFromTitle" class="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-200 font-arcade text-[10px] font-bold transition">
-              🔧 GARAGE
-            </button>
           </div>
         </div>
       </div>
 
       <!-- Launch Race CTA: sticky so START is always one tap away, whatever you scroll to -->
       <div id="startBar" class="sticky -bottom-2.5 sm:-bottom-4 z-10 shadow-[0_-12px_24px_rgba(2,6,23,0.85)] -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-3 px-4 sm:px-6 py-3 bg-slate-900/95 backdrop-blur-md border-t border-orange-500/40 rounded-b-3xl flex flex-col sm:flex-row items-center gap-3">
-        <button id="btnStartRace" class="start-cta w-full py-3.5 px-6 rounded-2xl hw-badge text-slate-950 font-arcade text-base sm:text-lg font-black tracking-[0.2em] uppercase shadow-xl hover:brightness-110 active:scale-[0.99] transition">
+        <button id="btnStartEvent" class="start-cta w-full py-3.5 px-6 rounded-2xl hw-badge text-slate-950 font-arcade text-base sm:text-lg font-black tracking-[0.2em] uppercase shadow-xl hover:brightness-110 active:scale-[0.99] transition">
           ▶ START RACE
         </button>
       </div>

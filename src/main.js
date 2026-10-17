@@ -13,6 +13,7 @@ import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress.js';
 import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 import { watchLayout } from './layout.js';
+import { createOnboarding, isNewPlayer } from './onboarding.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -1834,6 +1835,7 @@ function updateInteractiveCoach(currentSegIdx) {
 function updateLiveHud() {
   const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   updateInteractiveCoach(currentSegIdx);
+  if (GameState.status === 'PLAYING') updateOnboarding();
 
   const hpText = document.getElementById('hpTextDisplay');
   const hpFill = document.getElementById('hpBarFill');
@@ -3387,6 +3389,43 @@ function renderGarageModal() {
   }
 }
 
+// --- ONE-TAP TITLE & FIRST-RUN TEACHING (ticket 0022) ---
+let onboarding = createOnboarding({ newPlayer: false });
+const coarsePointer = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
+function titleVisible() {
+  const el = document.getElementById('titleScreen');
+  return !!el && !el.classList.contains('hidden') && GameState.status !== 'PLAYING';
+}
+
+function updateTitleChip() {
+  const chip = document.getElementById('titleEventChip');
+  const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
+  if (chip) chip.textContent = `${lvl.name} · ${GameState.mode === 'INFINITE' ? 'ENDLESS' : 'ARCADE'}`;
+}
+
+function openEventsPanel() {
+  renderCharacterRosterGrid();
+  selectCharacterByIndex(GameState.selectedCharIdx || 0);
+  renderLevelSelectGrid();
+  document.getElementById('startModal').classList.remove('hidden');
+}
+
+function closeEventsPanel() {
+  document.getElementById('startModal').classList.add('hidden');
+  updateTitleChip();
+}
+
+function setSteerHint(on) {
+  const el = document.getElementById('steerHint');
+  if (el) el.classList.toggle('hidden', !on);
+}
+
+function updateOnboarding() {
+  if (InputState.left || InputState.right || Math.abs(GameState.playerVX) > 0.6) onboarding.steer();
+  setSteerHint(onboarding.hint(performance.now()) === 'steer');
+}
+
 // --- START / END / PAUSE FLOWS ---
 function startNewRace() {
   SoundEngine.init();
@@ -3443,9 +3482,14 @@ function startNewRace() {
   updateContractHud();
   updateLiveHud();
 
+  document.getElementById('titleScreen').classList.add('hidden');
+  document.body.classList.remove('on-title');
   document.getElementById('startModal').classList.add('hidden');
   document.getElementById('garageModal').classList.add('hidden');
   document.getElementById('gameOverModal').classList.add('hidden');
+
+  onboarding = createOnboarding({ newPlayer: isNewPlayer(SaveStore.data) });
+  onboarding.start(performance.now());
 
   triggerAnnouncement(`🏁 ${lvl.name} 🏁`, `GOAL: ${lvl.goalDesc.toUpperCase()}`, 2300);
 }
@@ -3464,6 +3508,8 @@ function endRaceRun(customBadgeText = null) {
   if (GameState.score > SaveStore.data.bestScore) {
     SaveStore.data.bestScore = GameState.score;
   }
+  SaveStore.data.onboarded = true;
+  setSteerHint(false);
   const result = applyRunResult(SaveStore.data, { levelIndex: lvl.index, levelId: lvl.id, score: GameState.score }, WORLD_LEVELS.length);
   SaveStore.save();
   renderRunMedal(lvl, result);
@@ -3537,6 +3583,13 @@ async function toggleAccelerometerTilt(forceEnable = null) {
 // --- EVENT LISTENERS & CONTROLS BINDING ---
 function bindAllControls() {
   window.addEventListener('keydown', (e) => {
+    if (titleVisible() && document.getElementById('startModal').classList.contains('hidden')
+        && document.getElementById('garageModal').classList.contains('hidden')
+        && ['Enter', 'Space', 'NumpadEnter'].includes(e.code)) {
+      e.preventDefault();
+      startNewRace();
+      return;
+    }
     if (['ArrowLeft', 'KeyA'].includes(e.code)) {
       if (!InputState.left) {
         if (GameState.playerY > 10) {
@@ -3711,9 +3764,13 @@ function bindAllControls() {
   }
 
   document.getElementById('btnGarageOpen').addEventListener('click', toggleGarageModal);
-  document.getElementById('btnOpenGarageFromTitle').addEventListener('click', () => {
-    document.getElementById('startModal').classList.add('hidden');
-    openGarageModal();
+  document.getElementById('btnOpenGarageFromTitle').addEventListener('click', openGarageModal);
+  document.getElementById('btnOpenEvents').addEventListener('click', openEventsPanel);
+  document.getElementById('btnCloseEvents').addEventListener('click', closeEventsPanel);
+  document.getElementById('btnStartEvent').addEventListener('click', startNewRace);
+  // Tap anywhere on the title (outside its icons) to race.
+  document.getElementById('titleScreen').addEventListener('click', (e) => {
+    if (!e.target.closest('button, nav, a')) startNewRace();
   });
   document.getElementById('btnOpenGarageFromEnd').addEventListener('click', () => {
     document.getElementById('gameOverModal').classList.add('hidden');
@@ -3721,17 +3778,11 @@ function bindAllControls() {
   });
   document.getElementById('btnChangeEventFromGarage').addEventListener('click', () => {
     document.getElementById('garageModal').classList.add('hidden');
-    renderCharacterRosterGrid();
-  selectCharacterByIndex(0);
-  renderLevelSelectGrid();
-    document.getElementById('startModal').classList.remove('hidden');
+    openEventsPanel();
   });
   document.getElementById('btnSelectLevelFromEnd').addEventListener('click', () => {
     document.getElementById('gameOverModal').classList.add('hidden');
-    renderCharacterRosterGrid();
-  selectCharacterByIndex(0);
-  renderLevelSelectGrid();
-    document.getElementById('startModal').classList.remove('hidden');
+    openEventsPanel();
   });
   document.getElementById('btnResumeFromGarage').addEventListener('click', () => {
     document.getElementById('garageModal').classList.add('hidden');
@@ -3830,7 +3881,9 @@ function syncAudioUI() {
       : 'px-2 py-1 rounded-lg bg-rose-950/80 hover:bg-rose-800 border border-rose-500/70 text-[9px] font-arcade font-bold text-rose-200 transition';
   }
   if (startBtn) {
-    startBtn.textContent = isMuted ? '🔇 SOUND: MUTED' : '🔊 SOUND: ON';
+    const icon = document.getElementById('titleSoundIcon');
+    if (icon) icon.textContent = isMuted ? '🔇' : '🔊';
+    startBtn.setAttribute('aria-pressed', String(!isMuted));
   }
   if (garBtn) {
     garBtn.textContent = isMuted ? 'UNMUTE (M)' : 'MUTE (M)';
@@ -3942,7 +3995,10 @@ window.onload = () => {
   selectCharacterByIndex(0);
   renderLevelSelectGrid();
   document.getElementById('titleBestScore').textContent = SaveStore.data.bestScore.toLocaleString();
-  document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins} FLUX CASH`;
+  document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
+  const playHint = document.getElementById('playHint');
+  if (playHint) playHint.textContent = coarsePointer ? 'TAP ANYWHERE' : 'PRESS ENTER';
+  updateTitleChip();
   syncAudioUI();
   updateEraHud();
   updateContractHud();
