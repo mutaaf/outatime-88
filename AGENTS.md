@@ -252,6 +252,15 @@ these instead of segment internals (`z` = track Z in sim units):
 Owners: the track lead owns geometry, set pieces and hazard placement; the handling lead
 owns car physics, input and NOS, and reads this contract.
 
+### Handling (ticket 0120)
+
+`src/handling.js` turns input into steering and steering into lateral motion. It's pure and
+deterministic, called once per 120 Hz step from `updateGame`. Keys are digital and ramp
+(`stepSteer`). Stick, tilt, wheel and touch are analog and share the same speed-sensitive lock.
+`stepLateral` is grip-limited: corners pull ∝ curve·v², banks relieve it, and slip past grip is
+a drift. Tune it with the constants `STEER` and `LATERAL` and keep `tests/unit/handling.test.js`
+green. Car specs feed it through `handlingFor(carParams(car), tyreLevel)`.
+
 ### URL parameters (deep links, ticket 0110)
 
 The site launcher and share links open screens with these. One-shot params are stripped with
