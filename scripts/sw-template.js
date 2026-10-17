@@ -6,7 +6,7 @@
 // Old caches are deleted when a new version activates.
 const VERSION = '__VERSION__';
 const BASE = '__BASE__';
-const PRECACHE = __PRECACHE__;
+const PRECACHE = JSON.parse('__PRECACHE__');
 const CACHE = `outatime88-${VERSION}`;
 
 self.addEventListener('install', (event) => {
