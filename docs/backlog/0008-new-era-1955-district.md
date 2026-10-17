@@ -1,7 +1,7 @@
 ---
 id: 0008
 title: Add an original 1955 "Atomic Diner" era with its own palette, props and music motif
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: content

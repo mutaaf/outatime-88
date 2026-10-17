@@ -1,6 +1,6 @@
 import './fonts.js';
 import './styles.css';
-import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
+import { WORLD_LEVELS, ERAS, eraBackdrop, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks } from './audio.js';
@@ -2174,6 +2174,8 @@ function syncContactZ() {
 
 function renderScene() {
   const eraCfg = getActiveEraRenderConfig();
+  const bd = eraBackdrop(eraCfg);
+  const atomicProps = eraCfg.props === 'atomic';
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
   const scale = eraCfg.pixelScale || 1.0;
   const rw = Math.max(240, Math.floor(mainCanvas.width / scale));
@@ -2196,17 +2198,17 @@ function renderScene() {
   // 1. Cinematic Multi-Stop Twilight Sunset Sky & Atmospheric Bloom
   const horizonY = Math.floor(rh * 0.46 - GameState.loopPitchOffset * (rh / 420));
   const skyGrad = ctx.createLinearGradient(0, 0, 0, Math.max(10, horizonY));
-  skyGrad.addColorStop(0, '#04030c');
-  skyGrad.addColorStop(0.38, '#100826');
-  skyGrad.addColorStop(0.72, '#2d114d');
-  skyGrad.addColorStop(0.92, '#7c1d54');
-  skyGrad.addColorStop(1, '#ff6a2b');
+  skyGrad.addColorStop(0, bd.sky[0]);
+  skyGrad.addColorStop(0.38, bd.sky[1]);
+  skyGrad.addColorStop(0.72, bd.sky[2]);
+  skyGrad.addColorStop(0.92, bd.sky[3]);
+  skyGrad.addColorStop(1, bd.sky[4]);
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, rw, rh);
 
   // Soft Twinkling Starfield in Upper Sky
   ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-  for (let s = 0; s < 28; s++) {
+  for (let s = 0; bd.stars && s < 28; s++) {
     const sx = ((s * 103 + Math.floor(GameState.playerX * 18)) % rw + rw) % rw;
     const sy = (s * 31) % Math.max(20, Math.floor(horizonY * 0.65));
     ctx.fillRect(sx, sy, (s % 3 === 0) ? 2 : 1.5, (s % 3 === 0) ? 2 : 1.5);
@@ -2218,25 +2220,25 @@ function renderScene() {
   const sunR = Math.min(rw, rh) * 0.14;
 
   const haloGrad = ctx.createRadialGradient(sunX, sunY, sunR * 0.2, sunX, sunY, sunR * 2.2);
-  haloGrad.addColorStop(0, 'rgba(255, 160, 60, 0.45)');
-  haloGrad.addColorStop(0.5, 'rgba(255, 60, 120, 0.18)');
-  haloGrad.addColorStop(1, 'rgba(255, 60, 120, 0)');
+  haloGrad.addColorStop(0, bd.halo[0]);
+  haloGrad.addColorStop(0.5, bd.halo[1]);
+  haloGrad.addColorStop(1, bd.halo[2]);
   ctx.fillStyle = haloGrad;
   ctx.beginPath();
   ctx.arc(sunX, sunY, sunR * 2.2, 0, Math.PI * 2);
   ctx.fill();
 
   const sunGrad = ctx.createLinearGradient(sunX, sunY - sunR, sunX, sunY + sunR);
-  sunGrad.addColorStop(0, '#fff3b0');
-  sunGrad.addColorStop(0.45, '#ff7b00');
-  sunGrad.addColorStop(1, '#ff006e');
+  sunGrad.addColorStop(0, bd.sun[0]);
+  sunGrad.addColorStop(0.45, bd.sun[1]);
+  sunGrad.addColorStop(1, bd.sun[2]);
   ctx.fillStyle = sunGrad;
   ctx.beginPath();
   ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
   ctx.fill();
 
   // Parallax Sierra Mountain Range Silhouettes on Horizon
-  ctx.fillStyle = '#16092b';
+  ctx.fillStyle = bd.hills;
   ctx.beginPath();
   ctx.moveTo(0, horizonY);
   for (let mx = 0; mx <= rw; mx += 36) {
@@ -2248,7 +2250,7 @@ function renderScene() {
   ctx.fill();
 
   // Clock Hollow 2026 Distant City Lights & Iconic Courthouse Clock Tower Silhouette
-  ctx.fillStyle = '#0b0518';
+  ctx.fillStyle = bd.city;
   const bldgStep = Math.max(16, Math.floor(rw / 24));
   for (let bx = 0; bx < rw; bx += bldgStep) {
     const bh = ((bx * 19) % 18) + 6;
@@ -2258,9 +2260,9 @@ function renderScene() {
   const ctX = Math.floor(sunX);
   const ctW = Math.max(48, Math.floor(rw * 0.10));
   const ctH = Math.max(32, Math.floor(rh * 0.10));
-  ctx.fillStyle = '#1e1026';
+  ctx.fillStyle = bd.tower;
   ctx.fillRect(ctX - ctW * 0.5, horizonY - ctH, ctW, ctH);
-  ctx.fillStyle = '#cbd5e1';
+  ctx.fillStyle = bd.towerTrim;
   for (let col = -1.5; col <= 1.5; col += 1) {
     ctx.fillRect(ctX + col * (ctW * 0.22) - 1.5, horizonY - ctH * 0.72, 3, ctH * 0.72);
   }
@@ -2272,16 +2274,16 @@ function renderScene() {
   ctx.fill();
   const clkR = Math.max(4, ctW * 0.10);
   const clkY = horizonY - ctH * 0.90;
-  ctx.fillStyle = '#fef08a';
+  ctx.fillStyle = bd.clock;
   ctx.beginPath();
   ctx.arc(ctX, clkY, clkR, 0, Math.PI * 2);
   ctx.fill();
 
   // Deep Twilight Ground Plane with Subtle Horizon Glow
   const gndGrad = ctx.createLinearGradient(0, horizonY, 0, rh);
-  gndGrad.addColorStop(0, '#190b2e');
-  gndGrad.addColorStop(0.25, '#0b0719');
-  gndGrad.addColorStop(1, '#05040d');
+  gndGrad.addColorStop(0, bd.ground[0]);
+  gndGrad.addColorStop(0.25, bd.ground[1]);
+  gndGrad.addColorStop(1, bd.ground[2]);
   ctx.fillStyle = gndGrad;
   ctx.fillRect(0, horizonY, rw, rh - horizonY);
 
@@ -2576,6 +2578,8 @@ function renderScene() {
         ctx.fillStyle = (Math.floor(nowSec * 6) % 2 === 0) ? '#ff5500' : '#facc15';
         ctx.fillRect(itemX - barW * 0.44, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
         ctx.fillRect(itemX + barW * 0.08, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
+      } else if (atomicProps && (item.type === 'STREET_LAMP' || item.type === 'SIGN_88' || item.type === 'CLOCK_TOWER_BILLBOARD' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW')) {
+        drawAtomicProp(ctx, item.type, itemX, roadY, itemW, itemH, nowSec);
       } else if (item.type === 'STREET_LAMP') {
         const postH = itemH * 2.5;
         ctx.fillStyle = '#64748b';
@@ -3118,6 +3122,57 @@ function drawSparks(c, rw, rh) {
     c.fillStyle = 'hsla(' + p.hue + ',100%,' + (55 + 30 * a) + '%,' + a + ')';
     const s = p.size * sx;
     c.fillRect(ox + p.x * sx - s / 2, oy + p.y * sy - s / 2, s, s);
+  }
+}
+
+// 1955 Atomic Diner roadside set (ticket 0008): starburst lamps, a chrome diner sign and
+// pastel lollipop trees stand in for the neon-era props on the same scenery slots.
+function drawAtomicProp(ctx, type, x, roadY, w, h, nowSec) {
+  if (type === 'STREET_LAMP') {
+    const postH = h * 2.5;
+    ctx.fillStyle = '#d6dde0';
+    ctx.fillRect(x - 1.5, roadY - postH, 3, postH);
+    const r = Math.max(3, w * 0.42);
+    const cy = roadY - postH;
+    ctx.strokeStyle = '#ffd59e';
+    ctx.lineWidth = Math.max(1, r * 0.18);
+    ctx.beginPath();
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 4;
+      ctx.moveTo(x - Math.cos(a) * r, cy - Math.sin(a) * r);
+      ctx.lineTo(x + Math.cos(a) * r, cy + Math.sin(a) * r);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#ff7aa8';
+    ctx.beginPath();
+    ctx.arc(x, cy, Math.max(1.5, r * 0.32), 0, Math.PI * 2);
+    ctx.fill();
+  } else if (type === 'SIGN_88' || type === 'CLOCK_TOWER_BILLBOARD') {
+    const postH = h * 1.9;
+    const sw = w * 1.6;
+    const sh = h * 0.95;
+    ctx.fillStyle = '#c9d2d6';
+    ctx.fillRect(x - 2, roadY - postH, 4, postH);
+    ctx.fillStyle = type === 'SIGN_88' ? '#43c6b8' : '#ff8fb1';
+    ctx.fillRect(x - sw * 0.5, roadY - postH - sh * 0.3, sw, sh);
+    ctx.fillStyle = '#fffbea';
+    ctx.fillRect(x - sw * 0.5, roadY - postH - sh * 0.3, sw, Math.max(1, sh * 0.14));
+    ctx.fillRect(x - sw * 0.5, roadY - postH + sh * 0.56, sw, Math.max(1, sh * 0.14));
+    // Chasing marquee bulb: one lit dot travels along the sign.
+    const bulbs = 5;
+    const lit = Math.floor(nowSec * 6) % bulbs;
+    for (let b = 0; b < bulbs; b++) {
+      ctx.fillStyle = b === lit ? '#fff3b0' : '#e4503a';
+      ctx.fillRect(x - sw * 0.4 + b * (sw * 0.8 / (bulbs - 1)) - 1, roadY - postH + sh * 0.1, 2.5, 2.5);
+    }
+  } else {
+    const trunkH = h * 1.8;
+    ctx.fillStyle = '#8a6a55';
+    ctx.fillRect(x - w * 0.08, roadY - trunkH, w * 0.16, trunkH);
+    ctx.fillStyle = type === 'ARCH_HW' ? '#ffb3c7' : '#a8e6cf';
+    ctx.beginPath();
+    ctx.arc(x, roadY - trunkH, w * 0.55, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
