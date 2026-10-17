@@ -6,6 +6,7 @@ import { APP, watchPage } from './helpers.js';
 async function finishFirst(page) {
   await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ initials: 'ACE', onboarded: true, bestScore: 1 })));
   await page.goto(`${APP}?debug`);
+  await page.evaluate(() => window.__OT.ready()); // results come from the lazy ceremony chunk
   await page.evaluate(() => window.__OT.startRace());
   await page.waitForTimeout(400);
   await page.evaluate(() => { const g = window.__OT.GameState; g.distance = g.raceLength - 10; g.speed = 140; });
@@ -59,6 +60,7 @@ test('a challenge link shows who to beat on the title and races their track in o
   const problems = watchPage(page);
   await page.goto(`${APP}?debug&track=2&beat=62.3&by=zed`);
   await expect(page.locator('#challengeBanner')).toBeVisible();
+  await page.evaluate(() => window.__OT.ready());
   await expect(page.locator('#challengeText')).toHaveText('ZED CHALLENGES YOU: BEAT 1:02.3');
   await page.locator('#btnAcceptChallenge').click();
   await expect.poll(() => page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
