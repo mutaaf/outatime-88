@@ -34,9 +34,25 @@ export async function submitRun(run) {
   return call('/scores', { method: 'POST', body: JSON.stringify(run) });
 }
 
-export async function fetchBoard(board = 'all', mode = 'ARCADE', limit = 10) {
-  const r = await call(`/scores?board=${board}&mode=${mode}&limit=${limit}`, { method: 'GET' });
+const query = (o) => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+
+/** opts: { level, around } — a per-track board and your own row even outside the top N. */
+export async function fetchBoard(board = 'all', mode = 'ARCADE', limit = 10, opts = {}) {
+  const r = await call(`/scores?${query({ board, mode, limit, level: opts.level, around: opts.around })}`, { method: 'GET' });
   return r.ok && Array.isArray(r.body.entries) ? r.body : null;
+}
+
+/** Your rank on every board, your rival, streak, and who passed you since `since` (ticket 0091). */
+export async function fetchStanding({ initials, mode = 'ARCADE', level, since }) {
+  const r = await call(`/standing?${query({ initials, mode, level, since })}`, { method: 'GET' });
+  return r.ok && r.body.boards ? r.body : null;
+}
+
+/** Past weekly champions, newest first. */
+export async function fetchHall(mode = 'ARCADE') {
+  const r = await call(`/hall?mode=${mode}`, { method: 'GET' });
+  return r.ok && Array.isArray(r.body.champions) ? r.body : null;
 }
 
 /** "abc" → "ABC"; anything that isn't 3 letters → null (the server re-checks and filters). */

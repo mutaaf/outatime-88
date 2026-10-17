@@ -5,7 +5,7 @@
 
 import {
   initIdentity, profile, publicId, racers, onIdentity, createLinkCode, createRecoveryCode,
-  redeemCode, switchRacer, newRacer, forgetDevice, bests, setProfile,
+  redeemCode, switchRacer, newRacer, forgetDevice, bests, setProfile, addFriends, PUB_RE,
 } from './identity.js';
 import { swapSave, dropSave, mergeServerBests } from './racer-saves.js';
 import { qrToCanvas } from './qr.js';
@@ -81,7 +81,7 @@ function build() {
     const gone = publicId();
     const next = racers().find((r) => r.pub !== gone);
     if (next) swapSave(deps.SaveStore, null, next.pub, deps.freshSaveData);
-    else { deps.SaveStore.data = deps.freshSaveData(); deps.SaveStore.save(); }
+    else { deps.SaveStore.data = deps.freshSaveData(); deps.SaveStore.save(); deps.SaveStore.load(); }
     dropSave(gone);
     await forgetDevice();
     deps.reload();
@@ -225,6 +225,10 @@ export async function initRacer(options) {
     if (save.livery && s.profile.car !== save.livery) push.car = save.livery;
     if (Object.keys(push).length) setProfile(push);
   }
+  // Any link that carries `from=<public id>` (a challenge, a room invite) makes that racer a
+  // friend, so they show up on your FRIENDS board (ticket 0091). The param stays for its owner.
+  const from = params.get('from');
+  if (s && from && PUB_RE.test(from)) addFriends([from]);
   deps.onChange?.(profile());
   if (code) openRacer({ code });
   return s;

@@ -362,6 +362,7 @@
         <button id="btnViewMode" type="button" class="title-view" aria-pressed="false" aria-label="3D view"><span aria-hidden="true">🧊</span> VIEW <b class="v2">2D</b><b class="v3">3D</b></button>
       </div>
       <div id="titleEventChip" class="font-arcade text-[10px] sm:text-xs text-orange-200/90 tracking-wider"></div>
+      <div id="titleRival" class="title-rival font-arcade" role="status" aria-live="polite"></div>
     </div>
 
     <!-- Icons live in the bottom corners so the car between them stays the hero. -->
@@ -588,16 +589,23 @@
             <div class="font-arcade text-[10px] font-black text-fuchsia-300 tracking-widest">📅 DAILY CHALLENGE</div>
             <div id="dailyTitle" class="font-arcade text-xs sm:text-sm font-black text-white"></div>
             <div id="dailyDesc" class="text-[11px] text-slate-300"></div>
+            <div id="dailyStreak" class="font-arcade text-[10px] font-black text-amber-300"></div>
           </div>
           <button id="btnPlayDaily" type="button" class="shrink-0 min-h-[44px] px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs font-black">▶ PLAY</button>
         </div>
       </div>
 
+      <!-- Boards (ticket 0091): weekly seasons reset every Monday (UTC); TRACK is the level you
+           have selected; FRIENDS is you plus racers you've met. -->
       <div class="mt-3 grid grid-cols-3 gap-1.5" role="tablist">
-        <button type="button" class="board-tab" data-board="all" data-mode="ARCADE" role="tab">ALL-TIME</button>
+        <button type="button" class="board-tab" data-board="week" data-mode="ARCADE" role="tab">THIS WEEK</button>
         <button type="button" class="board-tab" data-board="daily" data-mode="ARCADE" role="tab">TODAY</button>
+        <button type="button" class="board-tab" data-board="all" data-mode="ARCADE" role="tab">ALL-TIME</button>
+        <button type="button" class="board-tab" data-board="all" data-mode="ARCADE" data-track="1" role="tab">TRACK</button>
+        <button type="button" class="board-tab" data-board="friends" data-mode="ARCADE" role="tab">FRIENDS</button>
         <button type="button" class="board-tab" data-board="daily" data-mode="DAILY" role="tab">DAILY</button>
       </div>
+      <div id="boardSeason" class="mt-2 text-center font-arcade text-[10px] font-bold text-fuchsia-200"></div>
       <ol id="boardList" class="mt-2 space-y-1 min-h-[120px]" aria-live="polite"></ol>
       <div id="boardStatus" class="mt-1 text-center font-arcade text-[10px] text-slate-400"></div>
       <div class="mt-2 text-center font-arcade text-[10px] text-slate-400">YOUR BEST <span id="boardYourBest" class="led-cyan font-black">0</span></div>
@@ -716,6 +724,7 @@
           <button id="btnSubmitScore" type="submit" class="min-h-[44px] px-3 rounded-lg hw-badge text-slate-950 font-arcade text-xs font-black">POST</button>
         </form>
         <div id="endRankText" class="font-arcade text-xs font-black text-cyan-200"></div>
+        <div id="endRankCard" aria-live="polite"></div>
         <button id="btnOpenLeaderboardFromEnd" type="button" class="mt-1 font-arcade text-[10px] font-bold text-slate-300 underline underline-offset-4">🏆 VIEW LEADERBOARD</button>
       </div>
 

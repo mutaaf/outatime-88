@@ -14,14 +14,15 @@ import { loadView3D } from './render3d-loader.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
-import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress.js';
+import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult, medalFor } from './progress.js';
 import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
 import { createHud } from './hud.js';
 import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
-import { beginRun, submitRun, fetchBoard, normalizeInitials, rankLine } from './leaderboard.js';
+import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
+import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen } from './settings-ui.js';
 import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
@@ -3582,7 +3583,7 @@ function updateOnboarding() {
 // same rivals. Visual FX keep Math.random (they don't change the race).
 let trafficRand = Math.random;
 let currentRun = null; // { tokenPromise, t0, mode, level }
-let boardView = { board: 'all', mode: 'ARCADE' };
+let boardView = { board: 'week', mode: 'ARCADE' }; // the weekly season leads (ticket 0091)
 
 function todaysDaily() { return dailySpec(utcDay(Date.now()), WORLD_LEVELS.length); }
 
@@ -3602,34 +3603,49 @@ function renderDailyCard() {
   if (desc) desc.textContent = `${d.modifier.desc}. Same road for everyone today.`;
 }
 
-function renderBoard(data) {
+// Boards (ticket 0091): podium, medals on the track board, last week's champion crowned,
+// your row always shown and scrolled into view, and the season clock.
+let hallCache = null;
+
+const sameView = (a, b) => a.board === b.board && a.mode === b.mode && Boolean(a.track) === Boolean(b.track);
+
+function renderBoard(data, view) {
   const list = document.getElementById('boardList');
   const status = document.getElementById('boardStatus');
   if (!list || !status) return;
   list.textContent = '';
   if (!data) { status.textContent = 'LEADERBOARD OFFLINE — YOUR BEST IS SAVED ON THIS DEVICE'; return; }
-  status.textContent = data.entries.length ? '' : 'NO SCORES YET — BE THE FIRST';
-  const me = SaveStore.data.initials;
-  for (const e of data.entries) {
-    const li = document.createElement('li');
-    li.className = `board-row${e.initials === me ? ' me' : ''}`;
-    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = `#${e.rank}`;
-    const ini = document.createElement('span'); ini.className = 'in'; ini.textContent = e.initials;
-    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = e.score.toLocaleString();
-    li.append(rk, ini, sc);
-    list.appendChild(li);
-  }
+  const lvl = view.track ? WORLD_LEVELS[data.level] : null;
+  if (data.entries.length) status.textContent = lvl ? `TRACK: ${lvl.name.replace(/^LVL \d+:\s*/, '')}` : '';
+  else status.textContent = view.board === 'friends'
+    ? 'NO FRIENDS HERE YET — SEND A CHALLENGE OR RACE IN A ROOM'
+    : 'NO SCORES YET — BE THE FIRST';
+  renderBoardRows(list, data, {
+    me: SaveStore.data.initials,
+    champion: hallCache?.champions?.[0]?.initials || null,
+    medal: (e) => (lvl ? MEDAL_ICON[medalFor(lvl.id, e.score)] || '' : ''),
+    reduced: GameState.reducedMotion,
+  });
+}
+
+function renderSeason() {
+  const el = document.getElementById('boardSeason');
+  if (!el) return;
+  const champ = hallCache?.champions?.[0];
+  const end = hallCache?.season?.endsAt;
+  el.textContent = [end ? `⏳ SEASON ENDS IN ${timeLeft(end, Date.now())}` : '', champ ? `LAST WEEK 👑 ${champ.initials}` : ''].filter(Boolean).join(' · ');
 }
 
 async function loadBoard() {
   document.querySelectorAll('.board-tab').forEach((b) => {
-    b.setAttribute('aria-selected', String(b.dataset.board === boardView.board && b.dataset.mode === boardView.mode));
+    b.setAttribute('aria-selected', String(sameView({ board: b.dataset.board, mode: b.dataset.mode, track: b.dataset.track }, boardView)));
   });
   const status = document.getElementById('boardStatus');
   if (status) status.textContent = 'LOADING…';
   const view = { ...boardView };
-  const data = await fetchBoard(view.board, view.mode, 10);
-  if (view.board === boardView.board && view.mode === boardView.mode) renderBoard(data);
+  const level = view.track ? (SaveStore.data.selectedLevel || 0) : undefined;
+  const data = await fetchBoard(view.board, view.mode, 10, { level, around: SaveStore.data.initials || undefined });
+  if (sameView(view, boardView)) renderBoard(data, view);
 }
 
 function openLeaderboard(view) {
@@ -3639,6 +3655,23 @@ function openLeaderboard(view) {
   if (best) best.textContent = SaveStore.data.bestScore.toLocaleString();
   document.getElementById('leaderboardModal').classList.remove('hidden');
   loadBoard();
+  fetchHall('ARCADE').then((h) => { if (h) { hallCache = h; renderSeason(); } });
+}
+
+// Rival line on the title and the daily streak (ticket 0091): one pull at boot, no push.
+const COMPETE_KEY = 'outatime88_compete_v1';
+async function refreshRival() {
+  const initials = normalizeInitials(SaveStore.data.initials);
+  if (!initials) return;
+  let seen = 0;
+  try { seen = JSON.parse(localStorage.getItem(COMPETE_KEY) || '{}').seen || 0; } catch { seen = 0; }
+  const s = await fetchStanding({ initials, mode: 'ARCADE', level: SaveStore.data.selectedLevel || 0, since: seen || undefined });
+  if (!s) return;
+  try { localStorage.setItem(COMPETE_KEY, JSON.stringify({ seen: Date.now() })); } catch { /* blocked */ }
+  const line = document.getElementById('titleRival');
+  if (line) line.textContent = rivalLine(s);
+  const streak = document.getElementById('dailyStreak');
+  if (streak) streak.textContent = s.streak?.days ? `🔥 ${s.streak.days}-DAY STREAK${s.streak.today ? '' : ' — PLAY TODAY TO KEEP IT'}` : '';
 }
 
 function closeLeaderboard() {
@@ -3659,7 +3692,12 @@ async function postScore(initials) {
     token, initials, score: run.score, distance: run.distance, durationMs: run.durationMs,
     warps: run.warps, level: run.level, mode: run.mode, car: run.car, earned: run.earned, pen: run.pen,
   });
-  if (r.ok) rankEl.textContent = `🏆 ${initials} ${rankLine(r.body.rank)}`;
+  if (r.ok) {
+    const card = document.getElementById('endRankCard');
+    const rich = card && renderRankCard(card, r.body, { reduced: GameState.reducedMotion });
+    rankEl.textContent = rich ? '' : `🏆 ${initials} ${rankLine(r.body.rank)}`;
+    refreshRival();
+  }
   else if (r.status === 400) { rankEl.textContent = 'PICK OTHER INITIALS'; SaveStore.data.initials = ''; SaveStore.save(); currentRun = run; form.classList.remove('hidden'); }
   else if (r.status === 0 || r.status === 503) rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY';
   else rankEl.textContent = 'SCORE NOT ACCEPTED';
@@ -3670,6 +3708,8 @@ function offerScoreSubmission() {
   const rankEl = document.getElementById('endRankText');
   if (!form || !rankEl) return;
   rankEl.textContent = '';
+  const card = document.getElementById('endRankCard');
+  if (card) card.textContent = '';
   form.classList.add('hidden');
   if (!currentRun || currentRun.score <= 0) { currentRun = null; return; }
   const saved = normalizeInitials(SaveStore.data.initials);
@@ -4112,12 +4152,12 @@ function bindAllControls() {
   document.getElementById('setView2d').addEventListener('click', () => setRenderMode('2d'));
   document.getElementById('setView3d').addEventListener('click', () => setRenderMode('3d'));
   document.getElementById('btnOpenLeaderboardFromEnd').addEventListener('click', () => {
-    openLeaderboard(GameState.daily ? { board: 'daily', mode: 'DAILY' } : { board: 'all', mode: 'ARCADE' });
+    openLeaderboard(GameState.daily ? { board: 'daily', mode: 'DAILY' } : { board: 'week', mode: 'ARCADE' });
   });
   document.getElementById('btnCloseLeaderboard').addEventListener('click', closeLeaderboard);
   document.getElementById('btnPlayDaily').addEventListener('click', () => startNewRace({ daily: true }));
   document.querySelectorAll('.board-tab').forEach((b) => b.addEventListener('click', () => {
-    boardView = { board: b.dataset.board, mode: b.dataset.mode };
+    boardView = { board: b.dataset.board, mode: b.dataset.mode, track: Boolean(b.dataset.track) };
     loadBoard();
   }));
   document.getElementById('initialsForm').addEventListener('submit', (e) => {
@@ -4578,7 +4618,7 @@ window.onload = () => {
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(mainLoop);
   // Zero-login identity (ticket 0090): silent, never blocks the title.
-  initRacer({ SaveStore, freshSaveData, levels: WORLD_LEVELS, onChange: renderRacerPill });
+  initRacer({ SaveStore, freshSaveData, levels: WORLD_LEVELS, onChange: renderRacerPill }).finally(refreshRival);
 };
 
 function renderRacerPill(p) {
