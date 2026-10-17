@@ -1,12 +1,12 @@
 ---
 id: 0016
 title: Make arcade races end — time extensions currently outpace the clock forever
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-16
-pr:
+pr: 17
 ---
 
 ## Why
@@ -22,13 +22,19 @@ lap" moment. Pure rules in `src/flux.js` or a new `src/race.js`; recalibrate
 `LEVEL_MEDALS` in `src/progress.js` with the same Playwright method afterwards.
 
 ## Acceptance criteria
-- [ ] Unit test: repeated time bonuses form a convergent series; total run time ≤ the level cap
-- [ ] e2e: holding only the gas, the race ends (results modal visible) within the cap + 5 s
-- [ ] Medal thresholds re-measured and updated with the measurement noted in progress.js
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse
+- [x] Unit test: repeated time bonuses form a convergent series; total run time ≤ the level cap
+- [x] e2e: holding only the gas, the race ends (results modal visible) within the cap + 5 s
+- [x] Medal thresholds re-measured and updated with the measurement noted in progress.js
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse
 
 ## Test plan
 `tests/unit/race.test.js`; e2e in `ladder.spec.js` with a time budget.
 
 ## Out of scope
 Endless mode (level 5 may keep an endless variant explicitly labelled as such).
+
+## Shipped notes (2026-10-17)
+`src/race.js`: each bonus is worth 75% of the previous one (Σ ≤ 4× the first), the clock
+never exceeds 60 s or the level cap (100 s + 10 s per level), FINAL STRETCH fires once 20 s
+before the end. The race clock is now visible in the HUD (it was hidden) and pulses red in
+the last stretch. Medals re-measured: runs end at 77–90 s.

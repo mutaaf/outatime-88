@@ -19,6 +19,7 @@ export const GameState = {
   racePosition: 8,
   totalRacers: 8,
   timeLeft: 48.0,
+  finalStretch: false,
   distance: 0,
   trackPos: 0,
   playerX: 0,

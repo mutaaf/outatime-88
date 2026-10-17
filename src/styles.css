@@ -131,6 +131,8 @@ html, body {
 [data-hud="compact"] #centerHudPanel, [data-hud="compact"] #rightHudPanel { padding: 3px 6px !important; gap: 6px !important; }
 [data-hud="compact"] #rightHudPanel .led-box { min-width: 60px !important; padding: 2px 6px !important; }
 [data-hud="compact"] #fluxHudCol { width: 64px !important; }
+[data-hud="compact"] #centerHudPanel > div:first-child { min-width: 56px !important; }
+[data-hud="compact"] #hpTextDisplay { display: none; }
 [data-hud="compact"] #btnAudioToggle { padding: 4px 8px !important; }
 [data-hud="compact"] #coachCard { max-width: 92vw; padding: 5px 10px !important; gap: 8px !important; }
 [data-hud="compact"] #coachDesc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -147,13 +149,20 @@ html, body {
 [data-hud="compact"] .action-pad .pad-icon { font-size: 18px; line-height: 1; }
 [data-hud="compact"] .action-pad .pad-key { display: none; }
 @media (max-width: 380px) {
-  [data-hud="compact"] #fluxHudCol { width: 52px !important; }
-  [data-hud="compact"] #centerHudPanel > div:first-child { min-width: 58px !important; }
+  [data-hud="compact"] #fluxHudCol { width: 44px !important; }
+  [data-hud="compact"] #btnAudioToggle { padding: 4px 5px !important; }
+  [data-hud="compact"] header > div:first-child > div { gap: 4px !important; }
+  [data-hud="compact"] #centerHudPanel > div:first-child { min-width: 44px !important; }
 }
 @media (max-height: 520px) {
   [data-hud="compact"] .steer-pad { width: 56px; height: 56px; }
   [data-hud="compact"] .action-pad { width: 60px; height: 60px; }
 }
+
+/* Race clock (ticket 0016): the last stretch reads at a glance. */
+.timer-urgent { color: #ff2a2a !important; text-shadow: 0 0 10px rgba(255, 42, 42, 0.9) !important; animation: timer-blink 0.5s steps(2) infinite; }
+@keyframes timer-blink { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .timer-urgent { animation: none; } }
 
 /* Title identity (pillar 1): a chrome-and-neon wordmark that owns the screen. */
 .wordmark {

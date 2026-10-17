@@ -4,16 +4,17 @@
 export const MEDALS = ['bronze', 'silver', 'gold'];
 export const MEDAL_ICON = { bronze: '🥉', silver: '🥈', gold: '🥇' };
 
-// Calibrated 2026-10-16 from full Playwright runs after the earned-warp pacing (ticket 0014):
-// holding only the gas scored 0.8–1.6M by 150 s and the LUMEN autopilot 1.7–2.1M (races ran
-// past 150 s — see ticket 0016). Bronze ≈ 30 s of decent driving; silver ≈ a sustained run;
-// gold ≈ clearly beating the autopilot. Later levels ask a little more.
+// Recalibrated 2026-10-17 after races got an end (ticket 0016: decaying time bonuses + a
+// 100–140 s cap). Ten Playwright runs per style, levels 1–5, 1280x720, five browsers at a
+// time: runs now finish in 77–90 s; holding only the gas scored 0.38–1.04M (median ~0.57M),
+// the LUMEN autopilot 0.15–1.14M (median ~0.57M). Bronze ≈ a decent run; silver ≈ beating
+// the bots' typical run; gold ≈ clearly beating their best. Later levels ask a little more.
 export const LEVEL_MEDALS = {
-  LVL1_CLOCK_HOLLOW: { bronze: 250000, silver: 1000000, gold: 2500000 },
-  LVL2_RED_ROCK: { bronze: 300000, silver: 1200000, gold: 3000000 },
-  LVL3_TOKYO_2015: { bronze: 350000, silver: 1400000, gold: 3500000 },
-  LVL4_MULHOLLAND_2088: { bronze: 400000, silver: 1600000, gold: 4000000 },
-  LVL5_INFINITE_HW: { bronze: 500000, silver: 2000000, gold: 5000000 },
+  LVL1_CLOCK_HOLLOW: { bronze: 300000, silver: 900000, gold: 1800000 },
+  LVL2_RED_ROCK: { bronze: 330000, silver: 1000000, gold: 2000000 },
+  LVL3_TOKYO_2015: { bronze: 360000, silver: 1100000, gold: 2200000 },
+  LVL4_MULHOLLAND_2088: { bronze: 400000, silver: 1200000, gold: 2400000 },
+  LVL5_INFINITE_HW: { bronze: 450000, silver: 1350000, gold: 2700000 },
 };
 
 export function medalFor(levelId, score) {
