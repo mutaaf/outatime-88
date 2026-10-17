@@ -21,6 +21,9 @@ import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
 import { createHud } from './hud.js';
+// Sharing (ticket 0053) is its own chunk: fetched for the results screen or a challenge link.
+let shareUi = null;
+const loadShareUi = () => (shareUi = shareUi || import('./share-ui.js').then((m) => { m.initShareUi({ startChallenge }); return m; }));
 import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
@@ -3929,6 +3932,8 @@ const ceremonyReady = Promise.all([import('./racecall.js'), import('./racestage.
   RC = { ...call, ...stageMod };
   callouts = RC.createCallouts({ laps: RACE_LAPS });
 }).catch(() => {});
+let lapStartedAt = 0;
+let lapNow = 1;
 
 /** The grid front to back: rivals in slot order, then you. */
 function gridOrder() {
@@ -3938,6 +3943,9 @@ function gridOrder() {
 }
 
 function beginRaceStart(lvl, { ceremony }) {
+  GameState.lapSplits = [];
+  lapStartedAt = 0;
+  lapNow = 1;
   launchPressAt = null;
   launchJudged = false;
   skipRequested = false;
@@ -4011,6 +4019,7 @@ function updateRaceCeremony(rawDt) {
   }
   if (GameState.racePhase === 'RACING') {
     const lap = GameState.raceLength ? lapOf(GameState.distance, GameState.raceLength).lap : 1;
+    if (lap > lapNow) { GameState.lapSplits.push(GameState.raceTime - lapStartedAt); lapStartedAt = GameState.raceTime; lapNow = lap; }
     const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
     if (c) {
       triggerAnnouncement(c.main, c.sub, 1500, c.kind === 'final' ? 3 : 2);
@@ -4031,6 +4040,16 @@ function bindRaceStageSkip() {
   window.addEventListener('keydown', (e) => { if (e.code === 'Enter' || e.code === 'Escape') req(); });
 }
 
+/** Race a friend's challenge link: their track (or their daily's road), their time to beat. */
+function startChallenge(c) {
+  const today = todaysDaily();
+  if (c.daily && c.daily === today.day) { startNewRace({ daily: true }); return; }
+  const idx = c.levelIndex != null ? c.levelIndex : dailySpec(c.daily, WORLD_LEVELS.length).levelIndex;
+  GameState.levelIndex = Math.max(0, Math.min(WORLD_LEVELS.length - 1, idx));
+  GameState.mode = 'ARCADE';
+  startNewRace();
+}
+
 /** You crossed the line (ticket 0051): a bonus for where you finished, then the results. */
 function finishRace() {
   if (GameState.mode === 'LIVE') { live.finished(); return; } // the room ranks live races
@@ -4039,6 +4058,7 @@ function finishRace() {
   GameState.racePosition = ahead + 1;
   GameState.score += finishBonus(GameState.racePosition);
   finishScore = GameState.score;
+  GameState.lapSplits.push(GameState.finishTime - lapStartedAt);
   // Chequered flag (ticket 0052): your place, a fanfare, and a short roll-out while the rest
   // of the field crosses, then the results.
   GameState.racePhase = 'FINISHED';
@@ -4059,6 +4079,8 @@ function renderRaceResults(badgeText, lvl) {
     playerZ: GameState.trackPos + ROAD_CFG.playerZOffset, me, color: SaveStore.data.underglow || me.glow,
     unlockedLevel: SaveStore.data.unlockedLevel || 1, fieldSize: FIELD_SIZE,
   });
+  // Share card + a friend's challenge verdict (ticket 0053), from the lazy share chunk.
+  loadShareUi().then((m) => m.onResults(lvl.index)).catch(() => {});
 }
 
 function endRaceRun(customBadgeText = null) {
@@ -4768,6 +4790,7 @@ window.onload = () => {
   };
   initSettings({ announce: triggerAnnouncement });
   bindRaceStageSkip();
+  if (/[?&]track=/.test(location.search)) loadShareUi().catch(() => {});
   watchLayout();
   initTouchControls();
   resizeCanvases();

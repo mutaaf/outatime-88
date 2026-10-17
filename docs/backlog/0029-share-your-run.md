@@ -1,7 +1,7 @@
 ---
 id: 0029
 title: Share your run — one tap shares score, rank and the daily twist
-status: proposed
+status: dropped
 priority: P2
 size: S
 lens: content
@@ -28,3 +28,5 @@ e2e with `navigator.share` stubbed and clipboard permissions granted.
 
 ## Out of scope
 Generated share images.
+
+> Superseded by 0053 (share card + challenge links), 2026-10-17.

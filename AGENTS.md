@@ -165,6 +165,9 @@ src/onboarding.js   First-run steer prompt (the race teaches; the title is one t
 src/raceflow.js     Race rules: field, laps, length, rival pace, standings, gaps, finish timing
 src/racecall.js     Race ceremony rules: start timeline, rocket start, callouts, finish order, headlines
 src/racestage.js    Ceremony on screen: lineup cards, lights, flag, podium rows, beeps, fanfare, speech
+src/sharelink.js    Challenge links (?track=&beat=&by=), share copy — pure
+src/share-ui.js     Share button/sheet, challenge banner (lazy chunk)
+src/share.js        Share card renderer, native share / copy / save (lazy chunk); scripts/make-og.mjs → public/og.jpg
 src/hud.js          Race HUD writer (change-only DOM writes) + hudRects() for no-overlap checks
 src/live/           Live races, a lazy chunk (loaded on RACE FRIENDS or a ?room= link):
                       controller.js (menu/lobby/countdown/results UI + race glue via hooks)
