@@ -42,6 +42,9 @@ for (const tier of ['low', 'ultra']) {
     expect(stats.frames).toBeGreaterThan(20);
     expect(stats.triangles).toBeGreaterThan(2000);
     expect(stats.drawCalls).toBeLessThanOrEqual(g.q.maxDraws);
+    // Post-processing (bloom, vignette, FXAA) is HIGH/ULTRA only, and a lazy chunk.
+    if (tier === 'ultra') await page.waitForFunction(() => window.__OT.view().stats.post === true, null, { timeout: 15_000 });
+    else expect(stats.post).toBe(false);
     expect(problems).toEqual([]);
   });
 }

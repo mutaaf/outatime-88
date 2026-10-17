@@ -4453,9 +4453,23 @@ let view3d = null;
 let view3dLoading = false;
 const carsFor3D = [];
 
+// The solo ghost (ticket 0092) as a translucent car on the road in 3D, where its trace was.
+const ghostPose3D = { d: 0, x: 0 };
+const ghostBody3D = {
+  worldZ: 0, offset: 0, y: 0, rot: 0, yaw: 0, halfL: 110, halfW: 0.136, active: true, takenDown: false,
+  style: 'GULLWING', shape: 'GULLWING', bodyColor: '#a5f3fc', underglow: '#67e8f9', ghost: true, ghostTag: '',
+};
+
 /** Every car the 3D view should draw. Remote/ghost cars belong here too. */
 function collectCarsFor3D(out) {
   let n = 0;
+  if (ghostRace.active && GameState.status === 'PLAYING' && ghostRace.poseInto(hudView.raceTime, ghostPose3D)) {
+    const mult = (PACE_MODES[GameState.paceMode] || PACE_MODES[0]).mult;
+    ghostBody3D.worldZ = GameState.trackPos + ROAD_CFG.playerZOffset + (ghostPose3D.d - GameState.distance) * (11000 * mult / 88);
+    ghostBody3D.offset = ghostPose3D.x;
+    ghostBody3D.ghostTag = `👻 ${ghostRace.initials}`;
+    out[n++] = ghostBody3D;
+  }
   for (let i = 0; i < LiveTraffic.racers.length; i++) out[n++] = LiveTraffic.racers[i];
   for (let i = 0; i < LiveTraffic.traffic.length; i++) out[n++] = LiveTraffic.traffic[i];
   for (let i = 0; i < live.ghosts.length; i++) out[n++] = live.ghosts[i]; // live races: friends + CPU

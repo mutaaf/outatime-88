@@ -169,7 +169,8 @@ src/render3d-loader.js  Lazy entry points into the three.js chunk: loadView3D(),
 src/render3d/       The 3D view (three.js, own chunk, never imported statically):
                       path.js (pure: track segments → 3D centreline) · view.js (scene, camera, road
                       chunks, instanced props, cars, flux trails, adaptive resolution) ·
-                      meshes.js (low-poly cars/props/obstacles/sky) · surfaces.js (procedural PBR asphalt,
+                      meshes.js (low-poly cars/props/obstacles/sky) · post.js (lazy: bloom/vignette/
+                      FXAA for HIGH/ULTRA) · surfaces.js (procedural PBR asphalt,
                       per-era PMREM environment from ERA_PALETTES) · preview.js (one car on a
                       showroom turntable; the garage uses it instead of src/car-art.js when 3D is on)
 src/perf/           Graphics quality (ticket 0041), render-only — the sim is identical on every tier:

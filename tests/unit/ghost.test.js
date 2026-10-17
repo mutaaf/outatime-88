@@ -45,3 +45,25 @@ describe('ghost race', () => {
     expect(race.active).toBe(false);
   });
 });
+
+describe('ghost pose for the 3D view', () => {
+  it('poseInto matches ghostAt without allocating', async () => {
+    const { createGhostRace } = await import('../../src/ghost.js');
+    const { encodeGhost, decodeGhost, ghostAt } = await import('../../src/ghost-codec.js');
+    const samples = Array.from({ length: 50 }, (_, i) => ({ d: i * 30, x: Math.sin(i / 5) * 0.5 }));
+    const trace = encodeGhost(samples);
+    const doc = { getElementById: () => null };
+    const race = createGhostRace(doc);
+    expect(race.load({ initials: 'BIF', score: 1, trace }, 1000)).toBe(true);
+    const g = decodeGhost(trace);
+    const out = { d: 0, x: 0 };
+    for (const t of [0, 1.3, 4.9, 30]) {
+      expect(race.poseInto(t, out)).toBe(true);
+      const ref = ghostAt(g, t);
+      expect(out.d).toBeCloseTo(ref.d, 5);
+      expect(out.x).toBeCloseTo(ref.x, 5);
+    }
+    race.clear();
+    expect(race.poseInto(1, out)).toBe(false);
+  });
+});

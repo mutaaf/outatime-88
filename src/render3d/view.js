@@ -7,6 +7,7 @@ import {
   MeshBasicMaterial, MeshLambertMaterial, Object3D, PerspectiveCamera, PlaneGeometry,
   Points, PointsMaterial, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
   Float32BufferAttribute, MeshStandardMaterial, ACESFilmicToneMapping, PCFSoftShadowMap, PCFShadowMap,
+  CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace,
 } from 'three';
 import { asphaltTextures, bakeEnvironment, paletteFor } from './surfaces.js';
 import { ROAD_CFG } from '../data.js';
@@ -110,6 +111,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   // shaders and unlit neon opt out, so the synthwave colours stay punchy).
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
+  renderer.info.autoReset = false; // count every pass (post-processing too) in stats.drawCalls
   renderer.shadowMap.enabled = q.shadows > 0;
   renderer.shadowMap.type = q.softShadows ? PCFSoftShadowMap : PCFShadowMap;
 
@@ -376,13 +378,13 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   // MEDIUM+ (LOW keeps them merged into the body: no extra draw calls).
   const carDetail = () => ({ clearcoat: q.tier === 'high' || q.tier === 'ultra', wheels: q.tier === 'low' ? 'static' : 'spin' });
   let detail = carDetail();
-  function takeCar(style, length, width, police) {
-    const key = style + '|' + length.toFixed(1) + '|' + width.toFixed(1) + (police ? '|P' : '');
+  function takeCar(style, length, width, police, ghost) {
+    const key = style + '|' + length.toFixed(1) + '|' + width.toFixed(1) + (police ? '|P' : '') + (ghost ? '|G' : '');
     let list = carPool.get(key);
     if (!list) { list = []; carPool.set(key, list); }
     for (let i = 0; i < list.length; i++) if (!list[i].visible) { list[i].visible = true; return list[i]; }
     const g = buildCar(style, length, width, { police, ...detail });
-    castShadows(g);
+    if (ghost) makeGhost(g); else castShadows(g);
     list.push(g);
     scene.add(g);
     return g;
@@ -391,6 +393,57 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   function castShadows(g) {
     g.traverse((m) => { if (m.isMesh && !m.material.transparent) m.castShadow = true; });
   }
+  // A ghost (your rival's recorded run) is a translucent cyan car that casts no shadow.
+  function makeGhost(g) {
+    g.traverse((m) => {
+      if (!m.isMesh) return;
+      m.material = m.material.clone();
+      m.material.userData = {}; // the clone is this ghost's own: dispose it with the car
+      m.material.transparent = true;
+      m.material.opacity = m.material.blending === AdditiveBlending ? 0.5 : 0.38;
+      m.material.depthWrite = false;
+      if (m.material.emissive) { m.material.emissive.set('#22d3ee'); m.material.emissiveIntensity = 0.6; }
+      m.renderOrder = 5;
+    });
+    g.userData.paint = g.children[0].material;
+  }
+
+  // Name tags over remote and ghost cars: one sprite per car, texture cached per name.
+  const tagTex = new Map();
+  function tagTexture(text) {
+    let t = tagTex.get(text);
+    if (t) return t;
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 64;
+    const x = c.getContext('2d');
+    x.font = '800 34px Orbitron, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    const w = Math.min(248, x.measureText(text).width + 36);
+    x.fillStyle = 'rgba(2,6,23,0.78)';
+    x.beginPath(); x.roundRect(128 - w / 2, 8, w, 48, 24); x.fill();
+    x.strokeStyle = '#22d3ee'; x.lineWidth = 3; x.stroke();
+    x.fillStyle = '#f8fafc';
+    x.fillText(text, 128, 33);
+    t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    tagTex.set(text, t);
+    return t;
+  }
+  function setTag(g, text) {
+    let sp = g.userData.tag;
+    if (!text) { if (sp) sp.visible = false; return; }
+    if (!sp) {
+      sp = new Sprite(new SpriteMaterial({ transparent: true, depthWrite: false, toneMapped: false, fog: false }));
+      sp.scale.set(4.4, 1.1, 1);
+      sp.position.y = 3.3;
+      sp.renderOrder = 6;
+      g.add(sp);
+      g.userData.tag = sp;
+    }
+    sp.visible = true;
+    if (g.userData.tagText !== text) { sp.material.map = tagTexture(text); sp.material.needsUpdate = true; g.userData.tagText = text; }
+  }
+
   function disposeCar(g) {
     scene.remove(g);
     g.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); if (m.material !== undefined && m.material.userData.shared !== true && m.material.dispose) m.material.dispose(); } });
@@ -432,16 +485,17 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       if (b.takenDown) continue;
       bodyPose(b, bp);
       const dz = bp.z - pz;
-      if (dz < -3000 || dz > AHEAD * ROAD_CFG.segLength || drawn >= q.cars) continue;
+      if (dz < -3000 || dz > AHEAD * ROAD_CFG.segLength || (drawn >= q.cars && !b.ghost && !b.live)) continue;
       drawn++;
       const style = bodyStyle(b.shape || b.style || 'SEDAN');
       const length = Math.max(4, (b.halfL || 110) * 2 * PATH_SCALE.zScale);
       const width = Math.max(2.4, (b.halfW || 0.14) * 2 * HALF_W);
       const police = b.type === 'POLICE_INTERCEPTOR';
-      const g = takeCar(style, length, width, police);
+      const g = takeCar(style, length, width, police, Boolean(b.ghost));
+      setTag(g, b.ghostTag || (b.live ? b.name : ''));
       usedCars.push(g);
       g.userData.paint.color.set(b.bodyColor || '#94a3b8');
-      g.userData.glow.color.set(b.underglow || (b.kind === 'RIVAL' ? NEON_PINK : '#000000'));
+      if (!b.ghost) g.userData.glow.color.set(b.underglow || (b.kind === 'RIVAL' ? NEON_PINK : '#000000'));
       if (g.userData.lightbar) g.userData.lightbar.material.color.set(Math.floor(t * 6) % 2 ? '#ef4444' : '#3b82f6');
       // A gentle suspension bob, out of phase per car.
       const bob = Math.sin(t * 9 + i * 1.7) * 0.025 * Math.min(1, (b.mph || b.speed || 60) / 60);
@@ -690,6 +744,82 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     gridMat.uniforms.base.value.set(pal.ground).multiplyScalar(pal.bright ? 0.9 : 0.7);
   }
 
+  // ── Weather: rain streaks or drifting dust, animated entirely on the GPU ────
+  // One Points draw. Each drop's start is random in a box around the camera; the vertex
+  // shader moves it with time and wraps it, so the CPU never touches the buffer again.
+  const WX = 90, WY = 46, WZ = 140;
+  const MAX_DROPS = 2400;
+  const seeds = new Float32Array(MAX_DROPS * 3);
+  for (let i = 0; i < MAX_DROPS; i++) {
+    seeds[i * 3] = Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1;
+    seeds[i * 3 + 1] = Math.abs(Math.sin(i * 78.233) * 12543.21) % 1;
+    seeds[i * 3 + 2] = Math.abs(Math.sin(i * 39.425) * 24634.63) % 1;
+  }
+  const wGeo = new BufferGeometry();
+  wGeo.setAttribute('position', new BufferAttribute(seeds, 3));
+  const wMat = new ShaderMaterial({
+    transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false, toneMapped: false,
+    uniforms: { t: { value: 0 }, box: { value: new Vector3(WX, WY, WZ) }, cam: { value: new Vector3() }, color: { value: new Color('#9fb7d8') }, fall: { value: 38 }, drift: { value: 0 }, size: { value: 34 }, streak: { value: 1 } },
+    vertexShader: `uniform float t; uniform vec3 box; uniform vec3 cam; uniform float fall; uniform float drift; uniform float size;
+      varying float vA;
+      void main(){
+        vec3 p = position * box;
+        p.y = mod(p.y - t * fall * (0.8 + position.z * 0.4), box.y);
+        p.x = mod(p.x + t * drift + sin(t * 0.7 + position.z * 30.0) * drift * 0.3, box.x);
+        // Wrap around the camera so the field always surrounds it.
+        vec3 w = cam + vec3(p.x - box.x * 0.5, p.y - box.y * 0.35, p.z - box.z * 0.8);
+        w.x = cam.x + mod(w.x - cam.x + box.x * 0.5, box.x) - box.x * 0.5;
+        w.z = cam.z + mod(w.z - cam.z + box.z * 0.8, box.z) - box.z * 0.8;
+        vec4 mv = modelViewMatrix * vec4(w, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = size / max(1.0, -mv.z);
+        vA = clamp(1.0 - (-mv.z) / box.z, 0.0, 1.0) * smoothstep(3.0, 12.0, -mv.z); // no giant drops on the lens
+      }`,
+    fragmentShader: `uniform vec3 color; uniform float streak; varying float vA;
+      void main(){
+        vec2 c = gl_PointCoord - 0.5;
+        float a = streak > 0.5 ? (1.0 - smoothstep(0.03, 0.08, abs(c.x))) * (1.0 - smoothstep(0.3, 0.5, abs(c.y)))
+                               : 1.0 - smoothstep(0.15, 0.5, length(c));
+        if (a < 0.02) discard;
+        gl_FragColor = vec4(color * a * vA * 0.55, 1.0);
+      }`,
+  });
+  const weather = new Points(wGeo, wMat);
+  weather.frustumCulled = false;
+  weather.renderOrder = 7;
+  scene.add(weather);
+  function syncWeather(t) {
+    const want = (pal.wet || pal.dusty) && q.particles > 0.45 ? Math.round(MAX_DROPS * Math.min(1, q.particles * (pal.wet ? 0.55 : 0.35))) : 0;
+    weather.visible = want > 0;
+    if (!want) return;
+    wGeo.setDrawRange(0, want);
+    const u = wMat.uniforms;
+    u.t.value = state.reducedMotion ? 0 : t;
+    u.cam.value.copy(camera.position);
+    u.streak.value = pal.wet ? 1 : 0;
+    u.fall.value = pal.wet ? 38 : 0.6;
+    u.drift.value = pal.wet ? 0 : 4;
+    u.size.value = pal.wet ? 420 : 260;
+    u.color.value.set(pal.wet ? '#9fb7d8' : '#d9a066');
+  }
+
+  // ── Post-processing (HIGH/ULTRA, its own lazy chunk) ────────────────────────
+  let post = null, postLoading = false;
+  function syncPost() {
+    if (q.post && !post && !postLoading) {
+      postLoading = true;
+      import('./post.js').then((m) => {
+        postLoading = false;
+        if (!q.post || lost) return;
+        post = m.createPost(renderer, scene, camera);
+        sizeDirty = true;
+      }).catch(() => { postLoading = false; });
+    } else if (!q.post && post) {
+      post.dispose();
+      post = null;
+    }
+  }
+
   // ── Size and adaptive resolution ───────────────────────────────────────────
   let sizeDirty = true;
   const markDirty = () => { sizeDirty = true; };
@@ -702,11 +832,12 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     sizeDirty = false;
     const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
     renderer.setSize(w, h, false);
+    if (post) post.setSize(w, h, dpr);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
 
-  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0, env: false, shadows: 0, wheelSpin: 0, playerShape: '' };
+  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0, env: false, shadows: 0, post: false, weather: 0, wheelSpin: 0, playerShape: '' };
 
   let clock = 0;
   return {
@@ -728,7 +859,15 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       syncObstacles();
       syncTrails(dt);
       syncSky(e, clock);
-      renderer.render(scene, camera);
+      syncWeather(clock);
+      syncPost();
+      renderer.info.reset();
+      if (post) {
+        post.setWarp(state.warpFxTimer > 0 && !state.reducedMotion ? state.warpFxTimer / 0.9 : 0);
+        post.render();
+      } else {
+        renderer.render(scene, camera);
+      }
       stats.frames++;
       stats.dpr = dpr;
       stats.chunks = chunks.size;
@@ -736,6 +875,8 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       stats.drawCalls = renderer.info.render.calls;
       stats.triangles = renderer.info.render.triangles;
       stats.shadows = sunLight.castShadow ? sunLight.shadow.mapSize.x : 0;
+      stats.post = Boolean(post);
+      stats.weather = weather.visible ? wGeo.drawRange.count : 0;
       stats.wheelSpin = playerCar.userData.axles ? -playerCar.userData.axles[0].rotation.x : 0;
       stats.playerShape = playerCar.userData.shape || '';
     },
@@ -767,6 +908,8 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       chunks.forEach(disposeChunk);
       chunks.clear();
       if (env) env.dispose();
+      if (post) post.dispose();
+      tagTex.forEach((t) => t.dispose());
       scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
       renderer.dispose();
       canvas.remove();
