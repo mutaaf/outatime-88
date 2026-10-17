@@ -14,6 +14,7 @@ const LOADERS = {
 export const SCENE_IDS = Object.keys(LOADERS);
 
 import { getQuality, tier, TIERS, setQualitySource } from './quality.js';
+import { roadsideFor, drawProp, drawHazard, contactShadow, drawTags, stats as roadStats } from './roadside.js';
 
 export { getQuality, setQualitySource };
 
@@ -151,7 +152,7 @@ export function weather(ctx, rw, rh) {
 
 /** The current scene's egg flags (for tests via ?debug). */
 export function debug() {
-  return built ? { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes) } : null;
+  return built ? { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes), road: roadStats } : null;
 }
 
 /** A new race: easter eggs can fire again and the parallax restarts. */
@@ -160,3 +161,24 @@ export function reset() {
   scrollRaw = 0;
   if (built && scenes[built.id] && scenes[built.id].memory) built.mem = scenes[built.id].memory();
 }
+
+// ---------- roadside props, hazards, shadows and name tags (ticket 0101) ----------
+let road = null;
+function roadside() {
+  if (!built || !scenes[built.id]) return null;
+  const T = TIERS[built.q];
+  if (!road || road.id !== built.id || road.scale !== T.scale) road = roadsideFor(built.id, T.scale);
+  return road;
+}
+const depthOf = (roadW, rw) => Math.max(0, Math.min(1, 1 - roadW / (rw * 0.45)));
+
+export function prop(ctx, type, x, roadY, w, h, roadW, rw, rh) {
+  const R = roadside();
+  return !!R && drawProp(ctx, R, type, x, roadY, w, h, rh, rw, depthOf(roadW, rw), TIERS[built.q].detail >= 0.5);
+}
+export function hazard(ctx, ow, baseY, roadW, rw, rh) {
+  const R = roadside();
+  return !!R && drawHazard(ctx, R, ow, baseY, rh, rw, depthOf(roadW, rw), TIERS[built.q].detail >= 0.5);
+}
+export function shadow(ctx, x, y, w) { contactShadow(ctx, x, y, w); return true; }
+export { drawTags as tags };

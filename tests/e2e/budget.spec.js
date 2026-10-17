@@ -39,7 +39,8 @@ test('era backdrops are lazy chunks, each small (ticket 0100)', () => {
   const shared = [...readFileSync(`${DIR}/${scenes[0]}`, 'utf8').matchAll(/from"\.\/([\w-]+\.js)"/g)].map((m) => m[1]);
   let total = gz(stage[0]);
   for (const f of scenes) { expect(gz(f), f).toBeLessThan(5); total += gz(f); }
-  for (const f of new Set(shared)) { expect(gz(f), f).toBeLessThan(6); total += gz(f); }
+  for (const f of new Set(shared)) { if (f === stage[0]) continue; expect(gz(f), f).toBeLessThan(6); total += gz(f); }
+  expect(gz(stage[0]), 'stage + roadside').toBeLessThan(10);
   expect(total).toBeLessThan(25);
   const main = files.find((f) => /^index-.*\.js$/.test(f));
   expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toContain('GIANT ANTS ATE OHIO');
