@@ -126,29 +126,9 @@ function applyAll() {
   const s = settings();
   applyMotion();
   SoundEngine.setMix(s.musicVolume, s.sfxVolume);
-  syncPanel();
+  if (panel) panel.sync();
 }
 
-function syncPanel() {
-  const s = settings();
-  for (const seg of document.querySelectorAll('#settingsModal [data-setting]')) {
-    const key = seg.dataset.setting;
-    for (const b of seg.querySelectorAll('button[data-value]')) b.setAttribute('aria-pressed', String(b.dataset.value === s[key]));
-  }
-  const inv = $('setTiltInvert');
-  if (inv) inv.setAttribute('aria-checked', String(s.tiltInvert));
-  const voice = $('setVoice');
-  if (voice) voice.setAttribute('aria-checked', String(s.voice));
-  const pairs = [['setMaster', SoundEngine.muted ? 0 : SoundEngine.volume], ['setMusic', s.musicVolume], ['setSfx', s.sfxVolume]];
-  for (const [id, v] of pairs) {
-    const el = $(id);
-    if (el) { el.value = String(Math.round(v * 100)); el.setAttribute('aria-valuetext', `${Math.round(v * 100)}%`); }
-  }
-  const sens = $('setTiltSens');
-  if (sens) sens.value = String(SaveStore.data.tiltSensitivity || 1);
-  const sensOut = $('setTiltSensValue');
-  if (sensOut) sensOut.textContent = `${Number(SaveStore.data.tiltSensitivity || 1).toFixed(1)}x`;
-}
 
 /**
  * The touch-controls editor plugs in here: registering it shows EDIT CONTROLS in the panel,
@@ -165,20 +145,29 @@ export function registerControlsEditor(open) {
 }
 
 /** Called by the master-volume slider elsewhere (garage) and by mute toggles. */
-export function refreshSettingsPanel() { syncPanel(); }
+export function refreshSettingsPanel() { if (panel) panel.sync(); }
 
 // --- Panel --------------------------------------------------------------------------------
+
+// The panel's controls are their own chunk (src/settings-panel.js), fetched on first open.
+let panel = null;
+let panelLoading = null;
+const ctx = {
+  settings, save, applyAll, toggleTilt, recenterTilt, setTiltStatus,
+  get tiltStatus() { return tiltStatus; },
+  get resumeOnClose() { return resumeOnClose; },
+  set resumeOnClose(v) { resumeOnClose = v; },
+};
+function loadPanel() {
+  panelLoading = panelLoading || import('./settings-panel.js').then((m) => { panel = m.createPanel(ctx); return panel; });
+  return panelLoading;
+}
 
 export function openSettings() {
   // A live race (sprint 3) can't pause — friends are still driving — so settings open over it.
   resumeOnClose = GameState.status === 'PLAYING' && GameState.mode !== 'LIVE';
   if (resumeOnClose) GameState.status = 'PAUSED';
-  syncPanel();
-  setTiltStatus(tiltStatus);
-  const done = $('btnSettingsDone');
-  if (done) done.textContent = resumeOnClose || GameState.status === 'PAUSED' ? '▶ RESUME' : '✓ DONE';
-  $('settingsModal').classList.remove('hidden');
-  if (done) done.focus({ preventScroll: true });
+  return loadPanel().then((p) => p.open());
 }
 
 export function closeSettings() {
@@ -216,36 +205,6 @@ export function initSettings({ announce } = {}) {
 
   // A tap on the title chip is the gesture iOS needs for the permission prompt.
   if (chip) chip.addEventListener('click', (e) => { e.stopPropagation(); toggleTilt(); });
-  $('setTilt').addEventListener('click', () => toggleTilt());
-  $('setTiltInvert').addEventListener('click', () => { settings().tiltInvert = !settings().tiltInvert; save(); syncPanel(); });
-  $('setTiltRecenter').addEventListener('click', recenterTilt);
-  const voice = $('setVoice');
-  if (voice) voice.addEventListener('click', () => {
-    settings().voice = !settings().voice;
-    if (!settings().voice && window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch (e) {} }
-    save(); syncPanel();
-  });
-  $('setTiltSens').addEventListener('input', (e) => {
-    SaveStore.data.tiltSensitivity = Math.max(0.4, Math.min(2.2, parseFloat(e.target.value) || 1));
-    save(); syncPanel();
-  });
-  for (const seg of document.querySelectorAll('#settingsModal [data-setting]')) {
-    seg.addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-value]');
-      if (!b) return;
-      settings()[seg.dataset.setting] = b.dataset.value;
-      save(); applyAll();
-    });
-  }
-  $('setMaster').addEventListener('input', (e) => { SoundEngine.init(); SoundEngine.setVolume(Number(e.target.value) / 100); });
-  for (const [id, key] of [['setMusic', 'musicVolume'], ['setSfx', 'sfxVolume']]) {
-    $(id).addEventListener('input', (e) => {
-      settings()[key] = Number(e.target.value) / 100;
-      SoundEngine.setMix(settings().musicVolume, settings().sfxVolume);
-      save();
-    });
-  }
-
   // Tilt was on last visit: Android/desktop resume at once; iOS re-asks on the first tap.
   setTiltStatus('off');
   if (settings().tilt) {

@@ -626,3 +626,23 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
   .share-card > div:first-child { grid-column: 1 / -1; }
   .share-img { grid-row: 2 / span 3; max-height: calc(100vh - 110px); margin: 6px 0; }
 }
+/* Results fit (0052/0053 with 0073 penalties and 0091 rank card): one-line extras on short screens. */
+#endPenaltyText { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#endUnlockText, #endMedalText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-height: 520px) and (orientation: landscape) {
+  .results-card { padding-top: 8px; padding-bottom: 8px; }
+  .end-share { padding: 3px 10px 3px 4px; gap: 8px; }
+  .end-share img { width: 30px; height: 38px; }
+  .end-share-text small { display: none; }
+  .end-board { margin-top: 4px; padding: 3px 6px; }
+  .end-actions-2 { margin-top: 0; }
+  .end-link { min-height: 32px; }
+  .end-stats small { font-size: 7px; }
+}
+@media (max-height: 700px) and (orientation: portrait) {
+  .end-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .end-stats b { font-size: 12px; }
+  .end-share img { width: 34px; height: 42px; }
+  .end-headline { font-size: 12px; }
+  .end-actions { margin-top: 6px; }
+}
