@@ -107,10 +107,13 @@ describe('unlocks (ticket 0071)', () => {
     const s = freshSave();
     expect(recordRace(s, { position: 1, takedowns: 6, warps: 1, rivalsBeaten: 2 })).toEqual([]);
     expect(recordRace(s, { position: 1, takedowns: 6, warps: 0, rivalsBeaten: 2 })).toEqual([]);
-    const third = recordRace(s, { position: 1, takedowns: 4, warps: 2, rivalsBeaten: 2 });
-    expect(third.sort()).toEqual(['GO_ROCKET_5', 'IRON_SAINT_BRAWLER', 'TWIN_TURBINE']);
-    expect(s.career).toMatchObject({ races: 3, wins: 3, takedowns: 16, warps: 3, rivalsBeaten: 6 });
-    expect(recordRace(s, { position: 2, takedowns: 0, warps: 0, rivalsBeaten: 1 })).toEqual([]);
+    const third = recordRace(s, { position: 1, takedowns: 4, warps: 2, rivalsBeaten: 5 });
+    expect(third.sort()).toEqual(['GO_ROCKET_5', 'IRON_SAINT_BRAWLER']);
+    expect(s.career).toMatchObject({ races: 3, wins: 3, takedowns: 16, warps: 3, rivalsBeaten: 9 });
+    expect(recordRace(s, { position: 2, takedowns: 0, warps: 0, rivalsBeaten: 4 })).toEqual([]);
+    // A six-car field: every rival you finish ahead of counts toward the rival car (20).
+    expect(recordRace(s, { position: 1, takedowns: 0, warps: 0, rivalsBeaten: 5 })).toEqual([]);
+    expect(recordRace(s, { position: 3, takedowns: 0, warps: 0, rivalsBeaten: 3 })).toEqual(['TWIN_TURBINE']);
   });
 
   it('medal cars unlock from the campaign ladder', () => {
@@ -135,7 +138,7 @@ describe('unlocks (ticket 0071)', () => {
 
   it('a leaderboard rival win counts toward the rival car', () => {
     const s = freshSave();
-    expect(noteRivalBeaten(s, 4)).toEqual([]);
+    expect(noteRivalBeaten(s, 19)).toEqual([]);
     expect(noteRivalBeaten(s)).toEqual(['TWIN_TURBINE']);
   });
 

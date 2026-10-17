@@ -28,7 +28,7 @@ export const CAR_SPECS = {
   NIGHT_SENTINEL: { cls: 'JUMPER', stats: { speed: 6, accel: 6, grip: 6, flux: 7, armor: 5 }, unlock: { type: 'coins', cost: 900 } },
   DUST_PURSUIT_V8: { cls: 'RAMMER', stats: { speed: 6, accel: 5, grip: 4, flux: 6, armor: 9 }, unlock: { type: 'streak', days: 3 } },
   GO_ROCKET_5: { cls: 'LAUNCHER', stats: { speed: 8, accel: 8, grip: 5, flux: 6, armor: 3 }, unlock: { type: 'wins', count: 3 } },
-  TWIN_TURBINE: { cls: 'DRAG KING', stats: { speed: 9, accel: 6, grip: 5, flux: 7, armor: 3 }, unlock: { type: 'rival', count: 5 } },
+  TWIN_TURBINE: { cls: 'DRAG KING', stats: { speed: 9, accel: 6, grip: 5, flux: 7, armor: 3 }, unlock: { type: 'rival', count: 20 } },
   GRID_CYCLE: { cls: 'GLASS CANNON', stats: { speed: 9, accel: 8, grip: 6, flux: 5, armor: 2 }, unlock: { type: 'coins', cost: 1600 } },
   ARC_ROADSTER_88: { cls: 'SELF-HEALER', stats: { speed: 7, accel: 6, grip: 6, flux: 7, armor: 4 }, unlock: { type: 'medal', level: 'LVL4_MULHOLLAND_2088', medal: 'gold' } },
 };
