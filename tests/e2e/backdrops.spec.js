@@ -52,3 +52,24 @@ test('warping lights the clock tower up (calm motion: the bolt, no flash) and th
   await page.waitForFunction(() => window.__OT.backdrop()?.id === '1985', null, { timeout: 8000 });
   expect(problems).toEqual([]);
 });
+
+test('roadside art: era props replace the cartoon kit, never fill the screen, and name tags stay few (ticket 0101)', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${APP}?debug`);
+  await page.locator('#btnStartRace').click();
+  await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING');
+  await page.keyboard.down('ArrowUp');
+  for (let i = 0; i < ERAS.length; i++) {
+    await page.evaluate((n) => { window.__OT.GameState.eraIndex = n; }, i);
+    await page.waitForFunction((id) => window.__OT.backdrop()?.id === id, ERAS[i], { timeout: 8000 });
+    await page.waitForTimeout(900);
+  }
+  await page.keyboard.up('ArrowUp');
+  const road = await page.evaluate(() => window.__OT.backdrop().road);
+  expect(road.maxH, 'tallest roadside sprite, share of screen height').toBeGreaterThan(0);
+  expect(road.maxH).toBeLessThanOrEqual(0.301);
+  expect(road.maxW).toBeLessThanOrEqual(0.301);
+  expect(road.tags).toBeLessThanOrEqual(3);
+  expect(problems).toEqual([]);
+});

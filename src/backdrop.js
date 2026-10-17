@@ -38,3 +38,22 @@ export function drawRoadsideAd(ctx, x, y, w, h, n) { return !!stage && stage.ad(
 export function drawWeather(ctx, rw, rh) { if (stage) stage.weather(ctx, rw, rh); }
 export function resetBackdrop() { if (stage) stage.reset(); }
 export function backdropDebug() { return stage ? stage.debug() : null; }
+
+// Era roadside art, contact shadows and rival name tags (ticket 0101). Each returns false until
+// the lazy stage is loaded, so the caller can draw its plain fallback.
+export function drawRoadsideProp(ctx, type, x, roadY, w, h, roadW, rw, rh) { return !!stage && stage.prop(ctx, type, x, roadY, w, h, roadW, rw, rh); }
+export function drawHazardArt(ctx, ow, baseY, roadW, rw, rh) { return !!stage && stage.hazard(ctx, ow, baseY, roadW, rw, rh); }
+export function drawSoftShadow(ctx, x, y, w) { return !!stage && stage.shadow(ctx, x, y, w); }
+
+const TAGS = Array.from({ length: 24 }, () => ({ x: 0, y: 0, w: 0, text: '', kind: 0, color: '' }));
+let nTags = 0;
+/** kind: 0 live CPU, 1 live friend, 2 rival (coloured by its underglow). */
+export function queueTag(x, y, w, text, kind, color) {
+  if (nTags >= TAGS.length) return;
+  const t = TAGS[nTags++];
+  t.x = x; t.y = y; t.w = w; t.text = text; t.kind = kind; t.color = color || '';
+}
+export function flushTags(ctx, rw, rh) {
+  if (stage) stage.tags(ctx, TAGS, nTags, rw, rh);
+  nTags = 0;
+}

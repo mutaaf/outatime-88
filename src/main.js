@@ -1,6 +1,6 @@
 import './fonts.js';
 import './styles.css';
-import { drawBackdrop, drawRoadsideAd, drawWeather, preloadBackdrops, resetBackdrop, backdropDebug, setBackdropQuality } from './backdrop.js';
+import { drawBackdrop, drawRoadsideAd, drawRoadsideProp, drawHazardArt, drawSoftShadow, queueTag, flushTags, drawWeather, preloadBackdrops, resetBackdrop, backdropDebug, setBackdropQuality } from './backdrop.js';
 import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
@@ -2198,7 +2198,6 @@ const backdropFrame = { curve: 0, trackPos: 0, playerX: 0, t: 0, raceTime: 0, sp
 
 function renderScene() {
   const eraCfg = getActiveEraRenderConfig();
-  const atomicProps = eraCfg.props === 'atomic';
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
   const scale = (eraCfg.pixelScale || 1.0) / gfxQ.res; // the governor trades resolution for frame time
   const rw = Math.max(240, Math.floor(mainCanvas.width / scale));
@@ -2393,22 +2392,23 @@ function renderScene() {
 
         // Animated Spinning Green Toy-Track Booster Rollers on the Track Sides!
         if (seg.trackType === 'BOOSTER' && roadW > 20) {
-          const spinAngle = nowSec * 18;
-          const rollerR = Math.max(4, roadW * 0.10);
+          const spinAngle = GameState.reducedMotion ? 0.6 : nowSec * 18;
+          const rollerR = Math.min(rh * 0.05, Math.max(3, roadW * 0.065));
           [-1.04, 1.04].forEach((side) => {
+            // booster rollers (ticket 0101): a dark housing with a glowing, spinning wheel
             const rx = roadX + side * roadW;
-            const ry = roadY - rollerR * 0.9;
-            ctx.fillStyle = '#15803d';
-            ctx.fillRect(rx - rollerR * 1.2, ry - rollerR, rollerR * 2.4, rollerR * 2);
-            ctx.fillStyle = '#4ade80';
+            const ry = roadY - rollerR;
+            ctx.fillStyle = '#0b1220';
+            ctx.fillRect(rx - rollerR * 1.15, ry - rollerR * 0.9, rollerR * 2.3, rollerR * 1.9);
+            ctx.strokeStyle = '#4ade80';
+            ctx.lineWidth = Math.max(1.5, rollerR * 0.22);
             ctx.beginPath();
-            ctx.arc(rx, ry, rollerR * 0.85, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#052e16';
-            ctx.lineWidth = 2;
+            ctx.arc(rx, ry, rollerR * 0.7, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.lineWidth = Math.max(1, rollerR * 0.12);
             ctx.beginPath();
-            ctx.moveTo(rx - Math.cos(spinAngle) * rollerR * 0.75, ry - Math.sin(spinAngle) * rollerR * 0.75);
-            ctx.lineTo(rx + Math.cos(spinAngle) * rollerR * 0.75, ry + Math.sin(spinAngle) * rollerR * 0.75);
+            ctx.moveTo(rx - Math.cos(spinAngle) * rollerR * 0.6, ry - Math.sin(spinAngle) * rollerR * 0.6);
+            ctx.lineTo(rx + Math.cos(spinAngle) * rollerR * 0.6, ry + Math.sin(spinAngle) * rollerR * 0.6);
             ctx.stroke();
           });
         }
@@ -2524,16 +2524,12 @@ function renderScene() {
         ctx.fillStyle = (Math.floor(nowSec * 6) % 2 === 0) ? '#ff5500' : '#facc15';
         ctx.fillRect(itemX - barW * 0.44, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
         ctx.fillRect(itemX + barW * 0.08, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
-      } else if (atomicProps && (item.type === 'STREET_LAMP' || item.type === 'SIGN_88' || item.type === 'CLOCK_TOWER_BILLBOARD' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW')) {
-        drawAtomicProp(ctx, item.type, itemX, roadY, itemW, itemH, nowSec, GameState.reducedMotion);
+      } else if ((item.type === 'STREET_LAMP' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW') && drawRoadsideProp(ctx, item.type, itemX, roadY, itemW, itemH, roadW, rw, rh)) {
+        // the era's own roadside (ticket 0101)
       } else if (item.type === 'STREET_LAMP') {
         const postH = itemH * 2.5;
         ctx.fillStyle = '#64748b';
         ctx.fillRect(itemX - 1.5, roadY - postH, 3, postH);
-        ctx.fillStyle = '#fde047';
-        ctx.beginPath();
-        ctx.arc(itemX, roadY - postH, Math.max(2, itemW * 0.25), 0, Math.PI * 2);
-        ctx.fill();
       } else if (item.type === 'SIGN_88' || item.type === 'CLOCK_TOWER_BILLBOARD') {
         const postH = itemH * 1.7;
         ctx.fillStyle = '#475569';
@@ -2545,14 +2541,6 @@ function renderScene() {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(itemX - itemW * 0.5, roadY - postH + itemH * 0.2, itemW, itemH * 0.35);
         }
-      } else if (item.type === 'PALM_TREE' || item.type === 'ARCH_HW') {
-        const trunkH = itemH * 2.1;
-        ctx.fillStyle = '#78350f';
-        ctx.fillRect(itemX - itemW * 0.1, roadY - trunkH, itemW * 0.2, trunkH);
-        ctx.fillStyle = eraCfg.id === '2088' ? '#ff007f' : '#10b981';
-        ctx.beginPath();
-        ctx.arc(itemX, roadY - trunkH, itemW * 0.65, 0, Math.PI * 2);
-        ctx.fill();
       }
     }
 
@@ -2603,37 +2591,20 @@ function renderScene() {
         ctx.fillStyle = '#93c5fd';
         ctx.fillRect(-ow * 0.4, oh * 0.45 - bh, ow * 0.8, Math.max(1.5, bh * 0.06));
       } else if (ob.type === 'PINE_TREE_HAZARD') {
-        // 🌲 3D TWIN-PINES SLALOM TREE (Dodge Around OR Graze the Golden Ring for +11 MPH Boost!)
-        const treeH = oh * 2.35;
-        // Golden Close-Shave Graze Ring on the track
+        // A solid hazard (static in physics): the era's own art over the collision box, and the
+        // golden close-shave ring you can graze for a boost.
         ctx.strokeStyle = 'rgba(250, 204, 21, 0.55)';
         ctx.lineWidth = Math.max(1.5, ow * 0.05);
         ctx.beginPath();
         ctx.ellipse(0, oh * 0.40, ow * 0.72, oh * 0.22, 0, 0, Math.PI * 2);
         ctx.stroke();
-
-        // 3D Textured Cedar Trunk
-        ctx.fillStyle = '#451a03';
-        ctx.fillRect(-ow * 0.14, -oh * 0.1, ow * 0.28, oh * 0.55);
-
-        // 3 Layered 3D Pine Foliage Cones with Neon-Sunset Rim Lighting
-        const layers = [
-          { yBot: 0.05, yTop: -0.75, wSpan: 0.62, col: '#064e3b', rim: '#10b981' },
-          { yBot: -0.45, yTop: -1.35, wSpan: 0.48, col: '#047857', rim: '#34d399' },
-          { yBot: -1.00, yTop: -1.95, wSpan: 0.34, col: '#059669', rim: '#6ee7b7' }
-        ];
-        for (let l = 0; l < layers.length; l++) {
-          const ly = layers[l];
-          ctx.fillStyle = ly.col;
+        if (!drawHazardArt(ctx, ow, oh * 0.45, roadW, rw, rh)) {
+          ctx.fillStyle = '#064e3b';
           ctx.beginPath();
-          ctx.moveTo(-ow * ly.wSpan, oh * ly.yBot);
-          ctx.lineTo(0, oh * ly.yTop);
-          ctx.lineTo(ow * ly.wSpan, oh * ly.yBot);
-          ctx.closePath();
+          ctx.moveTo(-ow * 0.5, oh * 0.4);
+          ctx.lineTo(0, -oh * 1.6);
+          ctx.lineTo(ow * 0.5, oh * 0.4);
           ctx.fill();
-          ctx.strokeStyle = ly.rim;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
         }
       } else if (ob.type === 'LOW_LASER_BAR') {
         // 🟠 3D CARBON & PLASMA HURDLE (Jump Over [H] OR Steer Around)
@@ -2715,7 +2686,7 @@ function renderScene() {
         ctx.globalAlpha = 0.55;
         ctx.fillRect(cx - cw * 0.58, roadYifted - 3, cw * 1.16, Math.max(4, ch * 0.18));
         ctx.globalAlpha = 1.0;
-      } else {
+      } else if (!drawSoftShadow(ctx, cx, roadY, cw * 1.1)) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
         ctx.fillRect(cx - cw * 0.54, roadYifted - 2, cw * 1.08, 4);
       }
@@ -2783,24 +2754,13 @@ function renderScene() {
         ctx.fillRect(cx + cw * 0.24, roadY - ch * 0.54, cw * 0.22, ch * 0.16);
       }
 
-      // Live racers (sprint 3) always wear their initials, so you know who you're chasing.
-      if (mv.ghostTag && roadW > 12) {
-        const tagY = roadY - ch * 1.3 - 4;
-        ctx.font = 'bold 9px Orbitron, sans-serif';
-        ctx.textAlign = 'center';
-        const tw = ctx.measureText(mv.ghostTag).width + 8;
-        ctx.fillStyle = mv.cpu ? 'rgba(2, 6, 23, 0.7)' : 'rgba(255, 0, 127, 0.85)';
-        ctx.fillRect(cx - tw / 2, tagY - 9, tw, 12);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(mv.ghostTag, cx, tagY);
-      } else if (mv.underglow && roadW > 55 && GameState.status !== 'TITLE') { // no name tags over the title
-        ctx.fillStyle = mv.underglow;
-        ctx.font = 'bold 9px Orbitron, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(mv.name, cx, roadY - ch * 1.26);
+      // Name tags (ticket 0101): queued here, laid out once after all cars so they never pile up.
+      if (GameState.status !== 'TITLE' && (mv.ghostTag || mv.short)) {
+        queueTag(cx, roadY - ch * 1.3 - 6, roadW, mv.ghostTag || mv.short, mv.ghostTag ? (mv.cpu ? 0 : 1) : 2, mv.underglow);
       }
     }
   }
+  flushTags(ctx, rw, rh);
 
   // 4. Draw Flying Takedown Wrecks in Mid-Air!
   for (let i = 0; i < GameState.flyingWrecks.length; i++) {
@@ -3077,54 +3037,6 @@ function drawSparks(c, rw, rh) {
 
 // 1955 Atomic Diner roadside set (ticket 0008): starburst lamps, a chrome diner sign and
 // pastel lollipop trees stand in for the neon-era props on the same scenery slots.
-function drawAtomicProp(ctx, type, x, roadY, w, h, nowSec, reduced) {
-  if (type === 'STREET_LAMP') {
-    const postH = h * 2.5;
-    ctx.fillStyle = '#d6dde0';
-    ctx.fillRect(x - 1.5, roadY - postH, 3, postH);
-    const r = Math.max(3, w * 0.42);
-    const cy = roadY - postH;
-    ctx.strokeStyle = '#ffd59e';
-    ctx.lineWidth = Math.max(1, r * 0.18);
-    ctx.beginPath();
-    for (let k = 0; k < 4; k++) {
-      const a = k * Math.PI / 4;
-      ctx.moveTo(x - Math.cos(a) * r, cy - Math.sin(a) * r);
-      ctx.lineTo(x + Math.cos(a) * r, cy + Math.sin(a) * r);
-    }
-    ctx.stroke();
-    ctx.fillStyle = '#ff7aa8';
-    ctx.beginPath();
-    ctx.arc(x, cy, Math.max(1.5, r * 0.32), 0, Math.PI * 2);
-    ctx.fill();
-  } else if (type === 'SIGN_88' || type === 'CLOCK_TOWER_BILLBOARD') {
-    const postH = h * 1.9;
-    const sw = w * 1.6;
-    const sh = h * 0.95;
-    ctx.fillStyle = '#c9d2d6';
-    ctx.fillRect(x - 2, roadY - postH, 4, postH);
-    ctx.fillStyle = type === 'SIGN_88' ? '#43c6b8' : '#ff8fb1';
-    ctx.fillRect(x - sw * 0.5, roadY - postH - sh * 0.3, sw, sh);
-    ctx.fillStyle = '#fffbea';
-    ctx.fillRect(x - sw * 0.5, roadY - postH - sh * 0.3, sw, Math.max(1, sh * 0.14));
-    ctx.fillRect(x - sw * 0.5, roadY - postH + sh * 0.56, sw, Math.max(1, sh * 0.14));
-    // Chasing marquee bulb: one lit dot travels along the sign (all steady with reduced motion).
-    const bulbs = 5;
-    const lit = reduced ? -1 : Math.floor(nowSec * 6) % bulbs;
-    for (let b = 0; b < bulbs; b++) {
-      ctx.fillStyle = b === lit ? '#fff3b0' : '#e4503a';
-      ctx.fillRect(x - sw * 0.4 + b * (sw * 0.8 / (bulbs - 1)) - 1, roadY - postH + sh * 0.1, 2.5, 2.5);
-    }
-  } else {
-    const trunkH = h * 1.8;
-    ctx.fillStyle = '#8a6a55';
-    ctx.fillRect(x - w * 0.08, roadY - trunkH, w * 0.16, trunkH);
-    ctx.fillStyle = type === 'ARCH_HW' ? '#ffb3c7' : '#a8e6cf';
-    ctx.beginPath();
-    ctx.arc(x, roadY - trunkH, w * 0.55, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
 
 function drawPlayerCar(ctx, rw, rh, eraCfg) {
   const carW = Math.max(58, Math.floor(rw * 0.22));

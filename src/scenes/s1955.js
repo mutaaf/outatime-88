@@ -136,4 +136,11 @@ function anim(ctx, F, B) {
   }
 }
 
-export default { id: '1955', build, anim, memory: newEggMemory };
+const ADS = [
+  ['ATOMIC DINER', 'MALTS · BURGERS · JUKEBOX', '#fff7ed', '#be123c'],
+  ["NEW '55 MODELS", 'TAILFINS IN STOCK', '#fde68a', '#92400e'],
+  ['DRIVE-IN TONIGHT', 'GIANT ANTS ATE OHIO', '#1f2937', '#fef3c7'],
+  ['SODA FOUNTAIN', 'PHOSPHATES 10¢', '#f9c5d1', '#9d174d'],
+];
+
+export default { ads: ADS, id: '1955', build, anim, memory: newEggMemory };
