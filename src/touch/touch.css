@@ -16,7 +16,7 @@ html, body { overscroll-behavior: none; }
   --tc-opacity: 0.9;
 }
 .touch-ui .tc-layer { display: block; }
-.tc-layer > * { position: absolute; left: 0; top: 0; will-change: transform; }
+.tc-layer > * { position: absolute; left: 0; top: 0; will-change: translate; }
 .tc-hidden { display: none !important; }
 
 /* --- Buttons ------------------------------------------------------------------------------ */

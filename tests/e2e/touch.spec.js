@@ -47,6 +47,7 @@ test('three fingers at once: steer right + drift + warp', async ({ page }) => {
   const drift = await centre(page, '#tcDrift');
   const warp = await centre(page, '#tcBoost');
   const thumb = { x: 90, y: 700, id: 1 };
+  const before = await page.locator('#tcBoost').boundingBox();
   await touch(cdp, 'touchStart', [thumb, { ...drift, id: 2 }, { ...warp, id: 3 }]);
   expect(await boosts(page)).toBe(1);
   await touch(cdp, 'touchMove', [{ ...thumb, x: 160 }, { ...drift, id: 2 }, { ...warp, id: 3 }]);
@@ -54,6 +55,12 @@ test('three fingers at once: steer right + drift + warp', async ({ page }) => {
   const st = await input(page);
   expect(st.down).toBe(true);
   expect(await pressed(page)).toEqual(expect.arrayContaining(['drift', 'boost']));
+  // A pressed button shrinks in place; it must never jump away from the thumb.
+  await page.waitForTimeout(150);
+  const during = await page.locator('#tcBoost').boundingBox();
+  expect(Math.abs(during.x + during.width / 2 - (before.x + before.width / 2))).toBeLessThan(2);
+  expect(Math.abs(during.y + during.height / 2 - (before.y + before.height / 2))).toBeLessThan(2);
+  expect(during.width).toBeLessThan(before.width);
   const x0 = await page.evaluate(() => window.__OT.GameState.playerX);
   await page.waitForTimeout(400);
   expect(await page.evaluate(() => window.__OT.GameState.playerX)).toBeGreaterThan(x0);
