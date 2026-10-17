@@ -45,6 +45,7 @@
         <div class="hud-meter speed-meter"><i id="hudSpeedBar"></i><b class="m88" title="88 mph"></b></div>
         <div class="hud-meter flux-meter"><i id="hudFlux"></i></div>
         <div class="spd-foot"><span id="hudFluxLabel">FLUX</span><span id="hudScore" class="hud-score">0</span></div>
+        <span id="hudPenalty" class="hud-penalty" aria-live="polite"></span>
       </div>
       <button id="btnHudSettings" type="button" data-hud-rect title="Pause &amp; settings (P)" aria-label="Pause and settings" class="hud-gear pointer-events-auto">⚙️</button>
     </div>
@@ -688,6 +689,7 @@
         <div class="led-box rounded-xl p-2.5">
           <div class="text-[8px] font-arcade text-slate-400">FINAL REP SCORE</div>
           <div id="endScoreText" class="font-arcade text-base font-black led-cyan">0</div>
+          <div id="endPenaltyText" class="mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-rose-300"></div>
         </div>
         <div class="led-box rounded-xl p-2.5">
           <div class="text-[8px] font-arcade text-slate-400">FINISH POSITION / WARPS</div>
