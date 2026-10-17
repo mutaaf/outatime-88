@@ -12,6 +12,7 @@ import { speedFeel, createParticlePool, createHitStop, nearMissChain, watchReduc
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress.js';
 import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
+import { watchLayout } from './layout.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -1757,6 +1758,7 @@ function updateGame(rawDt) {
 // always yields to the announcer so two messages never stack.
 const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', HIGH_LIGHT_GATE: 'slide', FLUX_CRATE: 'smash' };
 const COACH_LEARNED_AFTER = 2;
+let coachYieldUntil = 0;
 
 function hideCoach(banner) {
   banner.style.opacity = '0';
@@ -1766,7 +1768,12 @@ function hideCoach(banner) {
 function updateInteractiveCoach(currentSegIdx) {
   const banner = document.getElementById('interactiveCoachBanner');
   if (!banner) return;
-  if (GameState.coachDismissed || announcer.isVisible()) { hideCoach(banner); return; }
+  if (GameState.coachDismissed) { hideCoach(banner); return; }
+  // Yield to the announcer, and wait for its fade-out so the two never cross-fade on top of
+  // each other in the shared message lane (ticket 0021).
+  const nowMs = performance.now();
+  if (announcer.isVisible()) { coachYieldUntil = nowMs + 350; hideCoach(banner); return; }
+  if (nowMs < coachYieldUntil) { hideCoach(banner); return; }
 
   // Nearest un-hit obstacle within ~2,800 Z-units that the player still needs coaching on.
   let foundObs = null;
@@ -3922,7 +3929,11 @@ function mainLoop(timestamp) {
 
 window.onload = () => {
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
-  if (new URLSearchParams(location.search).has('debug')) window.__OT = { GameState, announce: triggerAnnouncement };
+  if (new URLSearchParams(location.search).has('debug')) window.__OT = {
+    GameState, announce: triggerAnnouncement, startRace: startNewRace,
+    pause: () => { GameState.status = 'PAUSED'; },
+  };
+  watchLayout();
   resizeCanvases();
   GameState.levelIndex = SaveStore.data.selectedLevel || 0;
   initTrack();

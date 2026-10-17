@@ -11,3 +11,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-16 · 0011 · A campaign ladder: bronze/silver/gold targets on every level, your best on each card, the next target on the results screen, and new players unlock levels by earning bronze
 2026-10-16 · 0017 · A title screen with attitude: chrome-and-neon OUTATIME 88 wordmark, one-line tagline, how-to-play tucked away, and START always on screen
 2026-10-17 · 0004 · Under the hood: track generation now lives in its own tested module (continuous road, open lanes, deterministic per level), no change to how races play
+2026-10-17 · 0021 · No more overlaps: a slim one-row HUD on phones in both orientations and small tablets, thumb-sized DRIFT / JUMP / WARP pads that never clip, and tips that never land on the HUD or on each other
