@@ -13,7 +13,7 @@ test('a new player has only level 1 open; a bronze run unlocks level 2 and recor
 
   await page.locator('#btnStartEvent').click();
   const bronze = 9999999; // comfortably past gold on level 1, whatever the calibration
-  await page.evaluate((s) => { const g = window.__OT.GameState; g.score = s; g.timeLeft = 0.05; g.mode = 'ARCADE'; }, bronze);
+  await page.evaluate((s) => { window.__OT.GameState.score = s; window.__OT.finishRun(); }, bronze);
   await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 5000 });
   await expect(page.locator('#endMedalText')).toContainText('GOLD');
   await expect(page.locator('#endUnlockText')).toBeVisible();
@@ -33,4 +33,20 @@ test('locked level cards cannot be selected', async ({ page }) => {
   await cards(page).nth(3).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('outatime_cruisn_88_save_v2') || '{}'));
   expect(saved.selectedLevel || 0).toBe(0);
+});
+
+// Ticket 0016: races end. Holding only the gas, a level-1 arcade run finishes by its cap.
+test('a gas-only arcade race reaches the finish within the level cap', async ({ page }) => {
+  test.setTimeout(160_000);
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug`);
+  await page.keyboard.press('Enter');
+  await page.keyboard.down('ArrowUp');
+  const t0 = Date.now();
+  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 110_000 }); // cap 100 s + slack
+  await page.keyboard.up('ArrowUp');
+  expect((Date.now() - t0) / 1000).toBeLessThanOrEqual(106);
+  await expect(page.locator('#endModalBadge')).toContainText(/FINISH|WRECKED/);
+  console.log(`gas-only run: ${((Date.now() - t0) / 1000).toFixed(1)}s, score ${await page.evaluate(() => window.__OT.GameState.score)}`);
+  expect(problems).toEqual([]);
 });

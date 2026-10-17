@@ -13,3 +13,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0004 · Under the hood: track generation now lives in its own tested module (continuous road, open lanes, deterministic per level), no change to how races play
 2026-10-17 · 0021 · No more overlaps: a slim one-row HUD on phones in both orientations and small tablets, thumb-sized DRIFT / JUMP / WARP pads that never clip, and tips that never land on the HUD or on each other
 2026-10-17 · 0022 · One-tap start: the title is now just the car, OUTATIME 88 and a big PLAY — tap anywhere to race; events, garage and sound are small icons, and new players get a steering prompt in the race instead of a manual
+2026-10-17 · 0016 · Races have an ending: every time bonus is worth a bit less than the last, each level has a hard finish, a visible race clock turns red for the FINAL STRETCH, and medal targets are re-measured for the shorter, tenser runs

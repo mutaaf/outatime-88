@@ -13,6 +13,7 @@ import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress.js';
 import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 import { watchLayout } from './layout.js';
+import { createRaceClock } from './race.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
@@ -920,8 +921,10 @@ function triggerTimeWarp() {
   GameState.runCoins += 30;
   SaveStore.data.fluxCoins += 30;
   GameState.specialCharges = Math.min(5, GameState.specialCharges + 1);
+  let warpTime = 0;
   if (GameState.mode === 'ARCADE') {
-    GameState.timeLeft = Math.min(60, GameState.timeLeft + 12.0);
+    warpTime = raceClock.extend(12.0);
+    GameState.timeLeft = raceClock.timeLeft;
   }
 
   const flashEl = document.getElementById('warpFlash');
@@ -940,7 +943,7 @@ function triggerTimeWarp() {
 
   triggerAnnouncement(
     `⚡ 88 MPH TIME WARP! ➔ ${newEra.id} ⚡`,
-    `ERA SHIFT: ${newEra.name}! +${warpBonus} PTS & +12s`,
+    `ERA SHIFT: ${newEra.name}! +${warpBonus} PTS${warpTime > 0 ? ` & +${warpTime}s` : ''}`,
     2400
   );
   advanceContractProgress('WARP_88', 1);
@@ -1337,8 +1340,9 @@ function updateGame(rawDt) {
       const branchBadge = document.getElementById('trackBranchBadge');
       if (branchBadge) branchBadge.textContent = `ROUTE: ${GameState.branchName}`;
       if (chosen === 'RIGHT' && GameState.mode === 'ARCADE') {
-        GameState.timeLeft = Math.min(60, GameState.timeLeft + 7.0);
-        triggerAnnouncement('WANGAN TURBO SHORTCUT!', '+7.0s BONUS TIME!', 1400);
+        const got = raceClock.extend(7.0);
+        GameState.timeLeft = raceClock.timeLeft;
+        triggerAnnouncement('WANGAN TURBO SHORTCUT!', got > 0 ? `+${got}s BONUS TIME!` : 'NO TIME LEFT TO WIN — DRIVE!', 1400);
       } else {
         GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.skyLoop);
         triggerAnnouncement('ORANGE TRACK SKY-LOOP!', '+35% FLUX CORE CHARGE!', 1400);
@@ -1504,8 +1508,10 @@ function updateGame(rawDt) {
       seg.cpClaimed = true;
       healPlayerHp(20);
       SoundEngine.playCheckpoint();
+      let cpTime = 0;
       if (GameState.mode === 'ARCADE') {
-        GameState.timeLeft = Math.min(60, GameState.timeLeft + 12.0);
+        cpTime = raceClock.extend(12.0);
+        GameState.timeLeft = raceClock.timeLeft;
       }
       if (GameState.racePosition > 1) {
         GameState.racePosition = Math.max(1, GameState.racePosition - 1);
@@ -1513,7 +1519,7 @@ function updateGame(rawDt) {
       GameState.score += 1200 * GameState.combo;
       triggerAnnouncement(
         `🏁 CHECKPOINT! POS: ${GameState.racePosition}/${GameState.totalRacers}`,
-        GameState.mode === 'ARCADE' ? '+12.0s TIME EXTENDED!' : '+1200 STREET REP!',
+        GameState.mode === 'ARCADE' ? (cpTime > 0 ? `+${cpTime}s TIME EXTENDED!` : 'FINAL STRETCH — NO MORE TIME!') : '+1200 STREET REP!',
         1450
       );
     }
@@ -1744,11 +1750,15 @@ function updateGame(rawDt) {
     if (w.life <= 0) GameState.flyingWrecks.splice(i, 1);
   }
 
+  // Race shape (ticket 0016): decaying bonuses + a hard cap, so every arcade run ends.
   if (GameState.mode === 'ARCADE') {
-    GameState.timeLeft -= rawDt;
-    if (GameState.timeLeft <= 0) {
-      GameState.timeLeft = 0;
-      endRaceRun();
+    const beat = raceClock.tick(rawDt);
+    GameState.timeLeft = raceClock.timeLeft;
+    if (beat === 'final') {
+      GameState.finalStretch = true;
+      triggerAnnouncement('🏁 FINAL STRETCH 🏁', 'LAST CHANCE — CHAIN EVERYTHING!', 1700, 3);
+    } else if (beat === 'over') {
+      endRaceRun('🏁 FINISH!');
     }
   }
 
@@ -1887,7 +1897,8 @@ function updateLiveHud() {
   if (rpmFill) rpmFill.style.width = `${Math.round(GameState.rpm)}%`;
   if (scoreEl) scoreEl.textContent = String(GameState.score).padStart(6, '0');
   if (timerEl) {
-    timerEl.textContent = GameState.mode === 'INFINITE' ? '♾️ FREE' : `${GameState.timeLeft.toFixed(1)}s`;
+    timerEl.textContent = GameState.mode === 'INFINITE' ? '∞' : `${Math.ceil(GameState.timeLeft)}`;
+    timerEl.classList.toggle('timer-urgent', GameState.mode !== 'INFINITE' && (GameState.finalStretch || GameState.timeLeft < 10));
   }
   if (coinsEl) coinsEl.textContent = `${SaveStore.data.fluxCoins}`;
   if (posEl) posEl.textContent = `${GameState.racePosition}/${GameState.totalRacers}`;
@@ -3391,6 +3402,7 @@ function renderGarageModal() {
 
 // --- ONE-TAP TITLE & FIRST-RUN TEACHING (ticket 0022) ---
 let onboarding = createOnboarding({ newPlayer: false });
+let raceClock = createRaceClock();
 const coarsePointer = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 function titleVisible() {
@@ -3449,7 +3461,9 @@ function startNewRace() {
   GameState.heatLevel = lvl.startingHeat;
   GameState.heatProgress = 0;
   GameState.racePosition = 8;
-  GameState.timeLeft = 48.0;
+  raceClock = createRaceClock({ levelIndex: lvl.index });
+  GameState.timeLeft = raceClock.timeLeft;
+  GameState.finalStretch = false;
   GameState.distance = 0;
   GameState.trackPos = 0;
   GameState.playerX = 0;
@@ -3985,6 +3999,7 @@ window.onload = () => {
   if (new URLSearchParams(location.search).has('debug')) window.__OT = {
     GameState, announce: triggerAnnouncement, startRace: startNewRace,
     pause: () => { GameState.status = 'PAUSED'; },
+    finishRun: () => endRaceRun('🏁 FINISH!'),
   };
   watchLayout();
   resizeCanvases();

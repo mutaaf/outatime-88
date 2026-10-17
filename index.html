@@ -80,6 +80,10 @@
           <div id="distMetersDisplay" class="font-arcade text-xs sm:text-base font-black led-green">0m</div>
         </div>
         <div class="h-6 w-px bg-slate-700"></div>
+        <div class="text-center min-w-[30px]">
+          <div class="text-[7px] sm:text-[8px] font-arcade text-amber-400 tracking-widest">TIME</div>
+          <div id="timerDisplay" class="font-arcade text-xs sm:text-base font-black led-amber">48</div>
+        </div>        <div class="h-6 w-px bg-slate-700"></div>
         <div class="text-center">
           <div class="text-[7px] sm:text-[8px] font-arcade text-cyan-400 tracking-widest">SCORE</div>
           <div id="scoreDisplay" class="font-arcade text-xs sm:text-base font-extrabold text-white">000000</div>
@@ -89,9 +93,7 @@
           <div class="text-[7px] sm:text-[8px] font-arcade text-orange-400 tracking-widest">WAVE • POS</div>
           <div class="font-arcade text-xs sm:text-sm font-black led-cyan"><span id="waveTierDisplay">W1</span> • <span id="racePosDisplay">1/3</span></div>
         </div>
-        <div class="hidden">
-          <div id="timerDisplay">45.0s</div>
-        </div>
+
         <!-- Hidden legacy telemetry nodes kept for zero-regression compatibility -->
         <div class="hidden">
           <div id="takedownsDisplay">0 💥</div>
