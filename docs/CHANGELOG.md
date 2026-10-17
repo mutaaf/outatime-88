@@ -16,3 +16,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0016 · Races have an ending: every time bonus is worth a bit less than the last, each level has a hard finish, a visible race clock turns red for the FINAL STRETCH, and medal targets are re-measured for the shorter, tenser runs
 2026-10-17 · 0024 0025 · A global leaderboard: tap 🏆 on the title for all-time and today's best, enter three initials once and every run posts itself with your rank; scores are checked on the server so the board stays honest
 2026-10-17 · 0023 · Daily challenge: one road and one twist a day (heat wave, glass chassis, flux storm, rush hour) — the same for everyone, with its own board
+2026-10-17 · 0040 · Under the hood: physics no longer reads anything the renderer writes (tyre contact moved into its own tested module), so a second renderer can draw the same race

@@ -99,6 +99,7 @@ src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI h
 src/input.js        InputState + pollGamepad()
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound)
 src/projection.js   projectPoint() — world → screen road projection
+src/contact.js      contactZ() — the tyre contact Z the physics uses (sim-owned; renderers never write sim state)
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/worker/         Edge Worker for /outatime/api/* only (operator-owned, frozen):
@@ -116,6 +117,9 @@ collisions/scoring → time-warp check → HUD) → `renderScene()` (sky/era bac
 segments back-to-front → sprites/cars → player car → FX). Carving rule: move a cohesive
 system into its own module with explicit imports, never change behavior in the same PR, and
 let `npm run lint` (no-undef) prove nothing was left dangling.
+**Sim/render rule:** renderers only read `GameState`, `track` and the traffic bodies; any
+value the simulation needs is computed in the update step (see `src/contact.js`), so the
+game plays identically whichever renderer is on.
 
 ## 5 · Commands
 
