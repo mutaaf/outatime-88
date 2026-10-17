@@ -19,8 +19,6 @@ import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
 import { createHud } from './hud.js';
-import { createStartSequence, judgeLaunch, LAUNCH, LAUNCH_EFFECT, lineupCall, createCallouts, finishResults, resultHeadline } from './racecall.js';
-import { stage, say, cardSting, lightBeep, goBeep, fanfare } from './racestage.js';
 import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
@@ -3918,7 +3916,14 @@ let finishScore = 0;
 let finishSeqLeft = 0;
 let skipRequested = false;
 const lineupSeen = new Set();
-const callouts = createCallouts({ laps: RACE_LAPS });
+// The ceremony code (src/racecall.js + src/racestage.js) is its own chunk, fetched at boot in
+// parallel with everything else, so it is ready long before anyone reaches the grid.
+let RC = null;
+let callouts = null;
+Promise.all([import('./racecall.js'), import('./racestage.js')]).then(([call, stageMod]) => {
+  RC = { ...call, ...stageMod };
+  callouts = RC.createCallouts({ laps: RACE_LAPS });
+}).catch(() => {});
 
 /** The grid front to back: rivals in slot order, then you. */
 function gridOrder() {
@@ -3932,21 +3937,21 @@ function beginRaceStart(lvl, { ceremony }) {
   launchJudged = false;
   skipRequested = false;
   GameState.launchStall = 0;
-  callouts.reset(GameState.racePosition);
-  if (!ceremony) { GameState.racePhase = 'RACING'; startSeq = null; stage.hide(); onboarding.start(performance.now()); return; }
+  if (callouts) callouts.reset(GameState.racePosition);
+  if (!ceremony || !RC) { GameState.racePhase = 'RACING'; startSeq = null; if (RC) RC.stage.hide(); onboarding.start(performance.now()); return; }
   const key = `${GameState.mode}:${lvl.index}:${GameState.daily ? 'd' : ''}`;
   const lineup = !lineupSeen.has(key);
   lineupSeen.add(key);
   GameState.racePhase = 'START';
   GameState.speed = 0;
-  startSeq = createStartSequence({ racers: FIELD_SIZE, lineup });
-  stage.show();
-  if (!lineup) stage.grid(gridOrder());
+  startSeq = RC.createStartSequence({ racers: FIELD_SIZE, lineup });
+  RC.stage.show();
+  if (!lineup) RC.stage.grid(gridOrder());
 }
 
 function applyLaunch(result) {
   launchJudged = true;
-  const fx = result && LAUNCH_EFFECT[result];
+  const fx = result && RC.LAUNCH_EFFECT[result];
   if (!fx) return;
   GameState.speed += fx.mph;
   GameState.fluxCharge = Math.min(100, GameState.fluxCharge + fx.flux);
@@ -3961,29 +3966,29 @@ function handleStartEvents(events) {
     if (ev.type === 'card') {
       const field = gridOrder();
       const r = field[ev.index];
-      const call = lineupCall(r, ev.index, field.length);
-      stage.card(r, call, ev.index, field.length);
-      cardSting(ev.index);
-      say(call.say);
+      const call = RC.lineupCall(r, ev.index, field.length);
+      RC.stage.card(r, call, ev.index, field.length);
+      RC.cardSting(ev.index);
+      RC.say(call.say);
     } else if (ev.type === 'grid') {
-      stage.grid(gridOrder());
+      RC.stage.grid(gridOrder());
     } else if (ev.type === 'light') {
-      stage.lights(ev.n);
-      lightBeep();
+      RC.stage.lights(ev.n);
+      RC.lightBeep();
       if (ev.n === 3) {
         const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
         triggerAnnouncement(GameState.daily ? `📅 DAILY: ${GameState.daily.modifier.name}` : `🏁 ${lvl.name} 🏁`, 'TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', 2400, 1);
       }
     } else if (ev.type === 'go') {
-      stage.lights('go');
-      goBeep();
-      say('Go!');
+      RC.stage.lights('go');
+      RC.goBeep();
+      RC.say('Go!');
       GameState.racePhase = 'RACING';
       GameState.speed = 26;
-      if (launchPressAt != null) applyLaunch(judgeLaunch(launchPressAt));
+      if (launchPressAt != null) applyLaunch(RC.judgeLaunch(launchPressAt));
       onboarding.start(performance.now());
     } else if (ev.type === 'done') {
-      stage.hide();
+      RC.stage.hide();
     }
   }
 }
@@ -3992,7 +3997,7 @@ function updateRaceStart(rawDt) {
   if (startSeq.inLineup && (skipRequested || InputState.boostPressed)) {
     InputState.boostPressed = false;
     skipRequested = false;
-    if (startSeq.skip()) { stage.grid(gridOrder()); SoundEngine.playTone(520, 'triangle', 0.08, 0.08); }
+    if (startSeq.skip()) { RC.stage.grid(gridOrder()); SoundEngine.playTone(520, 'triangle', 0.08, 0.08); }
   }
   skipRequested = false;
   if (InputState.boostPressed) { // a tap on ⚡ during the lights: judged at GO
@@ -4006,9 +4011,9 @@ function updateRaceStart(rawDt) {
 /** After GO: the late rocket-start window, the GO! hold, live callouts, the finish roll-out. */
 function updateRaceCeremony(rawDt) {
   if (startSeq && !startSeq.done) {
-    if (!launchJudged && InputState.boostPressed && startSeq.t <= LAUNCH.goodEnd) {
+    if (!launchJudged && InputState.boostPressed && startSeq.t <= RC.LAUNCH.goodEnd) {
       InputState.boostPressed = false;
-      applyLaunch(judgeLaunch(startSeq.t));
+      applyLaunch(RC.judgeLaunch(startSeq.t));
     }
     handleStartEvents(startSeq.update(rawDt));
   }
@@ -4018,16 +4023,16 @@ function updateRaceCeremony(rawDt) {
   }
   if (GameState.racePhase === 'RACING') {
     const lap = GameState.raceLength ? lapOf(GameState.distance, GameState.raceLength).lap : 1;
-    const c = callouts.update(rawDt, GameState.racePosition, lap);
+    const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
     if (c) {
       triggerAnnouncement(c.main, c.sub, 1500, c.kind === 'final' ? 3 : 2);
-      if (c.kind === 'final') { say('Final lap!'); SoundEngine.playTone(784, 'square', 0.3, 0.14, 1046); }
+      if (c.kind === 'final') { RC.say('Final lap!'); SoundEngine.playTone(784, 'square', 0.3, 0.14, 1046); }
       else if (c.kind === 'up') SoundEngine.playTone(660, 'triangle', 0.14, 0.12, 880);
     }
   } else if (GameState.racePhase === 'FINISHED') {
     GameState.invulnTimer = 1;
     finishSeqLeft -= rawDt;
-    if (finishSeqLeft <= 0) { stage.hide(); endRaceRun('🏁 FINISH!'); }
+    if (finishSeqLeft <= 0) { if (RC) RC.stage.hide(); endRaceRun('🏁 FINISH!'); }
   }
 }
 
@@ -4051,14 +4056,16 @@ function finishRace() {
   GameState.racePhase = 'FINISHED';
   finishSeqLeft = GameState.reducedMotion ? 1.4 : 2.8;
   const place = GameState.racePosition;
-  stage.finish(ordinal(place), place === 1 ? 'YOU WIN!' : place <= 3 ? 'PODIUM!' : 'FINISHED');
-  fanfare(place);
-  say(place === 1 ? 'You win!' : `You finished ${['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][place - 1] || ordinal(place)}!`);
+  if (!RC) { finishSeqLeft = 0; return; }
+  RC.stage.finish(ordinal(place), place === 1 ? 'YOU WIN!' : place <= 3 ? 'PODIUM!' : 'FINISHED');
+  RC.fanfare(place);
+  RC.say(place === 1 ? 'You win!' : `You finished ${['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][place - 1] || ordinal(place)}!`);
 }
 
 /** Finish order for the whole field, a headline for how it went, Retry / Next (ticket 0052). */
 function renderRaceResults(badgeText, lvl) {
-  stage.hide();
+  if (!RC) return; // the ceremony chunk never loaded: plain results
+  RC.stage.hide();
   GameState.racePhase = 'RACING';
   const infinite = GameState.mode === 'INFINITE' || !GameState.raceLength;
   const outcome = /WRECKED/.test(badgeText || '') ? 'wrecked' : GameState.finishTime != null ? 'finished' : 'timeup';
@@ -4071,20 +4078,20 @@ function renderRaceResults(badgeText, lvl) {
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   field.push({ id: 'YOU', isPlayer: true, driver: 'YOU', short: 'YOU', car: me.car, color: SaveStore.data.underglow || me.glow,
     mph: Math.max(30, GameState.speed), progress: GameState.distance, finishTime: GameState.finishTime });
-  const rows = infinite ? [] : finishResults(field, { elapsed: GameState.raceTime, length: GameState.raceLength, playerOutcome: outcome });
+  const rows = infinite ? [] : RC.finishResults(field, { elapsed: GameState.raceTime, length: GameState.raceLength, playerOutcome: outcome });
   const mine = rows.find((r) => r.isPlayer);
   const place = mine ? mine.place : GameState.racePosition;
   if (mine) GameState.racePosition = place;
   const aheadRow = rows[place - 2];
   const beatBy = aheadRow && GameState.finishTime != null && rows[place - 2].finished
     ? Math.max(0, GameState.finishTime - (field.find((f) => f.id === aheadRow.id).finishTime || 0)) : null;
-  const head = infinite ? { title: 'STREET RUN SUMMARY', line: '' } : resultHeadline(place, rows.length, { startPos: FIELD_SIZE, beatBy, outcome });
+  const head = infinite ? { title: 'STREET RUN SUMMARY', line: '' } : RC.resultHeadline(place, rows.length, { startPos: FIELD_SIZE, beatBy, outcome });
   document.getElementById('endModalTitle').textContent = head.title;
   const headLine = document.getElementById('endHeadline');
   headLine.textContent = head.line;
   headLine.classList.toggle('hidden', !head.line);
   document.getElementById('endPodiumBox').classList.toggle('hidden', infinite);
-  stage.podium(rows);
+  RC.stage.podium(rows);
   document.getElementById('gameOverModal').dataset.place = infinite ? '' : String(place);
   // Next: the following level when it's open (daily runs have no "next").
   const next = WORLD_LEVELS[lvl.index + 1];
