@@ -36,7 +36,9 @@ export const fmtTime = (ms) => {
   return `${Math.floor(s / 60)}:${(s % 60).toFixed(2).padStart(5, '0')}`;
 };
 
-function setRoomParam(c) {
+// Also publishes the room's invite link, so the results share card invites to the rematch.
+export function setRoomParam(c) {
+  GameState.liveInvite = c ? roomLink(c) : null;
   try {
     const q = new URLSearchParams(location.search);
     if (c) q.set('room', c); else q.delete('room');
@@ -475,6 +477,7 @@ export function createLive(hooks) {
     ui.msgTitle.textContent = title;
     ui.msgText.textContent = text;
     if (sock) { sock.close(); sock = null; }
+    GameState.liveInvite = null; // the room is gone; don't invite anyone into it
     show('msg');
   }
 
