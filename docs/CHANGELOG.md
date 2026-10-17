@@ -12,3 +12,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-16 · 0017 · A title screen with attitude: chrome-and-neon OUTATIME 88 wordmark, one-line tagline, how-to-play tucked away, and START always on screen
 2026-10-17 · 0004 · Under the hood: track generation now lives in its own tested module (continuous road, open lanes, deterministic per level), no change to how races play
 2026-10-17 · 0021 · No more overlaps: a slim one-row HUD on phones in both orientations and small tablets, thumb-sized DRIFT / JUMP / WARP pads that never clip, and tips that never land on the HUD or on each other
+2026-10-17 · 0022 · One-tap start: the title is now just the car, OUTATIME 88 and a big PLAY — tap anywhere to race; events, garage and sound are small icons, and new players get a steering prompt in the race instead of a manual

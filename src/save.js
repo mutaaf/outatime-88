@@ -26,6 +26,9 @@ export const SaveStore = {
       hover: 1
     },
     tiltSensitivity: 1.0,
+    // First-run teaching (ticket 0022): set after your first finished run. Old saves don't
+    // have it; isNewPlayer() also treats any recorded best score as already onboarded.
+    onboarded: false,
     muted: false,
     volume: 0.8
   },
