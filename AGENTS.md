@@ -110,6 +110,8 @@ src/render3d/       The 3D view (three.js, own chunk, never imported statically)
                       turntable in any canvas — for the garage)
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
+src/raceflow.js     Race rules: field, laps, length, rival pace, standings, gaps, finish timing
+src/hud.js          Race HUD writer (change-only DOM writes) + hudRects() for no-overlap checks
 src/settings.js     Settings rules: defaults/normalise (SaveStore.data.settings), difficulty, motion, tilt maths
 src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor()
 src/worker/         Edge Worker for /outatime/api/* only (operator-owned, frozen):

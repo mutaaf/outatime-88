@@ -4,7 +4,8 @@
 // Pure and dt-driven so the rules are unit-testable; main.js owns HUD and announcements.
 
 export const RACE = {
-  startClock: 48,      // seconds on the clock at the green light
+  startClock: 60,      // seconds on the clock at the green light (60 since 0051: the finish line ends a
+                       // race; the clock is the backstop for someone who stops racing)
   clockCap: 60,        // the clock never shows more than this
   decay: 0.75,         // each bonus is worth this fraction of the previous one
   finalStretch: 20,    // seconds before the hard cap when "FINAL STRETCH" fires
