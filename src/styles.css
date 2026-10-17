@@ -127,8 +127,8 @@ html, body {
 [data-hud="compact"] #btnGarageOpen,
 [data-hud="compact"] #btnAudioToggle, /* sound lives in the settings gear on phones (ticket 0050) */
 [data-hud="compact"] #driverBadgeBar { display: none !important; }
-[data-hud="compact"] header { padding: max(4px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)) !important; }
-[data-hud="compact"] header > div:first-child { flex-wrap: nowrap !important; gap: 4px !important; }
+
+[data-hud="compact"] #legacyHud > div:first-child { flex-wrap: nowrap !important; gap: 4px !important; }
 [data-hud="compact"] #centerHudPanel, [data-hud="compact"] #rightHudPanel { padding: 3px 6px !important; gap: 6px !important; }
 [data-hud="compact"] #rightHudPanel .led-box { min-width: 60px !important; padding: 2px 6px !important; }
 [data-hud="compact"] #fluxHudCol { width: 64px !important; }
@@ -152,7 +152,7 @@ html, body {
 @media (max-width: 380px) {
   [data-hud="compact"] #fluxHudCol { width: 44px !important; }
   [data-hud="compact"] #btnHudSettings { padding: 4px 5px !important; }
-  [data-hud="compact"] header > div:first-child > div { gap: 4px !important; }
+  [data-hud="compact"] #legacyHud > div:first-child > div { gap: 4px !important; }
   [data-hud="compact"] #centerHudPanel > div:first-child { min-width: 44px !important; }
 }
 @media (max-height: 520px) {
@@ -316,3 +316,97 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 .title-view b { padding: 3px 9px; border-radius: 9999px; color: #94a3b8; }
 .title-view[aria-pressed="false"] .v2, .title-view[aria-pressed="true"] .v3 { background: #ff2bd6; color: #fff; box-shadow: 0 0 12px rgba(255, 43, 214, 0.7); }
 .title-view:disabled { opacity: 0.45; }
+
+/* Race HUD (ticket 0051). One grid; areas move per screen shape. Sizes scale with the
+   viewport (vmin) so a 13" iPad reads as well as a phone. */
+.race-hud {
+  --hud-gap: clamp(6px, 1.2vmin, 14px);
+  --hud-pad: clamp(6px, 1.1vmin, 12px);
+  display: grid; gap: var(--hud-gap); align-items: start;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "pos track speed gear" "pos times speed gear";
+  padding: max(var(--hud-gap), env(safe-area-inset-top)) max(var(--hud-gap), env(safe-area-inset-right)) 0 max(var(--hud-gap), env(safe-area-inset-left));
+  font-family: 'Orbitron', sans-serif; color: #f8fafc;
+}
+.hud-card {
+  background: linear-gradient(180deg, rgba(8, 10, 24, 0.9), rgba(2, 6, 23, 0.82));
+  border: 1.5px solid rgba(0, 240, 255, 0.45); border-radius: clamp(12px, 1.8vmin, 20px);
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.18), inset 0 0 14px rgba(0, 0, 0, 0.6);
+  padding: var(--hud-pad) calc(var(--hud-pad) * 1.3);
+}
+.hud-pos { grid-area: pos; min-width: clamp(96px, 16vmin, 190px); }
+.pos-line { display: flex; align-items: baseline; gap: 4px; line-height: 0.9; }
+.pos-num { font-size: clamp(34px, 8.5vmin, 92px); font-weight: 900; font-style: italic; letter-spacing: -0.03em; color: #fff;
+  text-shadow: 0 0 14px rgba(255, 255, 255, 0.45), 0 3px 0 #ff007f; }
+.pos-of { font-size: clamp(13px, 2.4vmin, 26px); font-weight: 800; color: #cbd5e1; }
+.hud-pos[data-place="p1"] { border-color: #fde047; box-shadow: 0 0 22px rgba(253, 224, 71, 0.4); }
+.hud-pos[data-place="p1"] .pos-num { color: #fde047; text-shadow: 0 0 18px rgba(253, 224, 71, 0.8), 0 3px 0 #b45309; }
+.hud-pos[data-place="p2"] .pos-num { color: #e2e8f0; text-shadow: 0 0 14px rgba(226, 232, 240, 0.7), 0 3px 0 #475569; }
+.hud-pos[data-place="p3"] .pos-num { color: #fdba74; text-shadow: 0 0 14px rgba(251, 146, 60, 0.7), 0 3px 0 #9a3412; }
+.hud-lap { margin-top: 4px; font-size: clamp(11px, 2vmin, 20px); font-weight: 900; letter-spacing: 0.12em; color: #67e8f9; }
+.hud-lap.is-final { color: #fde047; text-shadow: 0 0 10px rgba(253, 224, 71, 0.7); }
+.hud-hp { margin-top: 5px; height: clamp(5px, 0.8vmin, 9px); border-radius: 9999px; background: #1e293b; overflow: hidden; }
+.hud-hp i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #10b981, #a3e635); border-radius: inherit; }
+.hud-hp i.is-low { background: #ef4444; }
+
+.hud-track { grid-area: track; position: relative; height: clamp(22px, 3.6vmin, 38px); align-self: center;
+  border-radius: 9999px; background: linear-gradient(90deg, rgba(255, 0, 127, 0.18), rgba(0, 240, 255, 0.18)), rgba(2, 6, 23, 0.85);
+  border: 1.5px solid rgba(148, 163, 184, 0.45); margin: 0 clamp(10px, 2vmin, 22px); }
+.hud-track::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: rgba(226, 232, 240, 0.25); }
+.lap-tick { position: absolute; top: 18%; bottom: 18%; width: 2px; background: rgba(103, 232, 249, 0.6); }
+.finish-flag { position: absolute; right: -0.55em; top: 50%; transform: translateY(-50%); font-size: clamp(16px, 2.8vmin, 30px); }
+.hud-dots { position: absolute; inset: 0 0.7em 0 0.7em; }
+.hud-dot { position: absolute; top: 50%; left: 0; width: clamp(10px, 1.6vmin, 18px); height: clamp(10px, 1.6vmin, 18px);
+  transform: translate(-50%, -50%); border-radius: 9999px; background: var(--dot); border: 2px solid rgba(2, 6, 23, 0.9);
+  box-shadow: 0 0 8px var(--dot); }
+.hud-dot-you { z-index: 2; width: auto; height: auto; padding: 1px 6px; border-radius: 8px; font-size: clamp(8px, 1.3vmin, 13px);
+  font-weight: 900; color: #05050d; background: #fff; border: 2px solid #ff8800; box-shadow: 0 0 10px #ff8800; }
+
+.hud-times { grid-area: times; display: flex; align-items: center; justify-content: center; gap: clamp(6px, 1.4vmin, 16px); min-width: 0; }
+.hud-clockbox { display: inline-flex; align-items: baseline; gap: clamp(6px, 1.2vmin, 12px); padding: 2px clamp(8px, 1.4vmin, 14px);
+  border-radius: 9999px; background: rgba(2, 6, 23, 0.85); border: 1px solid rgba(148, 163, 184, 0.35); }
+.hud-time { font-size: clamp(13px, 2.4vmin, 26px); font-weight: 900; font-variant-numeric: tabular-nums; color: #f8fafc; }
+.hud-clock { font-size: clamp(11px, 2vmin, 20px); font-weight: 800; color: #fcd34d; }
+.hud-clock.hidden { display: none; }
+.gap { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 9999px;
+  font-size: clamp(10px, 1.7vmin, 17px); font-weight: 800; background: rgba(2, 6, 23, 0.8); }
+.gap:empty { display: none; }
+.gap-ahead { color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.45); }
+.gap-behind { color: #a5f3fc; border: 1px solid rgba(34, 211, 238, 0.4); }
+
+.hud-speed { grid-area: speed; min-width: clamp(104px, 17vmin, 200px); text-align: right; }
+.spd-line { display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; line-height: 0.9; }
+.spd-num { font-size: clamp(28px, 6.6vmin, 72px); font-weight: 900; font-style: italic; font-variant-numeric: tabular-nums;
+  color: #ff3b3b; text-shadow: 0 0 12px rgba(255, 42, 42, 0.7); }
+.spd-line small { font-size: clamp(9px, 1.5vmin, 15px); font-weight: 800; color: #cbd5e1; }
+.hud-speed.is-88 .spd-num { color: #00f0ff; text-shadow: 0 0 16px rgba(0, 240, 255, 0.9); }
+.hud-meter { position: relative; margin-top: 5px; height: clamp(5px, 0.9vmin, 10px); border-radius: 9999px; background: #1e293b; overflow: hidden; }
+.hud-meter i { display: block; height: 100%; width: 0; border-radius: inherit; }
+.speed-meter i { background: linear-gradient(90deg, #22c55e, #facc15 50%, #00f0ff 56%, #ff007f); }
+.speed-meter .m88 { position: absolute; top: 0; bottom: 0; left: 55%; width: 2px; background: #fff; }
+.flux-meter i { background: linear-gradient(90deg, #0284c7, #00f0ff, #fde047); }
+.spd-foot { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; font-size: clamp(9px, 1.5vmin, 15px); font-weight: 800; color: #94a3b8; }
+.hud-score { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+.hud-speed.is-ready { border-color: #fde047; }
+.hud-speed.is-ready #hudFluxLabel { color: #fde047; }
+.hud-gear { grid-area: gear; width: clamp(44px, 6.4vmin, 64px); height: clamp(44px, 6.4vmin, 64px); border-radius: 9999px;
+  font-size: clamp(18px, 2.8vmin, 28px); background: rgba(2, 6, 23, 0.85); border: 1.5px solid rgba(148, 163, 184, 0.5); }
+
+/* Phones in portrait: times beside the cards, the track strip gets its own full row. */
+@media (max-width: 599px) and (min-aspect-ratio: 0/1) and (orientation: portrait) {
+  .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "pos times speed gear" "track track track track"; }
+  .hud-times { flex-direction: column; gap: 3px; align-items: stretch; text-align: center; }
+  .hud-track { margin: 0 14px 0 6px; }
+  .hud-pos { min-width: 0; }
+  .hud-speed { min-width: 0; }
+  .gap { font-size: 10px; padding: 1px 6px; }
+}
+/* Short landscape screens (phones on their side): one slim row. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto auto; grid-template-areas: "pos track times speed gear"; align-items: center; }
+  .hud-times { flex-direction: column; gap: 2px; }
+  .gap-behind { display: none; }
+  .pos-num { font-size: 30px; }
+  .spd-num { font-size: 26px; }
+  .hud-pos, .hud-speed { min-width: 0; }
+}

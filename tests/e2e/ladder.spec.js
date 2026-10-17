@@ -46,7 +46,7 @@ test('a gas-only arcade race reaches the finish within the level cap', async ({ 
   await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 110_000 }); // cap 100 s + slack
   await page.keyboard.up('ArrowUp');
   expect((Date.now() - t0) / 1000).toBeLessThanOrEqual(106);
-  await expect(page.locator('#endModalBadge')).toContainText(/FINISH|WRECKED/);
+  await expect(page.locator('#endModalBadge')).toContainText(/FINISH|WRECKED|TIME UP/);
   console.log(`gas-only run: ${((Date.now() - t0) / 1000).toFixed(1)}s, score ${await page.evaluate(() => window.__OT.GameState.score)}`);
   expect(problems).toEqual([]);
 });

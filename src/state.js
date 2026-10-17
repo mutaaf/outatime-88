@@ -18,6 +18,10 @@ export const GameState = {
   heatProgress: 0,
   racePosition: 8,
   totalRacers: 8,
+  // A real race (ticket 0051): seconds since the green light, the line, and when you crossed it.
+  raceTime: 0,
+  raceLength: 0,
+  finishTime: null,
   timeLeft: 48.0,
   finalStretch: false,
   daily: null,

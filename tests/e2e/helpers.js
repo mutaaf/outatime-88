@@ -1,6 +1,9 @@
 // Shared e2e helpers: console-error capture, external-request guard, canvas sampling.
 export const APP = '/outatime/';
 
+/** Every race-HUD block that other UI must never cover (mirrors [data-hud-rect] in index.html). */
+export const HUD_PANELS = ['#hudPosCard', '#hudTrack', '#hudTimes', '#hudSpeedCard', '#btnHudSettings'];
+
 /** Default leaderboard API stub: vite preview has no Worker, and a 404 would log an error.
  *  Tests that care about the API register their own page.route afterwards (it wins). */
 export function stubApi(page) {

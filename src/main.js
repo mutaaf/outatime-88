@@ -18,6 +18,8 @@ import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult } from './progress
 import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
+import { createHud } from './hud.js';
+import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, normalizeInitials, rankLine } from './leaderboard.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
@@ -115,29 +117,42 @@ const LiveTraffic = {
   init() {
     this.prevPlayerZ = (GameState.trackPos || 0) + ROAD_CFG.playerZOffset;
 
-    // ONLY 2 Well-Spaced Hero Rivals (Plenty of open road to race & duel!)
-    const initialRivals = [
-      POP_CULTURE_ROSTER[1], // Dez's '70 Brawler 440
-      POP_CULTURE_ROSTER[2]  // Kai's '99 Kestrel GT-4R
-    ];
-    this.racers = initialRivals.map((rc, idx) => new RigidBody3D({
-      id: rc.id,
-      kind: 'RIVAL',
-      name: `${rc.driver.split(' ')[0].toUpperCase()} • ${rc.car}`,
-      style: rc.shape === 'MUSCLE' ? 'MUSCLE' : 'TUNER_WING',
-      massKg: rc.massKg || 1500,
-      restitution: 0.48,
-      halfW: 0.14,
-      height: 36,
-      halfL: 115,
-      worldZ: 3400 + idx * 3800,
-      offset: idx === 0 ? -0.38 : 0.38,
-      mph: 60 + idx * 4,
-      baseMph: 70 + idx * 4,
-      bodyColor: rc.body,
-      accentColor: rc.cabin,
-      underglow: rc.glow
-    }));
+    // The field (ticket 0051): five named rivals from the roster (never your own driver) on a
+    // two-wide grid, you at the back. Each keeps its name for the whole race.
+    const playerZ0 = this.prevPlayerZ;
+    const field = POP_CULTURE_ROSTER.filter((rc, i) => i !== GameState.selectedCharIdx).slice(0, FIELD_SIZE - 1);
+    const pace = currentDifficulty().rivalPace;
+    this.racers = field.map((rc, idx) => {
+      const slot = gridSlot(idx);
+      const body = new RigidBody3D({
+        id: rc.id,
+        kind: 'RIVAL',
+        name: `${rc.driver.split(' ')[0].toUpperCase()} • ${rc.car}`,
+        style: rc.shape === 'MUSCLE' ? 'MUSCLE' : 'TUNER_WING',
+        massKg: rc.massKg || 1500,
+        restitution: 0.48,
+        halfW: 0.14,
+        height: 36,
+        halfL: 115,
+        worldZ: playerZ0 + slot.dz,
+        offset: slot.offset,
+        mph: 0,
+        baseMph: RIVAL_PACES[idx],
+        bodyColor: rc.body,
+        accentColor: rc.cabin,
+        underglow: rc.glow
+      });
+      body.short = rc.driver.split(/[ &]/)[0].toUpperCase();
+      body.driver = rc.driver;
+      body.car = rc.car;
+      body.color = rc.glow;
+      body.pace = RIVAL_PACES[idx] * pace;
+      body.progress = GameState.distance + slot.dz / this.speedToWorld();
+      body.finishTime = null;
+      body.targetOffset = slot.offset;
+      return body;
+    });
+    this.updateStandings(0, playerZ0, this.speedToWorld());
 
     // ONLY 4 Well-Spaced Highway Traffic Vehicles (Spaced 5,200 Z-units apart!)
     this.traffic = [];
@@ -172,6 +187,36 @@ const LiveTraffic = {
       const lane = (i % 3 - 1) * 0.44;
       this.obstacles.push(this.createObstacleBody(i, oType, 3200 + i * 3800, lane));
     }
+  },
+
+  /** Rival progress, finish times and your position (ticket 0051). */
+  updateStandings(rawDt, playerZ, speedToWorld) {
+    const L = GameState.raceLength;
+    const field = this.fieldEntries;
+    field.length = 0;
+    for (let i = 0; i < this.racers.length; i++) {
+      const r = this.racers[i];
+      const before = r.progress;
+      r.progress = GameState.distance + (r.worldZ - playerZ) / speedToWorld;
+      if (L && r.finishTime == null && r.progress >= L && GameState.raceTime > 1) {
+        r.finishTime = crossingTime(GameState.raceTime, rawDt, before, r.progress, L);
+      }
+      field.push(r);
+    }
+    field.push(this.playerEntry);
+    this.playerEntry.progress = GameState.distance;
+    this.playerEntry.finishTime = GameState.finishTime;
+    sortStandings(field);
+    GameState.racePosition = field.indexOf(this.playerEntry) + 1;
+    GameState.totalRacers = field.length;
+  },
+  fieldEntries: [], // reused every frame: the standings, leader first
+  playerEntry: { id: 'YOU', short: 'YOU', progress: 0, finishTime: null, isPlayer: true },
+
+  /** World units per (mph × second) at the current pace setting. */
+  speedToWorld() {
+    const paceCfg = PACE_MODES[GameState.paceMode] || PACE_MODES[0];
+    return (11000 * paceCfg.mult) / 88;
   },
 
   createObstacleBody(idx, oType, zPos, laneOffset) {
@@ -274,26 +319,20 @@ const LiveTraffic = {
       if (r.takenDown) {
         r.respawnTimer -= rawDt;
         if (r.respawnTimer <= 0) {
-          const pool = POP_CULTURE_ROSTER.concat(MULTIVERSE_POOL);
-          const pick = pool[Math.floor(trafficRand() * pool.length)];
-          r.name = `${pick.driver.split(' ')[0].toUpperCase()} • ${pick.car}`;
-          r.bodyColor = pick.body;
-          r.accentColor = pick.cabin;
-          r.underglow = pick.glow;
+          // A wrecked rival rejoins behind you, same driver, and has to fight back.
           r.takenDown = false;
           r.y = 0; r.vy = 0; r.vx = 0; r.rot = 0; r.vRot = 0; r.yaw = 0; r.vYaw = 0;
-          r.worldZ = playerZ + 5200 + i * 3200;
+          r.worldZ = playerZ - 2600 - i * 500;
           r.prevZ = r.worldZ;
-          r.mph = Math.max(55, GameState.speed * 0.92);
+          r.mph = Math.max(45, GameState.speed * 0.8);
         }
         continue;
       }
 
-      const relZ = r.worldZ - playerZ;
-      let targetMph = Math.max(50, GameState.speed * (0.92 + i * 0.03) * currentDifficulty().rivalPace);
-      if (relZ < -600) { targetMph = GameState.speed + 18; r.nosActive = true; }
-      else if (relZ > 4800) { targetMph = Math.max(42, GameState.speed - 16); r.nosActive = false; }
-      else { r.nosActive = (Math.sin(Date.now() * 0.0025 + i * 2) > 0.65); }
+      // Race pace with a soft rubber band (src/raceflow.js); finished rivals cruise.
+      const lead = r.progress - GameState.distance;
+      const targetMph = r.finishTime != null ? 60 : rivalTargetMph(r.pace, lead);
+      r.nosActive = targetMph > r.pace + 5 || (Math.sin(fxClock * 2.5 + i * 2) > 0.8);
 
       r.mph += (targetMph - r.mph) * Math.min(1, rawDt * 2.5);
       r.vz = r.mph * speedToWorld;
@@ -346,11 +385,9 @@ const LiveTraffic = {
     }
 
     // 3. Player ↔ Rivals Swept 3D Rigid-Body Collision + PIT-Maneuver Torque Solver
-    let aheadCount = 0;
     for (let i = 0; i < this.racers.length; i++) {
       const r = this.racers[i];
       if (r.takenDown) continue;
-      if (r.worldZ > playerZ) aheadCount++;
 
       const minRZ = Math.min(r.prevZ, r.worldZ);
       const maxRZ = Math.max(r.prevZ, r.worldZ);
@@ -398,8 +435,7 @@ const LiveTraffic = {
         }
       }
     }
-    GameState.racePosition = 1 + aheadCount;
-    GameState.totalRacers = 1 + this.racers.length;
+    this.updateStandings(rawDt, playerZ, speedToWorld);
 
     // 4. Player ↔ Civilian Traffic Swept 3D Rigid-Body Solver
     for (let i = 0; i < this.traffic.length; i++) {
@@ -820,9 +856,6 @@ function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
     GameState.heatLevel++;
     GameState.heatProgress = 0;
   }
-  if (GameState.racePosition > 1 && car.type === 'STREET_RIVAL') {
-    GameState.racePosition = Math.max(1, GameState.racePosition - 1);
-  }
 
   const tdPoints = 2000 * GameState.combo;
   GameState.score += tdPoints;
@@ -1146,8 +1179,14 @@ function updateGame(rawDt) {
   const worldSpeed = (GameState.speed / 88) * 11000 * paceCfg.mult;
   GameState.trackPos += worldSpeed * dt;
   LiveTraffic.update(dt, rawDt, paceCfg.mult);
+  const distBefore = GameState.distance;
   GameState.distance += GameState.speed * dt;
+  GameState.raceTime += rawDt;
   GameState.score += Math.floor(GameState.speed * dt * 2.2 * GameState.combo);
+  // The finish line (ticket 0051): three laps of the level's race length.
+  if (GameState.raceLength && GameState.finishTime == null && GameState.distance >= GameState.raceLength) {
+    GameState.finishTime = crossingTime(GameState.raceTime, rawDt, distBefore, GameState.distance, GameState.raceLength);
+  }
 
   // 2. Pro Counter-Steer Drift Physics & Multi-Device Steering
   let steerInput = 0;
@@ -1526,12 +1565,9 @@ function updateGame(rawDt) {
         cpTime = raceClock.extend(12.0);
         GameState.timeLeft = raceClock.timeLeft;
       }
-      if (GameState.racePosition > 1) {
-        GameState.racePosition = Math.max(1, GameState.racePosition - 1);
-      }
       GameState.score += 1200 * GameState.combo;
       triggerAnnouncement(
-        `🏁 CHECKPOINT! POS: ${GameState.racePosition}/${GameState.totalRacers}`,
+        `🏁 CHECKPOINT! ${ordinal(GameState.racePosition)} PLACE`,
         GameState.mode === 'ARCADE' ? (cpTime > 0 ? `+${cpTime}s TIME EXTENDED!` : 'FINAL STRETCH — NO MORE TIME!') : '+1200 STREET REP!',
         1450
       );
@@ -1770,10 +1806,11 @@ function updateGame(rawDt) {
     if (beat === 'final') {
       GameState.finalStretch = true;
       triggerAnnouncement('🏁 FINAL STRETCH 🏁', 'LAST CHANCE — CHAIN EVERYTHING!', 1700, 3);
-    } else if (beat === 'over') {
-      endRaceRun('🏁 FINISH!');
+    } else if (beat === 'over' && GameState.finishTime == null) {
+      endRaceRun('⏱️ TIME UP!');
     }
   }
+  if (GameState.status === 'PLAYING' && GameState.finishTime != null) finishRace();
 }
 
 // Coach (ticket 0002): teaches only what you haven't learned yet, in one short line, and
@@ -1853,10 +1890,38 @@ function updateInteractiveCoach(currentSegIdx) {
   banner.style.pointerEvents = '';
 }
 
-function updateLiveHud() {
+// Race HUD (ticket 0051): one reused view object, repainted ~20 times a second.
+let raceHud = null;
+let hudNextAt = 0;
+const hudView = {
+  position: 1, total: 1, progress: 0, length: 0, raceTime: 0, timeLeft: 0, clockUrgent: false,
+  infinite: false, mph: 0, flux: 0, hpFrac: 1, score: 0, field: LiveTraffic.fieldEntries,
+};
+function updateRaceHud(force) {
+  const now = performance.now();
+  if (!force && now < hudNextAt) return;
+  hudNextAt = now + 50;
+  if (!raceHud) raceHud = createHud();
+  hudView.position = GameState.racePosition;
+  hudView.total = GameState.totalRacers;
+  hudView.progress = GameState.distance;
+  hudView.length = GameState.raceLength || raceLengthFor(GameState.levelIndex);
+  hudView.raceTime = GameState.finishTime != null ? GameState.finishTime : GameState.raceTime;
+  hudView.timeLeft = GameState.timeLeft;
+  hudView.clockUrgent = GameState.finalStretch || GameState.timeLeft < 10;
+  hudView.infinite = GameState.mode === 'INFINITE';
+  hudView.mph = GameState.speed;
+  hudView.flux = GameState.fluxCharge;
+  hudView.hpFrac = GameState.maxHp ? GameState.hp / GameState.maxHp : 1;
+  hudView.score = GameState.score;
+  raceHud.update(hudView);
+}
+
+function updateLiveHud(forceHud) {
   const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   updateInteractiveCoach(currentSegIdx);
   if (GameState.status === 'PLAYING') updateOnboarding();
+  updateRaceHud(forceHud === true);
 
   const hpText = document.getElementById('hpTextDisplay');
   const hpFill = document.getElementById('hpBarFill');
@@ -3615,6 +3680,9 @@ function startNewRace(opts) {
   GameState.timeLeft = raceClock.timeLeft;
   GameState.finalStretch = false;
   GameState.distance = 0;
+  GameState.raceTime = 0;
+  GameState.finishTime = null;
+  GameState.raceLength = GameState.mode === 'INFINITE' ? 0 : raceLengthFor(lvl.index);
   GameState.trackPos = 0;
   GameState.playerX = 0;
   GameState.playerVX = 0;
@@ -3644,7 +3712,8 @@ function startNewRace(opts) {
   syncAudioUI();
   updateEraHud();
   updateContractHud();
-  updateLiveHud();
+  if (raceHud) raceHud.reset();
+  updateLiveHud(true);
 
   document.getElementById('titleScreen').classList.add('hidden');
   document.body.classList.remove('on-title');
@@ -3668,6 +3737,15 @@ function startNewRace(opts) {
 
   if (daily) triggerAnnouncement(`📅 DAILY: ${daily.modifier.name}`, daily.modifier.desc.toUpperCase(), 2300);
   else triggerAnnouncement(`🏁 ${lvl.name} 🏁`, `GOAL: ${lvl.goalDesc.toUpperCase()}`, 2300);
+}
+
+/** You crossed the line (ticket 0051): a bonus for where you finished, then the results. */
+function finishRace() {
+  let ahead = 0;
+  for (const r of LiveTraffic.racers) if (r.finishTime != null && r.finishTime < GameState.finishTime) ahead++;
+  GameState.racePosition = ahead + 1;
+  GameState.score += finishBonus(GameState.racePosition);
+  endRaceRun('🏁 FINISH!');
 }
 
 function endRaceRun(customBadgeText = null) {
@@ -3702,7 +3780,7 @@ function endRaceRun(customBadgeText = null) {
   }
 
   document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
-  document.getElementById('endWarpsText').textContent = `POS #${GameState.racePosition} • ${GameState.timeWarps} WARPS`;
+  document.getElementById('endWarpsText').textContent = `${ordinal(GameState.racePosition)} • ${GameState.timeWarps} WARPS`;
   document.getElementById('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
   document.getElementById('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
   document.getElementById('gameOverModal').classList.remove('hidden');

@@ -1,19 +1,27 @@
 // Zero overlaps (ticket 0021): on every screen shape we ship to, the HUD panels, the floating
 // message lane and the touch controls never cover each other and never hang off-screen.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, HUD_PANELS } from './helpers.js';
 
 const VIEWPORTS = [
   { width: 390, height: 844 },
   { width: 360, height: 640 },
   { width: 430, height: 932 },
   { width: 844, height: 390 },
+  // Tablets in both orientations (ticket 0051): iPad mini/9.7", iPad Air, iPad Pro 12.9", 10" Android.
   { width: 768, height: 1024 },
   { width: 1024, height: 768 },
+  { width: 820, height: 1180 },
+  { width: 1180, height: 820 },
+  { width: 1024, height: 1366 },
+  { width: 1366, height: 1024 },
+  { width: 800, height: 1280 },
+  { width: 1280, height: 800 },
   { width: 1280, height: 720 },
 ];
 
-const PANELS = ['#leftHudPanel', '#centerHudPanel', '#rightHudPanel'];
+// The race HUD's blocks (src/hud.js hudRects() returns the same set at runtime).
+const PANELS = HUD_PANELS;
 const OVERLAYS = ['#announcerMain', '#coachCard', '#driftCounterBox', '#forkLeftCard', '#forkRightCard'];
 const CONTROLS = ['#btnSteerLeft', '#btnSteerRight', '#btnBrakeDrift', '#btnHoverStunt', '#btnFluxBoost', '#driverBadgeBar'];
 
@@ -58,6 +66,7 @@ for (const vp of VIEWPORTS) {
       expect(b.x + b.width, `${sel} right edge`).toBeLessThanOrEqual(vp.width + 1);
       expect(b.y + b.height, `${sel} bottom edge`).toBeLessThanOrEqual(vp.height + 1);
     }
+    for (const sel of PANELS) expect(all[sel], `${sel} visible`).toBeTruthy();
     for (const sel of CONTROLS.slice(0, 5)) {
       expect(all[sel], `${sel} visible`).toBeTruthy();
       expect(Math.min(all[sel].width, all[sel].height), `${sel} touch target`).toBeGreaterThanOrEqual(44);
