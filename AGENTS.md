@@ -160,6 +160,8 @@ src/render3d/       The 3D view (three.js, own chunk, never imported statically)
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/raceflow.js     Race rules: field, laps, length, rival pace, standings, gaps, finish timing
+src/racecall.js     Race ceremony rules: start timeline, rocket start, callouts, finish order, headlines
+src/racestage.js    Ceremony on screen: lineup cards, lights, flag, podium rows, beeps, fanfare, speech
 src/hud.js          Race HUD writer (change-only DOM writes) + hudRects() for no-overlap checks
 src/live/           Live races, a lazy chunk (loaded on RACE FRIENDS or a ?room= link):
                       controller.js (menu/lobby/countdown/results UI + race glue via hooks)

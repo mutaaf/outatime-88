@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { APP, watchPage, canvasLitFraction, hudNumber } from './helpers.js';
+import { APP, watchPage, canvasLitFraction, hudNumber, skipToGreen } from './helpers.js';
 
 test('boots at the base path with no errors and no external requests', async ({ page }) => {
   const problems = watchPage(page);
@@ -15,6 +15,7 @@ test('a race starts and advances under keyboard input', async ({ page }) => {
   const problems = watchPage(page);
   await page.goto(APP);
   await page.locator('#btnStartRace').click();
+  await skipToGreen(page);
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(3000);
   const dist1 = await hudNumber(page, 'distMetersDisplay');

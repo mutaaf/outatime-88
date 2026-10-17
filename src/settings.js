@@ -10,6 +10,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   tiltInvert: false,      // flip left/right if your device reports the other way round
   musicVolume: 0.8,       // 0..1, on top of the master volume
   sfxVolume: 1,           // 0..1, engine + effects
+  voice: true,            // the race announcer reads names and calls out loud (on-device speech)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'
   difficulty: 'normal',   // 'easy' | 'normal' | 'hard'
 });
@@ -28,6 +29,7 @@ export function normalizeSettings(saved) {
   const s = Object.assign({}, SETTINGS_DEFAULTS, saved && typeof saved === 'object' ? saved : {});
   s.tilt = Boolean(s.tilt);
   s.tiltInvert = Boolean(s.tiltInvert);
+  s.voice = s.voice !== false;
   s.musicVolume = clamp01(Number(s.musicVolume), SETTINGS_DEFAULTS.musicVolume);
   s.sfxVolume = clamp01(Number(s.sfxVolume), SETTINGS_DEFAULTS.sfxVolume);
   for (const [k, list] of Object.entries(CHOICES)) if (!list.includes(s[k])) s[k] = SETTINGS_DEFAULTS[k];

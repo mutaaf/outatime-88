@@ -19,7 +19,7 @@ import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
 import { createHud } from './hud.js';
-import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus } from './raceflow.js';
+import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
 import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
@@ -152,6 +152,8 @@ const LiveTraffic = {
       body.driver = rc.driver;
       body.car = rc.car;
       body.color = rc.glow;
+      body.accent = rc.cabin;
+      body.crew = rc.franchise;
       body.pace = RIVAL_PACES[idx] * pace;
       body.progress = GameState.distance + slot.dz / this.speedToWorld();
       body.finishTime = null;
@@ -1067,6 +1069,9 @@ function updateEraHud() {
 // --- PRO PHYSICS & GAMEPLAY UPDATE LOOP ---
 function updateGame(rawDt) {
   if (GameState.status !== 'PLAYING') return;
+  // Grid lineup and start lights (ticket 0052): the world waits for GO.
+  if (GameState.racePhase === 'START') { if (startSeq) updateRaceStart(rawDt); return; }
+  updateRaceCeremony(rawDt);
 
   // Apply ZONE Bullet-Time or Takedown Slow-Mo time dilation to world while keeping player responsive
   let timeScale = 1.0;
@@ -1838,7 +1843,7 @@ function updateGame(rawDt) {
   }
 
   // Race shape (ticket 0016): decaying bonuses + a hard cap, so every arcade run ends.
-  if (GameState.mode === 'ARCADE') {
+  if (GameState.mode === 'ARCADE' && GameState.racePhase !== 'FINISHED') {
     const beat = raceClock.tick(rawDt);
     GameState.timeLeft = raceClock.timeLeft;
     if (beat === 'final') {
@@ -1849,7 +1854,8 @@ function updateGame(rawDt) {
     }
   }
   if (GameState.mode === 'LIVE') live.update();
-  if (GameState.status === 'PLAYING' && GameState.finishTime != null) finishRace();
+  if (GameState.racePhase === 'RACING' && GameState.status === 'PLAYING' && GameState.finishTime != null) finishRace();
+  if (GameState.racePhase === 'FINISHED') GameState.score = finishScore; // the line is the line
 }
 
 // Coach (ticket 0002): teaches only what you haven't learned yet, in one short line, and
@@ -1957,6 +1963,7 @@ function updateRaceHud(force) {
 }
 
 function updateLiveHud(forceHud) {
+  if (GameState.racePhase === 'START' && GameState.status === 'PLAYING') { updateRaceHud(forceHud === true); return; } // no tips over the lineup
   const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   updateInteractiveCoach(currentSegIdx);
   if (GameState.status === 'PLAYING') updateOnboarding();
@@ -2059,79 +2066,6 @@ function updateLiveHud(forceHud) {
   if (comboPill) comboPill.textContent = `x${GameState.combo}`;
 }
 
-// --- LIVE GPS STREET RADAR MINIMAP RENDERER ---
-const radarCanvas = document.getElementById('radarCanvas');
-const radarCtx = radarCanvas ? radarCanvas.getContext('2d') : null;
-
-function renderRadarMinimap(baseIndex) {
-  if (!radarCtx) return;
-  const w = radarCanvas.width;
-  const h = radarCanvas.height;
-  radarCtx.clearRect(0, 0, w, h);
-
-  // Dark Radar Grid
-  radarCtx.fillStyle = '#040814';
-  radarCtx.fillRect(0, 0, w, h);
-  radarCtx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
-  radarCtx.lineWidth = 1;
-  radarCtx.beginPath();
-  radarCtx.arc(w / 2, h / 2, w * 0.36, 0, Math.PI * 2);
-  radarCtx.stroke();
-
-  // Plot upcoming road curvature & rival/police/checkpoint dots
-  let rx = w / 2;
-  let ry = h - 12;
-  let angle = 0;
-
-  radarCtx.strokeStyle = '#ff5500';
-  radarCtx.lineWidth = 3;
-  radarCtx.beginPath();
-  radarCtx.moveTo(rx, ry);
-
-  for (let n = 0; n < 45; n += 2) {
-    const seg = track.segments[baseIndex + n];
-    if (!seg) break;
-    angle += seg.curve * 0.015;
-    rx += Math.sin(angle) * 1.9;
-    ry -= Math.cos(angle) * 1.9;
-    radarCtx.lineTo(rx, ry);
-  }
-  radarCtx.stroke();
-
-  // Re-walk to draw rival & cop dots on the radar
-  rx = w / 2;
-  ry = h - 12;
-  angle = 0;
-  for (let n = 0; n < 42; n++) {
-    const seg = track.segments[baseIndex + n];
-    if (!seg) break;
-    angle += seg.curve * 0.0075;
-    rx += Math.sin(angle) * 0.95;
-    ry -= Math.cos(angle) * 0.95;
-
-    if (seg.trackType === 'CHECKPOINT' && n % 4 === 0) {
-      radarCtx.fillStyle = '#10b981';
-      radarCtx.fillRect(rx - 2, ry - 2, 4, 4);
-    }
-    for (let c = 0; c < seg.cars.length; c++) {
-      const car = seg.cars[c];
-      if (car.takenDown) continue;
-      radarCtx.fillStyle = car.type === 'POLICE_INTERCEPTOR'
-        ? ((Math.floor(Date.now() / 480) % 2 === 0) ? '#ef4444' : '#3b82f6')
-        : (car.type === 'STREET_RIVAL' ? '#facc15' : '#94a3b8');
-      radarCtx.fillRect(rx + car.offset * 5 - 1.5, ry - 1.5, 3, 3);
-    }
-  }
-
-  // Player Car Arrow at bottom center
-  radarCtx.fillStyle = '#00f0ff';
-  radarCtx.beginPath();
-  radarCtx.moveTo(w / 2, h - 16);
-  radarCtx.lineTo(w / 2 - 4, h - 8);
-  radarCtx.lineTo(w / 2 + 4, h - 8);
-  radarCtx.closePath();
-  radarCtx.fill();
-}
 
 // --- PSEUDO-3D NIGHT-STREET RENDERER ---
 const mainCanvas = document.getElementById('gameCanvas');
@@ -2294,7 +2228,6 @@ function renderScene() {
     return;
   }
 
-  renderRadarMinimap(baseIndex);
 
   const playerElevation = baseSeg.p1.world.y + (baseSeg.p2.world.y - baseSeg.p1.world.y) * basePercent;
   let playerCurveX = 0;
@@ -3870,7 +3803,6 @@ function startNewRace(opts) {
   document.getElementById('gameOverModal').classList.add('hidden');
 
   onboarding = createOnboarding({ newPlayer: isNewPlayer(SaveStore.data) });
-  onboarding.start(performance.now());
   // The attract-mode coach must not linger into the race under the level intro.
   const coachBanner = document.getElementById('interactiveCoachBanner');
   if (coachBanner) hideCoach(coachBanner);
@@ -3880,14 +3812,150 @@ function startNewRace(opts) {
   if (touch) touch.raceStart();
 
   if (daily) applyDailyModifier(daily.modifier.id);
-  if (liveRace) { currentRun = null; return; } // live races don't post to the solo leaderboard
+  if (liveRace) { // live races don't post to the solo leaderboard, and the room runs its own countdown
+    currentRun = null;
+    beginRaceStart(lvl, { ceremony: false });
+    return;
+  }
   currentRun = {
     tokenPromise: beginRun(), t0: performance.now(), level: lvl.index,
     mode: daily ? 'DAILY' : (GameState.mode === 'INFINITE' ? 'INFINITE' : 'ARCADE'),
   };
 
-  if (daily) triggerAnnouncement(`📅 DAILY: ${daily.modifier.name}`, daily.modifier.desc.toUpperCase(), 2300);
-  else triggerAnnouncement(`🏁 ${lvl.name} 🏁`, `GOAL: ${lvl.goalDesc.toUpperCase()}`, 2300);
+  // Lineup + lights (ticket 0052). ?debug skips them unless asked (?debug&intro or
+  // startRace({ intro: true })) so tests can race at once.
+  const ceremony = !DEBUG_MODE || (opts && opts.intro) || new URLSearchParams(location.search).has('intro');
+  if (ceremony && !RC) { // tapped PLAY before the ceremony chunk arrived: hold on the grid for it
+    GameState.racePhase = 'START';
+    GameState.speed = 0;
+    startSeq = null;
+    const race = currentRun;
+    ceremonyReady.then(() => { if (currentRun === race && GameState.status === 'PLAYING') beginRaceStart(lvl, { ceremony: true }); });
+  } else beginRaceStart(lvl, { ceremony });
+  if (!ceremony) {
+    if (daily) triggerAnnouncement(`📅 DAILY: ${daily.modifier.name}`, daily.modifier.desc.toUpperCase(), 2300);
+    else triggerAnnouncement(`🏁 ${lvl.name} 🏁`, `GOAL: ${lvl.goalDesc.toUpperCase()}`, 2300);
+  }
+}
+
+
+// --- RACE CEREMONY (ticket 0052): lineup, lights, rocket start, callouts, finish flag ---
+const DEBUG_MODE = new URLSearchParams(location.search).has('debug');
+let startSeq = null;
+let launchPressAt = null;
+let launchJudged = false;
+let finishScore = 0;
+let finishSeqLeft = 0;
+let skipRequested = false;
+const lineupSeen = new Set();
+// The ceremony code (src/racecall.js + src/racestage.js) is its own chunk, fetched at boot in
+// parallel with everything else, so it is ready long before anyone reaches the grid.
+let RC = null;
+let callouts = null;
+const ceremonyReady = Promise.all([import('./racecall.js'), import('./racestage.js')]).then(([call, stageMod]) => {
+  RC = { ...call, ...stageMod };
+  callouts = RC.createCallouts({ laps: RACE_LAPS });
+}).catch(() => {});
+
+/** The grid front to back: rivals in slot order, then you. */
+function gridOrder() {
+  const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  return LiveTraffic.racers.map((r) => ({ driver: r.driver, short: r.short, car: r.car, crew: r.crew, color: r.color, accent: r.accent }))
+    .concat([{ isPlayer: true, driver: me.driver, short: 'YOU', car: me.car, crew: me.franchise, color: SaveStore.data.underglow || me.glow, accent: me.body }]);
+}
+
+function beginRaceStart(lvl, { ceremony }) {
+  launchPressAt = null;
+  launchJudged = false;
+  skipRequested = false;
+  GameState.launchStall = 0;
+  if (callouts) callouts.reset(GameState.racePosition);
+  if (!ceremony || !RC) { GameState.racePhase = 'RACING'; startSeq = null; if (RC) RC.stage.hide(); onboarding.start(performance.now()); return; }
+  const key = `${GameState.mode}:${lvl.index}:${GameState.daily ? 'd' : ''}`;
+  const lineup = !lineupSeen.has(key);
+  lineupSeen.add(key);
+  GameState.racePhase = 'START';
+  GameState.speed = 0;
+  startSeq = RC.createStartSequence({ racers: FIELD_SIZE, lineup });
+  RC.stage.show();
+  if (!lineup) RC.stage.grid(gridOrder());
+}
+
+function applyLaunch(result) {
+  launchJudged = true;
+  const fx = result && RC.LAUNCH_EFFECT[result];
+  if (!fx) return;
+  GameState.speed += fx.mph;
+  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + fx.flux);
+  GameState.launchStall = fx.stall;
+  GameState.launchResult = result;
+  triggerAnnouncement(fx.text, result === 'early' ? 'WAIT FOR GREEN NEXT TIME' : `+${fx.mph} MPH OFF THE LINE`, 1400, 2);
+  if (result === 'perfect') { SoundEngine.playTone(660, 'sawtooth', 0.25, 0.14, 1320); burstSparks(18, 190, 1); }
+}
+
+const startHooks = {
+  field: () => gridOrder(),
+  announceLevel() {
+    const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
+    triggerAnnouncement(GameState.daily ? `📅 DAILY: ${GameState.daily.modifier.name}` : `🏁 ${lvl.name} 🏁`, 'TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', 2400, 1);
+  },
+  go() {
+    GameState.racePhase = 'RACING';
+    GameState.speed = 26;
+    if (launchPressAt != null) applyLaunch(RC.judgeLaunch(launchPressAt));
+    onboarding.start(performance.now());
+  },
+};
+const handleStartEvents = (events) => RC.playStartEvents(events, startHooks);
+
+function updateRaceStart(rawDt) {
+  if (startSeq.inLineup && (skipRequested || InputState.boostPressed)) {
+    InputState.boostPressed = false;
+    skipRequested = false;
+    if (startSeq.skip()) { RC.stage.grid(gridOrder()); SoundEngine.playTone(520, 'triangle', 0.08, 0.08); }
+  }
+  skipRequested = false;
+  if (InputState.boostPressed) { // a tap on ⚡ during the lights: judged at GO
+    InputState.boostPressed = false;
+    if (launchPressAt == null && !startSeq.inLineup) launchPressAt = startSeq.t + rawDt;
+  }
+  GameState.speed = 0;
+  handleStartEvents(startSeq.update(rawDt));
+}
+
+/** After GO: the late rocket-start window, the GO! hold, live callouts, the finish roll-out. */
+function updateRaceCeremony(rawDt) {
+  if (startSeq && !startSeq.done) {
+    if (!launchJudged && InputState.boostPressed && startSeq.t <= RC.LAUNCH.goodEnd) {
+      InputState.boostPressed = false;
+      applyLaunch(RC.judgeLaunch(startSeq.t));
+    }
+    handleStartEvents(startSeq.update(rawDt));
+  }
+  if (GameState.launchStall > 0) {
+    GameState.launchStall -= rawDt;
+    GameState.speed = Math.min(GameState.speed, 6);
+  }
+  if (GameState.racePhase === 'RACING') {
+    const lap = GameState.raceLength ? lapOf(GameState.distance, GameState.raceLength).lap : 1;
+    const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
+    if (c) {
+      triggerAnnouncement(c.main, c.sub, 1500, c.kind === 'final' ? 3 : 2);
+      if (c.kind === 'final') { RC.say('Final lap!'); SoundEngine.playTone(784, 'square', 0.3, 0.14, 1046); }
+      else if (c.kind === 'up') SoundEngine.playTone(660, 'triangle', 0.14, 0.12, 880);
+    }
+  } else if (GameState.racePhase === 'FINISHED') {
+    GameState.invulnTimer = 1;
+    finishSeqLeft -= rawDt;
+    if (finishSeqLeft <= 0) { if (RC) RC.stage.hide(); endRaceRun('🏁 FINISH!'); }
+  }
+}
+
+/** Tap/click/Enter during the lineup skips to the lights. */
+function bindRaceStageSkip() {
+  const req = () => { if (GameState.racePhase === 'START' && startSeq && startSeq.inLineup) skipRequested = true; };
+  document.getElementById('raceStage').addEventListener('pointerdown', req);
+  window.addEventListener('keydown', (e) => { if (e.code === 'Enter' || e.code === 'Escape') req(); });
 }
 
 /** You crossed the line (ticket 0051): a bonus for where you finished, then the results. */
@@ -3897,7 +3965,27 @@ function finishRace() {
   for (const r of LiveTraffic.racers) if (r.finishTime != null && r.finishTime < GameState.finishTime) ahead++;
   GameState.racePosition = ahead + 1;
   GameState.score += finishBonus(GameState.racePosition);
-  endRaceRun('🏁 FINISH!');
+  finishScore = GameState.score;
+  // Chequered flag (ticket 0052): your place, a fanfare, and a short roll-out while the rest
+  // of the field crosses, then the results.
+  GameState.racePhase = 'FINISHED';
+  finishSeqLeft = GameState.reducedMotion ? 1.4 : 2.8;
+  const place = GameState.racePosition;
+  if (!RC) { finishSeqLeft = 0; return; }
+  RC.stage.finish(ordinal(place), place === 1 ? 'YOU WIN!' : place <= 3 ? 'PODIUM!' : 'FINISHED');
+  RC.fanfare(place);
+  RC.say(place === 1 ? 'You win!' : `You finished ${['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][place - 1] || ordinal(place)}!`);
+}
+
+/** Finish order for the whole field, a headline for how it went, Retry / Next (ticket 0052). */
+function renderRaceResults(badgeText, lvl) {
+  if (!RC) return; // the ceremony chunk never loaded: plain results
+  const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  RC.renderResults({
+    badgeText, lvl, next: WORLD_LEVELS[lvl.index + 1], racers: LiveTraffic.racers, speedToWorld: LiveTraffic.speedToWorld(),
+    playerZ: GameState.trackPos + ROAD_CFG.playerZOffset, me, color: SaveStore.data.underglow || me.glow,
+    unlockedLevel: SaveStore.data.unlockedLevel || 1, fieldSize: FIELD_SIZE,
+  });
 }
 
 function endRaceRun(customBadgeText = null) {
@@ -3948,6 +4036,7 @@ function endRaceRun(customBadgeText = null) {
     currentRun.car = (POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0]).id;
   }
 
+  renderRaceResults(customBadgeText, lvl);
   document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
   renderScoreSheet(scoreSheet);
   document.getElementById('endWarpsText').textContent = `${ordinal(GameState.racePosition)} • ${GameState.timeWarps} WARPS`;
@@ -4226,6 +4315,15 @@ function bindAllControls() {
   document.getElementById('btnStartRace').addEventListener('click', () => startNewRace());
   document.getElementById('btnOpenLive').addEventListener('click', () => loadLive().then((l) => l.openMenu()));
   document.getElementById('btnPlayAgain').addEventListener('click', () => startNewRace(GameState.daily ? { daily: true } : undefined));
+  document.getElementById('btnNextRace').addEventListener('click', (e) => {
+    const idx = Number(e.currentTarget.dataset.level);
+    if (!Number.isInteger(idx) || !WORLD_LEVELS[idx]) return;
+    GameState.levelIndex = idx;
+    SaveStore.data.selectedLevel = idx;
+    SaveStore.save();
+    updateTitleChip();
+    startNewRace();
+  });
 
   window.addEventListener('resize', () => {
     resizeCanvases();
@@ -4449,7 +4547,6 @@ function renderFrame(dt) {
   const feel = speedFeel(GameState.status === 'PLAYING' ? GameState.speed : 0, GameState.reducedMotion);
   view3d.render(dt, feel);
   renderOverlayFx(feel);
-  renderRadarMinimap(Math.floor(GameState.trackPos / ROAD_CFG.segLength));
 }
 
 // --- TOUCH CONTROLS (ticket 0061) ---
@@ -4586,7 +4683,7 @@ function mainLoop(timestamp) {
 window.onload = () => {
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
   if (new URLSearchParams(location.search).has('debug')) window.__OT = {
-    GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, get live() { return live; }, loadLive,
+    GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
@@ -4596,6 +4693,7 @@ window.onload = () => {
     touch: () => touch && touch.controls,
   };
   initSettings({ announce: triggerAnnouncement });
+  bindRaceStageSkip();
   watchLayout();
   initTouchControls();
   resizeCanvases();
