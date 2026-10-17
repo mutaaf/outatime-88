@@ -26,9 +26,10 @@ let shareUi = null;
 const loadShareUi = () => (shareUi = shareUi || import('./share-ui.js').then((m) => { m.initShareUi({ startChallenge }); return m; }));
 import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
-import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
+import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, fetchGhost, normalizeInitials, rankLine } from './leaderboard.js';
 // Leaderboard/rank UI loads after the first network answer, not at boot (main bundle budget).
 const competeUI = () => import('./compete-ui.js');
+import { createGhostRecorder, createGhostRace } from './ghost.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
 import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
@@ -1271,6 +1272,7 @@ function updateGame(rawDt) {
   const distBefore = GameState.distance;
   GameState.distance += GameState.speed * dt;
   GameState.raceTime += rawDt;
+  ghostRecorder.sample(GameState.raceTime, GameState.distance, GameState.playerX); // ticket 0092
   GameState.score += Math.floor(GameState.speed * dt * 2.2 * GameState.combo);
   // The finish line (ticket 0051): three laps of the level's race length.
   if (GameState.raceLength && GameState.finishTime == null && GameState.distance >= GameState.raceLength) {
@@ -2009,6 +2011,21 @@ function updateRaceHud(force) {
   hudView.hpFrac = GameState.maxHp ? GameState.hp / GameState.maxHp : 1;
   hudView.score = GameState.score;
   raceHud.update(hudView);
+  if (ghostRace.active) ghostRace.update(hudView.raceTime, GameState.distance, GameState.speed, hudView.length);
+}
+
+// Ghost racing (ticket 0092): every race records a trace; "race the ghost" loads someone's
+// best on this track for the next start and shows it on the HUD strip.
+const ghostRecorder = createGhostRecorder();
+const ghostRace = createGhostRace();
+let pendingGhost = null; // { level, data } armed by the results screen, used by the next start
+
+async function raceGhostOf(initials, level) {
+  const data = await fetchGhost('ARCADE', level, initials);
+  if (!data) { triggerAnnouncement('👻 NO GHOST YET', 'FINISH A RACE ON THIS TRACK TO LEAVE ONE', 2000); return; }
+  pendingGhost = { level, data };
+  GameState.levelIndex = level;
+  startNewRace();
 }
 
 function updateLiveHud(forceHud) {
@@ -3699,12 +3716,15 @@ async function postScore(initials) {
   if (!token) { rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY'; return; }
   const r = await submitRun({
     token, initials, score: run.score, distance: run.distance, durationMs: run.durationMs,
-    warps: run.warps, level: run.level, mode: run.mode, car: run.car, earned: run.earned, pen: run.pen,
+    warps: run.warps, level: run.level, mode: run.mode, car: run.car, earned: run.earned, pen: run.pen, trace: run.trace,
   });
   if (r.ok) {
     const { renderRankCard } = await competeUI();
     const card = document.getElementById('endRankCard');
-    const rich = card && renderRankCard(card, r.body, { reduced: GameState.reducedMotion });
+    const rich = card && renderRankCard(card, r.body, {
+      reduced: GameState.reducedMotion,
+      onGhost: run.mode === 'ARCADE' ? (who) => raceGhostOf(who, run.level) : null,
+    });
     rankEl.textContent = rich ? '' : `🏆 ${initials} ${rankLine(r.body.rank)}`;
     refreshRival();
   }
@@ -3888,6 +3908,10 @@ function startNewRace(opts) {
   if (touch) touch.raceStart();
 
   if (daily) applyDailyModifier(daily.modifier.id);
+  ghostRecorder.reset();
+  const ghostFor = pendingGhost && !daily && !liveRace && pendingGhost.level === lvl.index ? pendingGhost.data : null;
+  pendingGhost = null;
+  if (!(ghostFor && ghostRace.load(ghostFor, GameState.raceLength || raceLengthFor(lvl.index)))) ghostRace.clear();
   if (liveRace) { // live races don't post to the solo leaderboard, and the room runs its own countdown
     currentRun = null;
     beginRaceStart(lvl, { ceremony: false });
@@ -3910,6 +3934,7 @@ function startNewRace(opts) {
   } else beginRaceStart(lvl, { ceremony });
   if (!ceremony) {
     if (daily) triggerAnnouncement(`📅 DAILY: ${daily.modifier.name}`, daily.modifier.desc.toUpperCase(), 2300);
+    else if (ghostRace.active) triggerAnnouncement(`👻 BEAT ${ghostRace.initials}'S GHOST`, `${lvl.name.replace(/^LVL \d+:\s*/, '')} · THEIR BEST LINE, LIVE ON YOUR STRIP`, 2300);
     else triggerAnnouncement(`🏁 ${lvl.name} 🏁`, `GOAL: ${lvl.goalDesc.toUpperCase()}`, 2300);
   }
 }
@@ -4129,6 +4154,13 @@ function endRaceRun(customBadgeText = null) {
     currentRun.durationMs = Math.round(performance.now() - currentRun.t0);
     currentRun.warps = GameState.timeWarps;
     currentRun.car = (POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0]).id;
+    // A ghost only makes sense for a finished three-lap race on a campaign track.
+    currentRun.trace = currentRun.mode === 'ARCADE' && GameState.finishTime != null ? ghostRecorder.encode() : undefined;
+  }
+  const verdict = ghostRace.verdict(GameState.finishTime);
+  if (verdict) {
+    const by = `${verdict.by.toFixed(1)}s`;
+    triggerAnnouncement(verdict.beat ? `👻 YOU BEAT ${ghostRace.initials}'S GHOST!` : `👻 ${ghostRace.initials}'S GHOST WINS`, verdict.beat ? `BY ${by}` : `BY ${by} — RACE IT AGAIN`, 2600);
   }
 
   renderRaceResults(customBadgeText, lvl);

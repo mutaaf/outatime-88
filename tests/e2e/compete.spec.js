@@ -120,3 +120,27 @@ test('opening a link with from=<racer> adds them to your FRIENDS board', async (
   await expect(page.locator('#boardList .board-row')).toContainText('ZED');
   expect(problems).toEqual([]);
 });
+
+test('a finished race leaves a ghost, and you can race it from the results', async ({ page }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const problems = watchPage(page);
+  await backend.attach(page);
+  await page.addInitScript(() => { if (!localStorage.getItem('outatime_cruisn_88_save_v2')) localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ initials: 'CLD', bestScore: 1, onboarded: true })); });
+  await page.goto(`${APP}?debug`);
+  await expect(page.locator('#racerPillName')).toHaveText('CLD', { timeout: 15000 });
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(6000);
+  await page.evaluate(() => { const G = window.__OT.GameState; G.finishTime = G.raceTime; G.score = 300000; window.__OT.finishRun(); });
+  await expect(page.locator('#endRankCard .rank-ghost')).toHaveText('👻 RACE YOUR BEST');
+  expect(backend.db.raw.prepare('SELECT initials FROM ghosts').all().map((r) => r.initials)).toEqual(['CLD']);
+
+  await page.locator('#endRankCard .rank-ghost').click();
+  await expect(page.locator('#gameOverModal')).toBeHidden();
+  await expect(page.locator('#hudGhost')).toContainText('👻 CLD', { timeout: 5000 });
+  expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { const G = window.__OT.GameState; G.finishTime = 0.5; window.__OT.finishRun(); });
+  await expect(page.locator('#announcerMain')).toContainText('GHOST');
+  expect(problems).toEqual([]);
+});

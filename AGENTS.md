@@ -144,6 +144,7 @@ src/worker/compete.js   Seasons, track/class/friends boards, rank movement, riva
                         run payloads (v1 plain, v2 penalty-recomputed) + car class
 src/compete-ui.js   Rank card after a run, rival line on the title, podium board rows
 src/ghost-codec.js  Compact ghost traces (distance + lane at 5 Hz), shared with the Worker
+src/ghost.js        Ghost recorder (every race) and ghost racing on the HUD strip (0092)
 src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks
 src/input.js        InputState + pollGamepad()
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound, static/sleep, reset() for pools)
