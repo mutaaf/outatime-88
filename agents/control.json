@@ -19,6 +19,7 @@
   "frozen_paths": [
     "wrangler.jsonc",
     ".github/workflows/",
-    "agents/control.json"
+    "agents/control.json",
+    "src/worker/"
   ]
 }

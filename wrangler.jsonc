@@ -1,9 +1,18 @@
 {
+  // outatime-88: static assets under mutaafaziz.com/outatime/ plus the leaderboard API.
+  // The route takes precedence over the mutaafaziz.com Custom Domain (the personal site).
+  // Operator-owned file (agents/control.json → frozen_paths).
   "name": "outatime-88",
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
   "preview_urls": true,
   "previews": {},
-  "assets": { "directory": "./dist" },
+  // The Worker script only runs for /outatime/api/* (the leaderboard, src/worker/).
+  // Everything else is served straight from static assets with dist/_headers applied.
+  "main": "src/worker/index.js",
+  "assets": { "directory": "./dist", "binding": "ASSETS", "run_worker_first": ["/outatime/api/*"] },
+  // No database_id on purpose: `wrangler deploy` (Workers Builds) provisions this D1 database
+  // by name on first deploy and finds it by name after. The Worker creates its own tables.
+  "d1_databases": [{ "binding": "DB", "database_name": "outatime-88-leaderboard" }],
   "routes": [{ "pattern": "mutaafaziz.com/outatime*", "zone_name": "mutaafaziz.com" }]
 }

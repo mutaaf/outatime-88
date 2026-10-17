@@ -31,7 +31,9 @@ fast, loud, readable and generous: you are always one good drift away from a war
    compressor and buses so SFX never clip over music. Mute is remembered.
 5. **Content & progression.** Distinct eras as playable districts with their own palette,
    props, hazards and music; a short campaign ladder with unlocks and local best times; a
-   ghost of your best run to race. All local (localStorage), no servers.
+   ghost of your best run to race; a **global leaderboard** (all-time and daily) with
+   arcade initials. Progression stays local (localStorage); the leaderboard is the one
+   server feature and lives on our own origin (invariant 3.3).
 6. **Controls everywhere.** Touch steering that feels analog, gamepad hints and rumble,
    rebindable keys. Phone is a first-class platform, not a fallback.
 7. **Code health that enables the above.** Keep carving `main.js` (track generation,
@@ -44,6 +46,10 @@ Depth over breadth: polish one moment until it sings before adding three.
 - Production: https://mutaafaziz.com/outatime/ (served by the `outatime-88` Cloudflare
   Worker on the route `mutaafaziz.com/outatime*`; the rest of mutaafaziz.com is a different
   project and repo — never touch it from here).
+- Leaderboard: `GET|POST /outatime/api/scores`, `POST /outatime/api/run`, backed by the D1
+  database `outatime-88-leaderboard` (binding `DB`, auto-provisioned by `wrangler deploy`,
+  tables self-created by the Worker). Only `/outatime/api/*` runs Worker code; everything else
+  is static assets. Agents must not edit `src/worker/` or `wrangler.jsonc` (operator paths).
 - Every PR gets a Cloudflare preview URL (posted on the PR by Workers Builds).
 - Deploy = merge to `main`. Rollback = revert the PR (or `npx wrangler rollback` by the operator).
 
@@ -54,7 +60,11 @@ Depth over breadth: polish one moment until it sings before adding three.
 2. **Base path.** The app is served under `/outatime/`. Vite `base` and `build.outDir`
    (`dist/outatime/`) encode this. Never use root-absolute URLs (`/foo.png`); import
    assets or use `import.meta.env.BASE_URL`.
-3. **Allowed runtime hosts:** **none** — everything (code, CSS, fonts via `@fontsource`) is bundled. The e2e smoke test fails on any non-localhost request.
+3. **Allowed runtime hosts:** **our own origin only** — everything (code, CSS, fonts via
+   `@fontsource`) is bundled, and the one API is `/outatime/api/*` on the same origin (the
+   leaderboard Worker, src/worker/). No third-party host, ever. The e2e smoke test fails on
+   any non-localhost request. The leaderboard stores 3-letter initials and a daily-salted IP
+   hash for rate limiting — no accounts, no personal data.
    No analytics, ads, trackers, fonts or scripts from CDNs. Everything else is bundled.
 4. **Frame budget.** The render loop must hold 60fps on a mid-range laptop and stay
    playable on a recent phone. No per-frame allocations in hot paths (reuse vectors and
@@ -89,6 +99,12 @@ src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI h
 src/input.js        InputState + pollGamepad()
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound)
 src/projection.js   projectPoint() — world → screen road projection
+src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
+src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
+src/worker/         Edge Worker for /outatime/api/* only (operator-owned, frozen):
+                      index.js (routing) · scores.js (run tokens, submit, boards on D1)
+                      token.js (HMAC run tokens) · plausible.js (anti-cheat bounds)
+                      initials.js (3-letter filter) · schema.js (self-applied D1 schema)
 src/fonts.js        Self-hosted @fontsource imports
 src/styles.css      Tailwind layers + the game's custom CSS (LED boxes, scanlines, buttons)
 tests/unit/         Vitest: pure logic (save, input, physics, projection, data integrity)
