@@ -7,7 +7,9 @@ export const LIMITS = {
   maxDurationMs: 2 * 3600e3,    // tokens expire after two hours
   clockSlackMs: 5000,           // network + timer skew between client and server
   maxPointsPerSec: 150000,      // ~4x the best measured scoring rate
-  maxMetersPerSec: 140,         // well above the top warp speed in road units
+  // Distance accrues at the car's mph per second; warp tops ~160 and endless waves add
+  // more, so ~2x the highest sustained speed seen (measured 2026-10-17: ~90/s average).
+  maxMetersPerSec: 300,
   maxScore: 250_000_000,
   maxWarps: 500,
 };
