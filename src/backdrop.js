@@ -3,9 +3,16 @@
 // carries this shim and a flat two-tone sky in the era's colours for the first few frames.
 let stage = null;
 let req = null;
+let qualityFn = null;
+
+/** Where the scenes read their tier from (the graphics governor, src/perf/). */
+export function setBackdropQuality(fn) {
+  qualityFn = fn;
+  if (stage) stage.setQualitySource(fn);
+}
 
 function boot() {
-  if (!req) req = import('./scenes/stage.js').then((m) => { stage = m; }).catch(() => { req = null; });
+  if (!req) req = import('./scenes/stage.js').then((m) => { stage = m; if (qualityFn) m.setQualitySource(qualityFn); }).catch(() => { req = null; });
   return req;
 }
 

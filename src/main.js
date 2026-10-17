@@ -1,6 +1,6 @@
 import './fonts.js';
 import './styles.css';
-import { drawBackdrop, drawRoadsideAd, drawWeather, preloadBackdrops, resetBackdrop, backdropDebug } from './backdrop.js';
+import { drawBackdrop, drawRoadsideAd, drawWeather, preloadBackdrops, resetBackdrop, backdropDebug, setBackdropQuality } from './backdrop.js';
 import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
@@ -2146,6 +2146,20 @@ const mainCtx = mainCanvas.getContext('2d');
 const pixelCanvas = document.createElement('canvas');
 const pixelCtx = pixelCanvas.getContext('2d');
 
+// Graphics quality (ticket 0041). The controller is a lazy chunk (src/perf/gfx-boot.js);
+// until it lands everything draws at full quality. Render-only: the sim never reads it.
+let gfxQ = { res: 1, tier: 'high', step: 0 };
+const lowerTier = (t) => ({ ultra: 'high', high: 'medium', medium: 'low' }[t] || 'low');
+let gfx = null;
+function loadGfx() {
+  import('./perf/gfx-boot.js').then((m) => {
+    gfx = m.bootGfx({ debug: DEBUG_MODE, onQuality: (q) => { gfxQ = q; if (view3d && view3d.setQuality) view3d.setQuality(q); } });
+    // The era backdrops (src/scenes/) follow the tier, one tier lower once the governor is
+    // deep into its ladder (step 4+: effects already gone, so the parallax art goes too).
+    setBackdropQuality(() => (gfxQ.step >= 4 ? lowerTier(gfxQ.tier) : gfxQ.tier));
+  }).catch(() => {});
+}
+
 function resizeCanvases() {
   const container = document.getElementById('canvasContainer');
   const w = container ? container.clientWidth : window.innerWidth;
@@ -2186,7 +2200,7 @@ function renderScene() {
   const eraCfg = getActiveEraRenderConfig();
   const atomicProps = eraCfg.props === 'atomic';
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
-  const scale = eraCfg.pixelScale || 1.0;
+  const scale = (eraCfg.pixelScale || 1.0) / gfxQ.res; // the governor trades resolution for frame time
   const rw = Math.max(240, Math.floor(mainCanvas.width / scale));
   const rh = Math.max(160, Math.floor(mainCanvas.height / scale));
 
@@ -4558,6 +4572,7 @@ async function enable3D() {
       collectCars: collectCarsFor3D,
       obstacles: () => LiveTraffic.drawObstacles,
       player: playerPaint,
+      quality: gfxQ,
       onLost: () => {
         setRenderMode('2d', { persist: false });
         triggerAnnouncement('3D VIEW LOST', 'BACK TO 2D', 1600);
@@ -4735,6 +4750,7 @@ function mainLoop(timestamp) {
   lastFrameTime = timestamp;
 
   if (touch) touch.sample(dt);
+  if (gfx) { if (GameState.status === 'PLAYING') gfx.sample(frameSeconds * 1000); else gfx.hold(); }
   if (GameState.status === 'PLAYING') {
     const steps = simClock.advance(frameSeconds);
     for (let i = 0; i < steps && GameState.status === 'PLAYING'; i++) {
@@ -4783,6 +4799,7 @@ window.onload = () => {
     finishRun: () => endRaceRun('🏁 FINISH!'),
     traffic: () => LiveTraffic,
     backdrop: backdropDebug,
+    gfx: () => gfx,
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
     setView: (m) => setRenderMode(m, { persist: false }),
     input: InputState,
@@ -4790,6 +4807,7 @@ window.onload = () => {
     touch: () => touch && touch.controls,
   };
   initSettings({ announce: triggerAnnouncement });
+  setTimeout(loadGfx, 0);
   bindRaceStageSkip();
   if (/[?&]track=/.test(location.search)) loadShareUi().catch(() => {});
   watchLayout();
