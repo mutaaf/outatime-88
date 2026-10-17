@@ -145,3 +145,18 @@ for (const [width, height] of SHAPES) {
     expect(problems).toEqual([]);
   });
 }
+
+test('the settings gear also opens the racer panel, on top', async ({ page }) => {
+  const backend = createBackend();
+  watchPage(page);
+  await backend.attach(page);
+  await page.goto(APP);
+  await page.locator('#btnOpenSettings').click();
+  await page.locator('[data-open-racer]').click();
+  await expect(page.locator('#racerModal')).toBeVisible();
+  const top = await page.evaluate(() => {
+    const r = document.querySelector('[data-racer-link]').getBoundingClientRect();
+    return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('#racerModal') !== null;
+  });
+  expect(top).toBe(true);
+});
