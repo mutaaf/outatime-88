@@ -5,6 +5,10 @@ import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { ERAS } from './data.js';
 import { createScheduler } from './music.js';
+import { normalizeSettings } from './settings.js';
+
+const MUSIC_LEVEL = 0.55;
+const SFX_LEVEL = 0.9;
 
 // UI callbacks live in main.js; it registers them at startup via setAudioHooks().
 const hooks = { syncAudioUI() {}, triggerAnnouncement() {} };
@@ -15,6 +19,9 @@ export const SoundEngine = {
   masterGain: null,
   muted: Boolean(SaveStore.data.muted),
   volume: typeof SaveStore.data.volume === 'number' ? SaveStore.data.volume : 0.8,
+  // Music and SFX levels from the settings panel (ticket 0050), on top of the master volume.
+  musicMix: normalizeSettings(SaveStore.data.settings).musicVolume,
+  sfxMix: normalizeSettings(SaveStore.data.settings).sfxVolume,
   musicTimer: null,
   scheduler: null,
   musicBus: null,
@@ -39,9 +46,9 @@ export const SoundEngine = {
         this.compressor.attack.setValueAtTime(0.004, ctx.currentTime);
         this.compressor.release.setValueAtTime(0.18, ctx.currentTime);
         this.musicBus = ctx.createGain();
-        this.musicBus.gain.setValueAtTime(0.55, ctx.currentTime);
+        this.musicBus.gain.setValueAtTime(MUSIC_LEVEL * this.musicMix, ctx.currentTime);
         this.sfxBus = ctx.createGain();
-        this.sfxBus.gain.setValueAtTime(0.9, ctx.currentTime);
+        this.sfxBus.gain.setValueAtTime(SFX_LEVEL * this.sfxMix, ctx.currentTime);
         this.engineBus = ctx.createGain();
         this.engineBus.gain.setValueAtTime(0.0001, ctx.currentTime);
         for (const bus of [this.musicBus, this.sfxBus, this.engineBus]) bus.connect(this.compressor);
@@ -106,6 +113,16 @@ export const SoundEngine = {
     }
     hooks.syncAudioUI();
   },
+  /** Music and effects levels (0..1 each); applied live to the buses. */
+  setMix(music, sfx) {
+    this.musicMix = Math.max(0, Math.min(1, music));
+    this.sfxMix = Math.max(0, Math.min(1, sfx));
+    if (this.ctx && this.musicBus) {
+      const t = this.ctx.currentTime;
+      this.musicBus.gain.setTargetAtTime(MUSIC_LEVEL * this.musicMix, t, 0.03);
+      this.sfxBus.gain.setTargetAtTime(SFX_LEVEL * this.sfxMix, t, 0.03);
+    }
+  },
   // Two detuned saws through a lowpass: a growl whose pitch and brightness track speed.
   buildEngineVoice() {
     const ctx = this.ctx;
@@ -135,7 +152,7 @@ export const SoundEngine = {
     this.engineOsc.frequency.setTargetAtTime(hz, t, 0.05);
     this.engineSub.frequency.setTargetAtTime(hz / 2, t, 0.05);
     this.engineFilter.frequency.setTargetAtTime(300 + s * 18, t, 0.08);
-    this.engineBus.gain.setTargetAtTime(playing ? 0.05 + Math.min(1, s / 120) * 0.07 : 0.0001, t, 0.12);
+    this.engineBus.gain.setTargetAtTime(playing && this.sfxMix > 0 ? (0.05 + Math.min(1, s / 120) * 0.07) * this.sfxMix : 0.0001, t, 0.12);
   },
   playTone(freq, type, duration, vol = 0.12, slideTo = null) {
     if (this.muted || this.volume <= 0 || !this.ctx || !this.sfxBus) return;

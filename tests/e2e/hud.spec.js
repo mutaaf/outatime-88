@@ -40,6 +40,7 @@ test('phone HUD takes at most 18% of the screen height', async ({ page }) => {
   await page.waitForTimeout(500);
   const box = await page.locator('header').boundingBox();
   expect(box.y + box.height).toBeLessThanOrEqual(844 * 0.18);
-  const mute = await page.locator('#btnAudioToggle').boundingBox();
-  expect(mute.x + mute.width).toBeLessThanOrEqual(390); // nothing hangs off the right edge
+  // On phones the settings gear (sound, tilt, pause) is the HUD's last button (ticket 0050).
+  const gear = await page.locator('#btnHudSettings').boundingBox();
+  expect(gear.x + gear.width).toBeLessThanOrEqual(390); // nothing hangs off the right edge
 });

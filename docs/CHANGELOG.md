@@ -17,3 +17,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0024 0025 · A global leaderboard: tap 🏆 on the title for all-time and today's best, enter three initials once and every run posts itself with your rank; scores are checked on the server so the board stays honest
 2026-10-17 · 0023 · Daily challenge: one road and one twist a day (heat wave, glass chassis, flux storm, rush hour) — the same for everyone, with its own board
 2026-10-17 · 0040 · Under the hood: physics no longer reads anything the renderer writes (tyre contact moved into its own tested module), so a second renderer can draw the same race
+2026-10-17 · 0050 · Settings you can find: a gear on the title and in the race (it pauses), one-tap TILT on the title for phones and tablets with a clear message if the device blocks it, recenter/sensitivity/invert, music and effects volume, difficulty and calm mode — all remembered
