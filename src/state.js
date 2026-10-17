@@ -22,6 +22,11 @@ export const GameState = {
   raceTime: 0,
   raceLength: 0,
   finishTime: null,
+  // Race ceremony (ticket 0052): 'START' (lineup + lights) → 'RACING' → 'FINISHED' (roll-out).
+  racePhase: 'RACING',
+  launchStall: 0,
+  launchResult: null,
+  lastResult: null,
   timeLeft: 48.0,
   finalStretch: false,
   daily: null,

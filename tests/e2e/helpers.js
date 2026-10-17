@@ -49,3 +49,12 @@ export function canvasLitFraction(page) {
 
 export const hudNumber = (page, id) =>
   page.locator(`#${id}`).innerText().then((t) => parseInt(t.replace(/[^0-9]/g, ''), 10) || 0);
+
+/** Real (non-debug) races open with the lineup and lights (ticket 0052): skip the lineup and
+ *  wait for green, the way an impatient player would. */
+export async function skipToGreen(page, { tap = false } = {}) {
+  const skip = page.locator('#rcSkip');
+  await skip.waitFor({ state: 'visible', timeout: 3000 });
+  if (tap) await skip.tap(); else await skip.click();
+  await page.locator('#raceStage').waitFor({ state: 'hidden', timeout: 6000 });
+}

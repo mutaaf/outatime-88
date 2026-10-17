@@ -13,6 +13,8 @@ describe('settings (ticket 0050)', () => {
     expect(s.motion).toBe('reduce');
     expect(s.difficulty).toBe('normal');
     expect(s.tilt).toBe(true);
+    expect(s.voice).toBe(true); // missing → on
+    expect(normalizeSettings({ voice: false }).voice).toBe(false);
   });
 
   it('difficulty scales rival pace and damage, and normal changes nothing', () => {

@@ -313,6 +313,24 @@
     <button id="btnGasPedal">🟢 AUTO-GAS: ON (W)</button>
   </div>
 
+  <!-- RACE CEREMONY (ticket 0052): lineup cards, the grid, start lights, the finish flag. -->
+  <div id="raceStage" class="race-stage hidden" aria-live="polite">
+    <div id="rcCard" class="rc-card hidden"></div>
+    <div id="rcGrid" class="rc-grid hidden"></div>
+    <div id="rcLights" class="rc-lights hidden" data-state="3" role="status">
+      <div class="rc-bulbs" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div id="rcCount" class="rc-count">3</div>
+      <div class="rc-hint">TAP ⚡ RIGHT ON GREEN FOR A ROCKET START</div>
+    </div>
+    <div id="rcFinish" class="rc-finish hidden" role="status">
+      <div class="rc-flag" aria-hidden="true"></div>
+      <div class="rc-finish-word">FINISH!</div>
+      <div id="rcFinishPlace" class="rc-finish-place">1ST</div>
+      <div id="rcFinishLine" class="rc-finish-line">YOU WIN!</div>
+    </div>
+    <button id="rcSkip" type="button" class="rc-skip hidden">TAP TO SKIP ▶▶</button>
+  </div>
+
   <!-- ONE-TAP TITLE (ticket 0022): the car on the attract-mode road is the hero; tap anywhere
        to race. Everything else is a small icon. -->
   <div id="titleScreen" class="title-screen fixed inset-0 z-30 flex flex-col items-center justify-between text-center" role="dialog" aria-label="OUTATIME 88 title">
@@ -639,6 +657,10 @@
         <label class="set-row" for="setMaster"><span>Master</span><input id="setMaster" type="range" min="0" max="100" step="5" class="set-range" /></label>
         <label class="set-row" for="setMusic"><span>Music</span><input id="setMusic" type="range" min="0" max="100" step="5" class="set-range" /></label>
         <label class="set-row" for="setSfx"><span>Engine &amp; effects</span><input id="setSfx" type="range" min="0" max="100" step="5" class="set-range" /></label>
+        <div class="set-row">
+          <span>Announcer voice</span>
+          <button id="setVoice" type="button" role="switch" aria-checked="true" class="switch" aria-label="Announcer voice"><i></i></button>
+        </div>
       </section>
 
       <section class="set-section" aria-labelledby="setHeadView">
@@ -670,57 +692,51 @@
 
   <!-- GAME OVER / EVENT SUMMARY MODAL -->
   <div id="gameOverModal" class="hidden fixed inset-0 z-30 flex justify-center overflow-y-auto bg-slate-950/90 backdrop-blur-md p-3">
-    <div class="results-card m-auto w-full max-w-md rounded-3xl bg-slate-900 border-2 border-orange-500 p-6 text-center shadow-2xl">
-      <div id="endModalBadge" class="inline-block px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400 text-orange-300 font-arcade text-xs font-bold">
-        EVENT COMPLETE!
-      </div>
-      <h2 id="endModalTitle" class="mt-2 font-arcade text-2xl sm:text-3xl font-black text-white">STREET RUN SUMMARY</h2>
-      <div id="endMedalText" class="mt-2 font-arcade text-xs sm:text-sm font-black text-amber-200"></div>
-      <div id="endUnlockText" class="hidden mt-1 font-arcade text-xs font-bold text-emerald-300"></div>
-      
-      <div class="grid grid-cols-2 gap-2.5 my-4 text-left">
-        <div class="led-box rounded-xl p-2.5">
-          <div class="text-[8px] font-arcade text-slate-400">FINAL REP SCORE</div>
-          <div id="endScoreText" class="font-arcade text-base font-black led-cyan">0</div>
-          <div id="endPenaltyText" class="mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-rose-300"></div>
+    <div class="results-card m-auto w-full rounded-3xl bg-slate-900 border-2 border-orange-500 text-center shadow-2xl">
+      <div class="res-left">
+        <div id="endModalBadge" class="inline-block px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400 text-orange-300 font-arcade text-xs font-bold">
+          EVENT COMPLETE!
         </div>
-        <div class="led-box rounded-xl p-2.5">
-          <div class="text-[8px] font-arcade text-slate-400">FINISH POSITION / WARPS</div>
-          <div id="endWarpsText" class="font-arcade text-base font-black led-amber">1ST • 0 WARPS</div>
-        </div>
-        <div class="led-box rounded-xl p-2.5">
-          <div class="text-[8px] font-arcade text-slate-400">PEAK SPEED / TAKEDOWNS</div>
-          <div id="endPeakSpeedText" class="font-arcade text-base font-black led-red">0 MPH</div>
-        </div>
-        <div class="led-box rounded-xl p-2.5">
-          <div class="text-[8px] font-arcade text-slate-400">FLUX CASH EARNED</div>
-          <div id="endCoinsText" class="font-arcade text-base font-black led-green">+0 ⚡</div>
+        <h2 id="endModalTitle" class="end-title font-arcade font-black text-white">STREET RUN SUMMARY</h2>
+        <p id="endHeadline" class="end-headline hidden"></p>
+        <!-- Finish order (ticket 0052): every racer, their time, you highlighted. -->
+        <div id="endPodiumBox" class="end-podium-box">
+          <ol id="endPodium" class="end-podium" aria-label="Finish order"></ol>
+          <div class="pod-note">* still on track — projected at their pace</div>
         </div>
       </div>
+      <div class="res-right">
+        <div id="endMedalText" class="font-arcade text-xs sm:text-sm font-black text-amber-200"></div>
+        <div id="endUnlockText" class="hidden mt-1 font-arcade text-xs font-bold text-emerald-300"></div>
 
-      <!-- Leaderboard submission (ticket 0025): initials once, then every run posts itself. -->
-      <div id="endBoardBox" class="mb-3 p-2.5 rounded-2xl bg-slate-950/80 border border-cyan-500/40">
-        <form id="initialsForm" class="hidden flex items-center justify-center gap-2" autocomplete="off">
-          <label for="initialsInput" class="font-arcade text-[10px] font-bold text-cyan-300">YOUR INITIALS</label>
-          <input id="initialsInput" name="initials" maxlength="3" inputmode="text" autocapitalize="characters" spellcheck="false"
-            class="w-20 h-11 text-center rounded-lg bg-slate-900 border-2 border-cyan-400 font-arcade text-lg font-black tracking-[0.3em] text-white uppercase" aria-label="Three-letter initials" />
-          <button id="btnSubmitScore" type="submit" class="min-h-[44px] px-3 rounded-lg hw-badge text-slate-950 font-arcade text-xs font-black">POST</button>
-        </form>
-        <div id="endRankText" class="font-arcade text-xs font-black text-cyan-200"></div>
-        <div id="endRankCard" aria-live="polite"></div>
-        <button id="btnOpenLeaderboardFromEnd" type="button" class="mt-1 font-arcade text-[10px] font-bold text-slate-300 underline underline-offset-4">🏆 VIEW LEADERBOARD</button>
-      </div>
+        <div class="end-stats">
+          <div class="led-box"><small>SCORE</small><b id="endScoreText" class="led-cyan">0</b><span id="endPenaltyText" class="end-penalty"></span></div>
+          <div class="led-box"><small>PLACE · WARPS</small><b id="endWarpsText" class="led-amber">1ST • 0 WARPS</b></div>
+          <div class="led-box"><small>PEAK · TAKEDOWNS</small><b id="endPeakSpeedText" class="led-red">0 MPH</b></div>
+          <div class="led-box"><small>FLUX CASH</small><b id="endCoinsText" class="led-green">+0 ⚡</b></div>
+        </div>
 
-      <div class="flex flex-col sm:flex-row gap-2">
-        <button id="btnOpenGarageFromEnd" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-cyan-400/60 text-cyan-300 font-arcade text-xs font-bold">
-          🔧 GARAGE
-        </button>
-        <button id="btnSelectLevelFromEnd" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-arcade text-xs font-bold">
-          🌍 LEVELS
-        </button>
-        <button id="btnPlayAgain" class="whitespace-nowrap flex-1 py-2.5 px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs font-black">
-          🔥 RACE AGAIN
-        </button>
+        <!-- Leaderboard submission (ticket 0025): initials once, then every run posts itself. -->
+        <div id="endBoardBox" class="end-board">
+          <form id="initialsForm" class="hidden flex items-center justify-center gap-2" autocomplete="off">
+            <label for="initialsInput" class="font-arcade text-[10px] font-bold text-cyan-300">YOUR INITIALS</label>
+            <input id="initialsInput" name="initials" maxlength="3" inputmode="text" autocapitalize="characters" spellcheck="false"
+              class="w-20 h-11 text-center rounded-lg bg-slate-900 border-2 border-cyan-400 font-arcade text-lg font-black tracking-[0.3em] text-white uppercase" aria-label="Three-letter initials" />
+            <button id="btnSubmitScore" type="submit" class="min-h-[44px] px-3 rounded-lg hw-badge text-slate-950 font-arcade text-xs font-black">POST</button>
+          </form>
+          <div id="endRankText" class="font-arcade text-xs font-black text-cyan-200"></div>
+          <div id="endRankCard" aria-live="polite"></div>
+        </div>
+
+        <div class="end-actions">
+          <button id="btnOpenLeaderboardFromEnd" type="button" class="end-btn end-btn-ghost">🏆 RANKS</button>
+          <button id="btnPlayAgain" type="button" class="end-btn end-btn-main hw-badge text-slate-950">🔁 RETRY</button>
+          <button id="btnNextRace" type="button" class="end-btn end-btn-next hidden">NEXT ▶</button>
+        </div>
+        <div class="end-actions end-actions-2">
+          <button id="btnOpenGarageFromEnd" type="button" class="end-link">🔧 GARAGE</button>
+          <button id="btnSelectLevelFromEnd" type="button" class="end-link">🌍 LEVELS</button>
+        </div>
       </div>
     </div>
   </div>

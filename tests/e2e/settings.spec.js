@@ -28,12 +28,13 @@ test('the title gear opens settings; choices survive a reload', async ({ page })
   await expect(page.locator('#titleScreen')).toBeVisible(); // opening settings did not start a race
   await page.locator('[data-setting="difficulty"] [data-value="hard"]').click();
   await page.locator('[data-setting="motion"] [data-value="reduce"]').click();
+  await page.locator('#setVoice').click();
   await page.locator('#setMusic').fill('30');
   await page.keyboard.press('Enter'); // focus is in the panel: Enter must not start a race
   expect(await page.evaluate(() => window.__OT.GameState.status)).not.toBe('PLAYING');
   await page.locator('#btnSettingsDone').click();
   await expect(page.locator('#settingsModal')).toBeHidden();
-  expect((await saved(page)).settings).toMatchObject({ difficulty: 'hard', motion: 'reduce', musicVolume: 0.3 });
+  expect((await saved(page)).settings).toMatchObject({ difficulty: 'hard', motion: 'reduce', musicVolume: 0.3, voice: false });
   expect(await page.evaluate(() => window.__OT.GameState.reducedMotion)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.dataset.motion)).toBe('reduce');
 

@@ -137,6 +137,8 @@ function syncPanel() {
   }
   const inv = $('setTiltInvert');
   if (inv) inv.setAttribute('aria-checked', String(s.tiltInvert));
+  const voice = $('setVoice');
+  if (voice) voice.setAttribute('aria-checked', String(s.voice));
   const pairs = [['setMaster', SoundEngine.muted ? 0 : SoundEngine.volume], ['setMusic', s.musicVolume], ['setSfx', s.sfxVolume]];
   for (const [id, v] of pairs) {
     const el = $(id);
@@ -217,6 +219,12 @@ export function initSettings({ announce } = {}) {
   $('setTilt').addEventListener('click', () => toggleTilt());
   $('setTiltInvert').addEventListener('click', () => { settings().tiltInvert = !settings().tiltInvert; save(); syncPanel(); });
   $('setTiltRecenter').addEventListener('click', recenterTilt);
+  const voice = $('setVoice');
+  if (voice) voice.addEventListener('click', () => {
+    settings().voice = !settings().voice;
+    if (!settings().voice && window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+    save(); syncPanel();
+  });
   $('setTiltSens').addEventListener('input', (e) => {
     SaveStore.data.tiltSensitivity = Math.max(0.4, Math.min(2.2, parseFloat(e.target.value) || 1));
     save(); syncPanel();
