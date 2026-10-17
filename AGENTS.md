@@ -262,10 +262,12 @@ for a quiet spell that doubles each time an upgrade proves too much (it never fl
   `ahead` (segments), `cars`, `shadows` (map size, 0 = off), `softShadows`, `post`, `env`,
   `reflections`, `glow`, `maxDraws` (the e2e suite fails a tier that draws more).
 
-**Backend: WebGL2, not WebGPU (decided 2026-10-17).** three's WebGPURenderer ships as a separate
-`three/webgpu` build (~+120 kB gz on top of the WebGL path we must keep for Safari < 26 and
-older Android), its post-processing node system would be a second implementation of every
-effect, and the 3D view is fill-rate bound on phones, which WebGPU does not change. The probe
+**Backend: WebGL2, not WebGPU (decided 2026-10-17).** Measured with three r186 + esbuild:
+`WebGPURenderer` + one node material bundles to ~210 kB gz, against ~129 kB gz for
+`WebGLRenderer` + `MeshStandardMaterial` — the WebGPU path alone is over the 3D chunk's 170 kB
+budget, and the WebGL path would still have to ship as the fallback for browsers without
+WebGPU. Effects would need a second (node-based) implementation, and the 3D view is fill-rate
+bound on phones, which a new API does not change. The probe
 records `webgpu` so the tier logic can revisit this once Safari's WebGPU is widespread.
 Never feed quality into `updateGame()`: live races, ghosts and the server's score check rely on
 every device running the same simulation.
