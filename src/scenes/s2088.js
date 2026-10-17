@@ -3,11 +3,12 @@
 // sign, TERMINUS ROBOTICS's chrome-skull billboard, light-trail racers cutting the grid at the
 // horizon, and an origami unicorn drifting past on the final lap.
 import { rng, plate, strip, building, sign, haze, groundGrid, reflect, sprite, rainField, drawRain, blink, unitOf } from './kit.js';
+import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, EGGS } from './eggs.js';
 
 const C = {
-  sky: ['#030014', '#060318', '#1f093d', [0.82, '#4c0f5c'], '#d63384'],
-  ground: ['#14072e', '#0c0521', '#05020f'],
+  sky: ERA_PALETTES[2088].sky,
+  ground: ERA_PALETTES[2088].ground,
 };
 const STACKS = 4, COPS = 3, TRAILS = 3;
 
@@ -84,7 +85,7 @@ function anim(ctx, F, B) {
     ctx.fillStyle = 'rgba(254,240,138,0.9)'; ctx.fillRect(x - 0.3 * u, y - h * 0.4, 0.6 * u, h * 0.4);
   }
   // searchlights sweeping the smog
-  if (!F.reduced) {
+  if (!F.reduced && F.detail >= 0.5) {
     ctx.fillStyle = 'rgba(165,243,252,0.06)';
     for (let i = 0; i < 3; i++) {
       const bx = F.rw * (0.2 + i * 0.3), a = Math.sin(F.t * 0.35 + i * 1.9) * 0.6;
@@ -93,7 +94,7 @@ function anim(ctx, F, B) {
   }
   // flying police cruisers with light bars
   const cw = B.cop.width / k, ch = B.cop.height / k;
-  for (let i = 0; i < COPS; i++) {
+  for (let i = 0, n = Math.ceil(COPS * F.detail); i < n; i++) {
     const p = (F.t * (0.04 + i * 0.013) + i * 0.37) % 1;
     const x = p * (F.rw + cw * 2) - cw, y = F.hz - (22 + i * 11) * u + Math.sin(F.t + i) * 2 * u;
     ctx.drawImage(B.cop, x, y, cw, ch);
@@ -122,7 +123,7 @@ function anim(ctx, F, B) {
 }
 
 function front(ctx, F, B) {
-  drawRain(ctx, B.rain, F.rw, F.rh, F.reduced ? F.t * 0.3 : F.t, '#f0abfc', 0.8, 0.25);
+  drawRain(ctx, B.rain, F.rw, F.rh, F.reduced ? F.t * 0.3 : F.t, '#f0abfc', 0.8, 0.25, F.detail);
 }
 
 const ADS = [

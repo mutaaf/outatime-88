@@ -13,6 +13,10 @@ const LOADERS = {
 };
 export const SCENE_IDS = Object.keys(LOADERS);
 
+import { getQuality, tier, TIERS, setQualitySource } from './quality.js';
+
+export { getQuality, setQualitySource };
+
 const scenes = {};
 const pending = {};
 let built = null;
@@ -21,7 +25,7 @@ let scrollRaw = 0;
 
 // Per-frame facts handed to the scene. One object, mutated in place.
 const F = {
-  era: '', t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false,
+  era: '', detail: 1, weather: true, t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false,
   rw: 0, rh: 0, hz: 0, k: 1, offs: [0, 0, 0, 0], W: 0, mem: null,
   /** Screen x of layer `i`'s layer-space x. */
   x(i, lx) {
@@ -54,12 +58,13 @@ function build(scene, id, rw, rh) {
   const hz0 = Math.round(rh * 0.46);
   // Layers are painted at most ~1100 px wide per screen width: big tablets get a softer (and
   // far lighter) backdrop, which reads as atmosphere anyway.
-  const k = Math.min(1, 1100 / Math.max(rw, rh * 0.9));
+  const T = tier();
+  const k = Math.min(1, 1100 / Math.max(rw, rh * 0.9)) * Math.min(1, T.scale) || 0.5;
   // The tile is at least 1.5 screens wide (parallax room) and wide enough for a scene's set
   // pieces at this horizon height, so tall portrait screens scroll through the town instead
   // of squashing it.
   const out = scene.build({ rw, rh, hz0, k, W: Math.ceil(Math.max(rw * 1.5, hz0 * 2.9) * k), pad: Math.round(rh * 0.3) });
-  out.id = id; out.rw = rw; out.rh = rh; out.k = k; out.hz0 = hz0;
+  out.id = id; out.rw = rw; out.rh = rh; out.k = k; out.hz0 = hz0; out.q = getQuality();
   out.mem = scene.memory ? scene.memory() : {};
   out.ads = (scene.ads || []).map(adSprite);
   return out;
@@ -97,7 +102,9 @@ export function draw(ctx, rw, rh, hz, era, s) {
   const id = era.id;
   const scene = scenes[id];
   if (!scene) { load(id); return false; }
-  if (!built || built.id !== id || built.rw !== rw || built.rh !== rh) built = build(scene, id, rw, rh);
+  const q = getQuality();
+  if (!built || built.id !== id || built.rw !== rw || built.rh !== rh || built.q !== q) built = build(scene, id, rw, rh);
+  const T = TIERS[q];
 
   // Scroll with the road's curvature (classic pseudo-3D parallax) plus a little steer drift.
   if (lastPos !== null) {
@@ -108,7 +115,7 @@ export function draw(ctx, rw, rh, hz, era, s) {
 
   const W = built.layers.length ? built.layers[0].c.width / built.k : rw;
   F.era = id; F.t = s.t; F.raceTime = s.raceTime; F.speed = s.speed; F.lap = s.lap; F.laps = s.laps;
-  F.warp = s.warp; F.reduced = s.reduced; F.rw = rw; F.rh = rh; F.hz = hz; F.k = built.k; F.W = W; F.mem = built.mem;
+  F.warp = s.warp; F.reduced = s.reduced; F.detail = T.detail; F.weather = T.weather; F.rw = rw; F.rh = rh; F.hz = hz; F.k = built.k; F.W = W; F.mem = built.mem;
 
   // Sky + ground plate (static; slides with the horizon when the road pitches).
   const sky = built.sky;
@@ -117,7 +124,8 @@ export function draw(ctx, rw, rh, hz, era, s) {
   if (scene.behind) scene.behind(ctx, F, built);
 
   const hzL = built.hzL;
-  for (let i = 0; i < built.layers.length; i++) {
+  const nL = Math.min(built.layers.length, T.layers);
+  for (let i = 0; i < nL; i++) {
     const L = built.layers[i];
     // `focus` (layer px on the mid layer) starts the scene centred on its landmark.
     const base = built.focus != null ? (built.focus / built.k - rw / 2) * (L.f / built.layers[1].f) : 0;
@@ -138,12 +146,12 @@ export function draw(ctx, rw, rh, hz, era, s) {
 export function weather(ctx, rw, rh) {
   if (!built) return;
   const scene = scenes[built.id];
-  if (scene && scene.front && F.era === built.id) scene.front(ctx, F, built);
+  if (scene && scene.front && F.era === built.id && F.weather) scene.front(ctx, F, built);
 }
 
 /** The current scene's egg flags (for tests via ?debug). */
 export function debug() {
-  return built ? { id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes) } : null;
+  return built ? { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes) } : null;
 }
 
 /** A new race: easter eggs can fire again and the parallax restarts. */

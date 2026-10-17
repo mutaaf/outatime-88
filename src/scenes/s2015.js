@@ -3,11 +3,12 @@
 // the HOVR-BORD CO. shop, self-tying AUTO-LACE KICKS, and a weather service so exact the
 // forecast board counts down to the second the rain stops.
 import { rng, plate, strip, building, sign, haze, clockTower, lamp, reflect, sprite, rainField, drawRain, blink, unitOf } from './kit.js';
+import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, rainForecast, EGGS } from './eggs.js';
 
 const C = {
-  sky: ['#020617', '#040c24', '#082c52', [0.85, '#0e4f7a'], '#5fb4c9'],
-  ground: ['#0d2236', '#081726', '#040b14'],
+  sky: ERA_PALETTES[2015].sky,
+  ground: ERA_PALETTES[2015].ground,
 };
 const LANES = 3, PER_LANE = 4;
 
@@ -105,7 +106,7 @@ function anim(ctx, F, B) {
   const hw = B.hover.width / k, hh = B.hover.height / k;
   for (let l = 0; l < LANES; l++) {
     const y = F.hz - (16 + l * 9) * u, dir = l % 2 ? -1 : 1, v = 0.05 + l * 0.02;
-    for (let i = 0; i < PER_LANE; i++) {
+    for (let i = 0, n = Math.ceil(PER_LANE * F.detail); i < n; i++) {
       let p = (F.t * v * (F.reduced ? 0.5 : 1) + i / PER_LANE + l * 0.13) % 1;
       if (dir < 0) p = 1 - p;
       ctx.drawImage(B.hover, p * (F.rw + hw * 2) - hw, y + Math.sin(F.t * 2 + i) * 0.4 * u, hw, hh);
@@ -130,7 +131,7 @@ function anim(ctx, F, B) {
 
 function front(ctx, F, B) {
   if (B.flags[EGGS.RAIN_STOPS]) return;
-  drawRain(ctx, B.rain, F.rw, F.rh, F.reduced ? F.t * 0.3 : F.t, '#bae6fd', 1.4, 0.35);
+  drawRain(ctx, B.rain, F.rw, F.rh, F.reduced ? F.t * 0.3 : F.t, '#bae6fd', 1.4, 0.35, F.detail);
 }
 
 const ADS = [

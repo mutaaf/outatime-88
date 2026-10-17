@@ -3,11 +3,12 @@
 // the moon on the final lap, ARCADE 88 with a maze-chaser cabinet glow, BLOCKBUSTED video, the
 // VIPER KAN karate dojo, and one house whose string lights flicker in sequence.
 import { rng, plate, strip, building, sign, haze, ridge, stars, pine, lamp, parkedCar, sprite, blink, unitOf } from './kit.js';
+import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, EGGS } from './eggs.js';
 
 const C = {
-  sky: ['#05031a', '#0b071e', '#1c0f3a', [0.9, '#2b1342'], '#4a1d4f'],
-  ground: ['#121a29', '#0c121e', '#070a12'],
+  sky: ERA_PALETTES[1985].sky,
+  ground: ERA_PALETTES[1985].ground,
 };
 
 function build(o) {

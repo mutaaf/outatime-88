@@ -3,11 +3,12 @@
 // tower" flyer, a paranormal fire company with its own ghost-in-a-jar emblem, the B-movie
 // double bill at the BIJOU, and a giant marshmallow parade balloon looming on the final lap.
 import { rng, plate, strip, building, sign, haze, ridge, stars, clockTower, palm, lamp, parkedCar, reflect, boltSprite, sprite, blink, rainField, drawRain, unitOf } from './kit.js';
+import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, EGGS } from './eggs.js';
 
 const C = {
-  sky: ['#04030c', '#100826', '#2d114d', [0.86, '#7c1d54'], '#ff6a2b'],
-  ground: ['#1a0d2c', '#0b0719', '#05040d'],
+  sky: ERA_PALETTES[2026].sky,
+  ground: ERA_PALETTES[2026].ground,
   far: '#1a0b33', farLit: 'rgba(255,190,120,0.55)',
   mid: '#120722', midLit: 'rgba(255,214,140,0.85)',
   near: '#07040f',
@@ -135,7 +136,7 @@ function anim(ctx, F, B) {
     }
   }
   // searchlights over the premiere
-  if (!F.reduced) {
+  if (!F.reduced && F.detail >= 0.5) {
     const bx = F.x(1, mq ? mq.x : 0);
     ctx.fillStyle = 'rgba(200,220,255,0.07)';
     for (let i = 0; i < 2; i++) {
@@ -154,7 +155,7 @@ function anim(ctx, F, B) {
 }
 
 function front(ctx, F, B) {
-  drawRain(ctx, B.rain, F.rw, F.rh, F.reduced ? F.t * 0.3 : F.t, '#c7d2fe', 1, 0.28);
+  drawRain(ctx, B.rain, F.rw, F.rh, F.reduced ? F.t * 0.3 : F.t, '#c7d2fe', 1, 0.28, F.detail);
 }
 
 const ADS = [

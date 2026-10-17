@@ -3,11 +3,12 @@
 // smoke turns to fireworks when you hit 88 mph, circling buzzards, a tumbleweed, and a phone
 // booth that blinks in from the future on the final lap.
 import { rng, plate, strip, building, sign, haze, ridge, cactus, sprite, rainField, unitOf } from './kit.js';
+import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, EGGS } from './eggs.js';
 
 const C = {
-  sky: ['#2a0c05', '#5a1d0b', '#8f3b19', [0.88, '#d8752c'], '#f2b84b'],
-  ground: ['#6b3416', '#4a230f', '#2e150b'],
+  sky: ERA_PALETTES[1885].sky,
+  ground: ERA_PALETTES[1885].ground,
 };
 const PUFFS = 10;
 
@@ -143,7 +144,7 @@ function anim(ctx, F, B) {
   ctx.drawImage(B.loco, x0, ty - lh, lw, lh);
   // smoke: a ring of puffs rising from the stack; at 88 mph they burn in colours
   const presto = B.flags[EGGS.PRESTO];
-  for (let i = 0; i < PUFFS; i++) {
+  for (let i = 0, n = Math.ceil(PUFFS * F.detail); i < n; i++) {
     const age = ((F.t * 0.9 + i / PUFFS) % 1);
     const px = x0 + lw * 0.24 - age * 18 * u, py = ty - lh - age * 14 * u, pr = (1 + age * 3) * u;
     ctx.globalAlpha = (1 - age) * (presto ? 0.95 : 0.5);
@@ -164,7 +165,7 @@ function anim(ctx, F, B) {
 
 function front(ctx, F, B) {
   // blowing dust, low and slow
-  const d = B.dust, n = d.length / 3;
+  const d = B.dust, n = Math.floor((d.length / 3) * F.detail);
   ctx.fillStyle = 'rgba(240,190,120,0.35)';
   for (let i = 0; i < n; i++) {
     const x = ((d[i * 3] + F.t * 0.12 * d[i * 3 + 2]) % 1) * F.rw;

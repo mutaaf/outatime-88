@@ -131,7 +131,12 @@ src/data.js         Pure content tables: levels, eras, roster, upgrades, road/pa
 src/backdrop.js     Main-bundle shim for the 2D era worlds (0100): lazy-loads src/scenes/stage.js, flat fallback
 src/scenes/         Lazy: stage.js (layer cache, parallax, per-frame set pieces), s<era>.js (one scene per
                       era: build() paints layers once, anim()/front() draw live details allocation-free),
-                      kit.js (painting helpers), eggs.js (pure easter-egg triggers). Nods: docs/EASTER_EGGS.md
+                      kit.js (painting helpers), eggs.js (pure easter-egg triggers), quality.js (tiers:
+                      layers / live detail / weather / layer resolution, read ONLY via getQuality(),
+                      which defaults to 'high'; plug the capability governor in with
+                      setQualitySource(fn)). Nods: docs/EASTER_EGGS.md
+src/era-palettes.js ERA_PALETTES: sky/horizon/fog/sun/ground + weather per era — the one palette table
+                      both renderers read (lazy chunks only; never import it from main.js)
 src/garage-ui.js    Garage showroom + NEW CAR reveal (lazy chunk with car-art.js turntable and garage.css)
 src/scoring.js      Penalty rules (hits, wall scrapes) + the run log the Worker recomputes
 src/cars.js         Car ratings (same 30-point budget each), unlock rules, carParams() → the physics

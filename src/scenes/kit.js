@@ -237,12 +237,12 @@ export function rainField(n, seed) {
   for (let i = 0; i < n; i++) { d[i * 3] = r(); d[i * 3 + 1] = r(); d[i * 3 + 2] = 0.6 + r() * 0.8; }
   return d;
 }
-export function drawRain(ctx, field, rw, rh, t, color, slant, alpha) {
+export function drawRain(ctx, field, rw, rh, t, color, slant, alpha, detail = 1) {
   ctx.strokeStyle = color;
   ctx.globalAlpha = alpha;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  const n = field.length / 3;
+  const n = Math.floor((field.length / 3) * detail);
   for (let i = 0; i < n; i++) {
     const sp = field[i * 3 + 2];
     const x = ((field[i * 3] + t * 0.05 * slant) % 1) * rw;

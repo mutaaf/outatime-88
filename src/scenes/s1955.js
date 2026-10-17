@@ -4,11 +4,12 @@
 // bill GIANT ANTS ATE OHIO, a Googie diner, the NEW '55 MODELS lot, and a B-movie flying saucer
 // crossing the sky on the final lap.
 import { rng, plate, strip, building, sign, haze, ridge, clouds, clockTower, palm, lamp, parkedCar, boltSprite, sprite, unitOf } from './kit.js';
+import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, EGGS } from './eggs.js';
 
 const C = {
-  sky: ['#2e6f99', '#4f93b8', '#8fc4d6', [0.9, '#f6b7c8'], '#ffd59e'],
-  ground: ['#6fb8a3', '#3f8a78', '#24584d'],
+  sky: ERA_PALETTES[1955].sky,
+  ground: ERA_PALETTES[1955].ground,
 };
 const SPARKS = 6;
 
