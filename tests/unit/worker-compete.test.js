@@ -23,13 +23,12 @@ describe('seasons', () => {
 
 describe('payload versions', () => {
   const base = { score: 1000, distance: 100, durationMs: 9000, warps: 0 };
-  it('accept v1 as before and validate v2 breakdowns', () => {
+  it('tell v1 from penalty-scored v2 runs and keep car/class', () => {
     expect(readPayload(base)).toEqual({ pv: 1, car: '', cls: '' });
+    expect(readPayload({ ...base, earned: 1500, pen: { obstacle: [], traffic: [], wallMs: 0 }, car: 'ARC_MK88', cls: 'B' })).toEqual({ pv: 2, car: 'ARC_MK88', cls: 'B' });
     expect(readPayload({ ...base, v: 3 }).error).toMatch(/version/);
-    expect(readPayload({ ...base, v: 2, car: 'ARC_MK88', cls: 'B', breakdown: { distance: 1500, wallScrapes: -500 } })).toEqual({ pv: 2, car: 'ARC_MK88', cls: 'B' });
-    expect(readPayload({ ...base, v: 2, car: 'ARC_MK88', breakdown: { distance: 1500 } }).error).toMatch(/add up/);
-    expect(readPayload({ ...base, v: 2, breakdown: { distance: 1000 } }).error).toMatch(/car/);
-    expect(readPayload({ ...base, v: 2, car: 'X', breakdown: { 'bad key': 1000 } }).error).toMatch(/breakdown/);
+    expect(readPayload({ ...base, v: 2 }).error).toMatch(/penalty/);
+    expect(readPayload({ ...base, car: 'bad car!', cls: 'xx' })).toEqual({ pv: 1, car: '', cls: '' });
   });
 });
 
@@ -90,7 +89,7 @@ describe('competition API', () => {
 
   it('per-track and per-class boards, and your own row when you are outside the top N', async () => {
     await post('ACE', 900000, { level: 1 });
-    await post('BIF', 800000, { level: 0, v: 2, car: 'ROCKET', cls: 'A', breakdown: { distance: 800000 } });
+    await post('BIF', 800000, { level: 0, car: 'ROCKET', cls: 'A' });
     await post('CLD', 100000, { level: 0 });
     expect((await board('board=all&level=1')).entries.map((e) => e.initials)).toEqual(['ACE']);
     expect((await board('board=all&cls=A')).entries.map((e) => e.initials)).toEqual(['BIF']);

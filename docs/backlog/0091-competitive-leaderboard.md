@@ -24,7 +24,7 @@ and "exactly who to beat next" make every run count.
 - Title: one rival line, pulled at boot (no push): "🚨 ZED PASSED YOU — YOU'RE #4 NOW" since
   your last visit, else "⚔️ RIVAL DOC IS 800 AHEAD THIS WEEK". Daily streak on the daily card.
 - Worker: /standing, /hall, /ghost; boards take level/cls/around; submit response carries
-  rank movement and targets. Versioned payloads (v2 = car, class, breakdown that adds up)
+  rank movement and targets. Versioned payloads (v1 plain, v2 = 0073 penalty log), car class
   and per-class boards so a car feature can stay fair. Ghost traces stored (one per
   initials per track) and validated against the run. D1 kept small by pruning rows no
   board can show (and closing seasons into the hall of fame first).

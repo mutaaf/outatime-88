@@ -53,8 +53,8 @@ export const MIGRATIONS = [
     ],
   },
   {
-    // Competition (tickets 0051–0053): per-track boards, car classes and a payload version so
-    // new scoring rules (e.g. a per-car penalty breakdown) can be validated per version.
+    // Competition (ticket 0091): per-track boards, car classes and a payload version so
+    // scoring rules (e.g. 0073 penalties) can be told apart per run.
     v: 2,
     sql: [
       "ALTER TABLE scores ADD COLUMN car TEXT NOT NULL DEFAULT ''",

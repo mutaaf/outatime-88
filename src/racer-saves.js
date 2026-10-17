@@ -23,6 +23,9 @@ export function swapSave(store, fromPub, toPub, fresh) {
   writeAll(all);
   store.data = Object.assign(fresh(), next);
   store.save();
+  // Re-run the store's own load so every normaliser (settings, garage, career…) fills the
+  // swapped-in save before anything draws with it — the title keeps rendering until reload.
+  store.load?.();
 }
 
 export function dropSave(pub) {

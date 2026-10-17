@@ -139,7 +139,7 @@ src/qr.js           On-device QR encoder (links, invites, share cards) — no QR
 src/worker/identity.js  Identity routes: /api/me, /link, /recovery, /use, /forget
 src/worker/compete.js   Seasons, track/class/friends boards, rank movement, rivals, streaks,
                         hall of fame, ghost storage, pruning (0091); payload.js = versioned
-                        run payloads (v2: car + class + score breakdown that must add up)
+                        run payloads (v1 plain, v2 penalty-recomputed) + car class
 src/compete-ui.js   Rank card after a run, rival line on the title, podium board rows
 src/ghost-codec.js  Compact ghost traces (distance + lane at 5 Hz), shared with the Worker
 src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks

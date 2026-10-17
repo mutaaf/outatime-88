@@ -3,7 +3,7 @@
 //
 //   POST /outatime/api/run     → { token }                       start of every run
 //   POST /outatime/api/scores  { token, initials, score, distance, durationMs, warps, level, mode,
-//                                v?, car?, cls?, breakdown?, trace? }   (payload.js, ghost-codec.js)
+//                                earned?, pen?, v?, car?, cls?, trace? }  (payload.js, ghost-codec.js)
 //                              → { ok, rank: { all, daily }, boards, streak, season, ghost }
 //   GET  /outatime/api/scores?board=all|daily|week|friends&mode=ARCADE|INFINITE|DAILY&limit=10
 //                              [&level=N] [&cls=A] [&around=ABC]

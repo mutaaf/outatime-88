@@ -81,7 +81,7 @@ function build() {
     const gone = publicId();
     const next = racers().find((r) => r.pub !== gone);
     if (next) swapSave(deps.SaveStore, null, next.pub, deps.freshSaveData);
-    else { deps.SaveStore.data = deps.freshSaveData(); deps.SaveStore.save(); }
+    else { deps.SaveStore.data = deps.freshSaveData(); deps.SaveStore.save(); deps.SaveStore.load(); }
     dropSave(gone);
     await forgetDevice();
     deps.reload();
