@@ -6,7 +6,7 @@ priority: P2
 size: S
 lens: performance
 created: 2026-10-17
-pr: 41
+pr: 43
 ---
 
 ## Why
