@@ -328,6 +328,7 @@
     <nav class="title-icons w-full flex items-end justify-between" aria-label="Menu">
       <div class="flex gap-3">
         <button id="btnOpenEvents" type="button" class="title-icon" aria-label="Events"><span>🗺️</span><small>EVENTS</small></button>
+        <button id="btnOpenLeaderboard" type="button" class="title-icon" aria-label="Leaderboard"><span>🏆</span><small>RANKS</small></button>
       </div>
       <div class="flex gap-3">
         <button id="btnOpenGarageFromTitle" type="button" class="title-icon" aria-label="Garage"><span>🔧</span><small>GARAGE</small></button>
@@ -499,9 +500,39 @@
     </div>
   </div>
 
+  <!-- GLOBAL LEADERBOARD + DAILY CHALLENGE (tickets 0023, 0025). Data from /outatime/api/*. -->
+  <div id="leaderboardModal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-3" role="dialog" aria-label="Leaderboard">
+    <div class="w-full max-w-md max-h-full overflow-y-auto rounded-3xl bg-slate-900 border-2 border-cyan-400/80 shadow-[0_0_50px_rgba(0,240,255,0.25)] p-4 sm:p-5">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="font-arcade text-lg sm:text-xl font-black text-white tracking-wider">🏆 LEADERBOARD</h2>
+        <button id="btnCloseLeaderboard" type="button" aria-label="Close leaderboard" class="min-w-[44px] min-h-[44px] px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-arcade text-xs font-bold">✕</button>
+      </div>
+
+      <div id="dailyCard" class="mt-3 p-3 rounded-2xl bg-gradient-to-br from-fuchsia-950/80 to-slate-950 border border-fuchsia-400/60 text-left">
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div class="font-arcade text-[10px] font-black text-fuchsia-300 tracking-widest">📅 DAILY CHALLENGE</div>
+            <div id="dailyTitle" class="font-arcade text-xs sm:text-sm font-black text-white"></div>
+            <div id="dailyDesc" class="text-[11px] text-slate-300"></div>
+          </div>
+          <button id="btnPlayDaily" type="button" class="shrink-0 min-h-[44px] px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs font-black">▶ PLAY</button>
+        </div>
+      </div>
+
+      <div class="mt-3 grid grid-cols-3 gap-1.5" role="tablist">
+        <button type="button" class="board-tab" data-board="all" data-mode="ARCADE" role="tab">ALL-TIME</button>
+        <button type="button" class="board-tab" data-board="daily" data-mode="ARCADE" role="tab">TODAY</button>
+        <button type="button" class="board-tab" data-board="daily" data-mode="DAILY" role="tab">DAILY</button>
+      </div>
+      <ol id="boardList" class="mt-2 space-y-1 min-h-[120px]" aria-live="polite"></ol>
+      <div id="boardStatus" class="mt-1 text-center font-arcade text-[10px] text-slate-400"></div>
+      <div class="mt-2 text-center font-arcade text-[10px] text-slate-400">YOUR BEST <span id="boardYourBest" class="led-cyan font-black">0</span></div>
+    </div>
+  </div>
+
   <!-- GAME OVER / EVENT SUMMARY MODAL -->
-  <div id="gameOverModal" class="hidden fixed inset-0 z-30 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-3">
-    <div class="w-full max-w-md rounded-3xl bg-slate-900 border-2 border-orange-500 p-6 text-center shadow-2xl">
+  <div id="gameOverModal" class="hidden fixed inset-0 z-30 flex justify-center overflow-y-auto bg-slate-950/90 backdrop-blur-md p-3">
+    <div class="results-card m-auto w-full max-w-md rounded-3xl bg-slate-900 border-2 border-orange-500 p-6 text-center shadow-2xl">
       <div id="endModalBadge" class="inline-block px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400 text-orange-300 font-arcade text-xs font-bold">
         EVENT COMPLETE!
       </div>
@@ -528,15 +559,27 @@
         </div>
       </div>
 
+      <!-- Leaderboard submission (ticket 0025): initials once, then every run posts itself. -->
+      <div id="endBoardBox" class="mb-3 p-2.5 rounded-2xl bg-slate-950/80 border border-cyan-500/40">
+        <form id="initialsForm" class="hidden flex items-center justify-center gap-2" autocomplete="off">
+          <label for="initialsInput" class="font-arcade text-[10px] font-bold text-cyan-300">YOUR INITIALS</label>
+          <input id="initialsInput" name="initials" maxlength="3" inputmode="text" autocapitalize="characters" spellcheck="false"
+            class="w-20 h-11 text-center rounded-lg bg-slate-900 border-2 border-cyan-400 font-arcade text-lg font-black tracking-[0.3em] text-white uppercase" aria-label="Three-letter initials" />
+          <button id="btnSubmitScore" type="submit" class="min-h-[44px] px-3 rounded-lg hw-badge text-slate-950 font-arcade text-xs font-black">POST</button>
+        </form>
+        <div id="endRankText" class="font-arcade text-xs font-black text-cyan-200"></div>
+        <button id="btnOpenLeaderboardFromEnd" type="button" class="mt-1 font-arcade text-[10px] font-bold text-slate-300 underline underline-offset-4">🏆 VIEW LEADERBOARD</button>
+      </div>
+
       <div class="flex flex-col sm:flex-row gap-2">
         <button id="btnOpenGarageFromEnd" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-cyan-400/60 text-cyan-300 font-arcade text-xs font-bold">
-          🔧 UPGRADE FLUX COUPE
+          🔧 GARAGE
         </button>
         <button id="btnSelectLevelFromEnd" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-arcade text-xs font-bold">
           🌍 LEVELS
         </button>
         <button id="btnPlayAgain" class="flex-1 py-2.5 px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs font-black">
-          🔥 RACE AGAIN!
+          🔥 RACE AGAIN
         </button>
       </div>
     </div>
