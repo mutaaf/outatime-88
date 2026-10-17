@@ -6,7 +6,7 @@ priority: P1
 size: M
 lens: player-feel
 created: 2026-10-17
-pr: 33
+pr: 34
 ---
 
 ## Why
