@@ -1,4 +1,5 @@
 import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 // Cloudflare Web Analytics is on for the mutaafaziz.com zone and auto-injects its beacon into
@@ -28,5 +29,7 @@ export default defineConfig({
   test: {
     include: ['tests/unit/**/*.test.js'],
     environment: 'node',
+    // Durable Object classes import the Workers runtime module; unit tests get a stand-in.
+    alias: { 'cloudflare:workers': fileURLToPath(new URL('./tests/unit/fake-cf.js', import.meta.url)) },
   },
 });

@@ -477,3 +477,11 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 [data-motion="reduce"] .hud-penalty.show { animation: penalty-fade 0.9s linear both; }
 @media (prefers-reduced-motion: reduce) { .hud-penalty.show { animation: penalty-fade 0.9s linear both; } }
 @keyframes penalty-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
+/* Live races (sprint 3): secondary title CTA under PLAY. */
+.friends-cta {
+  min-height: 48px; padding: 0 22px; border-radius: 999px; border: 2px solid rgba(0, 240, 255, 0.75);
+  background: rgba(2, 6, 23, 0.72); color: #e0fbff; font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 13px; letter-spacing: 0.16em; box-shadow: 0 0 22px rgba(0, 240, 255, 0.35);
+}
+.friends-cta:hover, .friends-cta:focus-visible { background: rgba(0, 240, 255, 0.16); box-shadow: 0 0 30px rgba(0, 240, 255, 0.6); }
+@media (max-height: 430px) { .friends-cta { min-height: 44px; font-size: 11px; } }

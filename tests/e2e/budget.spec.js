@@ -19,3 +19,12 @@ test('the lazy 3D chunk stays in its own budget', () => {
   expect(view.length).toBe(1);
   expect(gz(view[0])).toBeLessThan(170);
 });
+
+test('live races are a lazy chunk in their own budget (solo players never download them)', () => {
+  const files = readdirSync(DIR);
+  const live = files.filter((f) => /^controller-.*\.js$/.test(f));
+  expect(live.length).toBe(1);
+  expect(gz(live[0])).toBeLessThan(20);
+  const main = files.find((f) => /^index-.*\.js$/.test(f));
+  expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toContain('liveRoot');
+});
