@@ -22,6 +22,7 @@ const AHEAD = 190;          // segments drawn ahead of the player
 const BEHIND = 14;
 const MAX_CARS = 14;
 const DEG = Math.PI / 180;
+const PORTRAIT_TAN = Math.tan(23 * DEG);
 
 // Camera rigs per GameState.cameraMode (LOW, CHASE, BUMPER → hood, HELI).
 const RIGS = [
@@ -490,7 +491,9 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     }
     camera.lookAt(camLook);
     const warpKick = (!s.reducedMotion && s.warpFxTimer > 0) ? (s.warpFxTimer / 0.9) * 16 : 0;
-    const fov = 60 + (feel.fov - 1) * 160 + warpKick;
+    // Portrait phones/tablets: widen the vertical FOV so the road keeps ~46° across.
+    const base = camera.aspect < 1 ? Math.min(85, Math.max(60, 2 * Math.atan(PORTRAIT_TAN / camera.aspect) / DEG)) : 60;
+    const fov = base + (feel.fov - 1) * 160 + warpKick;
     if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
     path.at(pz, 0, pose);
     sunHeading += (pose.heading - sunHeading) * Math.min(1, dt * 0.6);

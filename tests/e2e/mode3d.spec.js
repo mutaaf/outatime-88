@@ -102,3 +102,18 @@ test('3D: losing the WebGL context drops back to 2D without breaking the race', 
   expect(await page.evaluate(() => (JSON.parse(localStorage.getItem('outatime_cruisn_88_save_v2') || '{}').renderMode))).not.toBe('2d');
   expect(problems).toEqual([]);
 });
+
+test('3D: Settings has a VIEW switch that matches the title chip', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(APP + '?debug');
+  await page.locator('#btnOpenSettings').click();
+  await expect(page.locator('#setView2d')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#setView3d').click();
+  await waitFrames(page, 3);
+  await expect(page.locator('#setView3d')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#btnViewMode')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#setView2d').click();
+  await expect(page.locator('#btnViewMode')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.__OT.view().mode)).toBe('2d');
+  expect(problems).toEqual([]);
+});
