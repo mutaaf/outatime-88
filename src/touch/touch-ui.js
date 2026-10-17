@@ -156,10 +156,13 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     return { base, items: applyCustom(base, S().layouts[layoutKey(e.vw, e.vh)], e) };
   }
 
+  // Positioned with the individual `translate` property, so a pressed button's `scale` shrinks
+  // it in place (with `transform`, the scale also applied to the translation and flung the
+  // button ~10% toward the screen's top-left corner).
   function place(node, it) {
     node.style.width = `${it.d}px`;
     node.style.height = `${it.d}px`;
-    node.style.transform = `translate3d(${it.x - it.d / 2}px, ${it.y - it.d / 2}px, 0)`;
+    node.style.translate = `${it.x - it.d / 2}px ${it.y - it.d / 2}px`;
   }
 
   function relayout() {
