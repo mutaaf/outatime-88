@@ -3049,12 +3049,7 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
   const cy = Math.floor(rh * 0.87 - jumpOffset + bounce + (GameState.carJoltY || 0) + suspPx);
 
   const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-  const paintId = SaveStore.data.garage.paint[activeChar.id];
-  const paint = paintId ? LIVERY_OPTIONS.find((l) => l.id === paintId) : null;
-  const liveryObj = {
-    body: (paint || activeChar).body || '#94a3b8',
-    cabin: (paint || activeChar).cabin || '#cbd5e1'
-  };
+  const liveryObj = carPaint(activeChar);
 
   ctx.save();
   ctx.translate(cx, cy - carH * 0.5);
@@ -3265,6 +3260,13 @@ function activeCarParams() {
     GameState.carParamsFor = c.id;
   }
   return GameState.carParams;
+}
+
+/** Body/cabin colours for a car: its garage paint (ticket 0071) or the factory colours. */
+function carPaint(c) {
+  const paintId = SaveStore.data.garage.paint[c.id];
+  const paint = paintId ? LIVERY_OPTIONS.find((l) => l.id === paintId) : null;
+  return { body: (paint || c).body || '#94a3b8', cabin: (paint || c).cabin || '#cbd5e1' };
 }
 
 /** Index of the next car you own after `from` (locked cars are skipped). */
@@ -4249,9 +4251,8 @@ function collectCarsFor3D(out) {
 }
 
 function playerPaint() {
-  const livery = LIVERY_OPTIONS.find((l) => l.id === SaveStore.data.livery);
   const ch = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-  return { body: (livery && livery.body) || ch.body, underglow: SaveStore.data.underglow || ch.glow };
+  return { body: carPaint(ch).body, underglow: SaveStore.data.underglow || ch.glow };
 }
 
 function setCanvasLayering(on) {
