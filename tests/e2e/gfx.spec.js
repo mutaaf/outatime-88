@@ -82,3 +82,29 @@ test('the 2D era backdrops follow the graphics tier', async ({ page }) => {
   await gfxReady(page);
   await page.waitForFunction(() => { const b = window.__OT.backdrop(); return b && b.q === 'ultra'; }, null, { timeout: 15_000 });
 });
+
+// Every era lit in 3D, across phone and tablet shapes (screenshots attached to the report).
+const ERA_SHOTS = [
+  { w: 390, h: 844, eras: [0, 1] }, { w: 844, h: 390, eras: [2, 3] },
+  { w: 820, h: 1180, eras: [4, 5] }, { w: 1180, h: 820, eras: [0, 5] },
+];
+for (const v of ERA_SHOTS) {
+  test(`3D eras ${v.eras.join('+')} at ${v.w}x${v.h}`, async ({ page }, info) => {
+    const problems = watchPage(page);
+    await page.setViewportSize({ width: v.w, height: v.h });
+    await page.goto(`${APP}?debug&view=3d&gfx=medium`);
+    await gfxReady(page);
+    await page.waitForFunction(() => { const s = window.__OT.view().stats; return s && s.frames > 3; }, null, { timeout: 20_000 });
+    await page.locator('#btnStartRace').click();
+    await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING', null, { timeout: 15_000 });
+    for (const era of v.eras) {
+      await page.evaluate((e) => { window.__OT.GameState.eraIndex = e; }, era);
+      const f = await page.evaluate(() => window.__OT.view().stats.frames);
+      await page.waitForFunction((k) => window.__OT.view().stats.frames > k + 8, f, { timeout: 20_000 });
+      const lit = await page.evaluate(() => window.__OT.view().stats.env);
+      expect(lit).toBe(true); // MEDIUM bakes the era's environment light
+      await info.attach(`era${era}-${v.w}x${v.h}`, { body: await page.screenshot(), contentType: 'image/png' });
+    }
+    expect(problems).toEqual([]);
+  });
+}

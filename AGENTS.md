@@ -169,7 +169,8 @@ src/render3d-loader.js  Lazy entry points into the three.js chunk: loadView3D(),
 src/render3d/       The 3D view (three.js, own chunk, never imported statically):
                       path.js (pure: track segments → 3D centreline) · view.js (scene, camera, road
                       chunks, instanced props, cars, flux trails, adaptive resolution) ·
-                      meshes.js (low-poly cars/props/obstacles/sky) · preview.js (one car on a
+                      meshes.js (low-poly cars/props/obstacles/sky) · surfaces.js (procedural PBR asphalt,
+                      per-era PMREM environment from ERA_PALETTES) · preview.js (one car on a
                       turntable in any canvas — for the garage)
 src/perf/           Graphics quality (ticket 0041), render-only — the sim is identical on every tier:
                       capabilities.js (probe WebGPU/WebGL2/GPU string/cores/memory/DPR/touch/
@@ -259,7 +260,13 @@ for a quiet spell that doubles each time an upgrade proves too much (it never fl
   `gfxQ.particles` (multiply particle caps).
 - The 3D view gets `quality` in `createView3D()` and `setQuality(q)` on every change: `dpr`,
   `ahead` (segments), `cars`, `shadows` (map size, 0 = off), `softShadows`, `post`, `env`,
-  `reflections`, `maxDraws` (the e2e suite fails a tier that draws more).
+  `reflections`, `glow`, `maxDraws` (the e2e suite fails a tier that draws more).
+
+**Backend: WebGL2, not WebGPU (decided 2026-10-17).** three's WebGPURenderer ships as a separate
+`three/webgpu` build (~+120 kB gz on top of the WebGL path we must keep for Safari < 26 and
+older Android), its post-processing node system would be a second implementation of every
+effect, and the 3D view is fill-rate bound on phones, which WebGPU does not change. The probe
+records `webgpu` so the tier logic can revisit this once Safari's WebGPU is widespread.
 Never feed quality into `updateGame()`: live races, ghosts and the server's score check rely on
 every device running the same simulation.
 
