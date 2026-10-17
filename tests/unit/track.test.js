@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { track, generateNextTrackBiome, buildInitialTrack, resetTrack } from '../../src/track.js';
+import { track, generateNextTrackBiome, buildInitialTrack, resetTrack, addRoadSection, segmentAt, curvatureAt, bankAt, pitchAt, featureAt } from '../../src/track.js';
 import { GameState } from '../../src/state.js';
 import { ROAD_CFG, WORLD_LEVELS } from '../../src/data.js';
 
@@ -92,5 +92,21 @@ describe('track generation (ticket 0004)', () => {
     expect(track.generatedCount).toBe(6);
     expect(track.segments[0].p1.world.z).toBe(0);
     expect(track.segments.some(s => s.trackType === 'SPLIT_FORK' && s.forkInfo)).toBe(true);
+  });
+});
+
+describe('road contract (sprint 4)', () => {
+  it('reads curvature, bank, pitch and features per Z, neutral off the road', () => {
+    resetTrack();
+    addRoadSection(0, 10, 0, 0.8, 400, 0.2, 'STANDARD');
+    const L = ROAD_CFG.segLength;
+    expect(segmentAt(L * 3.5).index).toBe(3);
+    expect(curvatureAt(L * 3.5)).toBeCloseTo(0.8 / L);
+    expect(bankAt(L * 3.5)).toBeCloseTo(0.2);
+    expect(pitchAt(L * 3.5)).toBeCloseTo(Math.atan2(40, L));
+    expect(featureAt(L * 3.5)).toBeNull();
+    for (const z of [-1, L * 10 + 1]) {
+      expect(curvatureAt(z)).toBe(0); expect(bankAt(z)).toBe(0); expect(pitchAt(z)).toBe(0); expect(featureAt(z)).toBeNull();
+    }
   });
 });
