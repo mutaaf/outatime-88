@@ -4673,6 +4673,8 @@ function renderBlended(alpha, frameDt) {
   for (let i = 0; i < VIEW_KEYS.length; i++) GameState[VIEW_KEYS[i]] = viewHeld[VIEW_KEYS[i]];
 }
 
+const garageModalEl = document.getElementById('garageModal');
+
 function mainLoop(timestamp) {
   if (!lastFrameTime) lastFrameTime = timestamp;
   const frameSeconds = (timestamp - lastFrameTime) / 1000;
@@ -4706,8 +4708,12 @@ function mainLoop(timestamp) {
 
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
+  // The garage covers the screen (blurred, 90% opaque): unless a live race is still running
+  // under it, the road behind holds its last frame instead of re-rendering, re-blurring and
+  // fighting the garage turntable for the GPU.
+  const covered = GameState.status !== 'PLAYING' && garageModalEl && !garageModalEl.classList.contains('hidden');
   if (GameState.status === 'PLAYING') renderBlended(simClock.alpha, dt);
-  else renderFrame(dt);
+  else if (!covered) renderFrame(dt);
   if (touch) touch.render();
   rafId = requestAnimationFrame(mainLoop);
 }

@@ -86,17 +86,18 @@ test('the 2D era backdrops follow the graphics tier', async ({ page }) => {
   await page.waitForFunction(() => { const b = window.__OT.backdrop(); return b && b.q === 'ultra'; }, null, { timeout: 15_000 });
 });
 
-// Every era lit in 3D, across phone and tablet shapes (screenshots attached to the report).
+// Every era in 3D across phone and tablet shapes (screenshots attached to the report). LOW
+// keeps CI's software GPU fast; one MEDIUM case checks the era's environment light is baked.
 const ERA_SHOTS = [
-  { w: 390, h: 844, eras: [0, 1] }, { w: 844, h: 390, eras: [2, 3] },
-  { w: 820, h: 1180, eras: [4, 5] }, { w: 1180, h: 820, eras: [0, 5] },
+  { w: 390, h: 844, eras: [0, 1], tier: 'medium' }, { w: 844, h: 390, eras: [2, 3], tier: 'low' },
+  { w: 820, h: 1180, eras: [4, 5], tier: 'low' }, { w: 1180, h: 820, eras: [0, 5], tier: 'low' },
 ];
 for (const v of ERA_SHOTS) {
-  test(`3D eras ${v.eras.join('+')} at ${v.w}x${v.h}`, async ({ page }, info) => {
-    test.setTimeout(90_000); // MEDIUM's shadows + environment light are slow on CI's software GPU
+  test(`3D eras ${v.eras.join('+')} at ${v.w}x${v.h} (${v.tier})`, async ({ page }, info) => {
+    test.setTimeout(90_000);
     const problems = watchPage(page);
     await page.setViewportSize({ width: v.w, height: v.h });
-    await page.goto(`${APP}?debug&view=3d&gfx=medium`);
+    await page.goto(`${APP}?debug&view=3d&gfx=${v.tier}`);
     await gfxReady(page);
     await page.waitForFunction(() => { const s = window.__OT.view().stats; return s && s.frames > 3; }, null, { timeout: 20_000 });
     await page.locator('#btnStartRace').click();
@@ -105,8 +106,7 @@ for (const v of ERA_SHOTS) {
       await page.evaluate((e) => { window.__OT.GameState.eraIndex = e; }, era);
       const f = await page.evaluate(() => window.__OT.view().stats.frames);
       await page.waitForFunction((k) => window.__OT.view().stats.frames > k + 3, f, { timeout: 30_000 });
-      const lit = await page.evaluate(() => window.__OT.view().stats.env);
-      expect(lit).toBe(true); // MEDIUM bakes the era's environment light
+      expect(await page.evaluate(() => window.__OT.view().stats.env)).toBe(v.tier !== 'low');
       await info.attach(`era${era}-${v.w}x${v.h}`, { body: await page.screenshot(), contentType: 'image/png' });
     }
     expect(problems).toEqual([]);
@@ -125,8 +125,12 @@ test('in 3D mode the garage shows the real 3D car models, and browsing works', a
   }, null, { timeout: 15_000 });
   await page.locator('#btnGarageNext').click();
   await page.locator('#btnGarageNext').click();
-  await page.waitForTimeout(400);
-  await info.attach('garage-3d', { body: await page.locator('#garageStage').screenshot(), contentType: 'image/png' });
+  await expect(page.locator('#garageModal')).toHaveAttribute('data-view-car', /.+/);
+  // The road behind the garage stops rendering while it's open (only the turntable draws).
+  const f0 = await page.evaluate(() => window.__OT.view().stats.frames);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => window.__OT.view().stats.frames)).toBe(f0);
+  await info.attach('garage-3d', { body: await page.screenshot(), contentType: 'image/png' });
   expect(problems).toEqual([]);
 });
 
