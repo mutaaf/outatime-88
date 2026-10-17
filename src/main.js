@@ -528,6 +528,9 @@ const LiveTraffic = {
         continue;
       }
 
+      // A static obstacle you already bounced off can't hit you again on the way past
+      // (it doesn't fly away like the others, ticket 0074).
+      if (ob.isStatic && ob.hitCount > 0) continue;
       const minOZ = Math.min(ob.prevZ, ob.worldZ);
       const maxOZ = Math.max(ob.prevZ, ob.worldZ);
       if (this.checkSweptOverlapZ(minPZ, maxPZ, playerHalfL * 0.85, minOZ, maxOZ, ob.halfL * 0.85)) {
@@ -537,7 +540,9 @@ const LiveTraffic = {
         if (latDist >= minLatSep && !ob.nearMissed && ob.hitCount === 0) {
           ob.nearMissed = true;
           GameState.lessonsCleared.steer++;
-          if (latDist < minLatSep + 0.24) {
+          // A close shave is a skill move: it only pays if you steered into it (trees are
+          // solid now and stay in their lane, ticket 0074, so a car on rails mustn't farm it).
+          if (latDist < minLatSep + 0.24 && Math.abs(GameState.playerVX) > 0.05) {
             // HUMAN SKILL EDGE: Close-Shave Tree-Graze Slingshot!
             GameState.speed = Math.min(138, GameState.speed + 11);
             GameState.magnetTimer = Math.max(GameState.magnetTimer, 4.0);
@@ -597,8 +602,6 @@ const LiveTraffic = {
               const launchVX = -pushDir * (1.5 + Math.abs(leverX) * 2.5) * ob.massKg;
               const launchVY = (420 + Math.random() * 160) * ob.massKg;
               ob.applyImpulseAndTorque(launchVX, launchVY, launchVZ, leverX);
-            } else {
-              GameState.playerVX = pushDir * 1.1;
             }
 
             // 3. Compress 4-wheel suspension & pitch nose forward on impact!
