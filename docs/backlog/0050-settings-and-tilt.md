@@ -6,7 +6,7 @@ priority: P1
 size: M
 lens: accessibility
 created: 2026-10-17
-pr: 0
+pr: 24
 ---
 
 ## Why
