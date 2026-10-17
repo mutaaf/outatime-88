@@ -318,7 +318,8 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     for (const k in props) {
       const p = props[k];
       p.mesh.count = p.n;
-      p.mesh.instanceMatrix.needsUpdate = true;
+      p.mesh.visible = p.n > 0; // an empty kind costs no draw call
+      if (p.n) p.mesh.instanceMatrix.needsUpdate = true;
     }
   }
 
