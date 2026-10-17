@@ -67,3 +67,8 @@ export const SaveStore = {
     } catch (e) {}
   }
 };
+
+// A pristine save for a brand-new racer on a shared device (ticket 0090), captured before
+// load() ever runs.
+const FRESH = JSON.stringify(SaveStore.data);
+export const freshSaveData = () => JSON.parse(FRESH);

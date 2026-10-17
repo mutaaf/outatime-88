@@ -8,10 +8,20 @@ export function fakeD1() {
     async first() { return sql.prepare(text).get(...binds) ?? null; },
     async all() { return { results: sql.prepare(text).all(...binds) }; },
     async run() { const r = sql.prepare(text).run(...binds); return { meta: { changes: Number(r.changes) } }; },
+    // D1's batch returns a result (rows + meta) per statement, in order.
+    exec() {
+      const st = sql.prepare(text);
+      if (st.columns().length) return { results: st.all(...binds), meta: { changes: 0 } };
+      const r = st.run(...binds);
+      return { results: [], meta: { changes: Number(r.changes) } };
+    },
   });
   return {
     prepare: (text) => statement(text),
-    async batch(stmts) { return Promise.all(stmts.map((s) => s.run())); },
+    async batch(stmts) {
+      sql.exec('BEGIN');
+      try { const out = stmts.map((s) => s.exec()); sql.exec('COMMIT'); return out; } catch (e) { sql.exec('ROLLBACK'); throw e; }
+    },
     raw: sql,
   };
 }
