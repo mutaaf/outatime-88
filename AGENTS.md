@@ -236,6 +236,26 @@ New things the 3D view should draw: cars (incl. remote/ghost cars) go in
 `collectCarsFor3D()` in main.js; obstacles/knockables in the `obstacles` getter passed to
 `createView3D`. In 3D the 2D canvas stays on top (transparent) for screen-space FX.
 
+### URL parameters (deep links, ticket 0110)
+
+The site launcher and share links open screens with these. One-shot params are stripped with
+`history.replaceState` after use (a refresh lands on the title); invalid values are ignored.
+Nothing can bypass unlocks or start a race without a tap (audio / iOS gesture rules).
+
+| Param | Effect | Parser |
+|---|---|---|
+| `?play=friends` | opens RACE FRIENDS | `src/deeplink.js` (lazy; boot only runs a regex) |
+| `?play=quick` | opens RACE FRIENDS with QUICK RACE focused (one tap joins) | `src/deeplink.js` |
+| `?play=daily` | the title tap / Enter races today's daily | `src/deeplink.js` |
+| `?board=week\|today\|all\|track\|friends\|daily` | opens the leaderboard on that tab | `src/deeplink.js` |
+| `?level=N` | selects level N (1-based) if unlocked; locked → title note, never unlocked | `src/deeplink.js` |
+| `?garage` | opens the garage | `src/deeplink.js` |
+| `?room=CODE` | joins a live room (kept in the URL while in the room) | `src/live/controller.js` |
+| `?track=&beat=&by=` | a friend's challenge banner | `src/sharelink.js` |
+| `?view=2d\|3d` | render mode for this visit (not saved) | `src/render-mode.js` |
+| `?gfx=low\|medium\|high\|ultra` | force a graphics tier | `src/perf/gfx-boot.js` |
+| `?debug`, `?intro`, `?nosw` | test hooks only | `src/main.js` |
+
 ### Graphics tiers (ticket 0041)
 Every device gets a tier — LOW / MEDIUM / HIGH / ULTRA — from `src/perf/capabilities.js`
 (software GPU or ≤2 GB/≤2 cores → LOW; phones MEDIUM; big Apple/flagship tablets HIGH;
