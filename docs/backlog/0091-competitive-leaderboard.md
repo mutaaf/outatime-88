@@ -1,12 +1,12 @@
 ---
 id: 0091
 title: A leaderboard that makes you race again — rank movement, rivals, weekly seasons
-status: in-progress
+status: shipped
 priority: P1
 size: L
 lens: content
 created: 2026-10-17
-pr:
+pr: 35
 ---
 
 ## Why
