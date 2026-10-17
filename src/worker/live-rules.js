@@ -79,7 +79,10 @@ export function cpuProfile(seed, k) {
   const r = mulberry((seed ^ Math.imul(k + 1, 0x9E3779B1)) >>> 0);
   r();
   return {
-    v: 72 + 4.25 * k + r() * 6,      // cruise pace, mph (≈ 72–95: brackets a decent human)
+    // Cruise pace, mph: ~64–91 across the grid. Measured on production 2026-10-17: gas-only
+    // bots averaged ~55 mph and the old 72–95 field swept the podium; a kid driving cleanly
+    // (~75–85) should be fighting for the middle and the top.
+    v: 64 + 5.5 * k + r() * 5,
     tau: 2.2 + r() * 1.6,            // seconds to get up to speed
     amp: 55 + r() * 65,              // surge size in progress (so overtakes happen)
     w: 0.14 + r() * 0.12,            // surge rate, rad/s

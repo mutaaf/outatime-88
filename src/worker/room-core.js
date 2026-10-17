@@ -9,7 +9,7 @@
 //
 // Messages out: { to: 'all' | <playerId>, except?: <playerId>, msg }
 
-import { LIVE, LENGTHS, cleanConfig, cpuProfile, cpuFinishMs, cpuZ, rankResults, cleanFrame, acceptFinish } from './live-rules.js';
+import { LIVE, LENGTHS, CPU_NAMES, cleanConfig, cpuProfile, cpuFinishMs, cpuZ, rankResults, cleanFrame, acceptFinish } from './live-rules.js';
 import { cleanInitials } from './initials.js';
 
 const LOBBYISH = new Set(['LOBBY', 'RESULTS']);
@@ -167,9 +167,14 @@ export class RoomCore {
       p.slot = p.racer ? slot++ : -1;
     }
     this.cpus = [];
+    // CPU names never repeat or clash with a human's initials.
+    const taken = new Set(this.players.filter((p) => p.racer).map((p) => p.name));
     for (let k = 0; slot < LIVE.grid; k++, slot++) {
       const prof = cpuProfile(this.seed, k);
-      this.cpus.push({ slot, k, name: prof.name, car: prof.car });
+      let name = prof.name;
+      for (let i = 0; taken.has(name) && i < CPU_NAMES.length; i++) name = CPU_NAMES[(CPU_NAMES.indexOf(prof.name) + i + 1) % CPU_NAMES.length];
+      taken.add(name);
+      this.cpus.push({ slot, k, name, car: prof.car });
     }
     this.lastActive = now;
     return this.broadcast(now);

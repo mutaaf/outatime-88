@@ -29,6 +29,8 @@ export class RaceRoom extends DurableObject {
       const body = await request.json().catch(() => ({}));
       this.core = new RoomCore({ code: body.code, isPublic: !!body.public, now: Date.now(), allowTest: this.env.LIVE_TEST === '1' });
       await this.persist();
+      // A room nobody ever joins still gets wiped (the idle alarm).
+      await this.ctx.storage.setAlarm(this.core.nextWake(Date.now()));
       return new Response('ok');
     }
     if (request.headers.get('upgrade') !== 'websocket') return new Response('expected websocket', { status: 426 });
