@@ -1070,7 +1070,7 @@ function updateEraHud() {
 function updateGame(rawDt) {
   if (GameState.status !== 'PLAYING') return;
   // Grid lineup and start lights (ticket 0052): the world waits for GO.
-  if (GameState.racePhase === 'START') { updateRaceStart(rawDt); return; }
+  if (GameState.racePhase === 'START') { if (startSeq) updateRaceStart(rawDt); return; }
   updateRaceCeremony(rawDt);
 
   // Apply ZONE Bullet-Time or Takedown Slow-Mo time dilation to world while keeping player responsive
@@ -3899,7 +3899,13 @@ function startNewRace(opts) {
   // Lineup + lights (ticket 0052). ?debug skips them unless asked (?debug&intro or
   // startRace({ intro: true })) so tests can race at once.
   const ceremony = !DEBUG_MODE || (opts && opts.intro) || new URLSearchParams(location.search).has('intro');
-  beginRaceStart(lvl, { ceremony });
+  if (ceremony && !RC) { // tapped PLAY before the ceremony chunk arrived: hold on the grid for it
+    GameState.racePhase = 'START';
+    GameState.speed = 0;
+    startSeq = null;
+    const race = currentRun;
+    ceremonyReady.then(() => { if (currentRun === race && GameState.status === 'PLAYING') beginRaceStart(lvl, { ceremony: true }); });
+  } else beginRaceStart(lvl, { ceremony });
   if (!ceremony) {
     if (daily) triggerAnnouncement(`📅 DAILY: ${daily.modifier.name}`, daily.modifier.desc.toUpperCase(), 2300);
     else triggerAnnouncement(`🏁 ${lvl.name} 🏁`, `GOAL: ${lvl.goalDesc.toUpperCase()}`, 2300);
@@ -3920,7 +3926,7 @@ const lineupSeen = new Set();
 // parallel with everything else, so it is ready long before anyone reaches the grid.
 let RC = null;
 let callouts = null;
-Promise.all([import('./racecall.js'), import('./racestage.js')]).then(([call, stageMod]) => {
+const ceremonyReady = Promise.all([import('./racecall.js'), import('./racestage.js')]).then(([call, stageMod]) => {
   RC = { ...call, ...stageMod };
   callouts = RC.createCallouts({ laps: RACE_LAPS });
 }).catch(() => {});
@@ -4803,7 +4809,7 @@ function mainLoop(timestamp) {
 window.onload = () => {
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
   if (new URLSearchParams(location.search).has('debug')) window.__OT = {
-    GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, get live() { return live; }, loadLive,
+    GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),

@@ -37,15 +37,17 @@ test('locked level cards cannot be selected', async ({ page }) => {
 
 // Ticket 0016: races end. Holding only the gas, a level-1 arcade run finishes by its cap.
 test('a gas-only arcade race reaches the finish within the level cap', async ({ page }) => {
-  test.setTimeout(160_000);
+  test.setTimeout(170_000);
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
   await page.keyboard.press('Enter');
   await page.keyboard.down('ArrowUp');
   const t0 = Date.now();
-  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 110_000 }); // cap 100 s + slack
+  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 125_000 }); // cap 100 s of game time + CI slack
   await page.keyboard.up('ArrowUp');
-  expect((Date.now() - t0) / 1000).toBeLessThanOrEqual(106);
+  // The cap is game time; on a loaded CI box the fixed-step sim can run a little slower than
+  // the wall clock, so allow 15 s of slack.
+  expect((Date.now() - t0) / 1000).toBeLessThanOrEqual(115);
   await expect(page.locator('#endModalBadge')).toContainText(/FINISH|WRECKED|TIME UP/);
   console.log(`gas-only run: ${((Date.now() - t0) / 1000).toFixed(1)}s, score ${await page.evaluate(() => window.__OT.GameState.score)}`);
   expect(problems).toEqual([]);

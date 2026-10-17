@@ -4,10 +4,13 @@ import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';
 
 const gs = (page, key) => page.evaluate((k) => window.__OT.GameState[k], key);
+// The ceremony is a lazy chunk fetched at boot; a test can be faster than a player's first tap.
+const ready = (page) => page.evaluate(() => window.__OT.ready());
 
 test('the lineup calls out all six racers, you last, and a tap skips to the lights', async ({ page }) => {
   const problems = watchPage(page);
   await page.goto(`${APP}?debug&intro`);
+  await ready(page);
   await page.evaluate(() => window.__OT.startRace());
   expect(await gs(page, 'racePhase')).toBe('START');
   const names = new Set();
@@ -22,6 +25,7 @@ test('the lineup calls out all six racers, you last, and a tap skips to the ligh
   expect(await gs(page, 'raceTime')).toBe(0);
 
   await page.reload();
+  await ready(page);
   await page.evaluate(() => window.__OT.startRace());
   await expect(page.locator('#rcSkip')).toBeVisible();
   await page.locator('#rcSkip').click();
@@ -37,6 +41,7 @@ test('the lineup calls out all six racers, you last, and a tap skips to the ligh
 test('tapping boost right on green is a rocket start; too early stalls you', async ({ page }) => {
   const problems = watchPage(page);
   await page.goto(`${APP}?debug&intro`);
+  await ready(page);
   await page.evaluate(() => window.__OT.startRace());
   await page.locator('#rcSkip').click();
   await expect(page.locator('#rcLights')).toHaveAttribute('data-state', '1');
@@ -61,6 +66,7 @@ for (const vp of [{ width: 820, height: 1180 }, { width: 844, height: 390 }, { w
     const problems = watchPage(page);
     await page.setViewportSize(vp);
     await page.goto(`${APP}?debug`);
+    await ready(page);
     await page.evaluate(() => window.__OT.startRace());
     await page.waitForTimeout(400);
     await page.evaluate(() => { const g = window.__OT.GameState; g.distance = g.raceLength - 15; });
