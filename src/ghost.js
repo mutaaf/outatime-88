@@ -91,9 +91,11 @@ export function createGhostRace(doc = document) {
         node.classList.toggle('is-behind', gap < 0);
       }
     },
-    /** At the line: did you beat the ghost? { beat, by } in seconds, or null if unknown. */
+    /** At the line: did you beat the ghost? { beat, by } (by = seconds, or null when the
+     *  ghost's run never reached the line), or null if you didn't finish / no ghost. */
     verdict(myFinish) {
-      if (!ghost || ghost.finish == null || myFinish == null) return null;
+      if (!ghost || myFinish == null) return null;
+      if (ghost.finish == null) return { beat: true, by: null };
       return { beat: myFinish < ghost.finish, by: Math.abs(ghost.finish - myFinish) };
     },
   };

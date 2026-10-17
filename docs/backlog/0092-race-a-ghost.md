@@ -20,7 +20,7 @@ local version). The Worker already keeps one validated ghost per initials per tr
 - Results: "👻 RACE BIF'S GHOST" (the player just above you on this track; "RACE YOUR BEST"
   at #1) starts the same track with the ghost loaded.
 - In the race: a 👻 dot on the HUD track strip labelled with the live gap ("👻 BIF +1.2"),
-  red when you're behind; at the line, "YOU BEAT BIF'S GHOST BY 0.8s" or "…GHOST WINS".
+  red when you're behind; the results card says "YOU BEAT BIF'S GHOST BY 0.8s!" or "…GHOST WON".
 - Render-agnostic (HUD only), so it works the same in 2D and 3D.
 
 ## Acceptance criteria

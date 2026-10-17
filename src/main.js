@@ -4157,10 +4157,15 @@ function endRaceRun(customBadgeText = null) {
     // A ghost only makes sense for a finished three-lap race on a campaign track.
     currentRun.trace = currentRun.mode === 'ARCADE' && GameState.finishTime != null ? ghostRecorder.encode() : undefined;
   }
+  // The ghost verdict sits on the results card (the finish ceremony owns the announcer).
   const verdict = ghostRace.verdict(GameState.finishTime);
-  if (verdict) {
-    const by = `${verdict.by.toFixed(1)}s`;
-    triggerAnnouncement(verdict.beat ? `👻 YOU BEAT ${ghostRace.initials}'S GHOST!` : `👻 ${ghostRace.initials}'S GHOST WINS`, verdict.beat ? `BY ${by}` : `BY ${by} — RACE IT AGAIN`, 2600);
+  const ghostEl = document.getElementById('endGhostText');
+  if (ghostEl) {
+    const by = verdict && verdict.by != null ? ` BY ${verdict.by.toFixed(1)}s` : '';
+    ghostEl.textContent = !verdict ? '' : verdict.beat
+      ? `👻 YOU BEAT ${ghostRace.initials}'S GHOST${by}!`
+      : `👻 ${ghostRace.initials}'S GHOST WON${by} — RACE IT AGAIN`;
+    ghostEl.classList.toggle('hidden', !verdict);
   }
 
   renderRaceResults(customBadgeText, lvl);

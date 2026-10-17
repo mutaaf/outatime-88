@@ -141,6 +141,6 @@ test('a finished race leaves a ghost, and you can race it from the results', asy
   expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
   await page.waitForTimeout(1500);
   await page.evaluate(() => { const G = window.__OT.GameState; G.finishTime = 0.5; window.__OT.finishRun(); });
-  await expect(page.locator('#announcerMain')).toContainText('GHOST');
+  await expect(page.locator('#endGhostText')).toContainText("YOU BEAT CLD'S GHOST");
   expect(problems).toEqual([]);
 });

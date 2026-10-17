@@ -38,6 +38,9 @@ describe('ghost race', () => {
     expect(race.verdict(50)).toEqual({ beat: true, by: expect.closeTo(2, 1) });
     expect(race.verdict(55).beat).toBe(false);
     expect(race.verdict(null)).toBeNull();
+    const short = createGhostRace({ getElementById: () => null });
+    short.load(data, 99999); // a ghost that never reached this line
+    expect(short.verdict(70)).toEqual({ beat: true, by: null });
     expect(race.load({ trace: 'junk!' }, 5200)).toBe(false);
     expect(race.active).toBe(false);
   });
