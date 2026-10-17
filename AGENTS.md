@@ -50,7 +50,13 @@ Depth over breadth: polish one moment until it sings before adding three.
   database `outatime-88-leaderboard` (binding `DB`, auto-provisioned by `wrangler deploy`,
   tables self-created by the Worker). Only `/outatime/api/*` runs Worker code; everything else
   is static assets. Agents must not edit `src/worker/` or `wrangler.jsonc` (operator paths).
-- Every PR gets a Cloudflare preview URL (posted on the PR by Workers Builds).
+- Live races: `POST /outatime/api/room` (private room → code), `POST /outatime/api/quick`
+  (quick race), WebSocket `/outatime/api/room/<CODE>` → the `RaceRoom` Durable Object (one per
+  code) and `MatchIndex` (one, for quick races). Design, limits and Free-plan budget: `docs/LIVE.md`.
+- PR previews: Cloudflare does not generate version URLs for Workers that implement Durable
+  Objects, so since live races there is no per-PR preview link. CI runs the real Worker and
+  Durable Objects locally (`wrangler dev`, tests/e2e/live.spec.js) instead; verify on
+  production after merge.
 - Deploy = merge to `main`. Rollback = revert the PR (or `npx wrangler rollback` by the operator).
 
 ## 3 · Invariants (breaking any of these fails review)
@@ -62,8 +68,9 @@ Depth over breadth: polish one moment until it sings before adding three.
    assets or use `import.meta.env.BASE_URL`.
 3. **Allowed runtime hosts:** **our own origin only** — everything (code, CSS, fonts via
    `@fontsource`) is bundled, and the one API is `/outatime/api/*` on the same origin (the
-   leaderboard Worker, src/worker/). No third-party host, ever. The e2e smoke test fails on
-   any non-localhost request. No accounts and no personal data: see § Privacy model.
+   leaderboard, identity and the live-race WebSocket `/outatime/api/room/<CODE>`, all
+   src/worker/). No third-party host, ever. QR codes are drawn locally (`src/qr.js`). The e2e smoke test fails on any non-localhost request. No accounts and no
+   personal data: see § Privacy model.
    No analytics, ads, trackers, fonts or scripts from CDNs. Everything else is bundled.
 4. **Frame budget.** The render loop must hold 60fps on a mid-range laptop and stay
    playable on a recent phone. No per-frame allocations in hot paths (reuse vectors and
@@ -147,12 +154,19 @@ src/layout.js       Compact/full HUD decision + measured overlay slots (zero-ove
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/raceflow.js     Race rules: field, laps, length, rival pace, standings, gaps, finish timing
 src/hud.js          Race HUD writer (change-only DOM writes) + hudRects() for no-overlap checks
+src/live/           Live races, a lazy chunk (loaded on RACE FRIENDS or a ?room= link):
+                      controller.js (menu/lobby/countdown/results UI + race glue via hooks)
+                      net.js (room socket, reconnect, clock sync) · ghosts.js (interpolation)
+                      identity.js (seats follow the racer, 0090) · share.js · live.css
 src/settings.js     Settings rules: defaults/normalise (SaveStore.data.settings), difficulty, motion, tilt maths
 src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor()
 src/worker/         Edge Worker for /outatime/api/* only (operator-owned, frozen):
                       index.js (routing) · scores.js (run tokens, submit, boards on D1)
                       token.js (HMAC run tokens) · plausible.js (anti-cheat bounds)
                       initials.js (3-letter filter) · schema.js (self-applied D1 schema)
+                      live.js (room routes) · room.js (RaceRoom DO) · match.js (MatchIndex DO)
+                      room-core.js (pure room state machine) · live-rules.js (shared with
+                      the client: codes, lengths, CPU racers, finish order, frame limits)
 src/fonts.js        Self-hosted @fontsource imports
 src/styles.css      Tailwind layers + the game's custom CSS (LED boxes, scanlines, buttons)
 tests/unit/         Vitest: pure logic (save, input, physics, projection, data integrity)
@@ -189,7 +203,7 @@ New things the 3D view should draw: cars (incl. remote/ghost cars) go in
 | `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
 | `npm run check:fast` | Everything but e2e, for sandboxes that can't install Playwright browsers. CI still runs the full gate. |
 
-Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 60 kB gzipped (today ~45 kB; it must never import three statically), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
+Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 60 kB gzipped (today ~49 kB; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
 
 ## 6 · The agents
 

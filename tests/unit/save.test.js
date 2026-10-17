@@ -57,9 +57,9 @@ describe('SaveStore', () => {
     const { LIVERY_OPTIONS } = await import('../../src/data.js');
     const { SETTINGS_DEFAULTS } = await import('../../src/settings.js');
     SaveStore.load();
-    // new defaults: progress (0011), onboarded (0022), initials (0025), settings (0050), renderMode (0040)
+    // new defaults: progress (0011), onboarded (0022), initials (0025), settings (0050), renderMode (0040), liveName (0060)
     const { garage, career, ...rest } = SaveStore.data;
-    expect(rest).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS }, renderMode: 'auto' });
+    expect(rest).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS }, renderMode: 'auto', liveName: '' });
     // Garage + career (0071): an old save drives a starter car with zeroed counters.
     expect(garage.owned).toEqual(['FLUX_COUPE_88', 'PASS_RUNNER_86']);
     expect(garage.selected).toBe('FLUX_COUPE_88');

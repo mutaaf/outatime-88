@@ -14,5 +14,15 @@
   // No database_id on purpose: `wrangler deploy` (Workers Builds) provisions this D1 database
   // by name on first deploy and finds it by name after. The Worker creates its own tables.
   "d1_databases": [{ "binding": "DB", "database_name": "outatime-88-leaderboard" }],
+  // Live races (sprint 3): one RaceRoom per 4-letter code, one global MatchIndex for quick
+  // races. SQLite-backed classes are the kind the Workers Free plan supports. Note: Cloudflare
+  // does not generate version (PR preview) URLs for Workers that implement Durable Objects.
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "RaceRoom" },
+      { "name": "MATCH", "class_name": "MatchIndex" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RaceRoom", "MatchIndex"] }],
   "routes": [{ "pattern": "mutaafaziz.com/outatime*", "zone_name": "mutaafaziz.com" }]
 }

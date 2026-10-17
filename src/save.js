@@ -34,6 +34,9 @@ export const SaveStore = {
     onboarded: false,
     // Leaderboard (ticket 0025): the player's 3-letter initials once entered ('' = never).
     initials: '',
+    // Live races (sprint 3): the initials you race friends under ('' = suggest one). Kept apart
+    // from `initials` so joining a room never opts you into posting leaderboard scores.
+    liveName: '',
     muted: false,
     volume: 0.8,
     // Settings panel (ticket 0050); see src/settings.js for the keys and their defaults.

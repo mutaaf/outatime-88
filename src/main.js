@@ -28,6 +28,7 @@ import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload
 import { carParams, isOwned, unlockProgress, recordRace } from './cars.js';
 import { initRacer } from './racer-ui.js';
 import { setProfile } from './identity.js';
+import { LIVE } from './worker/live-rules.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -207,6 +208,8 @@ const LiveTraffic = {
       }
       field.push(r);
     }
+    // Live races (0060): friends and CPU cars from the room join the same standings.
+    for (let i = 0; i < live.ghosts.length; i++) field.push(live.ghosts[i]);
     field.push(this.playerEntry);
     this.playerEntry.progress = GameState.distance;
     this.playerEntry.finishTime = GameState.finishTime;
@@ -720,7 +723,8 @@ function applyPlayerDamage(rawDmg, reasonText) {
   burstSparks(26, 18, 1.1);
 
   if (GameState.hp <= 0) {
-    endRaceRun('WRECKED — CHASSIS HP DEPLETED!');
+    if (GameState.mode === 'LIVE') live.wrecked(); // live races never end early: you respawn
+    else endRaceRun('WRECKED — CHASSIS HP DEPLETED!');
   }
 }
 
@@ -1842,6 +1846,7 @@ function updateGame(rawDt) {
       endRaceRun('⏱️ TIME UP!');
     }
   }
+  if (GameState.mode === 'LIVE') live.update();
   if (GameState.status === 'PLAYING' && GameState.finishTime != null) finishRace();
 }
 
@@ -2005,8 +2010,8 @@ function updateLiveHud(forceHud) {
   if (rpmFill) rpmFill.style.width = `${Math.round(GameState.rpm)}%`;
   if (scoreEl) scoreEl.textContent = String(GameState.score).padStart(6, '0');
   if (timerEl) {
-    timerEl.textContent = GameState.mode === 'INFINITE' ? '∞' : `${Math.ceil(GameState.timeLeft)}`;
-    timerEl.classList.toggle('timer-urgent', GameState.mode !== 'INFINITE' && (GameState.finalStretch || GameState.timeLeft < 10));
+    timerEl.textContent = GameState.mode === 'INFINITE' ? '∞' : GameState.mode === 'LIVE' ? live.clockText() : `${Math.ceil(GameState.timeLeft)}`;
+    timerEl.classList.toggle('timer-urgent', GameState.mode === 'ARCADE' && (GameState.finalStretch || GameState.timeLeft < 10));
   }
   if (coinsEl) coinsEl.textContent = `${SaveStore.data.fluxCoins}`;
   if (posEl) posEl.textContent = `${GameState.racePosition}/${GameState.totalRacers}`;
@@ -2359,6 +2364,7 @@ function renderScene() {
       surfaceColor = isAlt ? '#f59e0b' : '#d97706';
     }
     drawPolygon(ctx, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2, surfaceColor);
+    if (live.finishZ && seg.index === Math.floor(live.finishZ / ROAD_CFG.segLength)) drawFinishLine(ctx, x1, y1, w1, x2, y2, w2);
 
     // 3. Soft Satin Specular Sheen Along Left & Right Lanes
     const sheenCol = 'rgba(255, 215, 150, 0.14)';
@@ -2699,7 +2705,7 @@ function renderScene() {
     }
 
     // Render Live Moving Street Rivals & Highway Traffic on this Segment!
-    const allMovingCars = LiveTraffic.racers.concat(LiveTraffic.traffic);
+    const allMovingCars = live.ghosts.length ? LiveTraffic.racers.concat(LiveTraffic.traffic, live.ghosts) : LiveTraffic.racers.concat(LiveTraffic.traffic);
     for (let m = 0; m < allMovingCars.length; m++) {
       const mv = allMovingCars[m];
       if (mv.takenDown) continue;
@@ -2799,8 +2805,17 @@ function renderScene() {
         ctx.fillRect(cx + cw * 0.24, roadY - ch * 0.54, cw * 0.22, ch * 0.16);
       }
 
-      // Compact Rival Tag (Only for the Hero Rivals when close!)
-      if (mv.underglow && roadW > 55) {
+      // Live racers (sprint 3) always wear their initials, so you know who you're chasing.
+      if (mv.ghostTag && roadW > 12) {
+        const tagY = roadY - ch * 1.3 - 4;
+        ctx.font = 'bold 9px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        const tw = ctx.measureText(mv.ghostTag).width + 8;
+        ctx.fillStyle = mv.cpu ? 'rgba(2, 6, 23, 0.7)' : 'rgba(255, 0, 127, 0.85)';
+        ctx.fillRect(cx - tw / 2, tagY - 9, tw, 12);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(mv.ghostTag, cx, tagY);
+      } else if (mv.underglow && roadW > 55) {
         ctx.fillStyle = mv.underglow;
         ctx.font = 'bold 9px Orbitron, sans-serif';
         ctx.textAlign = 'center';
@@ -3012,6 +3027,20 @@ function drawCarFx(ctx, rw, rh) {
 }
 
 /** Streaks rushing out of the vanishing point, only in the outer band so the road stays clear. */
+/** Live races: a checkered flag band across the road at the finish segment. */
+function drawFinishLine(ctx, x1, y1, w1, x2, y2, w2) {
+  const cols = 10;
+  for (let row = 0; row < 2; row++) {
+    const ya = y1 + (y2 - y1) * (row / 2), yb = y1 + (y2 - y1) * ((row + 1) / 2);
+    const wa = w1 + (w2 - w1) * (row / 2), wb = w1 + (w2 - w1) * ((row + 1) / 2);
+    const xa = x1 + (x2 - x1) * (row / 2), xb = x1 + (x2 - x1) * ((row + 1) / 2);
+    for (let c = 0; c < cols; c++) {
+      const u0 = -1 + (2 * c) / cols, u1 = -1 + (2 * (c + 1)) / cols;
+      drawPolygon(ctx, xa + u0 * wa, ya, xa + u1 * wa, ya, xb + u1 * wb, yb, xb + u0 * wb, yb, (c + row) % 2 ? '#0b1020' : '#f8fafc');
+    }
+  }
+}
+
 function drawSpeedLines(c, intensity) {
   GameState.fxLinesDrawn = 0;
   if (intensity <= 0) return;
@@ -3649,6 +3678,53 @@ function offerScoreSubmission() {
   if (input) { input.value = ''; if (!coarsePointer) input.focus(); }
 }
 
+function restoreSoloSettings() {
+  GameState.levelIndex = GameState.savedLevelIndex;
+  GameState.mode = GameState.savedMode || 'ARCADE';
+  if (GameState.savedPace !== undefined) GameState.paceMode = GameState.savedPace;
+  GameState.savedLevelIndex = undefined;
+  GameState.savedPace = undefined;
+}
+
+// Live races with friends (sprint 3): src/live/ owns the rooms; these are its only hooks.
+// The live code is its own chunk, fetched only when you open FRIENDS or follow an invite, so
+// solo players never download it; until then `live` is an inert stand-in.
+const LIVE_IDLE = { ghosts: [], finishZ: 0, frame() {}, update() {}, wrecked() {}, finished() {}, clockText: () => '0:00' };
+let live = LIVE_IDLE;
+let liveLoading = null;
+function loadLive() {
+  liveLoading = liveLoading || import('./live/controller.js').then((m) => { live = m.createLive(liveHooks); return live; });
+  return liveLoading;
+}
+const liveHooks = {
+  startRace: (cfg) => startNewRace({ live: cfg }),
+  announce: (main, sub, ms) => triggerAnnouncement(main, sub, ms, 3),
+  selectCar: (idx) => selectCharacterByIndex(idx),
+  unlockAudio: () => { SoundEngine.init(); },
+  beep: (n) => {
+    if (n > 0) SoundEngine.playTone(440, 'square', 0.16, 0.12);
+    else if (n === 0) SoundEngine.playTone(880, 'square', 0.4, 0.14);
+    else SoundEngine.playCheckpoint();
+  },
+  hideTitle: () => {
+    document.getElementById('titleScreen').classList.add('hidden');
+    document.getElementById('gameOverModal').classList.add('hidden');
+  },
+  leaveLive: () => {
+    if (GameState.mode === 'LIVE') {
+      if (GameState.savedLevelIndex !== undefined) restoreSoloSettings();
+      else GameState.mode = 'ARCADE';
+    }
+    GameState.status = 'TITLE';
+    GameState.racePosition = 8;
+    initTrack();
+    document.getElementById('gameOverModal').classList.add('hidden');
+    document.getElementById('titleScreen').classList.remove('hidden');
+    document.body.classList.add('on-title');
+    updateTitleChip();
+  },
+};
+
 // --- START / END / PAUSE FLOWS ---
 function startNewRace(opts) {
   SoundEngine.init();
@@ -3657,8 +3733,19 @@ function startNewRace(opts) {
   // A daily run (ticket 0023) borrows today's level and rules without touching your
   // campaign selection; any other start (button, Enter, tap) is a normal race.
   const daily = opts && opts.daily ? todaysDaily() : null;
+  const liveRace = opts && opts.live ? opts.live : null;
   GameState.daily = daily;
-  if (daily) {
+  if (liveRace) {
+    // Live race (sprint 3): the room picks the road, the seed and one shared pace.
+    if (GameState.savedLevelIndex === undefined) {
+      GameState.savedLevelIndex = GameState.levelIndex;
+      GameState.savedMode = GameState.mode;
+      GameState.savedPace = GameState.paceMode;
+    }
+    GameState.levelIndex = liveRace.level;
+    GameState.mode = 'LIVE';
+    GameState.paceMode = LIVE.pace;
+  } else if (daily) {
     if (GameState.savedLevelIndex === undefined) {
       GameState.savedLevelIndex = GameState.levelIndex;
       GameState.savedMode = GameState.mode;
@@ -3666,11 +3753,9 @@ function startNewRace(opts) {
     GameState.levelIndex = daily.levelIndex;
     GameState.mode = 'ARCADE';
   } else if (GameState.savedLevelIndex !== undefined) {
-    GameState.levelIndex = GameState.savedLevelIndex;
-    GameState.mode = GameState.savedMode || 'ARCADE';
-    GameState.savedLevelIndex = undefined;
+    restoreSoloSettings();
   }
-  trafficRand = daily ? mulberry32(daily.seed) : Math.random;
+  trafficRand = liveRace ? mulberry32(liveRace.seed) : daily ? mulberry32(daily.seed) : Math.random;
   GameState.trafficGapScale = 1;
 
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
@@ -3698,7 +3783,7 @@ function startNewRace(opts) {
   GameState.distance = 0;
   GameState.raceTime = 0;
   GameState.finishTime = null;
-  GameState.raceLength = GameState.mode === 'INFINITE' ? 0 : raceLengthFor(lvl.index);
+  GameState.raceLength = liveRace ? liveRace.length : GameState.mode === 'INFINITE' ? 0 : raceLengthFor(lvl.index);
   GameState.trackPos = 0;
   GameState.playerX = 0;
   GameState.playerVX = 0;
@@ -3725,6 +3810,11 @@ function startNewRace(opts) {
   if (branchBadge) branchBadge.textContent = lvl.name;
 
   initTrack();
+  if (liveRace) {
+    // Your rivals are the room (friends + CPU cars from src/live/), not local AI.
+    LiveTraffic.racers = [];
+    LiveTraffic.updateStandings(0, GameState.trackPos + ROAD_CFG.playerZOffset, LiveTraffic.speedToWorld());
+  }
   syncAudioUI();
   updateEraHud();
   updateContractHud();
@@ -3746,6 +3836,7 @@ function startNewRace(opts) {
   document.getElementById('leaderboardModal').classList.add('hidden');
 
   if (daily) applyDailyModifier(daily.modifier.id);
+  if (liveRace) { currentRun = null; return; } // live races don't post to the solo leaderboard
   currentRun = {
     tokenPromise: beginRun(), t0: performance.now(), level: lvl.index,
     mode: daily ? 'DAILY' : (GameState.mode === 'INFINITE' ? 'INFINITE' : 'ARCADE'),
@@ -3757,6 +3848,7 @@ function startNewRace(opts) {
 
 /** You crossed the line (ticket 0051): a bonus for where you finished, then the results. */
 function finishRace() {
+  if (GameState.mode === 'LIVE') { live.finished(); return; } // the room ranks live races
   let ahead = 0;
   for (const r of LiveTraffic.racers) if (r.finishTime != null && r.finishTime < GameState.finishTime) ahead++;
   GameState.racePosition = ahead + 1;
@@ -4130,6 +4222,7 @@ function bindAllControls() {
   });
 
   document.getElementById('btnStartRace').addEventListener('click', () => startNewRace());
+  document.getElementById('btnOpenLive').addEventListener('click', () => loadLive().then((l) => l.openMenu()));
   document.getElementById('btnPlayAgain').addEventListener('click', () => startNewRace(GameState.daily ? { daily: true } : undefined));
 
   window.addEventListener('resize', () => {
@@ -4215,7 +4308,7 @@ function cycleVisualMode() {
 }
 
 function openGarageModal(focusCarId) {
-  if (GameState.status === 'PLAYING') GameState.status = 'PAUSED';
+  if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE') GameState.status = 'PAUSED'; // live races can't pause
   const focus = typeof focusCarId === 'string' ? focusCarId : null;
   // Show it once its chunk (and styles) are in, so it never flashes unstyled.
   loadGarageUI().then((ui) => {
@@ -4249,6 +4342,7 @@ function collectCarsFor3D(out) {
   let n = 0;
   for (let i = 0; i < LiveTraffic.racers.length; i++) out[n++] = LiveTraffic.racers[i];
   for (let i = 0; i < LiveTraffic.traffic.length; i++) out[n++] = LiveTraffic.traffic[i];
+  for (let i = 0; i < live.ghosts.length; i++) out[n++] = live.ghosts[i]; // live races: friends + CPU
   out.length = n;
   return n;
 }
@@ -4423,7 +4517,9 @@ function mainLoop(timestamp) {
     updateLiveHud();
   } else {
     simClock.reset();
-    if (GameState.status !== 'PAUSED') { // attract mode rolls the road; a pause freezes it
+    // Live race countdown (GRID): on the line, road still. A pause freezes it too; otherwise
+    // attract mode rolls the road.
+    if (GameState.status !== 'PAUSED' && GameState.status !== 'GRID') {
       GameState.trackPos += 1350 * dt;
       const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
       if (track.segments.length - currentSegIdx < ROAD_CFG.drawDistance + 60) {
@@ -4432,6 +4528,7 @@ function mainLoop(timestamp) {
     }
     syncContactZ();
   }
+  live.frame(); // live races: countdown → green light, friends' cars, our state out
 
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
@@ -4443,7 +4540,7 @@ function mainLoop(timestamp) {
 window.onload = () => {
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
   if (new URLSearchParams(location.search).has('debug')) window.__OT = {
-    GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace,
+    GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
@@ -4474,6 +4571,9 @@ window.onload = () => {
   updateEraHud();
   updateContractHud();
   updateLiveHud();
+  // A ?room=CODE invite drops you straight into that room's lobby (no title, no menus).
+  const roomParam = new URLSearchParams(location.search).get('room');
+  if (roomParam) loadLive().then((l) => l.join(roomParam));
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(mainLoop);
   // Zero-login identity (ticket 0090): silent, never blocks the title.

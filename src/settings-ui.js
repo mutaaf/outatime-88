@@ -168,7 +168,8 @@ export function refreshSettingsPanel() { syncPanel(); }
 // --- Panel --------------------------------------------------------------------------------
 
 export function openSettings() {
-  resumeOnClose = GameState.status === 'PLAYING';
+  // A live race (sprint 3) can't pause — friends are still driving — so settings open over it.
+  resumeOnClose = GameState.status === 'PLAYING' && GameState.mode !== 'LIVE';
   if (resumeOnClose) GameState.status = 'PAUSED';
   syncPanel();
   setTiltStatus(tiltStatus);
