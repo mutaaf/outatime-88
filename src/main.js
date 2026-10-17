@@ -1,6 +1,7 @@
 import './fonts.js';
 import './styles.css';
-import { WORLD_LEVELS, ERAS, eraBackdrop, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
+import { drawBackdrop, drawRoadsideAd, drawWeather, preloadBackdrops, resetBackdrop, backdropDebug } from './backdrop.js';
+import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks } from './audio.js';
@@ -2178,9 +2179,11 @@ function syncContactZ() {
   if (z !== null) GameState.visualPlayerZ = z;
 }
 
+// The backdrop's per-frame facts, reused every frame (no allocation in the render loop).
+const backdropFrame = { curve: 0, trackPos: 0, playerX: 0, t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false };
+
 function renderScene() {
   const eraCfg = getActiveEraRenderConfig();
-  const bd = eraBackdrop(eraCfg);
   const atomicProps = eraCfg.props === 'atomic';
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
   const scale = eraCfg.pixelScale || 1.0;
@@ -2201,111 +2204,20 @@ function renderScene() {
     ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
   }
 
-  // 1. Cinematic Multi-Stop Twilight Sunset Sky & Atmospheric Bloom
+  // 1. The era's world: sky, parallax layers and live set pieces (src/backdrop.js, ticket 0100).
   const horizonY = Math.floor(rh * 0.46 - GameState.loopPitchOffset * (rh / 420));
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, Math.max(10, horizonY));
-  skyGrad.addColorStop(0, bd.sky[0]);
-  skyGrad.addColorStop(0.38, bd.sky[1]);
-  skyGrad.addColorStop(0.72, bd.sky[2]);
-  skyGrad.addColorStop(0.92, bd.sky[3]);
-  skyGrad.addColorStop(1, bd.sky[4]);
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, rw, rh);
-
-  // Soft Twinkling Starfield in Upper Sky
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-  for (let s = 0; bd.stars && s < 28; s++) {
-    const sx = ((s * 103 + Math.floor(GameState.playerX * 18)) % rw + rw) % rw;
-    const sy = (s * 31) % Math.max(20, Math.floor(horizonY * 0.65));
-    ctx.fillRect(sx, sy, (s % 3 === 0) ? 2 : 1.5, (s % 3 === 0) ? 2 : 1.5);
-  }
-
-  // Synthwave Setting Sun with Soft Radial Atmospheric Halo
-  const sunX = rw * 0.5 - (GameState.playerX * rw * 0.08);
-  const sunY = horizonY - rh * 0.08;
-  const sunR = Math.min(rw, rh) * 0.14;
-
-  const haloGrad = ctx.createRadialGradient(sunX, sunY, sunR * 0.2, sunX, sunY, sunR * 2.2);
-  haloGrad.addColorStop(0, bd.halo[0]);
-  haloGrad.addColorStop(0.5, bd.halo[1]);
-  haloGrad.addColorStop(1, bd.halo[2]);
-  ctx.fillStyle = haloGrad;
-  ctx.beginPath();
-  ctx.arc(sunX, sunY, sunR * 2.2, 0, Math.PI * 2);
-  ctx.fill();
-
-  const sunGrad = ctx.createLinearGradient(sunX, sunY - sunR, sunX, sunY + sunR);
-  sunGrad.addColorStop(0, bd.sun[0]);
-  sunGrad.addColorStop(0.45, bd.sun[1]);
-  sunGrad.addColorStop(1, bd.sun[2]);
-  ctx.fillStyle = sunGrad;
-  ctx.beginPath();
-  ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Parallax Sierra Mountain Range Silhouettes on Horizon
-  ctx.fillStyle = bd.hills;
-  ctx.beginPath();
-  ctx.moveTo(0, horizonY);
-  for (let mx = 0; mx <= rw; mx += 36) {
-    const mh = 18 + Math.sin(mx * 0.018 + 1.2) * 14 + Math.cos(mx * 0.045) * 8;
-    ctx.lineTo(mx, horizonY - mh);
-  }
-  ctx.lineTo(rw, horizonY);
-  ctx.closePath();
-  ctx.fill();
-
-  // Clock Hollow 2026 Distant City Lights & Iconic Courthouse Clock Tower Silhouette
-  ctx.fillStyle = bd.city;
-  const bldgStep = Math.max(16, Math.floor(rw / 24));
-  for (let bx = 0; bx < rw; bx += bldgStep) {
-    const bh = ((bx * 19) % 18) + 6;
-    ctx.fillRect(bx, horizonY - bh, bldgStep - 3, bh);
-  }
-
-  const ctX = Math.floor(sunX);
-  const ctW = Math.max(48, Math.floor(rw * 0.10));
-  const ctH = Math.max(32, Math.floor(rh * 0.10));
-  if (bd.landmark === 'driveIn') {
-    // 1955: a drive-in movie screen on two legs, a marquee bar beneath it.
-    const sw = ctW * 1.7;
-    const sh = ctH * 0.8;
-    ctx.fillStyle = bd.tower;
-    ctx.fillRect(ctX - sw * 0.42, horizonY - ctH * 0.35, Math.max(2, sw * 0.05), ctH * 0.35);
-    ctx.fillRect(ctX + sw * 0.37, horizonY - ctH * 0.35, Math.max(2, sw * 0.05), ctH * 0.35);
-    ctx.fillRect(ctX - sw * 0.5, horizonY - ctH * 0.35 - sh, sw, sh);
-    ctx.fillStyle = bd.towerTrim;
-    ctx.fillRect(ctX - sw * 0.46, horizonY - ctH * 0.35 - sh * 0.92, sw * 0.92, sh * 0.84);
-    ctx.fillStyle = bd.clock;
-    ctx.fillRect(ctX - sw * 0.2, horizonY - ctH * 0.3, sw * 0.4, Math.max(2, ctH * 0.12));
-  } else {
-    ctx.fillStyle = bd.tower;
-    ctx.fillRect(ctX - ctW * 0.5, horizonY - ctH, ctW, ctH);
-    ctx.fillStyle = bd.towerTrim;
-    for (let col = -1.5; col <= 1.5; col += 1) {
-      ctx.fillRect(ctX + col * (ctW * 0.22) - 1.5, horizonY - ctH * 0.72, 3, ctH * 0.72);
-    }
-    ctx.beginPath();
-    ctx.moveTo(ctX - ctW * 0.54, horizonY - ctH * 0.72);
-    ctx.lineTo(ctX, horizonY - ctH * 1.15);
-    ctx.lineTo(ctX + ctW * 0.54, horizonY - ctH * 0.72);
-    ctx.closePath();
-    ctx.fill();
-    const clkR = Math.max(4, ctW * 0.10);
-    const clkY = horizonY - ctH * 0.90;
-    ctx.fillStyle = bd.clock;
-    ctx.beginPath();
-    ctx.arc(ctX, clkY, clkR, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Deep Twilight Ground Plane with Subtle Horizon Glow
-  const gndGrad = ctx.createLinearGradient(0, horizonY, 0, rh);
-  gndGrad.addColorStop(0, bd.ground[0]);
-  gndGrad.addColorStop(0.25, bd.ground[1]);
-  gndGrad.addColorStop(1, bd.ground[2]);
-  ctx.fillStyle = gndGrad;
-  ctx.fillRect(0, horizonY, rw, rh - horizonY);
+  const bgSeg = track.segments[Math.floor(GameState.trackPos / ROAD_CFG.segLength)];
+  backdropFrame.curve = bgSeg ? bgSeg.curve : 0;
+  backdropFrame.trackPos = GameState.trackPos;
+  backdropFrame.playerX = GameState.playerX;
+  backdropFrame.t = fxClock;
+  backdropFrame.raceTime = GameState.raceTime || 0;
+  backdropFrame.speed = GameState.status === 'PLAYING' ? GameState.speed : 0;
+  backdropFrame.lap = GameState.lapSplits.length + 1;
+  backdropFrame.laps = RACE_LAPS;
+  backdropFrame.warp = GameState.warpFxTimer > 0 ? 0.9 - GameState.warpFxTimer : -1;
+  backdropFrame.reduced = GameState.reducedMotion;
+  drawBackdrop(ctx, rw, rh, horizonY, eraCfg, backdropFrame);
 
   // 2. Project & Draw Seamless 3D Orange Toy-Track Segments (Zero Distracting Blue Bars!)
   const baseIndex = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
@@ -2614,8 +2526,11 @@ function renderScene() {
         ctx.fillRect(itemX - 2, roadY - postH, 4, postH);
         ctx.fillStyle = item.type === 'SIGN_88' ? '#ea580c' : '#1e1b4b';
         ctx.fillRect(itemX - itemW * 0.7, roadY - postH, itemW * 1.4, itemH * 0.8);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(itemX - itemW * 0.5, roadY - postH + itemH * 0.2, itemW, itemH * 0.35);
+        // the era's own ads on the boards (ticket 0100); plain white until its scene loads
+        if (!drawRoadsideAd(ctx, itemX - itemW * 0.62, roadY - postH + itemH * 0.08, itemW * 1.24, itemH * 0.64, seg.index)) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(itemX - itemW * 0.5, roadY - postH + itemH * 0.2, itemW, itemH * 0.35);
+        }
       } else if (item.type === 'PALM_TREE' || item.type === 'ARCH_HW') {
         const trunkH = itemH * 2.1;
         ctx.fillStyle = '#78350f';
@@ -2965,6 +2880,7 @@ function renderScene() {
   }
 
   drawCarFx(ctx, rw, rh);
+  drawWeather(ctx, rw, rh);
 
   // 5.5 Draw LUMEN Curved Helmet Visor Telemetry Brackets on Screen Edges
   if (GameState.jarvisArEnabled) {
@@ -3866,6 +3782,8 @@ function startNewRace(opts) {
   const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   GameState.status = 'PLAYING';
   GameState.eraIndex = lvl.startEra;
+  resetBackdrop();
+  preloadBackdrops(ERAS[lvl.startEra].id);
   GameState.maxHp = activeCarParams().maxHp;
   GameState.hp = GameState.maxHp;
   GameState.invulnTimer = 0;
@@ -4857,12 +4775,14 @@ function registerServiceWorker() {
 
 window.onload = () => {
   registerServiceWorker();
+  preloadBackdrops(ERAS[GameState.eraIndex].id);
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
   if (new URLSearchParams(location.search).has('debug')) window.__OT = {
     GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
     traffic: () => LiveTraffic,
+    backdrop: backdropDebug,
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
     setView: (m) => setRenderMode(m, { persist: false }),
     input: InputState,

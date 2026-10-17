@@ -128,6 +128,15 @@ src/main.js         Entry + the remaining glue (~3.9k lines, being carved by the
                       renderScene() + drawDeLorean() (2D-canvas pseudo-3D renderer)
                       UI (roster, level select, garage) · bindAllControls() · mainLoop()
 src/data.js         Pure content tables: levels, eras, roster, upgrades, road/pace/camera config
+src/backdrop.js     Main-bundle shim for the 2D era worlds (0100): lazy-loads src/scenes/stage.js, flat fallback
+src/scenes/         Lazy: stage.js (layer cache, parallax, per-frame set pieces), s<era>.js (one scene per
+                      era: build() paints layers once, anim()/front() draw live details allocation-free),
+                      kit.js (painting helpers), eggs.js (pure easter-egg triggers), quality.js (tiers:
+                      layers / live detail / weather / layer resolution, read ONLY via getQuality(),
+                      which defaults to 'high'; plug the capability governor in with
+                      setQualitySource(fn)). Nods: docs/EASTER_EGGS.md
+src/era-palettes.js ERA_PALETTES: sky/horizon/fog/sun/ground + weather per era — the one palette table
+                      both renderers read (lazy chunks only; never import it from main.js)
 src/garage-ui.js    Garage showroom + NEW CAR reveal (lazy chunk with car-art.js turntable and garage.css)
 src/scoring.js      Penalty rules (hits, wall scrapes) + the run log the Worker recomputes
 src/cars.js         Car ratings (same 30-point budget each), unlock rules, carParams() → the physics
@@ -233,7 +242,7 @@ New things the 3D view should draw: cars (incl. remote/ghost cars) go in
 | `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
 | `npm run check:fast` | Everything but e2e, for sandboxes that can't install Playwright browsers. CI still runs the full gate. |
 
-Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 60 kB gzipped (today ~56 kB; keep anything not needed on the first frame lazy — the touch kit (`bridge-*.js`, ~11 kB) loads only on touch devices and its Controls panel/editor (`panel-*.js`) on first open; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
+Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 60 kB gzipped (today ~59 kB; keep anything not needed on the first frame lazy — the touch kit (`bridge-*.js`, ~11 kB) loads only on touch devices and its Controls panel/editor (`panel-*.js`) on first open; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), era backdrops (`stage-*.js` + six `s<era>-*.js` + their shared kit chunk) ≤ 25 kB gzipped in total, each scene < 5 kB (today ~17 kB total), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
 
 ## 6 · The agents
 

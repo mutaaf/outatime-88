@@ -174,42 +174,12 @@ export const ERAS = [
     railColor: '#f2f2e9',
     wetReflection: false,
     sunStyle: 'atomic-sun',
-    props: 'atomic',
-    backdrop: {
-      sky: ['#2e6f99', '#4f93b8', '#8fc4d6', '#f6b7c8', '#ffd59e'],
-      stars: false,
-      halo: ['rgba(255, 240, 200, 0.55)', 'rgba(255, 183, 200, 0.22)', 'rgba(255, 183, 200, 0)'],
-      sun: ['#fffbea', '#ffe8a3', '#ffb3c7'],
-      hills: '#5f9e8f',
-      city: '#3f6f73',
-      tower: '#2f5a5e',
-      towerTrim: '#f2f2e9',
-      clock: '#ff7aa8',
-      landmark: 'driveIn',
-      ground: ['#6fb8a3', '#3f8a78', '#24584d']
-    }
+    props: 'atomic'
   }
 ];
 
-// The 2D renderer's sky, sun, horizon and ground. An era may bring its own `backdrop`;
-// the neon-night default is what every era drew before ticket 0008.
-export const DEFAULT_BACKDROP = {
-  sky: ['#04030c', '#100826', '#2d114d', '#7c1d54', '#ff6a2b'],
-  stars: true,
-  halo: ['rgba(255, 160, 60, 0.45)', 'rgba(255, 60, 120, 0.18)', 'rgba(255, 60, 120, 0)'],
-  sun: ['#fff3b0', '#ff7b00', '#ff006e'],
-  hills: '#16092b',
-  city: '#0b0518',
-  tower: '#1e1026',
-  towerTrim: '#cbd5e1',
-  clock: '#fef08a',
-  landmark: 'clockTower',
-  ground: ['#190b2e', '#0b0719', '#05040d']
-};
-
-export function eraBackdrop(era) {
-  return (era && era.backdrop) || DEFAULT_BACKDROP;
-}
+// Each era's 2D world (sky, parallax, set pieces) is a lazy scene chunk: src/scenes/s<id>.js
+// (ticket 0100), loaded through src/backdrop.js.
 
 // --- DUB CUSTOMIZATION OPTIONS ---
 export const UNDERGLOW_OPTIONS = [
