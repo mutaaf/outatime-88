@@ -35,3 +35,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0092 · Race a ghost: after a race, take on the best run of the player just above you on that track — their ghost rides your HUD strip with the live gap, and the game calls it at the line
 2026-10-17 · 0008 · New era: warp past 2088 and land in 1955 on the Atomic Diner Strip — a pastel daytime sky, starburst lamps, chrome diner signs, lollipop trees and a jukebox doo-wop score.
 2026-10-17 · 0075 · The game now loads instantly on repeat visits and solo races work offline (a small service worker caches the game files; scores, profiles and live rooms always go to the network)
+2026-10-17 · — · Tablet & phone sweep: title icons fit on phones held sideways, the tip's GOT IT is thumb-sized, and rival name tags no longer sit over the title

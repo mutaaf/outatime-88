@@ -113,3 +113,22 @@ for (const vp of [{ width: 844, height: 390 }, { width: 360, height: 640 }, { wi
     expect(problems).toEqual([]);
   });
 }
+
+// Tablet/phone sweep (2026-10-17): the title's corner icons keep their whole tap target on
+// screen on short landscape phones and every tablet shape, and the coach's GOT IT is thumb-sized.
+for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { width: 1024, height: 768 }, { width: 820, height: 1180 }]) {
+  test(`title icons fit and are thumb-sized at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    for (const id of ['#btnOpenEvents', '#btnOpenLeaderboard', '#btnOpenGarageFromTitle', '#btnMuteStartModal', '#btnOpenSettings']) {
+      await expect(page.locator(id)).toBeInViewport({ ratio: 1 });
+      const b = await page.locator(id).boundingBox();
+      expect(Math.min(b.width, b.height), `${id} target`).toBeGreaterThanOrEqual(44);
+    }
+    await page.evaluate(() => window.__OT.startRace());
+    const coach = page.locator('#btnDismissCoach');
+    if (await coach.isVisible()) expect((await coach.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect(problems).toEqual([]);
+  });
+}

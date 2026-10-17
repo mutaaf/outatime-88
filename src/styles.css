@@ -653,3 +653,13 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .hud-dot-ghost { --dot: #c4b5fd; z-index: 1; width: auto; height: auto; padding: 1px 6px; border-radius: 8px; border: 1px dashed #c4b5fd;
   background: rgba(76, 29, 149, 0.85); white-space: nowrap; font-size: clamp(8px, 1.2vmin, 12px); font-weight: 900; color: #ede9fe; }
 .hud-dot-ghost.is-behind { color: #fda4af; }
+/* Tablet/phone sweep (2026-10-17) */
+/* The driving coach's GOT IT is a real thumb target. */
+#btnDismissCoach { min-height: 44px; min-width: 56px; }
+/* Phones on their side: the title's bottom icons keep their whole tap target on screen. */
+@media (max-height: 430px) {
+  .title-screen .wordmark-tagline { display: none; }
+  .title-icon { gap: 0; }
+  .title-icon > small { display: none; }
+  .title-icon > span { width: 46px; height: 46px; font-size: 20px; }
+}

@@ -2863,7 +2863,7 @@ function renderScene() {
         ctx.fillRect(cx - tw / 2, tagY - 9, tw, 12);
         ctx.fillStyle = '#ffffff';
         ctx.fillText(mv.ghostTag, cx, tagY);
-      } else if (mv.underglow && roadW > 55) {
+      } else if (mv.underglow && roadW > 55 && GameState.status !== 'TITLE') { // no name tags over the title
         ctx.fillStyle = mv.underglow;
         ctx.font = 'bold 9px Orbitron, sans-serif';
         ctx.textAlign = 'center';
