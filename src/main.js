@@ -4072,7 +4072,7 @@ function bindAllControls() {
         && document.getElementById('leaderboardModal').classList.contains('hidden')
         && ['Enter', 'Space', 'NumpadEnter'].includes(e.code)) {
       e.preventDefault();
-      startNewRace();
+      startNewRace(titleStart);
       return;
     }
     if (['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(e.code)) onboarding.steer();
@@ -4240,7 +4240,7 @@ function bindAllControls() {
   document.getElementById('initialsInput').addEventListener('keydown', (e) => e.stopPropagation());
   // Tap anywhere on the title (outside its icons) to race.
   document.getElementById('titleScreen').addEventListener('click', (e) => {
-    if (!e.target.closest('button, nav, a')) startNewRace();
+    if (!e.target.closest('button, nav, a')) startNewRace(titleStart);
   });
   document.getElementById('btnOpenGarageFromEnd').addEventListener('click', () => {
     document.getElementById('gameOverModal').classList.add('hidden');
@@ -4774,11 +4774,19 @@ window.onload = () => {
   // A ?room=CODE invite drops you straight into that room's lobby (no title, no menus).
   const roomParam = new URLSearchParams(location.search).get('room');
   if (roomParam) loadLive().then((l) => l.join(roomParam));
+  // Deep links (?play= ?board= ?level= ?garage, ticket 0110): lazy, only when present.
+  else if (/[?&](play|board|level|garage)(=|&|$)/.test(location.search)) import('./deeplink.js').then((m) => m.applyDeepLink({
+    levels: WORLD_LEVELS, unlocked: () => SaveStore.data.unlockedLevel || 1, live: loadLive, board: openLeaderboard,
+    garage: openGarageModal, titleStart: (o) => { titleStart = o; },
+    pickLevel: (i) => { GameState.levelIndex = i; SaveStore.data.selectedLevel = i; SaveStore.save(); updateTitleChip(); },
+  })).catch(() => {});
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(mainLoop);
   // Zero-login identity (ticket 0090): silent, never blocks the title.
   initRacer({ SaveStore, freshSaveData, levels: WORLD_LEVELS, onChange: renderRacerPill }).finally(refreshRival);
 };
+
+let titleStart; // a deep link can make the title tap start today's daily (ticket 0110)
 
 function renderRacerPill(p) {
   const name = document.getElementById('racerPillName');
