@@ -6,7 +6,7 @@ priority: P1
 size: L
 lens: content
 created: 2026-10-17
-pr: 26
+pr: 28
 ---
 
 ## Why
