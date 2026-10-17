@@ -13,6 +13,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   voice: true,            // the race announcer reads names and calls out loud (on-device speech)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'
   difficulty: 'normal',   // 'easy' | 'normal' | 'hard'
+  graphics: 'auto',       // 'auto' (device-picked tier, src/perf/) | 'low' | 'medium' | 'high' | 'ultra'
 });
 
 export const DIFFICULTY = Object.freeze({
@@ -21,7 +22,7 @@ export const DIFFICULTY = Object.freeze({
   hard: { rivalPace: 1.1, damage: 1.3, label: 'HARD' },
 });
 
-const CHOICES = { motion: ['auto', 'reduce', 'full'], difficulty: Object.keys(DIFFICULTY) };
+const CHOICES = { motion: ['auto', 'reduce', 'full'], difficulty: Object.keys(DIFFICULTY), graphics: ['auto', 'low', 'medium', 'high', 'ultra'] };
 const clamp01 = (v, d) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : d);
 
 /** Defaults merged under whatever was saved, with every value forced back into range. */

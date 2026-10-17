@@ -1,7 +1,7 @@
 ---
 id: 0031
 title: Adaptive 2D render resolution so phones hold 60 fps (3D already scales; 2D does not)
-status: proposed
+status: in-progress
 priority: P2
 size: M
 lens: performance

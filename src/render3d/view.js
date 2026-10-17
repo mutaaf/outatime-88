@@ -19,9 +19,7 @@ const PATH_SCALE = { zScale: 0.03, xScale: 0.005, yScale: 0.025 };
 const HALF_W = ROAD_CFG.roadWidth * PATH_SCALE.xScale; // 11 m
 const JUMP_SCALE = 0.016;   // playerY / body.y → metres
 const CHUNK = 24;           // road segments per mesh
-const AHEAD = 190;          // segments drawn ahead of the player
 const BEHIND = 14;
-const MAX_CARS = 14;
 const DEG = Math.PI / 180;
 const PORTRAIT_TAN = Math.tan(23 * DEG);
 
@@ -91,8 +89,11 @@ function gridMaterial() {
  * @param {() => object[]} o.obstacles  obstacle bodies
  * @param {() => object} o.player  { underglow, livery colour } for the player's car
  * @param {(reason: string) => void} o.onLost  called once if WebGL dies (fall back to 2D)
+ * @param {object} [o.quality]  graphics preset from src/perf/ (dpr cap, draw distance…)
  */
-export function createView3D({ container, state, track, era, collectCars, obstacles, player, onLost }) {
+export function createView3D({ container, state, track, era, collectCars, obstacles, player, onLost, quality }) {
+  let q = quality && quality.dpr ? quality : { dpr: 1.5, ahead: 190, cars: 14 };
+  let AHEAD = q.ahead;
   const canvas = document.createElement('canvas');
   canvas.id = 'gameCanvas3d';
   canvas.setAttribute('aria-hidden', 'true');
@@ -100,8 +101,9 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   container.insertBefore(canvas, container.firstChild);
 
   const renderer = new WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 1.5, powerPreference: 'high-performance', alpha: false });
-  const maxDpr = Math.min(window.devicePixelRatio || 1, matchMedia('(pointer: coarse)').matches ? 1.5 : 2);
-  let dpr = Math.min(maxDpr, 1.5);
+  // Resolution is the quality governor's call (src/perf/governor.js): the tier's DPR cap,
+  // eased down rung by rung when frames run long. Never above the screen's own DPR.
+  let dpr = Math.min(window.devicePixelRatio || 1, q.dpr);
   renderer.setPixelRatio(dpr);
 
   let lost = false;
@@ -347,14 +349,16 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   function syncCars(t, dt) {
     for (let i = 0; i < usedCars.length; i++) usedCars[i].visible = false;
     usedCars.length = 0;
-    const n = Math.min(MAX_CARS, collectCars(carsOut));
+    const n = collectCars(carsOut);
+    let drawn = 0;
     const pz = playerZ();
     for (let i = 0; i < n; i++) {
       const b = carsOut[i];
       if (b.takenDown) continue;
       bodyPose(b, bp);
       const dz = bp.z - pz;
-      if (dz < -3000 || dz > AHEAD * ROAD_CFG.segLength) continue;
+      if (dz < -3000 || dz > AHEAD * ROAD_CFG.segLength || drawn >= q.cars) continue;
+      drawn++;
       const style = b.style === 'SEMI_TRUCK' ? 'SEMI_TRUCK' : (b.style || 'SEDAN');
       const length = Math.max(4, (b.halfL || 110) * 2 * PATH_SCALE.zScale);
       const width = Math.max(2.4, (b.halfW || 0.14) * 2 * HALF_W);
@@ -563,18 +567,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     camera.updateProjectionMatrix();
   }
 
-  const stats = { frames: 0, dpr, avgMs: 16.7, chunks: 0, cars: 0, drawCalls: 0, triangles: 0 };
-  let slowFor = 0, fastFor = 0, lastNow = 0;
-  function adapt(now) {
-    if (lastNow) {
-      const ms = Math.min(100, now - lastNow);
-      stats.avgMs += (ms - stats.avgMs) * 0.05;
-      if (stats.avgMs > 22) { slowFor += ms; fastFor = 0; } else if (stats.avgMs < 15) { fastFor += ms; slowFor = 0; } else { slowFor = fastFor = 0; }
-      if (slowFor > 1500 && dpr > 0.6) { dpr = Math.max(0.6, dpr - 0.15); renderer.setPixelRatio(dpr); sizeDirty = true; slowFor = 0; }
-      if (fastFor > 5000 && dpr < Math.min(maxDpr, 1.5)) { dpr = Math.min(maxDpr, 1.5, dpr + 0.1); renderer.setPixelRatio(dpr); sizeDirty = true; fastFor = 0; }
-    }
-    lastNow = now;
-  }
+  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0 };
 
   let clock = 0;
   return {
@@ -584,7 +577,6 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     render(dt, feel) {
       if (lost) return;
       clock += dt;
-      adapt(performance.now());
       syncSize();
       const e = era();
       const pz = playerZ();
@@ -604,6 +596,15 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       stats.cars = usedCars.length;
       stats.drawCalls = renderer.info.render.calls;
       stats.triangles = renderer.info.render.triangles;
+    },
+    /** A new graphics preset from the governor or the player (src/perf/gfx.js). */
+    setQuality(next) {
+      if (!next || !next.dpr) return;
+      q = next;
+      AHEAD = q.ahead;
+      const want = Math.min(window.devicePixelRatio || 1, q.dpr);
+      if (want !== dpr) { dpr = want; renderer.setPixelRatio(dpr); sizeDirty = true; }
+      stats.step = q.step || 0;
     },
     dispose() {
       window.removeEventListener('resize', markDirty);

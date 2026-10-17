@@ -171,6 +171,11 @@ src/render3d/       The 3D view (three.js, own chunk, never imported statically)
                       chunks, instanced props, cars, flux trails, adaptive resolution) ·
                       meshes.js (low-poly cars/props/obstacles/sky) · preview.js (one car on a
                       turntable in any canvas — for the garage)
+src/perf/           Graphics quality (ticket 0041), render-only — the sim is identical on every tier:
+                      capabilities.js (probe WebGPU/WebGL2/GPU string/cores/memory/DPR/touch/
+                      data-saver → tier, presets) · governor.js (p95 frame time → quality steps,
+                      with hysteresis) · gfx.js (the controller both renderers read) ·
+                      gfx-boot.js (lazy: Settings → GRAPHICS, ?debug overlay). See § Graphics tiers.
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/raceflow.js     Race rules: field, laps, length, rival pace, standings, gaps, finish timing
@@ -228,6 +233,35 @@ game plays identically whichever renderer is on. Renderers read positions throug
 New things the 3D view should draw: cars (incl. remote/ghost cars) go in
 `collectCarsFor3D()` in main.js; obstacles/knockables in the `obstacles` getter passed to
 `createView3D`. In 3D the 2D canvas stays on top (transparent) for screen-space FX.
+
+### Graphics tiers (ticket 0041)
+Every device gets a tier — LOW / MEDIUM / HIGH / ULTRA — from `src/perf/capabilities.js`
+(software GPU or ≤2 GB/≤2 cores → LOW; phones MEDIUM; big Apple/flagship tablets HIGH;
+strong desktop GPUs with WebGL2 ULTRA; WebGL1 or data-saver never above MEDIUM). On AUTO the
+first race is a warm-up: if the governor had to step down twice in the first 4 s the tier
+drops one and is cached (`localStorage.ot_gfx_v1`, keyed to the GPU/cores signature), and a
+tier that bottoms out the governor for 5 s is lowered for next time. Players can pin a tier in
+Settings → GRAPHICS; `?gfx=low|medium|high|ultra` forces one for a visit; `?debug` shows the
+tier, GPU, fps, p95 and (in 3D) draw calls in the corner.
+
+The governor (`src/perf/governor.js`) samples frame intervals while racing and, when the
+95th percentile runs over max(22 ms, 1.35 × refresh), steps down a ladder: resolution →
+post-processing → shadows → effects → draw distance → everything optional. Stepping up waits
+for a quiet spell that doubles each time an upgrade proves too much (it never flaps).
+
+**Reading quality.** Renderers read the current effective preset and never mutate it:
+- main.js keeps it in `gfxQ` (full quality until the lazy chunk lands). The 2D road draws at
+  `pixelScale / gfxQ.res` into its buffer — the visible canvas and `roadCanvasHeight()` (which
+  the sim's contact Z uses) stay full size, so resolution never changes the simulation.
+- 2D era backdrops (`src/scenes/`, ticket 0100) read a tier name through
+  `setBackdropQuality()` → `src/scenes/quality.js`: the device tier, one lower from governor
+  step 4. Other 2D effects can use `gfxQ.glow` (allow additive glow/blur passes) and
+  `gfxQ.particles` (multiply particle caps).
+- The 3D view gets `quality` in `createView3D()` and `setQuality(q)` on every change: `dpr`,
+  `ahead` (segments), `cars`, `shadows` (map size, 0 = off), `softShadows`, `post`, `env`,
+  `reflections`, `maxDraws` (the e2e suite fails a tier that draws more).
+Never feed quality into `updateGame()`: live races, ghosts and the server's score check rely on
+every device running the same simulation.
 
 ## 5 · Commands
 
