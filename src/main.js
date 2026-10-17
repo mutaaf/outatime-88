@@ -24,6 +24,7 @@ import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { beginRun, submitRun, fetchBoard, normalizeInitials, rankLine } from './leaderboard.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen } from './settings-ui.js';
+import { carParams, isOwned, unlockProgress, recordRace } from './cars.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -306,7 +307,7 @@ const LiveTraffic = {
     const speedToWorld = (11000 * paceMult) / 88;
     const playerWorldVZ = GameState.speed * speedToWorld;
     const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-    const playerMass = activeChar.massKg || 1300;
+    const playerMass = activeCarParams().massKg;
     const playerInvMass = 1 / playerMass;
     const playerHalfW = (GameState.twoWheelTimer > 0 || activeChar.shape === 'LIGHTCYCLE') ? 0.10 : 0.14;
     const playerHalfL = 105;
@@ -679,9 +680,9 @@ function applyPlayerDamage(rawDmg, reasonText) {
     // Dez's 1,780kg Brawler smashes barriers with 0 damage!
     return;
   }
-  const massReduction = Math.max(0.65, 1350 / (charObj.massKg || 1350));
   const dmgScale = currentDifficulty().damage; // settings → difficulty (ticket 0050)
-  const finalDmg = Math.round(Math.max(6, rawDmg * massReduction) * dmgScale);
+  // Durability rating (ticket 0071) decides how much a hit costs.
+  const finalDmg = Math.round(Math.max(6, rawDmg * activeCarParams().damageMult) * dmgScale);
   GameState.hp = Math.max(0, GameState.hp - finalDmg);
   GameState.invulnTimer = 1.1; // 1.1s invulnerability frames
   SoundEngine.playCrash();
@@ -957,7 +958,7 @@ function triggerTimeWarp() {
   GameState.timeWarps++;
   GameState.sinceWarp = 0;
   GameState.warpFxTimer = 0.9;
-  GameState.warpActiveTimer = 3.5 + (SaveStore.data.upgrades.flux - 1) * 0.5;
+  GameState.warpActiveTimer = (3.5 + (SaveStore.data.upgrades.flux - 1) * 0.5) * activeCarParams().fluxMult;
   GameState.fluxCharge = 0;
   GameState.eraIndex = (GameState.eraIndex + 1) % ERAS.length;
   const newEra = ERAS[GameState.eraIndex];
@@ -1097,8 +1098,9 @@ function updateGame(rawDt) {
 
   // 1. Real Newtonian Speed, Slope Gravity (g * sin(theta)), Mass & 6-Speed Gearbox
   const waveSpeedBonus = Math.min(22, (GameState.waveTier - 1) * 3.5);
-  const baseMaxMph = 92 + (upg.engine - 1) * 6 + (activeChar.speedBonus || 0) + waveSpeedBonus;
-  const warpMaxMph = 128 + (upg.engine - 1) * 7 + (activeChar.speedBonus || 0) + waveSpeedBonus;
+  const carP = activeCarParams();
+  const baseMaxMph = 92 + (upg.engine - 1) * 6 + carP.topMphBonus + waveSpeedBonus;
+  const warpMaxMph = 128 + (upg.engine - 1) * 7 + carP.topMphBonus + waveSpeedBonus;
   const isOnBooster = currentSeg && currentSeg.trackType === 'BOOSTER';
   const targetMaxSpeed = (GameState.warpActiveTimer > 0 || GameState.agroTimer > 0 || isOnBooster) ? warpMaxMph : baseMaxMph;
 
@@ -1110,7 +1112,7 @@ function updateGame(rawDt) {
   if (braking) {
     GameState.speed = Math.max(18, GameState.speed - 45 * rawDt);
   } else if (accelerating) {
-    const accelRate = (14 + (upg.engine - 1) * 2.5) * paceCfg.accelMult * (GameState.warpActiveTimer > 0 ? 1.5 : 1.0);
+    const accelRate = (14 + (upg.engine - 1) * 2.5) * carP.accelMult * paceCfg.accelMult * (GameState.warpActiveTimer > 0 ? 1.5 : 1.0);
     if (GameState.speed < targetMaxSpeed) {
       GameState.speed = Math.min(targetMaxSpeed, GameState.speed + accelRate * rawDt);
     } else {
@@ -1269,7 +1271,7 @@ function updateGame(rawDt) {
 
   steerInput = Math.max(-1.4, Math.min(1.4, steerInput));
 
-  const gripFactor = (1.15 + (upg.tires - 1) * 0.12) * (GameState.zoneTimer > 0 ? 1.25 : 1.0);
+  const gripFactor = (1.15 + (upg.tires - 1) * 0.12) * carP.gripMult * (GameState.zoneTimer > 0 ? 1.25 : 1.0);
   const speedRatio = Math.min(1.0, GameState.speed / 88);
 
   // Initiate or maintain Power Drift when holding Brake/Drift + steering or hard cornering
@@ -1279,7 +1281,7 @@ function updateGame(rawDt) {
   if (wantsDrift) {
     GameState.isDrifting = true;
     GameState.driftChargeTime += rawDt * (1 + (upg.tires - 1) * 0.18);
-    const targetYaw = steerInput * 32;
+    const targetYaw = steerInput * 32 * carP.slipMult; // looser cars swing wider
     GameState.driftAngle += (targetYaw - GameState.driftAngle) * Math.min(1, rawDt * 10);
 
     const ptsAdded = Math.floor(680 * rawDt * GameState.combo);
@@ -1340,7 +1342,7 @@ function updateGame(rawDt) {
 
   // Gentle, predictable curve pull
   if (currentSeg) {
-    const centrifugal = (currentSeg.curve * 0.14 * speedRatio) / (1 + (upg.tires - 1) * 0.15);
+    const centrifugal = (currentSeg.curve * 0.14 * speedRatio) / ((1 + (upg.tires - 1) * 0.15) * carP.gripMult);
     GameState.playerX -= centrifugal * dt;
   }
 
@@ -1499,7 +1501,7 @@ function updateGame(rawDt) {
 
   // 6. Flux Core Charge & 88 MPH Time Warp
   // Earned warp pacing (ticket 0014): slower passive gain; skill (drift/draft/takedowns) fills the rest.
-  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + passiveFluxRate(GameState.speed, upg.flux) * rawDt);
+  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + passiveFluxRate(GameState.speed, upg.flux) * carP.fluxMult * rawDt);
   GameState.sinceWarp += rawDt;
 
   if (InputState.boostPressed || gp.boost) {
@@ -3047,9 +3049,11 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
   const cy = Math.floor(rh * 0.87 - jumpOffset + bounce + (GameState.carJoltY || 0) + suspPx);
 
   const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const paintId = SaveStore.data.garage.paint[activeChar.id];
+  const paint = paintId ? LIVERY_OPTIONS.find((l) => l.id === paintId) : null;
   const liveryObj = {
-    body: activeChar.body || '#94a3b8',
-    cabin: activeChar.cabin || '#cbd5e1'
+    body: (paint || activeChar).body || '#94a3b8',
+    cabin: (paint || activeChar).cabin || '#cbd5e1'
   };
 
   ctx.save();
@@ -3253,10 +3257,36 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
 }
 
 // --- WORLD TOUR LEVEL SELECTOR & DUB GARAGE UI ---
+/** The physics numbers for the car you're driving (src/cars.js, ticket 0071). */
+function activeCarParams() {
+  const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  if (!GameState.carParams || GameState.carParamsFor !== c.id) {
+    GameState.carParams = carParams(c);
+    GameState.carParamsFor = c.id;
+  }
+  return GameState.carParams;
+}
+
+/** Index of the next car you own after `from` (locked cars are skipped). */
+function nextOwnedCarIndex(from) {
+  for (let k = 1; k <= POP_CULTURE_ROSTER.length; k++) {
+    const i = (from + k) % POP_CULTURE_ROSTER.length;
+    if (isOwned(SaveStore.data, POP_CULTURE_ROSTER[i].id)) return i;
+  }
+  return from;
+}
+
 function selectCharacterByIndex(idx) {
-  GameState.selectedCharIdx = idx % POP_CULTURE_ROSTER.length;
+  const want = ((idx % POP_CULTURE_ROSTER.length) + POP_CULTURE_ROSTER.length) % POP_CULTURE_ROSTER.length;
+  // Locked cars can't be driven; fall back to the car you had.
+  if (!isOwned(SaveStore.data, POP_CULTURE_ROSTER[want].id)) return false;
+  GameState.selectedCharIdx = want;
   const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx];
-  GameState.maxHp = c.maxHp || 100;
+  if (SaveStore.data.garage.selected !== c.id) {
+    SaveStore.data.garage.selected = c.id;
+    SaveStore.save();
+  }
+  GameState.maxHp = activeCarParams().maxHp;
   GameState.hp = GameState.maxHp;
   SaveStore.data.underglow = c.glow || '#00f0ff';
 
@@ -3270,32 +3300,7 @@ function selectCharacterByIndex(idx) {
   }
   renderCharacterRosterGrid();
   updateLiveHud();
-}
-
-function summonMultiverseRacer() {
-  const base = MULTIVERSE_POOL[Math.floor(Math.random() * MULTIVERSE_POOL.length)];
-  const suffixes = ['2026 Turbo Spec', 'Outatime Edition', 'Cyber-Mod', 'Toy-Track Custom', 'Hyper-Shift'];
-  const suf = suffixes[Math.floor(Math.random() * suffixes.length)];
-  const newEntry = {
-    id: 'MULTI_' + Date.now(),
-    driver: base.driver,
-    car: `${base.car} (${suf})`,
-    franchise: base.franchise,
-    massKg: 1050 + Math.floor(Math.random() * 900),
-    maxHp: 105 + Math.floor(Math.random() * 45),
-    speedBonus: 5 + Math.floor(Math.random() * 6),
-    gripBonus: 0.18 + Math.random() * 0.25,
-    jumpBonus: 1.05 + Math.random() * 0.3,
-    body: base.body,
-    cabin: base.cabin,
-    glow: base.glow,
-    shape: base.shape,
-    perk: 'Multiverse Custom • +Bonus Flux & Speed'
-  };
-  POP_CULTURE_ROSTER.unshift(newEntry);
-  selectCharacterByIndex(0);
-  SoundEngine.playCheckpoint();
-  triggerAnnouncement(`🎬 SUMMONED: ${newEntry.car.toUpperCase()}!`, `DRIVER: ${newEntry.driver.toUpperCase()} (${newEntry.franchise.toUpperCase()})`, 1600);
+  return true;
 }
 
 function renderCharacterRosterGrid() {
@@ -3305,22 +3310,31 @@ function renderCharacterRosterGrid() {
 
   POP_CULTURE_ROSTER.forEach((c, idx) => {
     const isSel = (idx === GameState.selectedCharIdx);
+    const owned = isOwned(SaveStore.data, c.id);
     const btn = document.createElement('button');
     btn.type = 'button';
+    btn.dataset.carId = c.id;
+    btn.dataset.locked = owned ? '0' : '1';
     btn.className = `text-left p-2 rounded-xl border transition flex flex-col justify-between ${
-      isSel
+      !owned
+        ? 'bg-slate-950/80 border border-slate-800 text-slate-400'
+        : isSel
         ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow'
         : 'bg-slate-900/90 border border-slate-800 text-slate-300 hover:border-slate-600'
     }`;
-    btn.innerHTML = `
+    btn.innerHTML = owned ? `
       <div class="font-arcade text-[9px] font-black text-white truncate">${c.car}</div>
       <div class="text-[9px] text-cyan-300 truncate">${c.driver}</div>
       <div class="flex items-center justify-between text-[8px] font-arcade text-slate-400 mt-1">
         <span class="text-emerald-300">💚${c.maxHp}HP</span>
         <span>${c.massKg}kg</span>
       </div>
+    ` : `
+      <div class="font-arcade text-[9px] font-black text-slate-300 truncate">🔒 ${c.car}</div>
+      <div class="text-[9px] text-amber-300/90 leading-tight">${unlockProgress(SaveStore.data, c.id).text}</div>
     `;
     btn.addEventListener('click', () => {
+      if (!owned) { openGarageModal(c.id); return; }
       selectCharacterByIndex(idx);
       SoundEngine.playCoinPickup();
     });
@@ -3348,6 +3362,18 @@ function renderRunMedal(lvl, result) {
     unlockEl.textContent = opened ? `🔓 UNLOCKED: ${opened.name}` : '';
     unlockEl.classList.toggle('hidden', !opened);
   }
+}
+
+/** Results line for cars a race just unlocked (the garage plays the full reveal). */
+function announceNewCars(ids) {
+  GameState.pendingCarReveals = ids;
+  if (!ids.length) return;
+  const el = document.getElementById('endUnlockText');
+  if (!el) return;
+  const names = ids.map((id) => (POP_CULTURE_ROSTER.find((c) => c.id === id) || {}).car).filter(Boolean);
+  const carLine = `🏎️ NEW CAR UNLOCKED: ${names.join(' + ').toUpperCase()}`;
+  el.textContent = el.classList.contains('hidden') || !el.textContent ? carLine : `${el.textContent} • ${carLine}`;
+  el.classList.remove('hidden');
 }
 
 function renderLevelSelectGrid() {
@@ -3397,8 +3423,8 @@ function renderLevelSelectGrid() {
       SaveStore.data.selectedLevel = lvl.index;
       SaveStore.save();
       renderCharacterRosterGrid();
-  selectCharacterByIndex(0);
-  renderLevelSelectGrid();
+      selectCharacterByIndex(GameState.selectedCharIdx);
+      renderLevelSelectGrid();
     });
     grid.appendChild(card);
   });
@@ -3612,7 +3638,7 @@ async function postScore(initials) {
   if (!token) { rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY'; return; }
   const r = await submitRun({
     token, initials, score: run.score, distance: run.distance, durationMs: run.durationMs,
-    warps: run.warps, level: run.level, mode: run.mode,
+    warps: run.warps, level: run.level, mode: run.mode, car: run.car,
   });
   if (r.ok) rankEl.textContent = `🏆 ${initials} ${rankLine(r.body.rank)}`;
   else if (r.status === 400) { rankEl.textContent = 'PICK OTHER INITIALS'; SaveStore.data.initials = ''; SaveStore.save(); currentRun = run; form.classList.remove('hidden'); }
@@ -3663,7 +3689,7 @@ function startNewRace(opts) {
   const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   GameState.status = 'PLAYING';
   GameState.eraIndex = lvl.startEra;
-  GameState.maxHp = activeChar.maxHp || 100;
+  GameState.maxHp = activeCarParams().maxHp;
   GameState.hp = GameState.maxHp;
   GameState.invulnTimer = 0;
   GameState.waveTier = 1;
@@ -3766,17 +3792,28 @@ function endRaceRun(customBadgeText = null) {
   setSteerHint(false);
   // Daily runs count for the daily board, not the campaign ladder (their rules differ).
   const result = GameState.daily ? null : applyRunResult(SaveStore.data, { levelIndex: lvl.index, levelId: lvl.id, score: GameState.score }, WORLD_LEVELS.length);
+  // Career counters and car unlocks (ticket 0071): every rival you finish ahead of counts.
+  const newCars = recordRace(SaveStore.data, {
+    position: GameState.racePosition,
+    takedowns: GameState.takedowns,
+    warps: GameState.timeWarps,
+    rivalsBeaten: Math.max(0, (GameState.totalRacers || 1) - GameState.racePosition),
+    daily: Boolean(GameState.daily),
+    day: utcDay(Date.now()),
+  });
   SaveStore.save();
   if (result) renderRunMedal(lvl, result);
   else {
     document.getElementById('endMedalText').textContent = `📅 DAILY CHALLENGE · ${GameState.daily.modifier.name}`;
     document.getElementById('endUnlockText').classList.add('hidden');
   }
+  announceNewCars(newCars);
   if (currentRun) {
     currentRun.score = Math.max(0, Math.round(GameState.score));
     currentRun.distance = Math.max(0, Math.round(GameState.distance));
     currentRun.durationMs = Math.round(performance.now() - currentRun.t0);
     currentRun.warps = GameState.timeWarps;
+    currentRun.car = (POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0]).id;
   }
 
   document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
@@ -3829,7 +3866,7 @@ function bindAllControls() {
       if (GameState.playerY > 10) performHumanTrick('UP');
       InputState.up = true;
     }
-    if (e.code === 'KeyN') selectCharacterByIndex((GameState.selectedCharIdx + 1) % POP_CULTURE_ROSTER.length);
+    if (e.code === 'KeyN') selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
     if (['ArrowDown', 'KeyS', 'ShiftLeft', 'ShiftRight'].includes(e.code)) { if (GameState.playerY > 12) performHumanTrick('DOWN'); InputState.down = true; }
     if (e.code === 'Space') { e.preventDefault(); InputState.boostPressed = true; }
     if (['KeyH', 'KeyE'].includes(e.code)) { if (GameState.playerY > 12) performHumanTrick('UP'); else InputState.hoverPressed = true; }
@@ -4053,12 +4090,12 @@ function bindAllControls() {
     });
   }
 
-  const summonBtn = document.getElementById('btnSummonRandomDriver');
-  if (summonBtn) summonBtn.addEventListener('click', summonMultiverseRacer);
+  const rosterGarageBtn = document.getElementById('btnRosterGarage');
+  if (rosterGarageBtn) rosterGarageBtn.addEventListener('click', () => openGarageModal());
   const quickCarBtn = document.getElementById('btnQuickSwitchCar');
   if (quickCarBtn) {
     quickCarBtn.addEventListener('click', () => {
-      selectCharacterByIndex((GameState.selectedCharIdx + 1) % POP_CULTURE_ROSTER.length);
+      selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
       const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx];
       triggerAnnouncement(`🏎️ ${c.car.toUpperCase()}`, `${c.driver} (${c.franchise})`, 1100);
     });
@@ -4421,7 +4458,8 @@ window.onload = () => {
     lowEnd: isLowEnd(),
   }), { persist: false });
   renderCharacterRosterGrid();
-  selectCharacterByIndex(0);
+  const savedCar = POP_CULTURE_ROSTER.findIndex((c) => c.id === SaveStore.data.garage.selected);
+  if (!selectCharacterByIndex(Math.max(0, savedCar))) selectCharacterByIndex(0);
   renderLevelSelectGrid();
   document.getElementById('titleBestScore').textContent = SaveStore.data.bestScore.toLocaleString();
   document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;

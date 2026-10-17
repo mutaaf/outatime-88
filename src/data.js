@@ -174,7 +174,9 @@ export const LIVERY_OPTIONS = [
   { id: 'CYBER_RED', name: 'Toy-Track Red', body: '#dc2626', cabin: '#fca5a5' }
 ];
 
-// --- ORIGINAL DRIVER & VEHICLE MULTIVERSE ROSTER ---
+// --- ORIGINAL DRIVER & VEHICLE ROSTER ---
+// Ratings, unlocks and the physics each car drives with live in src/cars.js (ticket 0071);
+// maxHp here must equal carParams(car).maxHp (a unit test checks it).
 export const POP_CULTURE_ROSTER = [
   {
     id: 'FLUX_COUPE_88',
@@ -182,7 +184,7 @@ export const POP_CULTURE_ROSTER = [
     car: "'88 Flux Coupe Gull-Wing",
     franchise: 'Chrono Crew',
     massKg: 1230,
-    maxHp: 100,
+    maxHp: 108,
     speedBonus: 4,
     gripBonus: 0.15,
     jumpBonus: 1.05,
@@ -198,7 +200,7 @@ export const POP_CULTURE_ROSTER = [
     car: "'70 Brawler 440 Blower",
     franchise: 'Southside Family',
     massKg: 1780,
-    maxHp: 135,
+    maxHp: 143,
     speedBonus: 6,
     gripBonus: 0.08,
     jumpBonus: 0.95,
@@ -214,7 +216,7 @@ export const POP_CULTURE_ROSTER = [
     car: "'99 Kestrel GT-4R",
     franchise: 'Harbor Tuners',
     massKg: 1430,
-    maxHp: 105,
+    maxHp: 108,
     speedBonus: 7,
     gripBonus: 0.28,
     jumpBonus: 1.05,
@@ -230,7 +232,7 @@ export const POP_CULTURE_ROSTER = [
     car: 'Gen-5 Grid Cycle',
     franchise: 'The Gridline',
     massKg: 680,
-    maxHp: 95,
+    maxHp: 94,
     speedBonus: 9,
     gripBonus: 0.42,
     jumpBonus: 1.22,
@@ -246,7 +248,7 @@ export const POP_CULTURE_ROSTER = [
     car: 'SENTRY-2000 Talking Coupe',
     franchise: 'Night Sentinel Foundation',
     massKg: 1520,
-    maxHp: 125,
+    maxHp: 115,
     speedBonus: 7,
     gripBonus: 0.24,
     jumpBonus: 1.35,
@@ -262,7 +264,7 @@ export const POP_CULTURE_ROSTER = [
     car: 'The Go-Rocket 5',
     franchise: 'Takamura Racing',
     massKg: 1180,
-    maxHp: 105,
+    maxHp: 101,
     speedBonus: 8,
     gripBonus: 0.30,
     jumpBonus: 1.40,
@@ -278,7 +280,7 @@ export const POP_CULTURE_ROSTER = [
     car: "'86 Pass-Runner Hatch",
     franchise: 'Mountain Pass Night Crew',
     massKg: 940,
-    maxHp: 100,
+    maxHp: 108,
     speedBonus: 5,
     gripBonus: 0.45,
     jumpBonus: 1.10,
@@ -289,28 +291,12 @@ export const POP_CULTURE_ROSTER = [
     perk: 'Gutter-Run Drift Master • Zero Speed Loss in Turns'
   },
   {
-    id: 'NEO_CAPSULE_BIKE',
-    driver: 'Ren Kurogane',
-    car: 'Capsule Cyber-Bike',
-    franchise: 'Neo-Bay Riders',
-    massKg: 720,
-    maxHp: 95,
-    speedBonus: 9,
-    gripBonus: 0.40,
-    jumpBonus: 1.25,
-    body: '#dc2626',
-    cabin: '#fca5a5',
-    glow: '#ff2a2a',
-    shape: 'LIGHTCYCLE',
-    perk: 'Iconic Electric Power-Slide & Narrow Gap Threading'
-  },
-  {
     id: 'DUST_PURSUIT_V8',
     driver: 'Wade Kessler',
     car: 'V8 Dust Pursuit Special',
     franchise: 'Outback Wastes',
     massKg: 1850,
-    maxHp: 145,
+    maxHp: 143,
     speedBonus: 6,
     gripBonus: 0.14,
     jumpBonus: 0.95,
@@ -318,7 +304,7 @@ export const POP_CULTURE_ROSTER = [
     cabin: '#78716c',
     glow: '#f97316',
     shape: 'MUSCLE',
-    perk: '+45 Armor HP & Supercharged Wasteland Ramming'
+    perk: 'Armored Rammer • Shrugs Off Hits'
   },
   {
     id: 'BULLDOG_VAN',
@@ -326,7 +312,7 @@ export const POP_CULTURE_ROSTER = [
     car: "'83 Bulldog Cargo Van",
     franchise: 'The Fix-It Four',
     massKg: 2350,
-    maxHp: 160,
+    maxHp: 150,
     speedBonus: 3,
     gripBonus: 0.10,
     jumpBonus: 0.90,
@@ -334,7 +320,7 @@ export const POP_CULTURE_ROSTER = [
     cabin: '#dc2626',
     glow: '#ef4444',
     shape: 'HEAVY_VAN',
-    perk: '2,350kg Heavy Tank • Maximum 160 HP Juggernaut'
+    perk: '2,350kg Juggernaut • Toughest Chassis in the Garage'
   },
   {
     id: 'TWIN_TURBINE',
@@ -342,7 +328,7 @@ export const POP_CULTURE_ROSTER = [
     car: 'Twin Turbine III',
     franchise: 'Orange Track League',
     massKg: 1310,
-    maxHp: 110,
+    maxHp: 101,
     speedBonus: 10,
     gripBonus: 0.25,
     jumpBonus: 1.20,
@@ -358,7 +344,7 @@ export const POP_CULTURE_ROSTER = [
     car: 'Mark-88 Arc Roadster',
     franchise: 'Voss Dynamics',
     massKg: 1380,
-    maxHp: 130,
+    maxHp: 108,
     speedBonus: 8,
     gripBonus: 0.32,
     jumpBonus: 1.30,

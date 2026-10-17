@@ -71,7 +71,8 @@ Depth over breadth: polish one moment until it sings before adding three.
    arrays), no layout thrash from the HUD.
 5. **Mobile.** Touch controls work at 390x844, touch targets ≥44px, no page scroll or
    zoom while playing, safe-area insets respected.
-6. **Save data compatibility.** One key: `outatime_cruisn_88_save_v2` (`src/save.js`). Never rename it or
+6. **Save data compatibility.** One key: `outatime_cruisn_88_save_v2` (`src/save.js`). Cars live in
+   `garage` (owned/selected/paint) and `career` (counters) — normalised by `ensureGarage()`. Never rename it or
    change the meaning of an existing field. Add fields by adding defaults to `SaveStore.data`;
    `load()` merges saved data over defaults, so old saves keep working. A breaking change needs
    a versioned migration *from* the old key, plus a unit test with a real old-shape save.
@@ -93,6 +94,8 @@ src/main.js         Entry + the remaining glue (~3.9k lines, being carved by the
                       renderScene() + drawDeLorean() (2D-canvas pseudo-3D renderer)
                       UI (roster, level select, garage) · bindAllControls() · mainLoop()
 src/data.js         Pure content tables: levels, eras, roster, upgrades, road/pace/camera config
+src/cars.js         Car ratings (same 30-point budget each), unlock rules, carParams() → the physics
+                      numbers a car drives with; career counters. Balance is unit-tested.
 src/state.js        GameState — the one mutable state object every system reads/writes
 src/save.js         SaveStore (localStorage persistence, see invariant 6)
 src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks

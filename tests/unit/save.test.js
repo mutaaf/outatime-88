@@ -58,8 +58,24 @@ describe('SaveStore', () => {
     const { SETTINGS_DEFAULTS } = await import('../../src/settings.js');
     SaveStore.load();
     // new defaults: progress (0011), onboarded (0022), initials (0025), settings (0050), renderMode (0040)
-    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS }, renderMode: 'auto' });
+    const { garage, career, ...rest } = SaveStore.data;
+    expect(rest).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS }, renderMode: 'auto' });
+    // Garage + career (0071): an old save drives a starter car with zeroed counters.
+    expect(garage.owned).toEqual(['FLUX_COUPE_88', 'PASS_RUNNER_86']);
+    expect(garage.selected).toBe('FLUX_COUPE_88');
+    expect(career).toMatchObject({ races: 0, wins: 0, takedowns: 0 });
     expect(LIVERY_OPTIONS.map((l) => l.id)).toContain(SaveStore.data.livery);
+  });
+
+  it('an old save keeps the cars its recorded medals already earned (0071)', async () => {
+    storage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({
+      bestScore: 2_600_000,
+      progress: { LVL1_CLOCK_HOLLOW: { best: 950_000, medal: 'silver' }, LVL4_MULHOLLAND_2088: { best: 2_500_000, medal: 'gold' } },
+    }));
+    const { SaveStore } = await import('../../src/save.js');
+    SaveStore.load();
+    expect(SaveStore.data.garage.owned).toEqual(expect.arrayContaining(['FLUX_COUPE_88', 'PASS_RUNNER_86', 'BLUE_KESTREL', 'ARC_ROADSTER_88']));
+    expect(SaveStore.data.garage.owned).not.toContain('GRID_CYCLE');
   });
 
   it('keeps every unrenamed livery id as saved', async () => {

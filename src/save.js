@@ -1,3 +1,5 @@
+import { ensureGarage, grantEarnedCars } from './cars.js';
+
 // Persistent save data. The localStorage key is a compatibility invariant (AGENTS.md §3.6):
 // never rename it; migrate by merging new defaults over parsed data, as load() does.
 import { normalizeSettings } from './settings.js';
@@ -37,7 +39,11 @@ export const SaveStore = {
     // Settings panel (ticket 0050); see src/settings.js for the keys and their defaults.
     settings: normalizeSettings(),
     // Renderer (ticket 0040): 'auto' | '2d' | '3d'. Old saves get 'auto' (= 2D today).
-    renderMode: 'auto'
+    renderMode: 'auto',
+    // Cars you own, the one you drive, paint per car (ticket 0071). See src/cars.js.
+    garage: null,
+    // Career counters that unlock cars: races, wins, takedowns, warps, rivals, daily streak.
+    career: null
   },
   load() {
     try {
@@ -50,6 +56,10 @@ export const SaveStore = {
         if (Object.hasOwn(LEGACY_LIVERY_IDS, this.data.livery)) this.data.livery = LEGACY_LIVERY_IDS[this.data.livery];
       }
     } catch (e) {}
+    // Garage + career (ticket 0071): old saves get the two starter cars and zeroed counters,
+    // plus any milestone car their recorded medals already earned.
+    ensureGarage(this.data);
+    grantEarnedCars(this.data);
   },
   save() {
     try {
