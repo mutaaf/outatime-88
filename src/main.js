@@ -13,7 +13,7 @@ import { projectPoint } from './projection.js';
 import { createFixedStep, lerp } from './fixedstep.js';
 import { contactZ, cameraDepth } from './contact.js';
 import { hasWebGL, isLowEnd, resolveRenderMode, toggledPref } from './render-mode.js';
-import { loadView3D } from './render3d-loader.js';
+import { loadView3D, loadCarPreview } from './render3d-loader.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
@@ -164,6 +164,7 @@ const LiveTraffic = {
         kind: 'RIVAL',
         name: `${rc.driver.split(' ')[0].toUpperCase()} • ${rc.car}`,
         style: rc.shape === 'MUSCLE' ? 'MUSCLE' : 'TUNER_WING',
+        shape: rc.shape, // the 3D view builds the roster archetype
         massKg: rc.massKg || 1500,
         restitution: 0.48,
         halfW: 0.14,
@@ -1367,6 +1368,8 @@ function updateGame(rawDt) {
   }
 
   steerInput = Math.max(-1.4, Math.min(1.4, steerInput));
+  GameState.steerInput = steerInput; // published for the renderers (3D front wheels)
+  GameState.braking = Boolean(braking);
 
   const gripFactor = (1.15 + (upg.tires - 1) * 0.12) * carP.gripMult * (GameState.zoneTimer > 0 ? 1.25 : 1.0);
   const speedRatio = Math.min(1.0, GameState.speed / 88);
@@ -3429,6 +3432,7 @@ function loadGarageUI() {
           document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
         },
         reducedMotion: () => GameState.reducedMotion,
+        preview3d: () => (view3d ? loadCarPreview().then((m) => ({ createCarPreview: m.createCarPreview, rich: gfxQ.tier !== 'low' })) : null),
       });
       return garageUI;
     });
@@ -4449,9 +4453,23 @@ let view3d = null;
 let view3dLoading = false;
 const carsFor3D = [];
 
+// The solo ghost (ticket 0092) as a translucent car on the road in 3D, where its trace was.
+const ghostPose3D = { d: 0, x: 0 };
+const ghostBody3D = {
+  worldZ: 0, offset: 0, y: 0, rot: 0, yaw: 0, halfL: 110, halfW: 0.136, active: true, takenDown: false,
+  style: 'GULLWING', shape: 'GULLWING', bodyColor: '#a5f3fc', underglow: '#67e8f9', ghost: true, ghostTag: '',
+};
+
 /** Every car the 3D view should draw. Remote/ghost cars belong here too. */
 function collectCarsFor3D(out) {
   let n = 0;
+  if (ghostRace.active && GameState.status === 'PLAYING' && ghostRace.poseInto(hudView.raceTime, ghostPose3D)) {
+    const mult = (PACE_MODES[GameState.paceMode] || PACE_MODES[0]).mult;
+    ghostBody3D.worldZ = GameState.trackPos + ROAD_CFG.playerZOffset + (ghostPose3D.d - GameState.distance) * (11000 * mult / 88);
+    ghostBody3D.offset = ghostPose3D.x;
+    ghostBody3D.ghostTag = `👻 ${ghostRace.initials}`;
+    out[n++] = ghostBody3D;
+  }
   for (let i = 0; i < LiveTraffic.racers.length; i++) out[n++] = LiveTraffic.racers[i];
   for (let i = 0; i < LiveTraffic.traffic.length; i++) out[n++] = LiveTraffic.traffic[i];
   for (let i = 0; i < live.ghosts.length; i++) out[n++] = live.ghosts[i]; // live races: friends + CPU
@@ -4461,7 +4479,7 @@ function collectCarsFor3D(out) {
 
 function playerPaint() {
   const ch = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-  return { body: carPaint(ch).body, underglow: SaveStore.data.underglow || ch.glow };
+  return { body: carPaint(ch).body, underglow: SaveStore.data.underglow || ch.glow, shape: ch.shape };
 }
 
 function setCanvasLayering(on) {
@@ -4655,6 +4673,8 @@ function renderBlended(alpha, frameDt) {
   for (let i = 0; i < VIEW_KEYS.length; i++) GameState[VIEW_KEYS[i]] = viewHeld[VIEW_KEYS[i]];
 }
 
+const garageModalEl = document.getElementById('garageModal');
+
 function mainLoop(timestamp) {
   if (!lastFrameTime) lastFrameTime = timestamp;
   const frameSeconds = (timestamp - lastFrameTime) / 1000;
@@ -4688,8 +4708,12 @@ function mainLoop(timestamp) {
 
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
+  // The garage covers the screen (blurred, 90% opaque): unless a live race is still running
+  // under it, the road behind holds its last frame instead of re-rendering, re-blurring and
+  // fighting the garage turntable for the GPU.
+  const covered = GameState.status !== 'PLAYING' && garageModalEl && !garageModalEl.classList.contains('hidden');
   if (GameState.status === 'PLAYING') renderBlended(simClock.alpha, dt);
-  else renderFrame(dt);
+  else if (!covered) renderFrame(dt);
   if (touch) touch.render();
   rafId = requestAnimationFrame(mainLoop);
 }

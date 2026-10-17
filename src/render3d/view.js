@@ -6,13 +6,15 @@ import {
   DynamicDrawUsage, Fog, Group, HemisphereLight, InstancedMesh, Matrix4, Mesh,
   MeshBasicMaterial, MeshLambertMaterial, Object3D, PerspectiveCamera, PlaneGeometry,
   Points, PointsMaterial, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
-  Float32BufferAttribute,
+  Float32BufferAttribute, MeshStandardMaterial, ACESFilmicToneMapping, PCFSoftShadowMap, PCFShadowMap,
+  CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace,
 } from 'three';
+import { asphaltTextures, bakeEnvironment, paletteFor } from './surfaces.js';
 import { ROAD_CFG } from '../data.js';
 import { InputState } from '../input.js';
 import { createTrackPath } from './path.js';
 import { bodyPose, playerPose } from '../render-pose.js';
-import { buildCar, buildObstacle, propKinds, mountainRing, NEON_CYAN, NEON_PINK } from './meshes.js';
+import { buildCar, buildObstacle, propKinds, mountainRing, turnWheels, bodyStyle, NEON_CYAN, NEON_PINK } from './meshes.js';
 
 // Simulation units → metres. Depth is stretched and the road narrowed (see path.js).
 const PATH_SCALE = { zScale: 0.03, xScale: 0.005, yScale: 0.025 };
@@ -67,11 +69,11 @@ function sunMaterial() {
 function gridMaterial() {
   return new ShaderMaterial({
     transparent: false, fog: false,
-    uniforms: { base: { value: new Color('#090314') }, line: { value: new Color(NEON_PINK) }, far: { value: new Color() }, origin: { value: new Vector3() } },
+    uniforms: { base: { value: new Color('#090314') }, line: { value: new Color(NEON_PINK) }, far: { value: new Color() }, origin: { value: new Vector3() }, strength: { value: 1 } },
     vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
-    fragmentShader: `uniform vec3 base; uniform vec3 line; uniform vec3 far; uniform vec3 origin; varying vec3 vW;
+    fragmentShader: `uniform vec3 base; uniform vec3 line; uniform vec3 far; uniform vec3 origin; uniform float strength; varying vec3 vW;
       void main(){ vec2 g = vW.xz / 14.0; vec2 d = abs(fract(g - 0.5) - 0.5) / fwidth(g);
-      float l = 1.0 - min(min(d.x, d.y), 1.0);
+      float l = (1.0 - min(min(d.x, d.y), 1.0)) * strength;
       float dist = length(vW.xz - origin.xz);
       float fade = smoothstep(80.0, 900.0, dist);
       vec3 c = mix(base, line, l * (1.0 - fade * 0.85));
@@ -105,6 +107,13 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   // eased down rung by rung when frames run long. Never above the screen's own DPR.
   let dpr = Math.min(window.devicePixelRatio || 1, q.dpr);
   renderer.setPixelRatio(dpr);
+  // Filmic tone mapping: bright neon and sun roll off instead of clipping (custom sky/grid
+  // shaders and unlit neon opt out, so the synthwave colours stay punchy).
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.info.autoReset = false; // count every pass (post-processing too) in stats.drawCalls
+  renderer.shadowMap.enabled = q.shadows > 0;
+  renderer.shadowMap.type = q.softShadows ? PCFSoftShadowMap : PCFShadowMap;
 
   let lost = false;
   canvas.addEventListener('webglcontextlost', (e) => {
@@ -118,6 +127,14 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   scene.fog = fog;
   const hemi = new HemisphereLight('#ff7ad9', '#1a1035', 0.95);
   const sunLight = new DirectionalLight('#ffc48a', 1.1);
+  // The sun/moon casts real shadows on MEDIUM+ (map size per tier), in a tight box that
+  // rides with the player, so a 1k map still gives crisp car shadows.
+  sunLight.castShadow = q.shadows > 0;
+  sunLight.shadow.mapSize.set(q.shadows || 512, q.shadows || 512);
+  const sc = sunLight.shadow.camera;
+  sc.left = -36; sc.right = 36; sc.top = 36; sc.bottom = -36; sc.near = 20; sc.far = 260;
+  sunLight.shadow.bias = -0.0006;
+  sunLight.shadow.normalBias = 0.04;
   scene.add(hemi, sunLight, sunLight.target);
 
   // Sky dome, stars, sun, mountains and the neon grid all ride with the camera.
@@ -152,25 +169,44 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   // ── Road chunks ────────────────────────────────────────────────────────────
   const path = createTrackPath(PATH_SCALE);
   const chunks = new Map();
-  const deckMat = new MeshLambertMaterial({ vertexColors: true });
-  const neonMat = new MeshBasicMaterial({ vertexColors: true });
-  const glowMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending });
+  // The road is real asphalt (PBR, procedural maps); vertex colours only tint it (booster pads,
+  // ramps, kerbs). Rain eras turn the roughness down so the deck mirrors the sky and neon.
+  const asph = asphaltTextures();
+  const deckMat = new MeshStandardMaterial({
+    vertexColors: true, map: asph.map, roughnessMap: asph.roughnessMap, normalMap: asph.normalMap,
+    roughness: 1, metalness: 0, envMapIntensity: 1,
+  });
+  // LOW (and software GPUs) draw the same asphalt colour map without the PBR lighting cost.
+  const deckLite = new MeshLambertMaterial({ vertexColors: true, map: asph.map });
+  const deckFor = () => (q.env ? deckMat : deckLite);
+  const neonMat = new MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+  const glowMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
+  // LOW skips the soft additive glow passes (rail glow on the ground, lamp halos).
+  const glowMats = [glowMat];
+  const applyGlow = () => { for (let i = 0; i < glowMats.length; i++) glowMats[i].visible = q.glow !== false; };
   const pose = { x: 0, y: 0, z: 0, heading: 0 };
   const bp = { z: 0, offset: 0, y: 0, rot: 0, yaw: 0 };   // body render pose
   const pp = { z: 0, x: 0, y: 0 };                         // player render pose
   const tmpCol = new Color();
+  const tmpCol2 = new Color();
 
   function segColor(seg, e, out) {
     const alt = (Math.floor(seg.index / 10) % 2) === 0;
     if (seg.trackType === 'BOOSTER') return out.set(alt ? '#ea580c' : '#d9460f');
     if (seg.trackType === 'JUMP_RAMP') return out.set(alt ? '#f59e0b' : '#d97706');
     if (seg.trackType === 'CHECKPOINT') return out.set(seg.index % 2 ? '#f8fafc' : '#1e1b2e');
-    out.set(e.trackA);
-    return alt ? out : out.multiplyScalar(0.82);
+    // Asphalt: near-neutral with a whisper of the era's road colour, and patched sections.
+    out.set('#c9c7cc').lerp(tmpCol2.set(e.trackA), 0.1);
+    return alt ? out : out.multiplyScalar(0.9);
   }
 
   function buildChunk(c, e) {
-    const pos = [], col = [], npos = [], ncol = [], gpos = [], gcol = [];
+    const pos = [], col = [], uv = [], npos = [], ncol = [], gpos = [], gcol = [];
+    // Deck quads carry UVs: u across the road (six ~3.7 m asphalt tiles), v along it.
+    const quadUV = (a, b, cc, d, color, u0, u1, v0, v1) => {
+      quad(pos, col, a, b, cc, d, color);
+      uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
+    };
     const quad = (P, C, a, b, cc, d, color) => {
       P.push(a[0], a[1], a[2], b[0], b[1], b[2], cc[0], cc[1], cc[2], a[0], a[1], a[2], cc[0], cc[1], cc[2], d[0], d[1], d[2]);
       for (let k = 0; k < 6; k++) C.push(color.r, color.g, color.b);
@@ -187,20 +223,27 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       const lat = off * HALF_W;
       return [cx + Math.cos(h) * lat, y + up, -(cz - Math.sin(h) * lat)];
     };
-    const skirt = new Color('#2a0a12'), lane = new Color('#ffe7b0'), rail = new Color(NEON_CYAN), pink = new Color(NEON_PINK), black = new Color(0, 0, 0);
+    const skirt = new Color('#2a0a12'), lane = new Color('#ece6d4'), rail = new Color(NEON_CYAN), pink = new Color(NEON_PINK), black = new Color(0, 0, 0);
     const pinkGlow = new Color(NEON_PINK).multiplyScalar(0.85);
+    const kerbRed = new Color('#c8102e'), kerbWhite = new Color('#e8e8ea'), edgeLine = new Color('#f2f2f2');
     for (let i = c * CHUNK; i < (c + 1) * CHUNK; i++) {
       const seg = track.segments[i];
       if (!seg) break;
       const j = i, k = i + 1;
       segColor(seg, e, tmpCol);
-      // Deck, underside skirts.
-      quad(pos, col, pt(j, -1, 0), pt(j, 1, 0), pt(k, 1, 0), pt(k, -1, 0), tmpCol);
-      quad(pos, col, pt(j, -1.02, -2.2), pt(j, -1.02, 0), pt(k, -1.02, 0), pt(k, -1.02, -2.2), skirt);
-      quad(pos, col, pt(j, 1.02, 0), pt(j, 1.02, -2.2), pt(k, 1.02, -2.2), pt(k, 1.02, 0), skirt);
+      // Deck (between the kerbs), red/white kerbs, solid edge lines, underside skirts.
+      const v0 = i * 1.6, v1 = (i + 1) * 1.6;
+      quadUV(pt(j, -0.93, 0), pt(j, 0.93, 0), pt(k, 0.93, 0), pt(k, -0.93, 0), tmpCol, 0.1, 5.9, v0, v1);
+      const kerb = (Math.floor(i / 2) % 2) ? kerbRed : kerbWhite;
+      quadUV(pt(j, -1, 0.04), pt(j, -0.93, 0.04), pt(k, -0.93, 0.04), pt(k, -1, 0.04), kerb, 0, 0.1, v0, v1);
+      quadUV(pt(j, 0.93, 0.04), pt(j, 1, 0.04), pt(k, 1, 0.04), pt(k, 0.93, 0.04), kerb, 5.9, 6, v0, v1);
+      quadUV(pt(j, -0.905, 0.02), pt(j, -0.89, 0.02), pt(k, -0.89, 0.02), pt(k, -0.905, 0.02), edgeLine, 0.3, 0.33, v0, v1);
+      quadUV(pt(j, 0.89, 0.02), pt(j, 0.905, 0.02), pt(k, 0.905, 0.02), pt(k, 0.89, 0.02), edgeLine, 5.67, 5.7, v0, v1);
+      quad(npos, ncol, pt(j, -1.02, -2.2), pt(j, -1.02, 0), pt(k, -1.02, 0), pt(k, -1.02, -2.2), skirt);
+      quad(npos, ncol, pt(j, 1.02, 0), pt(j, 1.02, -2.2), pt(k, 1.02, -2.2), pt(k, 1.02, 0), skirt);
       // Lane dashes and the boost flames.
       if (i % 4 < 2) {
-        for (const o of [-0.34, 0.34]) quad(npos, ncol, pt(j, o - 0.012, 0.03), pt(j, o + 0.012, 0.03), pt(k, o + 0.012, 0.03), pt(k, o - 0.012, 0.03), lane);
+        for (const o of [-0.34, 0.34]) quadUV(pt(j, o - 0.012, 0.015), pt(j, o + 0.012, 0.015), pt(k, o + 0.012, 0.015), pt(k, o - 0.012, 0.015), lane, (o + 1) * 3 - 0.036, (o + 1) * 3 + 0.036, v0, v1);
       }
       if (seg.trackType === 'BOOSTER') {
         for (const o of [-0.22, 0.22]) quad(npos, ncol, pt(j, o - 0.012, 0.035), pt(j, o + 0.012, 0.035), pt(k, o + 0.012, 0.035), pt(k, o - 0.012, 0.035), rail);
@@ -217,12 +260,14 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       const g = new BufferGeometry();
       g.setAttribute('position', new Float32BufferAttribute(P, 3));
       g.setAttribute('color', new Float32BufferAttribute(C, 3));
-      if (mat === deckMat) g.computeVertexNormals();
+      if (mat === deckMat || mat === deckLite) { g.setAttribute('uv', new Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); }
       const m = new Mesh(g, mat);
       grp.add(m);
       return m;
     };
-    mk(pos, col, deckMat);
+    const deck = mk(pos, col, deckFor());
+    deck.receiveShadow = true;
+    grp.userData.deck = deck;
     mk(npos, ncol, neonMat);
     mk(gpos, gcol, glowMat).renderOrder = 1;
     return grp;
@@ -263,10 +308,12 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     m.instanceMatrix.setUsage(DynamicDrawUsage);
     m.frustumCulled = false;
     m.count = 0;
-    if (def.billboard) m.renderOrder = 3;
+    if (def.billboard) { m.renderOrder = 3; if (k === 'LAMP_GLOW') glowMats.push(def.mat); }
+    else if (!def.mat.transparent) m.castShadow = true;
     scene.add(m);
     props[k] = { mesh: m, def, n: 0 };
   }
+  applyGlow();
   const dummy = new Object3D();
   function placeProp(kind, x, y, z, yaw, scale = 1, spin = 0) {
     const p = props[kind];
@@ -327,19 +374,99 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   const carPool = new Map(); // key → [groups]
   const carsOut = [];
   const usedCars = [];
-  function takeCar(style, length, width, police) {
-    const key = style + '|' + length.toFixed(1) + '|' + width.toFixed(1) + (police ? '|P' : '');
+  // How much model detail cars get at this tier: clearcoat paint on HIGH+, rolling wheels on
+  // MEDIUM+ (LOW keeps them merged into the body: no extra draw calls).
+  const carDetail = () => ({ clearcoat: q.tier === 'high' || q.tier === 'ultra', wheels: q.tier === 'low' ? 'static' : 'spin' });
+  let detail = carDetail();
+  function takeCar(style, length, width, police, ghost) {
+    const key = style + '|' + length.toFixed(1) + '|' + width.toFixed(1) + (police ? '|P' : '') + (ghost ? '|G' : '');
     let list = carPool.get(key);
     if (!list) { list = []; carPool.set(key, list); }
     for (let i = 0; i < list.length; i++) if (!list[i].visible) { list[i].visible = true; return list[i]; }
-    const g = buildCar(style, length, width, { police });
+    const g = buildCar(style, length, width, { police, ...detail });
+    if (ghost) makeGhost(g); else castShadows(g);
     list.push(g);
     scene.add(g);
     return g;
   }
 
-  const playerCar = buildCar('TIME_CAR', 6.6, 3.0);
-  scene.add(playerCar);
+  function castShadows(g) {
+    g.traverse((m) => { if (m.isMesh && !m.material.transparent) m.castShadow = true; });
+  }
+  // A ghost (your rival's recorded run) is a translucent cyan car that casts no shadow.
+  function makeGhost(g) {
+    g.traverse((m) => {
+      if (!m.isMesh) return;
+      m.material = m.material.clone();
+      m.material.userData = {}; // the clone is this ghost's own: dispose it with the car
+      m.material.transparent = true;
+      m.material.opacity = m.material.blending === AdditiveBlending ? 0.5 : 0.38;
+      m.material.depthWrite = false;
+      if (m.material.emissive) { m.material.emissive.set('#22d3ee'); m.material.emissiveIntensity = 0.6; }
+      m.renderOrder = 5;
+    });
+    g.userData.paint = g.children[0].material;
+  }
+
+  // Name tags over remote and ghost cars: one sprite per car, texture cached per name.
+  const tagTex = new Map();
+  function tagTexture(text) {
+    let t = tagTex.get(text);
+    if (t) return t;
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 64;
+    const x = c.getContext('2d');
+    x.font = '800 34px Orbitron, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    const w = Math.min(248, x.measureText(text).width + 36);
+    x.fillStyle = 'rgba(2,6,23,0.78)';
+    x.beginPath(); x.roundRect(128 - w / 2, 8, w, 48, 24); x.fill();
+    x.strokeStyle = '#22d3ee'; x.lineWidth = 3; x.stroke();
+    x.fillStyle = '#f8fafc';
+    x.fillText(text, 128, 33);
+    t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    tagTex.set(text, t);
+    return t;
+  }
+  function setTag(g, text) {
+    let sp = g.userData.tag;
+    if (!text) { if (sp) sp.visible = false; return; }
+    if (!sp) {
+      sp = new Sprite(new SpriteMaterial({ transparent: true, depthWrite: false, toneMapped: false, fog: false }));
+      sp.scale.set(4.4, 1.1, 1);
+      sp.position.y = 3.3;
+      sp.renderOrder = 6;
+      g.add(sp);
+      g.userData.tag = sp;
+    }
+    sp.visible = true;
+    if (g.userData.tagText !== text) { sp.material.map = tagTexture(text); sp.material.needsUpdate = true; g.userData.tagText = text; }
+  }
+
+  function disposeCar(g) {
+    scene.remove(g);
+    g.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); if (m.material !== undefined && m.material.userData.shared !== true && m.material.dispose) m.material.dispose(); } });
+  }
+  function buildPlayer(shape) {
+    const g = buildCar(bodyStyle(shape || 'GULLWING'), 6.6, 3.0, { clearcoat: detail.clearcoat, wheels: detail.wheels === 'static' ? 'static' : 'steer', lamps: true });
+    g.userData.shape = shape;
+    castShadows(g);
+    scene.add(g);
+    return g;
+  }
+  let playerCar = buildPlayer(player().shape);
+  /** Rebuild cars after a quality change that alters their models. */
+  function syncCarDetail() {
+    const next = carDetail();
+    if (next.clearcoat === detail.clearcoat && next.wheels === detail.wheels) return;
+    detail = next;
+    carPool.forEach((list) => list.forEach(disposeCar));
+    carPool.clear();
+    usedCars.length = 0;
+    disposeCar(playerCar);
+    playerCar = buildPlayer(player().shape);
+  }
 
   function poseCar(g, trackZ, offset, lift, yawExtra, roll, pitch) {
     path.at(trackZ, offset, pose);
@@ -358,18 +485,24 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       if (b.takenDown) continue;
       bodyPose(b, bp);
       const dz = bp.z - pz;
-      if (dz < -3000 || dz > AHEAD * ROAD_CFG.segLength || drawn >= q.cars) continue;
+      if (dz < -3000 || dz > AHEAD * ROAD_CFG.segLength || (drawn >= q.cars && !b.ghost && !b.live)) continue;
       drawn++;
-      const style = b.style === 'SEMI_TRUCK' ? 'SEMI_TRUCK' : (b.style || 'SEDAN');
+      const style = bodyStyle(b.shape || b.style || 'SEDAN');
       const length = Math.max(4, (b.halfL || 110) * 2 * PATH_SCALE.zScale);
       const width = Math.max(2.4, (b.halfW || 0.14) * 2 * HALF_W);
       const police = b.type === 'POLICE_INTERCEPTOR';
-      const g = takeCar(style, length, width, police);
+      const g = takeCar(style, length, width, police, Boolean(b.ghost));
+      setTag(g, b.ghostTag || (b.live ? b.name : ''));
       usedCars.push(g);
       g.userData.paint.color.set(b.bodyColor || '#94a3b8');
-      g.userData.glow.color.set(b.underglow || (b.kind === 'RIVAL' ? NEON_PINK : '#000000'));
+      if (!b.ghost) g.userData.glow.color.set(b.underglow || (b.kind === 'RIVAL' ? NEON_PINK : '#000000'));
       if (g.userData.lightbar) g.userData.lightbar.material.color.set(Math.floor(t * 6) % 2 ? '#ef4444' : '#3b82f6');
-      poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE, bp.yaw * 0.35, bp.rot, 0);
+      // A gentle suspension bob, out of phase per car.
+      const bob = Math.sin(t * 9 + i * 1.7) * 0.025 * Math.min(1, (b.mph || b.speed || 60) / 60);
+      poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE + bob, bp.yaw * 0.35, bp.rot, 0);
+      const lz = g.userData.lastZ;
+      g.userData.lastZ = bp.z;
+      if (lz !== undefined && g.userData.axles) turnWheels(g, Math.max(0, Math.min(40, (bp.z - lz) * PATH_SCALE.zScale)));
     }
   }
 
@@ -386,7 +519,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       if (!pool) { pool = []; obsPool.set(ob.type, pool); }
       let g = null;
       for (let k = 0; k < pool.length; k++) if (!pool[k].visible) { g = pool[k]; break; }
-      if (!g) { g = buildObstacle(ob.type, Math.max(3, (ob.halfW || 0.21) * 2 * HALF_W)); pool.push(g); scene.add(g); }
+      if (!g) { g = buildObstacle(ob.type, Math.max(3, (ob.halfW || 0.21) * 2 * HALF_W)); castShadows(g); pool.push(g); scene.add(g); }
       g.visible = true;
       usedObs.push(g);
       bodyPose(ob, bp);
@@ -467,14 +600,21 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     const pitch = ((s.chassisPitch || 0) * 0.4 - (s.trickPitchAngle || 0)) * DEG;
     poseCar(playerCar, pz, pp.x, lift, -(s.driftAngle || 0) * 0.55 * DEG, roll, pitch);
     const p = player();
+    if (p.shape !== playerCar.userData.shape) { disposeCar(playerCar); playerCar = buildPlayer(p.shape); poseCar(playerCar, pz, pp.x, lift, 0, roll, pitch); }
     playerCar.userData.paint.color.set(p.body || '#c9ced6');
     playerCar.userData.glow.color.set(p.underglow || NEON_CYAN);
+    // Wheels roll with the road, the front pair steers, brake lights and headlights work.
+    const lz = playerCar.userData.lastZ;
+    playerCar.userData.lastZ = pz;
+    if (lz !== undefined) turnWheels(playerCar, Math.max(0, Math.min(40, (pz - lz) * PATH_SCALE.zScale)), -(s.steerInput || 0) * 0.32);
+    playerCar.userData.setBrake(Boolean(s.braking) && s.status === 'PLAYING');
+    playerCar.userData.beams.visible = !pal.bright;
     return pz;
   }
 
   // The camera is locked to the player along the track (at ~100 m/s any positional lag
   // would leave the car far ahead); only its sideways follow, height and aim are smoothed.
-  let camX = 0, camUp = 0, camLookX = 0;
+  let camX = 0, camUp = 0, camLookX = 0, lean = 0;
   function syncCamera(pz, dt, feel, t) {
     const s = state;
     const rigIdx = Math.max(0, Math.min(RIGS.length - 1, s.cameraMode | 0));
@@ -520,6 +660,11 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       camLook.lerp(orbitPivot, w);
     }
     camera.lookAt(camLook);
+    // A little lean into the corner and with the chassis roll, like a real chase cam.
+    if (rig.lag !== 0 && !s.reducedMotion) {
+      lean += ((-(s.chassisRoll || 0) * 0.35 - (s.playerVX || 0) * 0.8) * DEG - lean) * Math.min(1, dt * 4);
+      camera.rotateZ(Math.max(-0.06, Math.min(0.06, lean)));
+    }
     const warpKick = (!s.reducedMotion && s.warpFxTimer > 0) ? (s.warpFxTimer / 0.9) * 16 : 0;
     // Portrait phones/tablets: widen the vertical FOV so the road keeps ~46° across.
     const base = camera.aspect < 1 ? Math.min(85, Math.max(60, 2 * Math.atan(PORTRAIT_TAN / camera.aspect) / DEG)) : 60;
@@ -530,11 +675,45 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     groundY += ((pose.y - 9) - groundY) * Math.min(1, dt * 2);
   }
 
+  // ── Era lighting: palette, image-based light, fog ──────────────────────────
+  // Each era (src/era-palettes.js, shared with the 2D scenes) sets the sky, the key light,
+  // the fog and — on MEDIUM+ — a PMREM environment baked from that same sky, which lights
+  // every PBR surface and gives wet asphalt and car paint something real to reflect.
+  let env = null;
+  let litEra = '';
+  let pal = paletteFor(null);
+  function syncEra(e) {
+    const id = (e.id || '') + (q.env ? '|env' : '');
+    if (id === litEra) return;
+    litEra = id;
+    pal = paletteFor(e);
+    if (env) { env.dispose(); env = null; }
+    if (q.env) {
+      try { env = bakeEnvironment(renderer, e); } catch { env = null; }
+    }
+    scene.environment = env ? env.texture : null;
+    chunks.forEach((grp) => { grp.userData.deck.material = deckFor(); });
+    stats.env = Boolean(env);
+    const wet = pal.wet;
+    deckMat.roughness = wet ? 0.5 : 1;
+    deckMat.envMapIntensity = wet ? 0.75 : 0.45;
+    deckMat.normalScale.set(wet ? 0.25 : 0.45, wet ? 0.25 : 0.45);
+    sunLight.color.set(pal.sun);
+    sunLight.intensity = pal.bright ? 2.6 : 1.5;
+    hemi.color.set(pal.bright ? '#bfe3ff' : pal.horizon);
+    hemi.groundColor.set(pal.ground);
+    hemi.intensity = env ? (pal.bright ? 0.6 : 0.35) : (pal.bright ? 1.4 : 0.95);
+    // The neon grid is the cyber world's floor; real-world eras get ground with a faint grid.
+    gridMat.uniforms.line.value.set(e.id === '2088' ? NEON_PINK : pal.horizon);
+    gridMat.uniforms.strength.value = e.id === '2088' ? 1 : (pal.bright ? 0.05 : 0.22);
+  }
+
   function syncSky(e, t) {
     const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
-    skyMat.uniforms.top.value.set(e.skyTop || '#060919');
-    skyMat.uniforms.mid.value.set(e.skyBot || '#2d114d');
-    skyMat.uniforms.glow.value.set(e.horizonGlow || '#ff6a2b');
+    syncEra(e);
+    skyMat.uniforms.top.value.set(pal.top);
+    skyMat.uniforms.mid.value.set(pal.mid);
+    skyMat.uniforms.glow.value.set(pal.horizon);
     sky.position.set(cx, cy, cz);
     stars.position.set(cx, cy, cz);
     stars.visible = e.id !== '1955'; // the one daytime era
@@ -543,13 +722,102 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     sun.position.set(cx + fx * 1500, groundY + 150, cz + fz * 1500);
     sun.lookAt(camera.position);
     sunMat.uniforms.t.value = t;
-    sunLight.position.set(cx + fx * 400, cy + 260, cz + fz * 400);
-    sunLight.target.position.set(cx, cy, cz);
-    fog.color.set(e.skyBot || '#2a0f3d').lerp(tmpCol.set(e.horizonGlow || '#ff6a2b'), 0.18).multiplyScalar(0.8);
+    if (!sunLight.castShadow) {
+      sunLight.position.set(cx + fx * 400, cy + 260, cz + fz * 400);
+      sunLight.target.position.set(cx, cy, cz);
+    }
+    fog.color.set(pal.fog).lerp(tmpCol.set(pal.horizon), 0.2).multiplyScalar(pal.bright ? 1 : 0.8);
+    // Fog ends where the road does, so the draw distance (a quality setting) never pops.
+    fog.far = AHEAD * ROAD_CFG.segLength * PATH_SCALE.zScale * 0.95;
+    fog.near = pal.dusty ? 40 : fog.far * 0.14;
+    const sh = sunLight.shadow.camera;
+    if (sunLight.castShadow) {
+      // Keep the shadow box centred just ahead of the car.
+      const pc = playerCar.position;
+      sunLight.target.position.set(pc.x - Math.sin(-sunHeading) * 14, pc.y, pc.z - Math.cos(sunHeading) * 14);
+      sunLight.position.set(sunLight.target.position.x + fx * 90, pc.y + 120, sunLight.target.position.z + fz * 90);
+      sh.updateProjectionMatrix();
+    }
     grid.position.set(Math.round(cx / 14) * 14, groundY, Math.round(cz / 14) * 14);
     gridMat.uniforms.origin.value.set(cx, groundY, cz);
     gridMat.uniforms.far.value.copy(fog.color);
-    gridMat.uniforms.base.value.set(e.groundB || '#090314').multiplyScalar(0.7);
+    gridMat.uniforms.base.value.set(pal.ground).multiplyScalar(pal.bright ? 0.9 : 0.7);
+  }
+
+  // ── Weather: rain streaks or drifting dust, animated entirely on the GPU ────
+  // One Points draw. Each drop's start is random in a box around the camera; the vertex
+  // shader moves it with time and wraps it, so the CPU never touches the buffer again.
+  const WX = 90, WY = 46, WZ = 140;
+  const MAX_DROPS = 2400;
+  const seeds = new Float32Array(MAX_DROPS * 3);
+  for (let i = 0; i < MAX_DROPS; i++) {
+    seeds[i * 3] = Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1;
+    seeds[i * 3 + 1] = Math.abs(Math.sin(i * 78.233) * 12543.21) % 1;
+    seeds[i * 3 + 2] = Math.abs(Math.sin(i * 39.425) * 24634.63) % 1;
+  }
+  const wGeo = new BufferGeometry();
+  wGeo.setAttribute('position', new BufferAttribute(seeds, 3));
+  const wMat = new ShaderMaterial({
+    transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false, toneMapped: false,
+    uniforms: { t: { value: 0 }, box: { value: new Vector3(WX, WY, WZ) }, cam: { value: new Vector3() }, color: { value: new Color('#9fb7d8') }, fall: { value: 38 }, drift: { value: 0 }, size: { value: 34 }, streak: { value: 1 } },
+    vertexShader: `uniform float t; uniform vec3 box; uniform vec3 cam; uniform float fall; uniform float drift; uniform float size;
+      varying float vA;
+      void main(){
+        vec3 p = position * box;
+        p.y = mod(p.y - t * fall * (0.8 + position.z * 0.4), box.y);
+        p.x = mod(p.x + t * drift + sin(t * 0.7 + position.z * 30.0) * drift * 0.3, box.x);
+        // Wrap around the camera so the field always surrounds it.
+        vec3 w = cam + vec3(p.x - box.x * 0.5, p.y - box.y * 0.35, p.z - box.z * 0.8);
+        w.x = cam.x + mod(w.x - cam.x + box.x * 0.5, box.x) - box.x * 0.5;
+        w.z = cam.z + mod(w.z - cam.z + box.z * 0.8, box.z) - box.z * 0.8;
+        vec4 mv = modelViewMatrix * vec4(w, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = size / max(1.0, -mv.z);
+        vA = clamp(1.0 - (-mv.z) / box.z, 0.0, 1.0) * smoothstep(3.0, 12.0, -mv.z); // no giant drops on the lens
+      }`,
+    fragmentShader: `uniform vec3 color; uniform float streak; varying float vA;
+      void main(){
+        vec2 c = gl_PointCoord - 0.5;
+        float a = streak > 0.5 ? (1.0 - smoothstep(0.03, 0.08, abs(c.x))) * (1.0 - smoothstep(0.3, 0.5, abs(c.y)))
+                               : 1.0 - smoothstep(0.15, 0.5, length(c));
+        if (a < 0.02) discard;
+        gl_FragColor = vec4(color * a * vA * 0.55, 1.0);
+      }`,
+  });
+  const weather = new Points(wGeo, wMat);
+  weather.frustumCulled = false;
+  weather.renderOrder = 7;
+  scene.add(weather);
+  function syncWeather(t) {
+    const want = (pal.wet || pal.dusty) && q.particles > 0.45 ? Math.round(MAX_DROPS * Math.min(1, q.particles * (pal.wet ? 0.55 : 0.35))) : 0;
+    weather.visible = want > 0;
+    if (!want) return;
+    wGeo.setDrawRange(0, want);
+    const u = wMat.uniforms;
+    u.t.value = state.reducedMotion ? 0 : t;
+    u.cam.value.copy(camera.position);
+    u.streak.value = pal.wet ? 1 : 0;
+    u.fall.value = pal.wet ? 38 : 0.6;
+    u.drift.value = pal.wet ? 0 : 4;
+    u.size.value = pal.wet ? 420 : 260;
+    u.color.value.set(pal.wet ? '#9fb7d8' : '#d9a066');
+  }
+
+  // ── Post-processing (HIGH/ULTRA, its own lazy chunk) ────────────────────────
+  let post = null, postLoading = false;
+  function syncPost() {
+    if (q.post && !post && !postLoading) {
+      postLoading = true;
+      import('./post.js').then((m) => {
+        postLoading = false;
+        if (!q.post || lost) return;
+        post = m.createPost(renderer, scene, camera);
+        sizeDirty = true;
+      }).catch(() => { postLoading = false; });
+    } else if (!q.post && post) {
+      post.dispose();
+      post = null;
+    }
   }
 
   // ── Size and adaptive resolution ───────────────────────────────────────────
@@ -564,11 +832,12 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     sizeDirty = false;
     const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
     renderer.setSize(w, h, false);
+    if (post) post.setSize(w, h, dpr);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
 
-  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0 };
+  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0, env: false, shadows: 0, post: false, weather: 0, wheelSpin: 0, playerShape: '' };
 
   let clock = 0;
   return {
@@ -590,13 +859,26 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       syncObstacles();
       syncTrails(dt);
       syncSky(e, clock);
-      renderer.render(scene, camera);
+      syncWeather(clock);
+      syncPost();
+      renderer.info.reset();
+      if (post) {
+        post.setWarp(state.warpFxTimer > 0 && !state.reducedMotion ? state.warpFxTimer / 0.9 : 0);
+        post.render();
+      } else {
+        renderer.render(scene, camera);
+      }
       stats.frames++;
       stats.dpr = dpr;
       stats.chunks = chunks.size;
       stats.cars = usedCars.length;
       stats.drawCalls = renderer.info.render.calls;
       stats.triangles = renderer.info.render.triangles;
+      stats.shadows = sunLight.castShadow ? sunLight.shadow.mapSize.x : 0;
+      stats.post = Boolean(post);
+      stats.weather = weather.visible ? wGeo.drawRange.count : 0;
+      stats.wheelSpin = playerCar.userData.axles ? -playerCar.userData.axles[0].rotation.x : 0;
+      stats.playerShape = playerCar.userData.shape || '';
     },
     /** A new graphics preset from the governor or the player (src/perf/gfx.js). */
     setQuality(next) {
@@ -606,6 +888,18 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       const want = Math.min(window.devicePixelRatio || 1, q.dpr);
       if (want !== dpr) { dpr = want; renderer.setPixelRatio(dpr); sizeDirty = true; }
       stats.step = q.step || 0;
+      const shadowsOn = q.shadows > 0;
+      if (shadowsOn !== renderer.shadowMap.enabled || (shadowsOn && sunLight.shadow.mapSize.x !== q.shadows)) {
+        renderer.shadowMap.enabled = shadowsOn;
+        renderer.shadowMap.type = q.softShadows ? PCFSoftShadowMap : PCFShadowMap;
+        sunLight.castShadow = shadowsOn;
+        if (sunLight.shadow.map) { sunLight.shadow.map.dispose(); sunLight.shadow.map = null; }
+        if (shadowsOn) sunLight.shadow.mapSize.set(q.shadows, q.shadows);
+        scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+      }
+      applyGlow();
+      syncCarDetail();
+      litEra = ''; // re-bake (or drop) the environment if `env` changed
     },
     dispose() {
       window.removeEventListener('resize', markDirty);
@@ -613,6 +907,9 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       if (ro) ro.disconnect();
       chunks.forEach(disposeChunk);
       chunks.clear();
+      if (env) env.dispose();
+      if (post) post.dispose();
+      tagTex.forEach((t) => t.dispose());
       scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
       renderer.dispose();
       canvas.remove();

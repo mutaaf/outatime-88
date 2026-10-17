@@ -200,7 +200,7 @@ export function createLive(hooks) {
       // … and a car for both renderers.
       slot, cpu, live: true, ghostTag: gName, name: gName,
       worldZ: 0, offset: 0, x: 0, y: 0, suspY: 0, mph: 0,
-      style: c.shape === 'MUSCLE' ? 'MUSCLE' : 'TUNER_WING',
+      style: c.shape === 'MUSCLE' ? 'MUSCLE' : 'TUNER_WING', shape: c.shape,
       bodyColor: c.body, accentColor: c.cabin, underglow: c.glow,
       takenDown: false, oncoming: false, nosActive: false,
     };

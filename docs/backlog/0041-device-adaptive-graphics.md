@@ -26,8 +26,8 @@ quality level is too much for a budget phone and too little for a desktop GPU.
 ## Acceptance criteria
 - [x] Unit: tier mapping, cached-tier resolution, presets monotonic, governor steps down after two slow windows, waits (doubling) before stepping up, never flaps, demotes at the floor
 - [x] e2e: auto picks LOW on a software GPU; forced LOW and ULTRA race in 3D without errors under their draw-call ceilings; Settings → GRAPHICS switches live and persists
-- [ ] 3D realism pass (PBR/IBL/shadows/cars/post) with per-tier screenshots
-- [ ] Measured tier table in docs/PERF.md
+- [x] 3D realism pass (PBR/IBL/shadows/cars/post) with per-tier screenshots
+- [x] Measured tier table in docs/PERF.md
 
 ## Test plan
 `tests/unit/gfx.test.js` (tiers, presets, governor), `tests/e2e/gfx.spec.js` (auto tier,

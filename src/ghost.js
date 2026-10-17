@@ -75,6 +75,20 @@ export function createGhostRace(doc = document) {
     get active() { return Boolean(ghost); },
     get initials() { return ghost?.initials || ''; },
     get finish() { return ghost?.finish ?? null; },
+    /** The ghost's distance and lane at race time `t`, written into `out` (no allocation). */
+    poseInto(t, out) {
+      if (!ghost) return false;
+      const g = ghost.g, n = g.d.length;
+      if (!n) return false;
+      const p = Math.max(0, t * g.hz);
+      const i = Math.floor(p);
+      if (i >= n) { out.d = g.d[n - 1]; out.x = g.x[n - 1]; return true; }
+      const k = p - i;
+      const d0 = i === 0 ? 0 : g.d[i - 1], x0 = i === 0 ? g.x[0] : g.x[i - 1];
+      out.d = d0 + (g.d[i] - d0) * k;
+      out.x = x0 + (g.x[i] - x0) * k;
+      return true;
+    },
     /** HUD tick: place the 👻 dot on the strip and label it with the live gap. */
     update(raceTime, myDist, mph, length) {
       if (!ghost) return;

@@ -14,6 +14,8 @@ const MAX_UPGRADE = 5;
  * @param deps {
  *   save: SaveStore, roster, liveries, underglows, upgradeDefs, sound,
  *   selectedIndex(): number, drive(index): void, changed(): void, reducedMotion(): boolean,
+ *   preview3d?(): Promise<{ createCarPreview }>|null  — when the 3D view is on, the garage
+ *     shows the race's real PBR car models instead of the 2D turntable (ticket 0041)
  * }
  */
 export function createGarageUI(deps) {
@@ -318,8 +320,18 @@ export function createGarageUI(deps) {
     return g.owned.filter((id) => CAR_SPECS[id].unlock.type !== 'starter' && !g.revealed.includes(id));
   }
 
+  function make2D() {
+    let c = $('garageCanvas');
+    if (c.dataset.gl) { const fresh = c.cloneNode(false); delete fresh.dataset.gl; c.replaceWith(fresh); c = fresh; }
+    return createTurntable(c, { reducedMotion: deps.reducedMotion() });
+  }
+
   function stopTurntable() {
-    if (turntable) { turntable.dispose(); turntable = null; }
+    if (turntable) {
+      if (turntable.is3D) $('garageCanvas').dataset.gl = '1';
+      turntable.dispose();
+      turntable = null;
+    }
   }
 
   bind();
@@ -334,8 +346,27 @@ export function createGarageUI(deps) {
     open(focusId) {
       const focus = focusId ? roster.findIndex((c) => c.id === focusId) : -1;
       viewIdx = focus >= 0 ? focus : deps.selectedIndex();
-      if (!turntable) turntable = createTurntable($('garageCanvas'), { reducedMotion: deps.reducedMotion() });
+      if (!turntable) turntable = make2D();
       render();
+      // In 3D mode, swap in the real 3D models once the (already loaded) chunk answers.
+      const p3 = deps.preview3d && !turntable.is3D ? deps.preview3d() : null;
+      if (p3) {
+        p3.then((m) => {
+          if (!turntable || turntable.is3D || $('garageModal').classList.contains('hidden')) return;
+          turntable.dispose();
+          // A canvas that ever had a 2D context can't host WebGL: use a fresh copy.
+          const old = $('garageCanvas');
+          const fresh = old.cloneNode(false);
+          old.replaceWith(fresh);
+          try {
+            turntable = m.createCarPreview(fresh, { reducedMotion: deps.reducedMotion(), rich: m.rich !== false });
+            turntable.is3D = true;
+          } catch {
+            turntable = make2D();
+          }
+          render();
+        }).catch(() => {});
+      }
       const pending = unrevealed();
       if (pending.length) queueReveals(pending);
     },

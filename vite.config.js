@@ -22,7 +22,8 @@ const offlineServiceWorker = {
       .filter((f) => !/\.(woff|ttf|map)$/.test(f))
       // fonts: precache only the latin subsets; others are cached the first time they're used
       .filter((f) => !f.endsWith('.woff2') || /-latin-\d/.test(f))
-      .filter((f) => !(bundle[f].type === 'chunk' && bundle[f].moduleIds && bundle[f].moduleIds.some((m) => m.includes('node_modules/three'))))
+      // …and so is the rest of the 3D view (src/render3d: view, garage preview, post-processing)
+      .filter((f) => !(bundle[f].type === 'chunk' && bundle[f].moduleIds && bundle[f].moduleIds.some((m) => m.includes('node_modules/three') || m.includes('/src/render3d/'))))
       .sort();
     const version = createHash('sha256').update(files.join('|')).digest('hex').slice(0, 12);
     const source = readFileSync('scripts/sw-template.js', 'utf8')

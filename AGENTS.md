@@ -169,8 +169,10 @@ src/render3d-loader.js  Lazy entry points into the three.js chunk: loadView3D(),
 src/render3d/       The 3D view (three.js, own chunk, never imported statically):
                       path.js (pure: track segments → 3D centreline) · view.js (scene, camera, road
                       chunks, instanced props, cars, flux trails, adaptive resolution) ·
-                      meshes.js (low-poly cars/props/obstacles/sky) · preview.js (one car on a
-                      turntable in any canvas — for the garage)
+                      meshes.js (low-poly cars/props/obstacles/sky) · post.js (lazy: bloom/vignette/
+                      FXAA for HIGH/ULTRA) · surfaces.js (procedural PBR asphalt,
+                      per-era PMREM environment from ERA_PALETTES) · preview.js (one car on a
+                      showroom turntable; the garage uses it instead of src/car-art.js when 3D is on)
 src/perf/           Graphics quality (ticket 0041), render-only — the sim is identical on every tier:
                       capabilities.js (probe WebGPU/WebGL2/GPU string/cores/memory/DPR/touch/
                       data-saver → tier, presets) · governor.js (p95 frame time → quality steps,
@@ -259,7 +261,21 @@ for a quiet spell that doubles each time an upgrade proves too much (it never fl
   `gfxQ.particles` (multiply particle caps).
 - The 3D view gets `quality` in `createView3D()` and `setQuality(q)` on every change: `dpr`,
   `ahead` (segments), `cars`, `shadows` (map size, 0 = off), `softShadows`, `post`, `env`,
-  `reflections`, `maxDraws` (the e2e suite fails a tier that draws more).
+  `reflections`, `glow`, `maxDraws` (the e2e suite fails a tier that draws more).
+
+Cars: `buildCar(bodyStyle(shape), …)` builds each roster archetype (GULLWING, MUSCLE, TUNER_WING,
+SCANNER, ROCKET, HEAVY_VAN, LIGHTCYCLE); bodies carry `shape` for it. LOW merges wheels into the
+body (no extra draws), MEDIUM+ rolls them, the player's front wheels steer from
+`GameState.steerInput` and its brake lights follow `GameState.braking` (both published by the sim
+step for renderers). HIGH+ paints with clearcoat.
+
+**Backend: WebGL2, not WebGPU (decided 2026-10-17).** Measured with three r186 + esbuild:
+`WebGPURenderer` + one node material bundles to ~210 kB gz, against ~129 kB gz for
+`WebGLRenderer` + `MeshStandardMaterial` — the WebGPU path alone is over the 3D chunk's 170 kB
+budget, and the WebGL path would still have to ship as the fallback for browsers without
+WebGPU. Effects would need a second (node-based) implementation, and the 3D view is fill-rate
+bound on phones, which a new API does not change. The probe
+records `webgpu` so the tier logic can revisit this once Safari's WebGPU is widespread.
 Never feed quality into `updateGame()`: live races, ghosts and the server's score check rely on
 every device running the same simulation.
 
