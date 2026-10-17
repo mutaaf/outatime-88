@@ -16,13 +16,14 @@ export const CONTROL_DEFAULTS = Object.freeze({
   stickThrottle: false,  // push the stick up/down for gas/brake
   steerAssist: false,    // gentle lane-centering when you let go
   haptics: true,
+  hapticStrength: 1,     // 0.3–1; low skips the crash/lap rumbles
   coachSeen: false,      // first-run "where do my thumbs go" overlay
   special: 'ROAR',       // what SPECIAL fires (long-press it to switch)
   layouts: {},           // { 'phone-portrait': { items: {...} }, ... } from the layout editor
 });
 
 const RANGES = {
-  sensitivity: [0.5, 1.5], deadZone: [0.04, 0.3], curve: [1, 2.5], opacity: [0.3, 1], size: [0.8, 1.3],
+  sensitivity: [0.5, 1.5], deadZone: [0.04, 0.3], curve: [1, 2.5], opacity: [0.3, 1], size: [0.8, 1.3], hapticStrength: [0.3, 1],
 };
 
 /** Merge saved controls over defaults and repair anything out of range. Never throws. */

@@ -11,6 +11,7 @@ import { hitButton, slideTransition } from './buttons.js';
 import { presetLayout, applyCustom, layoutKey, ACTION_IDS, SHORTCUT_IDS, PRESETS } from './layouts.js';
 import { movementFor } from './settings.js';
 import { ICONS, LABELS } from './icons.js';
+import { createHaptics } from './haptics.js';
 import './touch.css';
 
 const SLIDABLE = new Set(['boost', 'drift', 'jump', 'special', 'accel', 'horn']);
@@ -40,7 +41,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   const h = Object.assign({
     onBoost() {}, onJump() {}, onDrift() {}, onSpecial() {}, onHorn() {}, onPause() {}, onCamera() {},
     onRespawn() {}, onSteerEdge() {}, onSteerStart() {}, onFlick() {}, onTiltRecenter() {}, tiltOn: () => false,
-    is3D: () => false, status: () => null, drawMirror() {}, canPlay: () => true,
+    is3D: () => false, status: () => null, drawMirror() {}, canPlay: () => true, calm: () => false,
   }, hooks);
 
   // --- DOM ----------------------------------------------------------------------------------
@@ -224,13 +225,14 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   const slotFor = (pid) => { for (const p of ptrs) if (p.id === pid) return p; return null; };
   const freeSlot = () => { for (const p of ptrs) if (p.id === -1) return p; return null; };
   const inStickZone = (x, y) => y >= env.top && (side === 'left' ? x < env.vw / 2 : x >= env.vw / 2);
-  const buzz = (ms) => { if (S().haptics && win.navigator && typeof win.navigator.vibrate === 'function') { try { win.navigator.vibrate(ms); } catch (e) { /* unsupported */ } } };
+  const haptics = createHaptics({ win, doc, settings: S, calm: () => h.calm() });
+  const buzz = haptics.pulse;
 
   function pressButton(p, id) {
     p.btn = id;
     pressCount[id]++;
     el[id].classList.add('tc-pressed');
-    buzz(id === 'boost' ? 14 : 8);
+    buzz(id === 'boost' ? 'boost' : 'press');
     switch (id) {
       case 'boost': h.onBoost(); break;
       case 'jump': h.onJump(); break;
@@ -266,7 +268,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     const px = Math.max(env.safe.l + 108, Math.min(env.vw - env.safe.r - 108, b.cx));
     picker.style.transform = `translate3d(${Math.round(px)}px, ${Math.round(b.cy - b.r - 8)}px, 0)`;
     picker.classList.add('tc-open');
-    buzz(18);
+    buzz('special');
   }
   function closePicker(choice) {
     picker.classList.remove('tc-open');
@@ -307,7 +309,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     stick.classList.add('tc-engaged');
     stickBase.style.transform = `translate3d(${stk.ox - stk.hx}px, ${stk.oy - stk.hy}px, 0)`;
     h.onSteerStart();
-    buzz(6);
+    buzz('engage');
     stickMove(x, y);
     return true;
   }
@@ -352,7 +354,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     const dir = dpadDirection(x - stk.hx, y - stk.hy, stk.d * 0.12);
     if (dir !== p.dir) {
       p.dir = dir;
-      if (dir) buzz(5);
+      if (dir) buzz('tick');
       dpadAxes(dir, axes);
       if (axes.x) h.onSteerEdge(axes.x);
     }
@@ -417,7 +419,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     if (p.kind === 'btn') {
       if (p.btn === 'special' && p.picking) {
         const c = pickerChoiceAt(p.x, p.y);
-        if (c !== p.pick) { p.pick = c; for (const s of picker.children) s.classList.toggle('tc-hot', s.dataset.special === c); if (c) buzz(5); }
+        if (c !== p.pick) { p.pick = c; for (const s of picker.children) s.classList.toggle('tc-hot', s.dataset.special === c); if (c) buzz('tick'); }
         return;
       }
       const next = hitButton(btnList, p.x, p.y, 2);
@@ -580,5 +582,6 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     layoutNow: () => ({ env, items: layout }),
     computeLayout, measureEnv, place, elements: el, stickEl: stick, dpadEl: dpad, tiltEl: tilt, layer,
     get equipped() { return equipped; },
+    haptics,
   };
 }
