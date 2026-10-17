@@ -29,6 +29,7 @@ export function addSegment(curve, y, bank, trackType, forkInfo = null) {
     bank: bank,
     trackType: trackType,
     forkInfo: forkInfo,
+    feature: null, // a set piece covering this segment (see featureAt), shared by its segments
     items: [],
     cars: [],
     flameLeft: false,
@@ -156,4 +157,43 @@ export function generateNextTrackBiome(chosenBranch = null) {
     addRoadSection(4, 8, 4, 0, 0, 0, 'CHECKPOINT');
     populateChunkDecorations(cpStart, track.segments.length, 'CHECKPOINT');
   }
+}
+
+// ---------------------------------------------------------------------------------------
+// Road contract (sprint 4). Per-distance road data that the sim (handling), both renderers
+// and the hazard planner read, so nobody re-derives geometry from segment internals.
+// `z` is track Z in sim units (the same Z as GameState.trackPos + ROAD_CFG.playerZOffset).
+// Past either end of the generated road every function returns its neutral value.
+
+/** The segment under track Z `z`, or null. */
+export function segmentAt(z) {
+  return track.segments[Math.floor(z / ROAD_CFG.segLength)] || null;
+}
+
+/** Signed curvature: heading change (radians) per sim unit of Z at unit scale; + bends right. */
+export function curvatureAt(z) {
+  const s = segmentAt(z);
+  return s ? s.curve / ROAD_CFG.segLength : 0;
+}
+
+/** Bank (roll) of the road surface in radians-ish units as stored on segments; + leans right. */
+export function bankAt(z) {
+  const s = segmentAt(z);
+  return s ? s.bank : 0;
+}
+
+/** Pitch of the road (radians, + climbs) from the segment's elevation change. */
+export function pitchAt(z) {
+  const s = segmentAt(z);
+  return s ? Math.atan2(s.p2.world.y - s.p1.world.y, ROAD_CFG.segLength) : 0;
+}
+
+/**
+ * The set piece at `z`, or null. A feature is one shared object over its segments:
+ * { kind: 'LOOP'|'CORKSCREW'|'JUMP'|'WALLRIDE'|'BOOSTER', z0, length, ...kind params }
+ * with `t = (z - z0) / length` the progress through it. Kinds and params: src/setpieces.js.
+ */
+export function featureAt(z) {
+  const s = segmentAt(z);
+  return s ? s.feature : null;
 }

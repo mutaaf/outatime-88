@@ -236,6 +236,22 @@ New things the 3D view should draw: cars (incl. remote/ghost cars) go in
 `collectCarsFor3D()` in main.js; obstacles/knockables in the `obstacles` getter passed to
 `createView3D`. In 3D the 2D canvas stays on top (transparent) for screen-space FX.
 
+### Road contract (sprint 4)
+
+`src/track.js` exposes per-distance road data; everything that needs road geometry reads
+these instead of segment internals (`z` = track Z in sim units):
+
+| Function | Returns |
+|---|---|
+| `segmentAt(z)` | the segment under `z`, or null |
+| `curvatureAt(z)` | signed heading change per sim unit (+ bends right) |
+| `bankAt(z)` | road roll (+ leans right) |
+| `pitchAt(z)` | road pitch in radians (+ climbs) |
+| `featureAt(z)` | the set piece at `z` (`{ kind, z0, length, … }`) or null; see `src/setpieces.js` |
+
+Owners: the track lead owns geometry, set pieces and hazard placement; the handling lead
+owns car physics, input and NOS, and reads this contract.
+
 ### URL parameters (deep links, ticket 0110)
 
 The site launcher and share links open screens with these. One-shot params are stripped with
