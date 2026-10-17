@@ -174,6 +174,9 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     vertexColors: true, map: asph.map, roughnessMap: asph.roughnessMap, normalMap: asph.normalMap,
     roughness: 1, metalness: 0, envMapIntensity: 1,
   });
+  // LOW (and software GPUs) draw the same asphalt colour map without the PBR lighting cost.
+  const deckLite = new MeshLambertMaterial({ vertexColors: true, map: asph.map });
+  const deckFor = () => (q.env ? deckMat : deckLite);
   const neonMat = new MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   const glowMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
   // LOW skips the soft additive glow passes (rail glow on the ground, lamp halos).
@@ -255,12 +258,14 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       const g = new BufferGeometry();
       g.setAttribute('position', new Float32BufferAttribute(P, 3));
       g.setAttribute('color', new Float32BufferAttribute(C, 3));
-      if (mat === deckMat) { g.setAttribute('uv', new Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); }
+      if (mat === deckMat || mat === deckLite) { g.setAttribute('uv', new Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); }
       const m = new Mesh(g, mat);
       grp.add(m);
       return m;
     };
-    mk(pos, col, deckMat).receiveShadow = true;
+    const deck = mk(pos, col, deckFor());
+    deck.receiveShadow = true;
+    grp.userData.deck = deck;
     mk(npos, ncol, neonMat);
     mk(gpos, gcol, glowMat).renderOrder = 1;
     return grp;
@@ -597,6 +602,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       try { env = bakeEnvironment(renderer, e); } catch { env = null; }
     }
     scene.environment = env ? env.texture : null;
+    chunks.forEach((grp) => { grp.userData.deck.material = deckFor(); });
     stats.env = Boolean(env);
     const wet = pal.wet;
     deckMat.roughness = wet ? 0.5 : 1;

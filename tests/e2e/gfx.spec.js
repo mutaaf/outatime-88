@@ -90,6 +90,7 @@ const ERA_SHOTS = [
 ];
 for (const v of ERA_SHOTS) {
   test(`3D eras ${v.eras.join('+')} at ${v.w}x${v.h}`, async ({ page }, info) => {
+    test.setTimeout(90_000); // MEDIUM's shadows + environment light are slow on CI's software GPU
     const problems = watchPage(page);
     await page.setViewportSize({ width: v.w, height: v.h });
     await page.goto(`${APP}?debug&view=3d&gfx=medium`);
@@ -100,7 +101,7 @@ for (const v of ERA_SHOTS) {
     for (const era of v.eras) {
       await page.evaluate((e) => { window.__OT.GameState.eraIndex = e; }, era);
       const f = await page.evaluate(() => window.__OT.view().stats.frames);
-      await page.waitForFunction((k) => window.__OT.view().stats.frames > k + 8, f, { timeout: 20_000 });
+      await page.waitForFunction((k) => window.__OT.view().stats.frames > k + 3, f, { timeout: 30_000 });
       const lit = await page.evaluate(() => window.__OT.view().stats.env);
       expect(lit).toBe(true); // MEDIUM bakes the era's environment light
       await info.attach(`era${era}-${v.w}x${v.h}`, { body: await page.screenshot(), contentType: 'image/png' });
