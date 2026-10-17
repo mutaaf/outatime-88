@@ -1,7 +1,8 @@
 // Live races, client side (sprint 3): remote-car smoothing, clock sync, standings, QR.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createGhostTrack, createClockSync, GHOST } from '../../src/live/ghosts.js';
-import { suggestInitials, fmtTime, UNITS_PER_MPH } from '../../src/live/controller.js';
+import { suggestInitials, fmtTime, UNITS_PER_MPH, setRoomParam } from '../../src/live/controller.js';
+import { GameState } from '../../src/state.js';
 import { cleanInitials } from '../../src/worker/initials.js';
 
 describe('ghost interpolation', () => {
@@ -55,5 +56,17 @@ describe('standings and labels', () => {
   });
   it('live races run at one shared pace', () => {
     expect(UNITS_PER_MPH).toBeCloseTo(40, 0);
+  });
+});
+
+describe('rematch invites', () => {
+  it('a joined room publishes its invite link for the share card; leaving clears it', () => {
+    vi.stubGlobal('location', { origin: 'https://mutaafaziz.com', pathname: '/outatime/', search: '' });
+    vi.stubGlobal('history', { replaceState() {} });
+    setRoomParam('ABCD');
+    expect(GameState.liveInvite).toMatch(/\?room=ABCD$/);
+    setRoomParam(null);
+    expect(GameState.liveInvite).toBeNull();
+    vi.unstubAllGlobals();
   });
 });
