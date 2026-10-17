@@ -2,7 +2,7 @@
 // unlock, buy, paint and upgrade, plus the full-screen reveal when a new car unlocks.
 // DOM only; the rules live in src/cars.js and main.js passes in what it owns.
 
-import { CAR_SPECS, STATS, STAT_LABELS, displayStats, isOwned, unlockProgress, buyCar } from './cars.js';
+import { CAR_SPECS, STATS, STAT_LABELS, displayStats, isOwned, unlockProgress, buyCar, ensureGarage } from './cars.js';
 import { createTurntable } from './car-art.js';
 import './garage.css';
 
@@ -23,7 +23,8 @@ export function createGarageUI(deps) {
   let revealTable = null;
   const revealQueue = [];
 
-  const data = () => save.data;
+  // A racer added on this device (ticket 0090) starts with a bare save: fill its garage first.
+  const data = () => { if (!save.data.garage) ensureGarage(save.data); return save.data; };
   const carAt = (i) => roster[((i % roster.length) + roster.length) % roster.length];
   const paintOf = (c) => {
     const id = data().garage.paint[c.id];
