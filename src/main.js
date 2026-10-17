@@ -7,6 +7,7 @@ import { SoundEngine, setAudioHooks } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
 import { projectPoint } from './projection.js';
+import { contactZ, cameraDepth } from './contact.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain, watchReducedMotion } from './fx.js';
 import { createAnnouncer } from './announcer.js';
@@ -2051,6 +2052,19 @@ function drawPolygon(ctx, x1, y1, x2, y2, x3, y3, x4, y4, color) {
   ctx.fill();
 }
 
+/** Logical height of the 2D road canvas (era pixel scale applied). */
+function roadCanvasHeight() {
+  const scale = getActiveEraRenderConfig().pixelScale || 1.0;
+  return Math.max(160, Math.floor(mainCanvas.height / scale));
+}
+
+/** Simulation-owned tyre contact Z; independent of which renderer draws the frame. */
+function syncContactZ() {
+  const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
+  const z = contactZ(track.segments, GameState, camCfg, roadCanvasHeight());
+  if (z !== null) GameState.visualPlayerZ = z;
+}
+
 function renderScene() {
   const eraCfg = getActiveEraRenderConfig();
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
@@ -2187,7 +2201,7 @@ function renderScene() {
   const cameraX = (GameState.playerX * ROAD_CFG.roadWidth) + playerCurveX;
   const cameraY = playerElevation + camCfg.height + GameState.playerY * 3.5;
   const cameraZ = GameState.trackPos;
-  const dynamicDepth = Math.max(0.62, camCfg.depth - Math.max(0, (GameState.speed - 70) * 0.0022));
+  const dynamicDepth = cameraDepth(camCfg, GameState.speed);
 
   let x = 0;
   let dx = -(baseSeg.curve * basePercent);
@@ -2223,10 +2237,9 @@ function renderScene() {
     const w2 = seg.p2.screen.w;
 
     // Capture the exact segment at the player's tire contact line (y = 87% of screen height) for 1:1 visual collision!
+    // The tyre contact row; the simulation's own copy (visualPlayerZ) comes from contact.js.
     if (!foundPlayerSeg && y1 >= playerTireScreenY && y2 <= playerTireScreenY) {
       foundPlayerSeg = seg;
-      const tSeg = (y1 - playerTireScreenY) / Math.max(1, y1 - y2);
-      GameState.visualPlayerZ = seg.p1.world.z + tSeg * ROAD_CFG.segLength;
     }
 
     const isAlt = (Math.floor(seg.index / 10) % 2) === 0;
@@ -4166,6 +4179,7 @@ function mainLoop(timestamp) {
     }
   }
 
+  syncContactZ();
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
   renderScene();
