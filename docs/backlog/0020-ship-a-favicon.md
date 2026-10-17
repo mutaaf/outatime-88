@@ -2,7 +2,7 @@
 id: 0020
 title: Ship a favicon so full Chrome stops logging a 404 on every load
 status: proposed
-priority: P2
+priority: P1
 size: S
 lens: tech-health
 created: 2026-10-17

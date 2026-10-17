@@ -14,7 +14,7 @@ Pillar 5. Racing your own best line is the most motivating single-player loop in
 racing, and it needs no servers.
 
 ## What
-`src/ghost.js`: sample `{trackPos, playerX, playerY}` at 10 Hz into a compact typed array,
+Reuse `src/ghost-codec.js` and the recorder in `src/ghost.js` (0092 shipped server-side rival ghosts; this is the offline, own-best variant). Sample `{trackPos, playerX, playerY}` at 10 Hz into a compact typed array,
 quantized; store the best run per level under a NEW versioned key `outatime88_ghosts_v1`
 (the main save key is untouched, invariant 6). Render the ghost as a translucent car.
 
