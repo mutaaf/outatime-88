@@ -185,6 +185,7 @@ export const ERAS = [
       tower: '#2f5a5e',
       towerTrim: '#f2f2e9',
       clock: '#ff7aa8',
+      landmark: 'driveIn',
       ground: ['#6fb8a3', '#3f8a78', '#24584d']
     }
   }
@@ -202,6 +203,7 @@ export const DEFAULT_BACKDROP = {
   tower: '#1e1026',
   towerTrim: '#cbd5e1',
   clock: '#fef08a',
+  landmark: 'clockTower',
   ground: ['#190b2e', '#0b0719', '#05040d']
 };
 

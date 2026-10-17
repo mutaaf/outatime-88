@@ -2260,24 +2260,38 @@ function renderScene() {
   const ctX = Math.floor(sunX);
   const ctW = Math.max(48, Math.floor(rw * 0.10));
   const ctH = Math.max(32, Math.floor(rh * 0.10));
-  ctx.fillStyle = bd.tower;
-  ctx.fillRect(ctX - ctW * 0.5, horizonY - ctH, ctW, ctH);
-  ctx.fillStyle = bd.towerTrim;
-  for (let col = -1.5; col <= 1.5; col += 1) {
-    ctx.fillRect(ctX + col * (ctW * 0.22) - 1.5, horizonY - ctH * 0.72, 3, ctH * 0.72);
+  if (bd.landmark === 'driveIn') {
+    // 1955: a drive-in movie screen on two legs, a marquee bar beneath it.
+    const sw = ctW * 1.7;
+    const sh = ctH * 0.8;
+    ctx.fillStyle = bd.tower;
+    ctx.fillRect(ctX - sw * 0.42, horizonY - ctH * 0.35, Math.max(2, sw * 0.05), ctH * 0.35);
+    ctx.fillRect(ctX + sw * 0.37, horizonY - ctH * 0.35, Math.max(2, sw * 0.05), ctH * 0.35);
+    ctx.fillRect(ctX - sw * 0.5, horizonY - ctH * 0.35 - sh, sw, sh);
+    ctx.fillStyle = bd.towerTrim;
+    ctx.fillRect(ctX - sw * 0.46, horizonY - ctH * 0.35 - sh * 0.92, sw * 0.92, sh * 0.84);
+    ctx.fillStyle = bd.clock;
+    ctx.fillRect(ctX - sw * 0.2, horizonY - ctH * 0.3, sw * 0.4, Math.max(2, ctH * 0.12));
+  } else {
+    ctx.fillStyle = bd.tower;
+    ctx.fillRect(ctX - ctW * 0.5, horizonY - ctH, ctW, ctH);
+    ctx.fillStyle = bd.towerTrim;
+    for (let col = -1.5; col <= 1.5; col += 1) {
+      ctx.fillRect(ctX + col * (ctW * 0.22) - 1.5, horizonY - ctH * 0.72, 3, ctH * 0.72);
+    }
+    ctx.beginPath();
+    ctx.moveTo(ctX - ctW * 0.54, horizonY - ctH * 0.72);
+    ctx.lineTo(ctX, horizonY - ctH * 1.15);
+    ctx.lineTo(ctX + ctW * 0.54, horizonY - ctH * 0.72);
+    ctx.closePath();
+    ctx.fill();
+    const clkR = Math.max(4, ctW * 0.10);
+    const clkY = horizonY - ctH * 0.90;
+    ctx.fillStyle = bd.clock;
+    ctx.beginPath();
+    ctx.arc(ctX, clkY, clkR, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.beginPath();
-  ctx.moveTo(ctX - ctW * 0.54, horizonY - ctH * 0.72);
-  ctx.lineTo(ctX, horizonY - ctH * 1.15);
-  ctx.lineTo(ctX + ctW * 0.54, horizonY - ctH * 0.72);
-  ctx.closePath();
-  ctx.fill();
-  const clkR = Math.max(4, ctW * 0.10);
-  const clkY = horizonY - ctH * 0.90;
-  ctx.fillStyle = bd.clock;
-  ctx.beginPath();
-  ctx.arc(ctX, clkY, clkR, 0, Math.PI * 2);
-  ctx.fill();
 
   // Deep Twilight Ground Plane with Subtle Horizon Glow
   const gndGrad = ctx.createLinearGradient(0, horizonY, 0, rh);
@@ -2579,7 +2593,7 @@ function renderScene() {
         ctx.fillRect(itemX - barW * 0.44, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
         ctx.fillRect(itemX + barW * 0.08, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
       } else if (atomicProps && (item.type === 'STREET_LAMP' || item.type === 'SIGN_88' || item.type === 'CLOCK_TOWER_BILLBOARD' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW')) {
-        drawAtomicProp(ctx, item.type, itemX, roadY, itemW, itemH, nowSec);
+        drawAtomicProp(ctx, item.type, itemX, roadY, itemW, itemH, nowSec, GameState.reducedMotion);
       } else if (item.type === 'STREET_LAMP') {
         const postH = itemH * 2.5;
         ctx.fillStyle = '#64748b';
@@ -3127,7 +3141,7 @@ function drawSparks(c, rw, rh) {
 
 // 1955 Atomic Diner roadside set (ticket 0008): starburst lamps, a chrome diner sign and
 // pastel lollipop trees stand in for the neon-era props on the same scenery slots.
-function drawAtomicProp(ctx, type, x, roadY, w, h, nowSec) {
+function drawAtomicProp(ctx, type, x, roadY, w, h, nowSec, reduced) {
   if (type === 'STREET_LAMP') {
     const postH = h * 2.5;
     ctx.fillStyle = '#d6dde0';
@@ -3158,9 +3172,9 @@ function drawAtomicProp(ctx, type, x, roadY, w, h, nowSec) {
     ctx.fillStyle = '#fffbea';
     ctx.fillRect(x - sw * 0.5, roadY - postH - sh * 0.3, sw, Math.max(1, sh * 0.14));
     ctx.fillRect(x - sw * 0.5, roadY - postH + sh * 0.56, sw, Math.max(1, sh * 0.14));
-    // Chasing marquee bulb: one lit dot travels along the sign.
+    // Chasing marquee bulb: one lit dot travels along the sign (all steady with reduced motion).
     const bulbs = 5;
-    const lit = Math.floor(nowSec * 6) % bulbs;
+    const lit = reduced ? -1 : Math.floor(nowSec * 6) % bulbs;
     for (let b = 0; b < bulbs; b++) {
       ctx.fillStyle = b === lit ? '#fff3b0' : '#e4503a';
       ctx.fillRect(x - sw * 0.4 + b * (sw * 0.8 / (bulbs - 1)) - 1, roadY - postH + sh * 0.1, 2.5, 2.5);

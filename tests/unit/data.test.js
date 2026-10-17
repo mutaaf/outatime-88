@@ -46,11 +46,6 @@ describe('eras (ticket 0008)', () => {
     const i = ERAS.findIndex((e) => e.id === '1955');
     expect(i).toBeGreaterThan(-1);
     expect(ERAS[i].name).toMatch(/^1955 • ATOMIC DINER/);
-    // The warp steps eraIndex = (eraIndex + 1) % ERAS.length from any start era.
-    const seen = new Set();
-    let e = 0;
-    for (let n = 0; n < ERAS.length; n++) { e = (e + 1) % ERAS.length; seen.add(ERAS[e].id); }
-    expect(seen.has('1955')).toBe(true);
     // Each era's destination is the next era's present.
     ERAS.forEach((era, k) => expect(era.destDate).toBe(ERAS[(k + 1) % ERAS.length].presentDate));
   });
@@ -67,6 +62,9 @@ describe('eras (ticket 0008)', () => {
     expect(bd.ground).toHaveLength(DEFAULT_BACKDROP.ground.length);
     expect(bd.sky.join()).not.toBe(DEFAULT_BACKDROP.sky.join());
     expect(era.props).toBe('atomic');
+    // No courthouse clock tower in 1955 (invariant 7): a drive-in screen stands there instead.
+    expect(bd.landmark).toBe('driveIn');
+    expect(bd.stars).toBe(false);
     // Eras without a backdrop keep today's look.
     expect(eraBackdrop(ERAS[0])).toBe(DEFAULT_BACKDROP);
     for (const k of Object.keys(DEFAULT_BACKDROP)) expect(bd[k], k).toBeDefined();

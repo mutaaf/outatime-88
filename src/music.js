@@ -49,7 +49,7 @@ export const ERA_SCORES = {
     lead: [14, _, _, _, 15, _, _, _, 14, _, 12, _, 11, _, _, _],
     drums: { kick: [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0], snare: [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0], hat: [1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1] },
   },
-  // 1955 Atomic Diner: a jukebox I–vi–IV–V in a sunny major key, shuffle hats, walking bass.
+  // 1955 Atomic Diner: a jukebox I–vi–IV–V in a sunny major key, dotted hats, walking bass.
   '1955': {
     bpm: 100, root: 46, scale: [0, 2, 4, 5, 7, 9, 11], wave: 'triangle',
     bass: [0, _, 2, 4, 5, _, 4, 2, 3, _, 5, 7, 4, _, 6, 4],

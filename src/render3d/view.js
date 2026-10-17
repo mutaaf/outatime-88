@@ -8,7 +8,7 @@ import {
   Points, PointsMaterial, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
   Float32BufferAttribute,
 } from 'three';
-import { ROAD_CFG } from '../data.js';
+import { ROAD_CFG, eraBackdrop } from '../data.js';
 import { InputState } from '../input.js';
 import { createTrackPath } from './path.js';
 import { bodyPose, playerPose } from '../render-pose.js';
@@ -532,6 +532,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     skyMat.uniforms.glow.value.set(e.horizonGlow || '#ff6a2b');
     sky.position.set(cx, cy, cz);
     stars.position.set(cx, cy, cz);
+    stars.visible = eraBackdrop(e).stars !== false;
     mountains.position.set(cx, groundY, cz);
     const fx = Math.sin(sunHeading), fz = -Math.cos(sunHeading);
     sun.position.set(cx + fx * 1500, groundY + 150, cz + fz * 1500);

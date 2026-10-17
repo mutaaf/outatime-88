@@ -13,19 +13,22 @@ const skyColour = (page) => page.evaluate(() => {
 
 test('forcing warps reaches the 1955 Atomic Diner era with its own daytime sky', async ({ page }) => {
   const problems = watchPage(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' }); // no shake or flash in the sky samples
   await page.goto(`${APP}?debug`);
   await page.locator('#btnStartRace').click();
-  await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING');
+  await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING');
   const neonSky = await skyColour(page);
 
   for (let n = 0; n < 8; n++) {
     if ((await page.locator('#eraBadge').innerText()).includes('1955')) break;
     const before = await page.evaluate(() => window.__OT.GameState.timeWarps);
-    await page.evaluate(() => {
+    // Re-arm on every poll: a bump can drain the meter or drop speed before the warp check runs.
+    await page.waitForFunction((b) => {
       const g = window.__OT.GameState;
-      g.racePhase = 'RACE'; g.fluxCharge = 100; g.speed = 100; g.sinceWarp = 99; g.warpActiveTimer = 0;
-    });
-    await page.waitForFunction((b) => window.__OT.GameState.timeWarps > b, before, { timeout: 5000 });
+      if (g.timeWarps > b) return true;
+      g.fluxCharge = 100; g.speed = 100; g.sinceWarp = 99; g.warpActiveTimer = 0;
+      return false;
+    }, before, { timeout: 5000 });
   }
   await expect(page.locator('#eraBadge')).toContainText('1955 • ATOMIC DINER');
 
