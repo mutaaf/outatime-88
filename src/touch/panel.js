@@ -20,6 +20,7 @@ const SLIDERS = [
   { key: 'deadZone', label: 'Stick dead zone', min: 0.04, max: 0.3, step: 0.01, fmt: (v) => `${Math.round(v * 100)}%` },
   { key: 'curve', label: 'Response', min: 1, max: 2.5, step: 0.1, fmt: (v) => (v < 1.3 ? 'Direct' : v < 1.9 ? 'Smooth' : 'Precise') },
   { key: 'size', label: 'Button size', min: 0.8, max: 1.3, step: 0.05, fmt: (v) => `${Math.round(v * 100)}%` },
+  { key: 'hapticStrength', label: 'Haptic strength', min: 0.3, max: 1, step: 0.05, fmt: (v) => (v < 0.45 ? 'Light' : v < 0.8 ? 'Medium' : 'Strong') },
   { key: 'opacity', label: 'Button opacity', min: 0.3, max: 1, step: 0.05, fmt: (v) => `${Math.round(v * 100)}%` },
 ];
 
@@ -27,7 +28,7 @@ const TOGGLES = [
   { key: 'autoAccel', label: 'Auto-accelerate', hint: 'The car drives itself forward.' },
   { key: 'stickThrottle', label: 'Stick up/down = gas/brake', hint: 'Push up to speed up, down to brake.' },
   { key: 'steerAssist', label: 'Steer assist', hint: 'Keeps you in lane when you let go.' },
-  { key: 'haptics', label: 'Vibration', hint: 'A buzz on every press (Android).' },
+  { key: 'haptics', label: 'Haptics', hint: 'Feel every press, boost and crash (vibration on Android, taps on iPhone with iOS 18+).' },
 ];
 
 function h(tag, attrs, html) {
@@ -130,7 +131,14 @@ export function openControlsPanel(ctx) {
   });
   card.addEventListener('change', (e) => {
     const t = e.target;
-    if (t.dataset.toggle) { settings[t.dataset.toggle] = t.checked; if (t.dataset.toggle === 'autoAccel') renderPresets(); commit(); }
+    if (t.dataset.toggle) {
+      settings[t.dataset.toggle] = t.checked;
+      if (t.dataset.toggle === 'autoAccel') renderPresets();
+      if (t.dataset.toggle === 'haptics' && t.checked && controls.haptics) controls.haptics.pulse('boost'); // feel it at once
+      commit();
+    }
+    // Let go of the strength slider: a sample pulse at the new strength.
+    if (t.dataset.slider === 'hapticStrength' && controls.haptics) controls.haptics.pulse('boost');
   });
   card.addEventListener('input', (e) => {
     const t = e.target;

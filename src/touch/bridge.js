@@ -54,6 +54,7 @@ export function connectTouch(game) {
     save,
     hooks: {
       canPlay: () => GameState.status === 'PLAYING',
+      calm: () => !!GameState.reducedMotion,
       onBoost: () => { SoundEngine.init(); InputState.boostPressed = true; },
       onJump: () => { SoundEngine.init(); if (GameState.playerY > 12) game.performHumanTrick('UP'); else InputState.hoverPressed = true; },
       onDrift: () => { if (GameState.playerY > 12) game.performHumanTrick('DOWN'); },

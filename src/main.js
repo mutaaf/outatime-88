@@ -743,6 +743,7 @@ const penaltyPopup = { pts: 0, label: '', until: 0, drawn: 0 };
 function chargePenalty(pts, label) {
   if (!pts) return;
   GameState.score -= pts;
+  if (touch) touch.controls.haptics.pulse('hit');
   const now = performance.now();
   if (now > penaltyPopup.until || penaltyPopup.label !== label) penaltyPopup.pts = 0;
   penaltyPopup.pts += pts;
@@ -4075,7 +4076,7 @@ function updateRaceCeremony(rawDt) {
   }
   if (GameState.racePhase === 'RACING') {
     const lap = GameState.raceLength ? lapOf(GameState.distance, GameState.raceLength).lap : 1;
-    if (lap > lapNow) { GameState.lapSplits.push(GameState.raceTime - lapStartedAt); lapStartedAt = GameState.raceTime; lapNow = lap; }
+    if (lap > lapNow) { GameState.lapSplits.push(GameState.raceTime - lapStartedAt); lapStartedAt = GameState.raceTime; lapNow = lap; if (touch) touch.controls.haptics.pulse('lap'); }
     const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
     if (c) {
       triggerAnnouncement(c.main, c.sub, 1500, c.kind === 'final' ? 3 : 2);
