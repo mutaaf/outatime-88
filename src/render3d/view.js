@@ -13,7 +13,7 @@ import { ROAD_CFG } from '../data.js';
 import { InputState } from '../input.js';
 import { createTrackPath } from './path.js';
 import { bodyPose, playerPose } from '../render-pose.js';
-import { buildCar, buildObstacle, propKinds, mountainRing, NEON_CYAN, NEON_PINK } from './meshes.js';
+import { buildCar, buildObstacle, propKinds, mountainRing, turnWheels, bodyStyle, NEON_CYAN, NEON_PINK } from './meshes.js';
 
 // Simulation units → metres. Depth is stretched and the road narrowed (see path.js).
 const PATH_SCALE = { zScale: 0.03, xScale: 0.005, yScale: 0.025 };
@@ -372,12 +372,16 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   const carPool = new Map(); // key → [groups]
   const carsOut = [];
   const usedCars = [];
+  // How much model detail cars get at this tier: clearcoat paint on HIGH+, rolling wheels on
+  // MEDIUM+ (LOW keeps them merged into the body: no extra draw calls).
+  const carDetail = () => ({ clearcoat: q.tier === 'high' || q.tier === 'ultra', wheels: q.tier === 'low' ? 'static' : 'spin' });
+  let detail = carDetail();
   function takeCar(style, length, width, police) {
     const key = style + '|' + length.toFixed(1) + '|' + width.toFixed(1) + (police ? '|P' : '');
     let list = carPool.get(key);
     if (!list) { list = []; carPool.set(key, list); }
     for (let i = 0; i < list.length; i++) if (!list[i].visible) { list[i].visible = true; return list[i]; }
-    const g = buildCar(style, length, width, { police });
+    const g = buildCar(style, length, width, { police, ...detail });
     castShadows(g);
     list.push(g);
     scene.add(g);
@@ -387,9 +391,29 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   function castShadows(g) {
     g.traverse((m) => { if (m.isMesh && !m.material.transparent) m.castShadow = true; });
   }
-  const playerCar = buildCar('TIME_CAR', 6.6, 3.0);
-  castShadows(playerCar);
-  scene.add(playerCar);
+  function disposeCar(g) {
+    scene.remove(g);
+    g.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); if (m.material !== undefined && m.material.userData.shared !== true && m.material.dispose) m.material.dispose(); } });
+  }
+  function buildPlayer(shape) {
+    const g = buildCar(bodyStyle(shape || 'GULLWING'), 6.6, 3.0, { clearcoat: detail.clearcoat, wheels: detail.wheels === 'static' ? 'static' : 'steer', lamps: true });
+    g.userData.shape = shape;
+    castShadows(g);
+    scene.add(g);
+    return g;
+  }
+  let playerCar = buildPlayer(player().shape);
+  /** Rebuild cars after a quality change that alters their models. */
+  function syncCarDetail() {
+    const next = carDetail();
+    if (next.clearcoat === detail.clearcoat && next.wheels === detail.wheels) return;
+    detail = next;
+    carPool.forEach((list) => list.forEach(disposeCar));
+    carPool.clear();
+    usedCars.length = 0;
+    disposeCar(playerCar);
+    playerCar = buildPlayer(player().shape);
+  }
 
   function poseCar(g, trackZ, offset, lift, yawExtra, roll, pitch) {
     path.at(trackZ, offset, pose);
@@ -410,7 +434,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       const dz = bp.z - pz;
       if (dz < -3000 || dz > AHEAD * ROAD_CFG.segLength || drawn >= q.cars) continue;
       drawn++;
-      const style = b.style === 'SEMI_TRUCK' ? 'SEMI_TRUCK' : (b.style || 'SEDAN');
+      const style = bodyStyle(b.shape || b.style || 'SEDAN');
       const length = Math.max(4, (b.halfL || 110) * 2 * PATH_SCALE.zScale);
       const width = Math.max(2.4, (b.halfW || 0.14) * 2 * HALF_W);
       const police = b.type === 'POLICE_INTERCEPTOR';
@@ -419,7 +443,12 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       g.userData.paint.color.set(b.bodyColor || '#94a3b8');
       g.userData.glow.color.set(b.underglow || (b.kind === 'RIVAL' ? NEON_PINK : '#000000'));
       if (g.userData.lightbar) g.userData.lightbar.material.color.set(Math.floor(t * 6) % 2 ? '#ef4444' : '#3b82f6');
-      poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE, bp.yaw * 0.35, bp.rot, 0);
+      // A gentle suspension bob, out of phase per car.
+      const bob = Math.sin(t * 9 + i * 1.7) * 0.025 * Math.min(1, (b.mph || b.speed || 60) / 60);
+      poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE + bob, bp.yaw * 0.35, bp.rot, 0);
+      const lz = g.userData.lastZ;
+      g.userData.lastZ = bp.z;
+      if (lz !== undefined && g.userData.axles) turnWheels(g, Math.max(0, Math.min(40, (bp.z - lz) * PATH_SCALE.zScale)));
     }
   }
 
@@ -517,8 +546,15 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     const pitch = ((s.chassisPitch || 0) * 0.4 - (s.trickPitchAngle || 0)) * DEG;
     poseCar(playerCar, pz, pp.x, lift, -(s.driftAngle || 0) * 0.55 * DEG, roll, pitch);
     const p = player();
+    if (p.shape !== playerCar.userData.shape) { disposeCar(playerCar); playerCar = buildPlayer(p.shape); poseCar(playerCar, pz, pp.x, lift, 0, roll, pitch); }
     playerCar.userData.paint.color.set(p.body || '#c9ced6');
     playerCar.userData.glow.color.set(p.underglow || NEON_CYAN);
+    // Wheels roll with the road, the front pair steers, brake lights and headlights work.
+    const lz = playerCar.userData.lastZ;
+    playerCar.userData.lastZ = pz;
+    if (lz !== undefined) turnWheels(playerCar, Math.max(0, Math.min(40, (pz - lz) * PATH_SCALE.zScale)), -(s.steerInput || 0) * 0.32);
+    playerCar.userData.setBrake(Boolean(s.braking) && s.status === 'PLAYING');
+    playerCar.userData.beams.visible = !pal.bright;
     return pz;
   }
 
@@ -670,7 +706,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     camera.updateProjectionMatrix();
   }
 
-  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0, env: false, shadows: 0 };
+  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0, env: false, shadows: 0, wheelSpin: 0, playerShape: '' };
 
   let clock = 0;
   return {
@@ -700,6 +736,8 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       stats.drawCalls = renderer.info.render.calls;
       stats.triangles = renderer.info.render.triangles;
       stats.shadows = sunLight.castShadow ? sunLight.shadow.mapSize.x : 0;
+      stats.wheelSpin = playerCar.userData.axles ? -playerCar.userData.axles[0].rotation.x : 0;
+      stats.playerShape = playerCar.userData.shape || '';
     },
     /** A new graphics preset from the governor or the player (src/perf/gfx.js). */
     setQuality(next) {
@@ -719,6 +757,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
         scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
       }
       applyGlow();
+      syncCarDetail();
       litEra = ''; // re-bake (or drop) the environment if `env` changed
     },
     dispose() {

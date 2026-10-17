@@ -24,4 +24,4 @@ M1 Max (real GPU), 3D mid-race, 60 Hz headless (vsync-capped, so fps reads 60 wh
 
 SwiftShader (software, what CI runs; auto picks LOW): 1280x720 settles at governor step 2
 (DPR 0.85), ~35 fps, p95 33 ms — the governor is doing its job on a device that can't hold 60.
-Draw-call ceilings per tier (`maxDraws`, enforced by `tests/e2e/gfx.spec.js`): 125 / 150 / 190 / 230.
+Draw-call ceilings per tier (`maxDraws`, enforced by `tests/e2e/gfx.spec.js`): 125 / 175 / 210 / 250 (rolling wheels add two draws per car on MEDIUM+).

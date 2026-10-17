@@ -13,7 +13,7 @@ import { projectPoint } from './projection.js';
 import { createFixedStep, lerp } from './fixedstep.js';
 import { contactZ, cameraDepth } from './contact.js';
 import { hasWebGL, isLowEnd, resolveRenderMode, toggledPref } from './render-mode.js';
-import { loadView3D } from './render3d-loader.js';
+import { loadView3D, loadCarPreview } from './render3d-loader.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
@@ -164,6 +164,7 @@ const LiveTraffic = {
         kind: 'RIVAL',
         name: `${rc.driver.split(' ')[0].toUpperCase()} • ${rc.car}`,
         style: rc.shape === 'MUSCLE' ? 'MUSCLE' : 'TUNER_WING',
+        shape: rc.shape, // the 3D view builds the roster archetype
         massKg: rc.massKg || 1500,
         restitution: 0.48,
         halfW: 0.14,
@@ -1367,6 +1368,8 @@ function updateGame(rawDt) {
   }
 
   steerInput = Math.max(-1.4, Math.min(1.4, steerInput));
+  GameState.steerInput = steerInput; // published for the renderers (3D front wheels)
+  GameState.braking = Boolean(braking);
 
   const gripFactor = (1.15 + (upg.tires - 1) * 0.12) * carP.gripMult * (GameState.zoneTimer > 0 ? 1.25 : 1.0);
   const speedRatio = Math.min(1.0, GameState.speed / 88);
@@ -3429,6 +3432,7 @@ function loadGarageUI() {
           document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
         },
         reducedMotion: () => GameState.reducedMotion,
+        preview3d: () => (view3d ? loadCarPreview().then((m) => ({ createCarPreview: m.createCarPreview, rich: gfxQ.tier !== 'low' })) : null),
       });
       return garageUI;
     });
@@ -4461,7 +4465,7 @@ function collectCarsFor3D(out) {
 
 function playerPaint() {
   const ch = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-  return { body: carPaint(ch).body, underglow: SaveStore.data.underglow || ch.glow };
+  return { body: carPaint(ch).body, underglow: SaveStore.data.underglow || ch.glow, shape: ch.shape };
 }
 
 function setCanvasLayering(on) {

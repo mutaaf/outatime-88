@@ -109,3 +109,37 @@ for (const v of ERA_SHOTS) {
     expect(problems).toEqual([]);
   });
 }
+
+test('in 3D mode the garage shows the real 3D car models, and browsing works', async ({ page }, info) => {
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug&view=3d&gfx=medium`);
+  await page.waitForFunction(() => { const s = window.__OT.view().stats; return s && s.frames > 3; }, null, { timeout: 20_000 });
+  await page.locator('#btnOpenGarageFromTitle').click();
+  await expect(page.locator('#garageModal')).toBeVisible();
+  await page.waitForFunction(() => {
+    const c = document.getElementById('garageCanvas');
+    return c && !!c.getContext('webgl2');
+  }, null, { timeout: 15_000 });
+  await page.locator('#btnGarageNext').click();
+  await page.locator('#btnGarageNext').click();
+  await page.waitForTimeout(400);
+  await info.attach('garage-3d', { body: await page.locator('#garageStage').screenshot(), contentType: 'image/png' });
+  expect(problems).toEqual([]);
+});
+
+test('3D cars: wheels roll and the archetype matches the driven car', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug&view=3d&gfx=high`);
+  await page.waitForFunction(() => { const s = window.__OT.view().stats; return s && s.frames > 3; }, null, { timeout: 20_000 });
+  await page.locator('#btnStartRace').click();
+  await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING', null, { timeout: 15_000 });
+  await page.keyboard.down('ArrowUp');
+  await page.waitForTimeout(800);
+  const a = await page.evaluate(() => window.__OT.view().stats.wheelSpin);
+  await page.waitForTimeout(800);
+  const b = await page.evaluate(() => window.__OT.view().stats);
+  await page.keyboard.up('ArrowUp');
+  expect(Math.abs(b.wheelSpin - a)).toBeGreaterThan(1); // radians rolled
+  expect(b.playerShape).toBe('GULLWING');
+  expect(problems).toEqual([]);
+});

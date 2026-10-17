@@ -14,10 +14,25 @@ test('main bundle stays in budget and does not contain three.js', () => {
   expect(readFileSync(`${DIR}/${main[0]}`, 'utf8')).not.toContain('WebGLRenderer');
 });
 
-test('the lazy 3D chunk stays in its own budget', () => {
+/** A chunk plus every chunk it statically imports (not the main bundle): what loading it downloads. */
+function closure(entry) {
+  const seen = new Set();
+  const walk = (f) => {
+    if (seen.has(f) || /^index-/.test(f)) return;
+    seen.add(f);
+    for (const m of readFileSync(`${DIR}/${f}`, 'utf8').matchAll(/(?:from|import)\s*"\.\/([\w.-]+\.js)"/g)) walk(m[1]);
+  };
+  walk(entry);
+  return [...seen];
+}
+
+test('the lazy 3D view (three.js + src/render3d) stays in its own budget', () => {
   const view = readdirSync(DIR).filter((f) => /^view-.*\.js$/.test(f));
   expect(view.length).toBe(1);
-  expect(gz(view[0])).toBeLessThan(170);
+  const files = closure(view[0]);
+  const total = files.reduce((t, f) => t + gz(f), 0);
+  expect(files.some((f) => readFileSync(`${DIR}/${f}`, 'utf8').includes('WebGLRenderer'))).toBe(true);
+  expect(total).toBeLessThan(170);
 });
 
 test('live races are a lazy chunk in their own budget (solo players never download them)', () => {

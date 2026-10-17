@@ -28,6 +28,8 @@ export const GameState = {
   launchResult: null,
   lastResult: null,
   lapSplits: [],      // seconds per lap this race (ticket 0053: best lap on the share card)
+  steerInput: 0,      // this step's steering (-1.4..1.4) and brake, published for the renderers
+  braking: false,
   liveInvite: null,   // a live room's invite URL, when racing in one; sharing then invites to the rematch
   timeLeft: 48.0,
   finalStretch: false,

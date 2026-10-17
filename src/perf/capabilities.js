@@ -14,9 +14,9 @@ export const GFX_CACHE_KEY = 'ot_gfx_v1';
 // (rivals first) and a draw-call ceiling the e2e suite enforces.
 export const PRESETS = Object.freeze({
   low: Object.freeze({ tier: 'low', res: 0.75, particles: 0.4, layers: 2, glow: false, dpr: 1, shadows: 0, softShadows: false, post: false, env: false, ahead: 120, props: 0.5, cars: 8, maxDraws: 125, reflections: false }),
-  medium: Object.freeze({ tier: 'medium', res: 1, particles: 0.7, layers: 3, glow: true, dpr: 1.25, shadows: 1024, softShadows: false, post: false, env: true, ahead: 160, props: 0.8, cars: 12, maxDraws: 150, reflections: false }),
-  high: Object.freeze({ tier: 'high', res: 1, particles: 1, layers: 4, glow: true, dpr: 1.5, shadows: 2048, softShadows: true, post: true, env: true, ahead: 190, props: 1, cars: 14, maxDraws: 190, reflections: false }),
-  ultra: Object.freeze({ tier: 'ultra', res: 1, particles: 1.3, layers: 5, glow: true, dpr: 2, shadows: 2048, softShadows: true, post: true, env: true, ahead: 240, props: 1, cars: 16, maxDraws: 230, reflections: true }),
+  medium: Object.freeze({ tier: 'medium', res: 1, particles: 0.7, layers: 3, glow: true, dpr: 1.25, shadows: 1024, softShadows: false, post: false, env: true, ahead: 160, props: 0.8, cars: 12, maxDraws: 175, reflections: false }),
+  high: Object.freeze({ tier: 'high', res: 1, particles: 1, layers: 4, glow: true, dpr: 1.5, shadows: 2048, softShadows: true, post: true, env: true, ahead: 190, props: 1, cars: 14, maxDraws: 210, reflections: false }),
+  ultra: Object.freeze({ tier: 'ultra', res: 1, particles: 1.3, layers: 5, glow: true, dpr: 2, shadows: 2048, softShadows: true, post: true, env: true, ahead: 240, props: 1, cars: 16, maxDraws: 250, reflections: true }),
 });
 
 const SOFTWARE_GPU = /swiftshader|llvmpipe|softpipe|software|basic render|microsoft basic/i;

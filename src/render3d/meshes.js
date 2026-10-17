@@ -4,7 +4,7 @@
 import {
   BoxGeometry, BufferGeometry, CanvasTexture, CircleGeometry, Color, ConeGeometry,
   CylinderGeometry, DoubleSide, ExtrudeGeometry, Float32BufferAttribute, Group, Mesh,
-  MeshBasicMaterial, MeshLambertMaterial, MeshStandardMaterial, OctahedronGeometry,
+  MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OctahedronGeometry,
   PlaneGeometry, SRGBColorSpace, Shape, TorusGeometry, AdditiveBlending,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -55,7 +55,13 @@ const PROFILES = {
   SEDAN: [[0, 0.3], [0, 0.98], [0.22, 1.02], [0.32, 1.5], [0.66, 1.5], [0.76, 1.04], [1, 0.94], [1, 0.3]],
   TAXI: [[0, 0.3], [0, 0.98], [0.22, 1.02], [0.32, 1.5], [0.66, 1.5], [0.76, 1.04], [1, 0.94], [1, 0.3]],
   SUV: [[0, 0.34], [0, 1.6], [0.7, 1.64], [0.8, 1.16], [1, 1.08], [1, 0.34]],
+  // The roster's archetypes (POP_CULTURE_ROSTER[].shape), so each car reads as itself in 3D.
+  SCANNER: [[0, 0.3], [0, 0.9], [0.26, 0.98], [0.38, 1.26], [0.56, 1.26], [0.68, 0.92], [1, 0.5], [1, 0.3]],
+  ROCKET: [[0, 0.26], [0, 0.82], [0.16, 0.88], [0.27, 1.14], [0.45, 1.14], [0.6, 0.8], [1, 0.38], [1, 0.26]],
+  HEAVY_VAN: [[0, 0.38], [0, 1.96], [0.82, 1.98], [0.9, 1.34], [1, 1.16], [1, 0.38]],
+  LIGHTCYCLE: [[0, 0.34], [0, 0.92], [0.22, 1.02], [0.5, 0.94], [0.72, 1.1], [1, 0.72], [1, 0.34]],
 };
+PROFILES.GULLWING = PROFILES.TIME_CAR;
 const GLASS = {
   TIME_CAR: [[0.13, 0.96], [0.33, 1.2], [0.5, 1.2], [0.65, 0.88]],
   MUSCLE: [[0.3, 1.0], [0.37, 1.4], [0.59, 1.4], [0.69, 1.03]],
@@ -63,7 +69,37 @@ const GLASS = {
   SEDAN: [[0.24, 1.0], [0.33, 1.48], [0.65, 1.48], [0.75, 1.03]],
   TAXI: [[0.24, 1.0], [0.33, 1.48], [0.65, 1.48], [0.75, 1.03]],
   SUV: [[0.06, 1.1], [0.06, 1.58], [0.69, 1.6], [0.78, 1.15]],
+  SCANNER: [[0.27, 0.97], [0.38, 1.24], [0.56, 1.24], [0.67, 0.93]],
+  ROCKET: [[0.17, 0.87], [0.27, 1.12], [0.45, 1.12], [0.59, 0.82]],
+  HEAVY_VAN: [[0.62, 1.4], [0.62, 1.9], [0.82, 1.92], [0.89, 1.38]],
+  LIGHTCYCLE: [[0.5, 0.95], [0.6, 1.12], [0.7, 1.12], [0.72, 1.0]],
 };
+GLASS.GULLWING = GLASS.TIME_CAR;
+
+/** Which 3D body a roster shape (or a traffic style) gets. */
+export function bodyStyle(shapeOrStyle) {
+  return PROFILES[shapeOrStyle] || shapeOrStyle === 'SEMI_TRUCK' ? shapeOrStyle : 'SEDAN';
+}
+
+// One wheel: tyre with a sidewall, a chrome rim and five spokes, axis along X. Built once.
+let wheelGeo = null;
+function wheelGeometry() {
+  if (wheelGeo) return wheelGeo;
+  const parts = [
+    colored(new CylinderGeometry(1, 1, 1, 18).rotateZ(Math.PI / 2), '#111116'),
+    colored(new CylinderGeometry(0.64, 0.64, 1.04, 14).rotateZ(Math.PI / 2), '#b8bec9'),
+    colored(new CylinderGeometry(0.2, 0.2, 1.08, 8).rotateZ(Math.PI / 2), '#2b2f38'),
+  ];
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2;
+    parts.push(colored(new BoxGeometry(1.06, 0.12, 0.5).translate(0, 0.32, 0).rotateX(a), '#d7dbe3'));
+  }
+  wheelGeo = merged(parts);
+  return wheelGeo;
+}
+const wheelMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.35 });
+wheelMat.userData.shared = true;
+const lampOff = new Color('#3a0710'), lampOn = new Color('#ff1a2e');
 
 function profileGeometry(points, length, width) {
   const s = new Shape();
@@ -77,21 +113,31 @@ function profileGeometry(points, length, width) {
   return g;
 }
 
-const detailMat = new MeshBasicMaterial({ vertexColors: true });
+const detailMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.2 });
+detailMat.userData.shared = true; // pooled cars share it: never dispose
 
 /**
- * A car group, nose toward -Z, origin on the road under its centre. Three draw calls: the
- * paint (recoloured when a pooled car is reassigned: `userData.paint`), the unlit details
- * (glass, lights, tyres) and the underglow (`userData.glow`). Police cars add a light bar.
+ * A car group, nose toward -Z, origin on the road under its centre.
+ *
+ * Paint (`userData.paint`, clearcoat on HIGH+), unlit details (glass, lights, trim), the
+ * underglow (`userData.glow`) and wheels. `opts.wheels`:
+ *   'static' — tyres merged into the details (no extra draw calls; LOW / distant traffic)
+ *   'spin'   — two axle meshes that roll with speed (`userData.axles`)
+ *   'steer'  — rear axle + two front wheels that also steer (`userData.front`; the player)
+ * The player also gets `userData.lamps` (brake lights, `setBrake(on)`) and headlight glows.
  */
-export function buildCar(style, length, width, { police = false } = {}) {
+export function buildCar(style, length, width, { police = false, clearcoat = false, wheels = 'static', lamps = false } = {}) {
   const g = new Group();
   const isTruck = style === 'SEMI_TRUCK';
-  const paint = new MeshStandardMaterial({ color: '#c9ced6', metalness: 0.5, roughness: 0.42 });
+  const cycle = style === 'LIGHTCYCLE';
+  const paint = clearcoat
+    ? new MeshPhysicalMaterial({ color: '#c9ced6', metalness: 0.55, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06 })
+    : new MeshStandardMaterial({ color: '#c9ced6', metalness: 0.5, roughness: 0.38 });
   g.userData.paint = paint;
   const paintParts = [];
   const details = [];
   const prof = PROFILES[style] || PROFILES.SEDAN;
+  const bodyW = cycle ? width * 0.34 : width;
   if (isTruck) {
     const cabL = Math.min(3.2, length * 0.3);
     paintParts.push(colored(new BoxGeometry(width, 2.6, cabL).translate(0, 1.7, -(length / 2 - cabL / 2)), '#ffffff'));
@@ -99,26 +145,81 @@ export function buildCar(style, length, width, { police = false } = {}) {
     details.push(colored(new BoxGeometry(width * 1.04, 0.22, length - cabL - 0.3).translate(0, 1.0, cabL / 2 + 0.15), NEON_PINK));
     details.push(colored(new BoxGeometry(width * 0.7, 0.9, 0.06).translate(0, 2.2, -length / 2 - 0.02), '#0a0f24'));
   } else {
-    paintParts.push(colored(profileGeometry(prof, length, width), '#ffffff'));
-    details.push(colored(profileGeometry(GLASS[style] || GLASS.SEDAN, length * 1.004, width * 0.94).translate(0, 0.025, 0), '#141c46'));
+    paintParts.push(colored(profileGeometry(prof, length, bodyW), '#ffffff'));
+    details.push(colored(profileGeometry(GLASS[style] || GLASS.SEDAN, length * 1.004, bodyW * 0.94).translate(0, 0.025, 0), '#141c46'));
+    // Dark sills and bumpers ground the body visually.
+    details.push(colored(new BoxGeometry(bodyW * 1.01, 0.18, length * 0.98).translate(0, 0.36, 0), '#15171d'));
     if (style === 'TUNER_WING') paintParts.push(colored(new BoxGeometry(width * 0.95, 0.08, 0.6).translate(0, 1.2, length * 0.44), '#ffffff'));
     if (style === 'TAXI') details.push(colored(new BoxGeometry(0.8, 0.28, 0.4).translate(0, 1.64, 0.1 * length), '#ffe066'));
-    if (style === 'TIME_CAR') {
+    if (style === 'MUSCLE') details.push(colored(new BoxGeometry(width * 0.28, 0.2, length * 0.18).translate(0, 1.08, -length * 0.3), '#111827'));
+    if (style === 'ROCKET') paintParts.push(colored(new BoxGeometry(0.1, 0.7, length * 0.14).translate(0, 1.15, length * 0.42), '#ffffff'));
+    if (style === 'SCANNER') details.push(colored(new BoxGeometry(width * 0.6, 0.08, 0.06).translate(0, 0.62, -length / 2 - 0.02), '#ff2030'));
+    if (style === 'TIME_CAR' || style === 'GULLWING') {
       // Rear louvres and the flux-capacitor glow through the back glass.
       for (let i = 0; i < 4; i++) details.push(colored(new BoxGeometry(width * 0.8, 0.04, 0.08).translate(0, 0.93 + i * 0.012, length * (0.2 + i * 0.06)), '#2b3140'));
       details.push(colored(new BoxGeometry(0.5, 0.3, 0.05).translate(0, 1.0, length * 0.06), '#ffd23f'));
     }
   }
-  details.push(colored(new BoxGeometry(width * 0.86, 0.16, 0.05).translate(0, isTruck ? 1.0 : 0.78, length / 2 + 0.03), '#ff1f3d'));
+  // Tail lights live in the details unless the car has switchable lamps (the player).
+  const tail = new BoxGeometry(bodyW * 0.86, 0.16, 0.05).translate(0, isTruck ? 1.0 : 0.78, length / 2 + 0.03);
+  if (!lamps) details.push(colored(tail, '#ff1f3d'));
   for (const sx of [-1, 1]) {
-    details.push(colored(new BoxGeometry(0.42, 0.14, 0.05).translate(sx * width * 0.32, isTruck ? 1.2 : 0.5, -length / 2 - 0.03), '#fff6d8'));
+    details.push(colored(new BoxGeometry(0.42, 0.14, 0.05).translate(sx * bodyW * 0.32, isTruck ? 1.2 : 0.5, -length / 2 - 0.03), '#fff6d8'));
   }
-  const axle = length * 0.32;
-  for (const sz of [-1, 1]) for (const sx of [-1, 1]) {
-    details.push(colored(new CylinderGeometry(0.42, 0.42, 0.42, 10).rotateZ(Math.PI / 2).translate(sx * (width / 2 - 0.12), 0.42, sz * axle), '#0b0b12'));
+  const axle = cycle ? length * 0.36 : length * 0.32;
+  const r = cycle ? 0.62 : 0.46;
+  const tyreW = cycle ? 0.28 : 0.42;
+  const wheelX = cycle ? [0] : [-(width / 2 - 0.16), width / 2 - 0.16];
+  if (wheels === 'static') {
+    for (const sz of [-1, 1]) for (const sx of wheelX) {
+      details.push(colored(new CylinderGeometry(r, r, tyreW, 10).rotateZ(Math.PI / 2).translate(sx, r, sz * axle), '#0b0b12'));
+    }
   }
   g.add(new Mesh(merged(paintParts), paint));
   g.add(new Mesh(merged(details), detailMat));
+  if (wheels !== 'static') {
+    const one = wheelGeometry();
+    const axleGeo = (xs) => merged(xs.map((x) => one.clone().scale(tyreW, r, r).translate(x, 0, 0)));
+    const rear = new Mesh(axleGeo(wheelX), wheelMat);
+    rear.position.set(0, r, axle);
+    g.add(rear);
+    const axles = [rear];
+    if (wheels === 'steer' && !cycle) {
+      const front = wheelX.map((x) => {
+        const pivot = new Group();
+        pivot.position.set(x, r, -axle);
+        const w = new Mesh(axleGeo([0]), wheelMat);
+        pivot.add(w);
+        g.add(pivot);
+        axles.push(w);
+        return pivot;
+      });
+      g.userData.front = front;
+    } else {
+      const fr = new Mesh(axleGeo(wheelX), wheelMat);
+      fr.position.set(0, r, -axle);
+      g.add(fr);
+      axles.push(fr);
+      if (cycle) g.userData.front = [fr];
+    }
+    g.userData.axles = axles;
+    g.userData.wheelR = r;
+  }
+  if (lamps) {
+    const brake = new MeshBasicMaterial({ color: lampOff.clone(), toneMapped: false });
+    g.add(new Mesh(tail, brake));
+    g.userData.setBrake = (on) => brake.color.copy(on ? lampOn : lampOff);
+    // Headlight pools: two soft glows on the road ahead, shown at night.
+    const beams = new Group();
+    for (const sx of [-1, 1]) {
+      const pool = groundGlow(3.2, 9, '#fff1c9', 0.55);
+      pool.position.set(sx * bodyW * 0.3, 0.07, -length / 2 - 4.8);
+      beams.add(pool);
+    }
+    beams.visible = false;
+    g.add(beams);
+    g.userData.beams = beams;
+  }
   if (police) {
     const bar = new Mesh(new BoxGeometry(1.2, 0.18, 0.32), new MeshBasicMaterial({ color: '#3b82f6' }));
     bar.position.set(0, prof === PROFILES.SUV ? 1.7 : 1.58, 0);
@@ -130,6 +231,16 @@ export function buildCar(style, length, width, { police = false } = {}) {
   g.userData.glow = glow.material;
   g.add(glow);
   return g;
+}
+
+/** Rolls (and for the player, steers) a car's wheels. `dist` metres travelled this frame. */
+export function turnWheels(g, dist, steer) {
+  const axles = g.userData.axles;
+  if (!axles) return;
+  const a = dist / (g.userData.wheelR || 0.46);
+  for (let i = 0; i < axles.length; i++) axles[i].rotation.x -= a;
+  const front = g.userData.front;
+  if (front && steer !== undefined) for (let i = 0; i < front.length; i++) front[i].rotation.y = steer;
 }
 
 // ── Roadside props (instanced; one geometry per type, built once) ─────────────
