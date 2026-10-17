@@ -1,12 +1,12 @@
 ---
 id: 0090
 title: Zero-login identity — your racer follows you, siblings switch with one tap
-status: in-progress
+status: shipped
 priority: P1
 size: L
 lens: content
 created: 2026-10-17
-pr:
+pr: 26
 ---
 
 ## Why
