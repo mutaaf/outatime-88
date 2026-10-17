@@ -27,6 +27,8 @@ export const GameState = {
   launchStall: 0,
   launchResult: null,
   lastResult: null,
+  lapSplits: [],      // seconds per lap this race (ticket 0053: best lap on the share card)
+  liveInvite: null,   // a live room's invite URL, when racing in one; sharing then invites to the rematch
   timeLeft: 48.0,
   finalStretch: false,
   daily: null,

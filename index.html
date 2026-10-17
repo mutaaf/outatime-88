@@ -6,6 +6,20 @@
   <title>OUTATIME 88: Neon Time-Warp Street Racer</title>
   <meta name="description" content="OUTATIME 88 — a neon time-travel arcade racer. Hit 88 mph to jump eras." />
   <meta name="theme-color" content="#05050d" />
+  <!-- Link previews (ticket 0053): a bundled card, served from our own origin. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="OUTATIME 88" />
+  <meta property="og:title" content="OUTATIME 88 — race me" />
+  <meta property="og:description" content="A neon time-travel arcade racer. Six racers, three laps, hit 88 mph. Can you beat my time?" />
+  <meta property="og:url" content="https://mutaafaziz.com/outatime/" />
+  <meta property="og:image" content="https://mutaafaziz.com/outatime/og.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="OUTATIME 88: a chrome wordmark over a synthwave sunset grid" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="OUTATIME 88 — race me" />
+  <meta name="twitter:description" content="Six racers, three laps, hit 88 mph. Can you beat my time?" />
+  <meta name="twitter:image" content="https://mutaafaziz.com/outatime/og.jpg" />
 </head>
 <body class="on-title relative w-full h-full select-none overflow-hidden bg-slate-950">
 
@@ -349,6 +363,11 @@
     </div>
 
     <div class="title-mid flex flex-col items-center gap-3 px-4">
+      <!-- A friend's challenge link (ticket 0053): their time to beat, one tap to race it. -->
+      <div id="challengeBanner" class="challenge hidden" role="status">
+        <span class="challenge-text"><b id="challengeText"></b><small id="challengeTrack"></small></span>
+        <button id="btnAcceptChallenge" type="button" class="challenge-go">▶ RACE</button>
+      </div>
       <button id="btnStartRace" type="button" class="play-cta hw-badge rounded-full font-arcade font-black text-slate-950 uppercase">
         <span class="play-cta-label">▶ PLAY</span>
         <span id="playHint" class="play-cta-hint">TAP ANYWHERE</span>
@@ -610,6 +629,27 @@
     </div>
   </div>
 
+  <!-- SHARE SHEET (ticket 0053): preview, format, share / copy link / save image. -->
+  <div id="shareSheet" class="hidden fixed inset-0 z-50 flex justify-center overflow-y-auto bg-slate-950/92 backdrop-blur-md p-3" role="dialog" aria-modal="true" aria-label="Share your result">
+    <div class="share-card m-auto w-full rounded-3xl bg-slate-900 border-2 border-fuchsia-400/80 p-4">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="font-arcade text-lg font-black text-white tracking-wider">📣 SHARE</h2>
+        <button id="btnShareClose" type="button" aria-label="Close" class="min-w-[44px] min-h-[44px] rounded-xl bg-slate-800 border border-slate-600 text-slate-200 font-arcade text-xs font-bold">✕</button>
+      </div>
+      <img id="shareSheetImg" class="share-img" alt="Your result card" />
+      <div class="seg share-formats" role="group" aria-label="Picture shape">
+        <button type="button" data-format="post" aria-pressed="true">POST 4:5</button>
+        <button type="button" data-format="wide" aria-pressed="false">WIDE 1.91:1</button>
+      </div>
+      <div class="share-actions">
+        <button id="btnShareNative" type="button" class="end-btn end-btn-main hw-badge text-slate-950 hidden">📤 SHARE</button>
+        <button id="btnShareCopy" type="button" class="end-btn end-btn-next">🔗 COPY LINK</button>
+        <button id="btnShareSave" type="button" class="end-btn end-btn-ghost">💾 SAVE IMAGE</button>
+      </div>
+      <p id="shareStatus" class="share-status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
   <!-- SETTINGS (ticket 0050): one panel from the title gear, the HUD gear (pauses) and the garage. -->
   <div id="settingsModal" class="hidden fixed inset-0 z-50 flex justify-center overflow-y-auto bg-slate-950/90 backdrop-blur-md p-3" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="settings-card m-auto w-full max-w-lg rounded-3xl bg-slate-900 border-2 border-cyan-400/80 p-4 sm:p-6">
@@ -727,6 +767,13 @@
           <div id="endRankText" class="font-arcade text-xs font-black text-cyan-200"></div>
           <div id="endRankCard" aria-live="polite"></div>
         </div>
+
+        <!-- Share (ticket 0053): a live preview of the card; one tap to the share sheet. -->
+        <button id="btnShare" type="button" class="end-share hidden" aria-label="Share your result">
+          <img id="sharePreview" alt="" width="54" height="68" />
+          <span class="end-share-text"><b>📣 SHARE &amp; CHALLENGE</b><small>challenge a friend</small></span>
+          <span class="end-share-go" aria-hidden="true">▶</span>
+        </button>
 
         <div class="end-actions">
           <button id="btnOpenLeaderboardFromEnd" type="button" class="end-btn end-btn-ghost">🏆 RANKS</button>

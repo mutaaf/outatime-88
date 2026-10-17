@@ -593,3 +593,56 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 
 .end-penalty { font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 800; color: #fda4af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .end-penalty:empty { display: none; }
+/* Share (ticket 0053) */
+.end-share { margin-top: 10px; width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 14px 8px 8px; border-radius: 18px; text-align: left;
+  background: linear-gradient(120deg, #ff2bd6, #7c3aed 55%, #00b8d9); box-shadow: 0 0 26px rgba(255, 43, 214, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.6); }
+.end-share.hidden { display: none; }
+.end-share img { flex-shrink: 0; width: 54px; height: 68px; border-radius: 8px; object-fit: cover; background: #0b0221; box-shadow: 0 0 0 2px rgba(255,255,255,0.7); }
+.end-share img:not([src]) { visibility: hidden; }
+.end-share-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.end-share-text b { font-family: "Orbitron", sans-serif; font-size: 13px; font-weight: 900; letter-spacing: 0.06em; color: #fff; }
+.end-share-text small { font-size: 12px; font-weight: 700; color: #fdf4ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.end-share-go { font-size: 18px; color: #fff; }
+.end-headline.is-win { color: #86efac; }
+.share-card { max-width: 30rem; box-shadow: 0 0 50px rgba(255, 43, 214, 0.3); }
+.share-img { display: block; margin: 12px auto 10px; max-width: 100%; max-height: min(58vh, 560px); border-radius: 16px; box-shadow: 0 0 30px rgba(255, 43, 214, 0.35); }
+.share-formats { margin-bottom: 10px; }
+.share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.share-actions .end-btn { flex: 1 1 30%; }
+.share-status { margin-top: 8px; min-height: 1.2em; text-align: center; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800; color: #86efac; }
+.challenge { display: flex; align-items: center; gap: 12px; max-width: min(92vw, 520px); padding: 8px 8px 8px 16px; border-radius: 18px; cursor: default;
+  background: linear-gradient(120deg, rgba(255, 43, 214, 0.92), rgba(124, 58, 237, 0.92)); border: 2px solid #fff; box-shadow: 0 0 28px rgba(255, 43, 214, 0.55); }
+.challenge.hidden { display: none; }
+.challenge-text { display: flex; flex-direction: column; text-align: left; min-width: 0; }
+.challenge-text b { font-family: 'Orbitron', sans-serif; font-size: clamp(12px, 2vmin, 16px); font-weight: 900; color: #fff; letter-spacing: 0.04em; }
+.challenge-text small { font-size: 12px; font-weight: 700; color: #fdf4ff; }
+.challenge-go { flex-shrink: 0; min-height: 48px; padding: 0 18px; border-radius: 14px; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 15px;
+  color: #05050d; background: #fff; }
+@media (max-height: 520px) and (orientation: landscape) { .end-share { margin-top: 6px; padding: 4px 10px 4px 6px; } .end-share img { width: 36px; height: 45px; } }
+@media (max-height: 700px) and (orientation: portrait) { .end-share { margin-top: 6px; padding: 4px 10px 4px 6px; } .end-share img { width: 40px; height: 50px; } }
+@media (max-height: 520px) and (orientation: landscape) {
+  .share-card { max-width: 44rem; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: center; }
+  .share-card > div:first-child { grid-column: 1 / -1; }
+  .share-img { grid-row: 2 / span 3; max-height: calc(100vh - 110px); margin: 6px 0; }
+}
+/* Results fit (0052/0053 with 0073 penalties and 0091 rank card): one-line extras on short screens. */
+#endPenaltyText { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#endUnlockText, #endMedalText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-height: 520px) and (orientation: landscape) {
+  .results-card { padding-top: 8px; padding-bottom: 8px; }
+  .end-share { padding: 3px 10px 3px 4px; gap: 8px; }
+  .end-share img { width: 30px; height: 38px; }
+  .end-share-text small { display: none; }
+  .end-board { margin-top: 4px; padding: 3px 6px; }
+  .end-actions-2 { margin-top: 0; }
+  .end-link { min-height: 32px; }
+  .end-stats small { font-size: 7px; }
+}
+@media (max-height: 700px) and (orientation: portrait) {
+  .end-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .end-stats b { font-size: 12px; }
+  .end-share img { width: 34px; height: 42px; }
+  .end-headline { font-size: 12px; }
+  .end-actions { margin-top: 6px; }
+}
