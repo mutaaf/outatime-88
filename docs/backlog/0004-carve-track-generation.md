@@ -1,12 +1,12 @@
 ---
 id: 0004
 title: Carve track generation out of main.js into src/track.js
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: tech-health
 created: 2026-10-16
-pr:
+pr: 13
 ---
 
 ## Why
@@ -21,10 +21,10 @@ expose the segment list as a mutable container (e.g. `export const track = { seg
 and update call sites. Zero behaviour change.
 
 ## Acceptance criteria
-- [ ] `src/track.js` exists; `main.js` no longer defines the moved functions
-- [ ] `npm run lint` passes (no undefined identifiers left behind)
-- [ ] New unit tests: generating N biomes yields monotonically increasing segment z and every obstacle row leaves at least one lane open
-- [ ] All existing e2e tests pass unchanged
+- [x] `src/track.js` exists; `main.js` no longer defines the moved functions
+- [x] `npm run lint` passes (no undefined identifiers left behind)
+- [x] New unit tests: generating N biomes yields monotonically increasing segment z and every obstacle row leaves at least one lane open
+- [x] All existing e2e tests pass unchanged
 
 ## Test plan
 `tests/unit/track.test.js` imports the module in node (stub `document` only if needed) and
