@@ -1,0 +1,590 @@
+// The 3D view: a three.js renderer over the SAME simulation the 2D canvas draws. It only
+// reads GameState, the track and the traffic bodies (AGENTS.md sim/render rule), and is
+// loaded with a dynamic import so the 2D bundle never pays for three.js.
+import {
+  AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, Color, DirectionalLight,
+  DynamicDrawUsage, Fog, Group, HemisphereLight, InstancedMesh, Matrix4, Mesh,
+  MeshBasicMaterial, MeshLambertMaterial, Object3D, PerspectiveCamera, PlaneGeometry,
+  Points, PointsMaterial, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
+  Float32BufferAttribute,
+} from 'three';
+import { ROAD_CFG } from '../data.js';
+import { createTrackPath } from './path.js';
+import { bodyPose, playerPose } from '../render-pose.js';
+import { buildCar, buildObstacle, propKinds, mountainRing, NEON_CYAN, NEON_PINK } from './meshes.js';
+
+// Simulation units → metres. Depth is stretched and the road narrowed (see path.js).
+const PATH_SCALE = { zScale: 0.03, xScale: 0.005, yScale: 0.025 };
+const HALF_W = ROAD_CFG.roadWidth * PATH_SCALE.xScale; // 11 m
+const JUMP_SCALE = 0.016;   // playerY / body.y → metres
+const CHUNK = 24;           // road segments per mesh
+const AHEAD = 190;          // segments drawn ahead of the player
+const BEHIND = 14;
+const MAX_CARS = 14;
+const DEG = Math.PI / 180;
+
+// Camera rigs per GameState.cameraMode (LOW, CHASE, BUMPER → hood, HELI).
+const RIGS = [
+  { back: 10.5, up: 2.4, look: 22, lookUp: 1.2, lag: 7 },
+  { back: 13, up: 4.6, look: 26, lookUp: 1.0, lag: 6 },
+  { back: -0.2, up: 1.45, look: 40, lookUp: 1.1, lag: 0 },
+  { back: 24, up: 13, look: 26, lookUp: 0, lag: 4 },
+];
+
+function skyMaterial() {
+  return new ShaderMaterial({
+    side: BackSide, depthWrite: false, fog: false,
+    uniforms: { top: { value: new Color() }, mid: { value: new Color() }, glow: { value: new Color() } },
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 glow; varying vec3 vP;
+      void main(){ float h = vP.y; vec3 c = mix(mid, top, smoothstep(0.02, 0.55, h));
+      c = mix(c, glow, (1.0 - smoothstep(-0.02, 0.16, h)) * 0.9);
+      if (h < -0.02) c = mix(glow * 0.35, mid * 0.4, smoothstep(-0.02, -0.3, h));
+      gl_FragColor = vec4(c, 1.0); }`,
+  });
+}
+
+function sunMaterial() {
+  return new ShaderMaterial({
+    transparent: true, depthWrite: false, fog: false,
+    uniforms: { t: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `uniform float t; varying vec2 vUv;
+      void main(){ vec2 p = vUv * 2.0 - 1.0; float r = length(p);
+      vec3 col = mix(vec3(1.0,0.0,0.43), vec3(1.0,0.95,0.69), smoothstep(-0.9, 0.85, p.y));
+      col = mix(col, vec3(1.0,0.48,0.0), smoothstep(0.2,0.0,abs(p.y-0.05))*0.5);
+      float disc = 1.0 - smoothstep(0.62, 0.635, r);
+      // Retro scan bands across the lower half, thicker toward the horizon.
+      float y = (p.y + 0.1) * -1.0;
+      float band = y > 0.0 ? step(0.5 + y * 0.9, fract(y * 9.0 - t * 0.25)) : 0.0;
+      float halo = exp(-max(r - 0.6, 0.0) * 5.0) * 0.55;
+      float a = max(disc * (1.0 - band), halo * (1.0 - disc));
+      vec3 c = disc > 0.5 ? col : vec3(1.0, 0.3, 0.55);
+      gl_FragColor = vec4(c, a); }`,
+  });
+}
+
+function gridMaterial() {
+  return new ShaderMaterial({
+    transparent: false, fog: false,
+    uniforms: { base: { value: new Color('#090314') }, line: { value: new Color(NEON_PINK) }, far: { value: new Color() }, origin: { value: new Vector3() } },
+    vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: `uniform vec3 base; uniform vec3 line; uniform vec3 far; uniform vec3 origin; varying vec3 vW;
+      void main(){ vec2 g = vW.xz / 14.0; vec2 d = abs(fract(g - 0.5) - 0.5) / fwidth(g);
+      float l = 1.0 - min(min(d.x, d.y), 1.0);
+      float dist = length(vW.xz - origin.xz);
+      float fade = smoothstep(80.0, 900.0, dist);
+      vec3 c = mix(base, line, l * (1.0 - fade * 0.85));
+      gl_FragColor = vec4(mix(c, far, fade), 1.0); }`,
+  });
+}
+
+/**
+ * @param {object} o
+ * @param {HTMLElement} o.container  element the canvas fills (the game's canvas container)
+ * @param {object} o.state     GameState (read-only)
+ * @param {object} o.track     the track module's container ({ segments })
+ * @param {() => object} o.era active era render config (colours)
+ * @param {(out: object[]) => number} o.collectCars  fills `out` with car bodies, returns count
+ * @param {() => object[]} o.obstacles  obstacle bodies
+ * @param {() => object} o.player  { underglow, livery colour } for the player's car
+ * @param {(reason: string) => void} o.onLost  called once if WebGL dies (fall back to 2D)
+ */
+export function createView3D({ container, state, track, era, collectCars, obstacles, player, onLost }) {
+  const canvas = document.createElement('canvas');
+  canvas.id = 'gameCanvas3d';
+  canvas.setAttribute('aria-hidden', 'true');
+  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;';
+  container.insertBefore(canvas, container.firstChild);
+
+  const renderer = new WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 1.5, powerPreference: 'high-performance', alpha: false });
+  const maxDpr = Math.min(window.devicePixelRatio || 1, matchMedia('(pointer: coarse)').matches ? 1.5 : 2);
+  let dpr = Math.min(maxDpr, 1.5);
+  renderer.setPixelRatio(dpr);
+
+  let lost = false;
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    if (!lost) { lost = true; onLost('context-lost'); }
+  });
+
+  const scene = new Scene();
+  const camera = new PerspectiveCamera(62, 1, 0.3, 2200);
+  const fog = new Fog('#2a0f3d', 90, 720);
+  scene.fog = fog;
+  const hemi = new HemisphereLight('#ff7ad9', '#1a1035', 0.95);
+  const sunLight = new DirectionalLight('#ffc48a', 1.1);
+  scene.add(hemi, sunLight, sunLight.target);
+
+  // Sky dome, stars, sun, mountains and the neon grid all ride with the camera.
+  const skyMat = skyMaterial();
+  const sky = new Mesh(new SphereGeometry(1800, 24, 16), skyMat);
+  sky.renderOrder = -10;
+  scene.add(sky);
+  const starPos = new Float32Array(420 * 3);
+  for (let i = 0; i < 420; i++) {
+    const a = (Math.sin(i * 12.9898) * 43758.5453) % 1, b = (Math.sin(i * 78.233) * 12543.21) % 1;
+    const az = Math.abs(a) * Math.PI * 2, el = 0.12 + Math.abs(b) * 1.3;
+    starPos[i * 3] = Math.cos(el) * Math.sin(az) * 1700;
+    starPos[i * 3 + 1] = Math.sin(el) * 1700;
+    starPos[i * 3 + 2] = Math.cos(el) * Math.cos(az) * 1700;
+  }
+  const starGeo = new BufferGeometry();
+  starGeo.setAttribute('position', new BufferAttribute(starPos, 3));
+  const stars = new Points(starGeo, new PointsMaterial({ color: '#ffffff', size: 2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.75 }));
+  scene.add(stars);
+  const sunMat = sunMaterial();
+  const sun = new Mesh(new PlaneGeometry(520, 520), sunMat);
+  sun.renderOrder = -9;
+  scene.add(sun);
+  const mountains = mountainRing(1350, '#16092b', NEON_PINK);
+  mountains.renderOrder = -8;
+  scene.add(mountains);
+  const gridMat = gridMaterial();
+  const grid = new Mesh(new PlaneGeometry(2400, 2400), gridMat);
+  grid.rotation.x = -Math.PI / 2;
+  scene.add(grid);
+
+  // ── Road chunks ────────────────────────────────────────────────────────────
+  const path = createTrackPath(PATH_SCALE);
+  const chunks = new Map();
+  const deckMat = new MeshLambertMaterial({ vertexColors: true });
+  const neonMat = new MeshBasicMaterial({ vertexColors: true });
+  const glowMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending });
+  const pose = { x: 0, y: 0, z: 0, heading: 0 };
+  const bp = { z: 0, offset: 0, y: 0, rot: 0, yaw: 0 };   // body render pose
+  const pp = { z: 0, x: 0, y: 0 };                         // player render pose
+  const tmpCol = new Color();
+
+  function segColor(seg, e, out) {
+    const alt = (Math.floor(seg.index / 10) % 2) === 0;
+    if (seg.trackType === 'BOOSTER') return out.set(alt ? '#ea580c' : '#d9460f');
+    if (seg.trackType === 'JUMP_RAMP') return out.set(alt ? '#f59e0b' : '#d97706');
+    if (seg.trackType === 'CHECKPOINT') return out.set(seg.index % 2 ? '#f8fafc' : '#1e1b2e');
+    out.set(e.trackA);
+    return alt ? out : out.multiplyScalar(0.82);
+  }
+
+  function buildChunk(c, e) {
+    const pos = [], col = [], npos = [], ncol = [], gpos = [], gcol = [];
+    const quad = (P, C, a, b, cc, d, color) => {
+      P.push(a[0], a[1], a[2], b[0], b[1], b[2], cc[0], cc[1], cc[2], a[0], a[1], a[2], cc[0], cc[1], cc[2], d[0], d[1], d[2]);
+      for (let k = 0; k < 6; k++) C.push(color.r, color.g, color.b);
+    };
+    const quad2 = (P, C, a, b, cc, d, ca, cb) => { // a,d use ca; b,c use cb (gradient across)
+      P.push(a[0], a[1], a[2], b[0], b[1], b[2], cc[0], cc[1], cc[2], a[0], a[1], a[2], cc[0], cc[1], cc[2], d[0], d[1], d[2]);
+      C.push(ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, cb.r, cb.g, cb.b, ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, ca.r, ca.g, ca.b);
+    };
+    const pt = (j, off, up) => {
+      const segs = track.segments;
+      const s = segs[Math.min(j, segs.length - 1)];
+      const y = (j < segs.length ? s.p1.world.y : s.p2.world.y) * PATH_SCALE.yScale;
+      const h = path.h[j], cx = path.x[j], cz = path.z[j];
+      const lat = off * HALF_W;
+      return [cx + Math.cos(h) * lat, y + up, -(cz - Math.sin(h) * lat)];
+    };
+    const skirt = new Color('#2a0a12'), lane = new Color('#ffe7b0'), rail = new Color(NEON_CYAN), pink = new Color(NEON_PINK), black = new Color(0, 0, 0);
+    const pinkGlow = new Color(NEON_PINK).multiplyScalar(0.85);
+    for (let i = c * CHUNK; i < (c + 1) * CHUNK; i++) {
+      const seg = track.segments[i];
+      if (!seg) break;
+      const j = i, k = i + 1;
+      segColor(seg, e, tmpCol);
+      // Deck, underside skirts.
+      quad(pos, col, pt(j, -1, 0), pt(j, 1, 0), pt(k, 1, 0), pt(k, -1, 0), tmpCol);
+      quad(pos, col, pt(j, -1.02, -2.2), pt(j, -1.02, 0), pt(k, -1.02, 0), pt(k, -1.02, -2.2), skirt);
+      quad(pos, col, pt(j, 1.02, 0), pt(j, 1.02, -2.2), pt(k, 1.02, -2.2), pt(k, 1.02, 0), skirt);
+      // Lane dashes and the boost flames.
+      if (i % 4 < 2) {
+        for (const o of [-0.34, 0.34]) quad(npos, ncol, pt(j, o - 0.012, 0.03), pt(j, o + 0.012, 0.03), pt(k, o + 0.012, 0.03), pt(k, o - 0.012, 0.03), lane);
+      }
+      if (seg.trackType === 'BOOSTER') {
+        for (const o of [-0.22, 0.22]) quad(npos, ncol, pt(j, o - 0.012, 0.035), pt(j, o + 0.012, 0.035), pt(k, o + 0.012, 0.035), pt(k, o - 0.012, 0.035), rail);
+      }
+      // Neon rails (inner face + top) and their glow on the ground outside.
+      for (const s of [-1, 1]) {
+        quad(npos, ncol, pt(j, s * 1.0, 0), pt(j, s * 1.0, 0.55), pt(k, s * 1.0, 0.55), pt(k, s * 1.0, 0), s < 0 ? rail : pink);
+        quad(npos, ncol, pt(j, s * 1.0, 0.55), pt(j, s * 1.025, 0.55), pt(k, s * 1.025, 0.55), pt(k, s * 1.0, 0.55), s < 0 ? rail : pink);
+        quad2(gpos, gcol, pt(j, s * 1.03, 0.02), pt(j, s * 1.32, -0.3), pt(k, s * 1.32, -0.3), pt(k, s * 1.03, 0.02), pinkGlow, black);
+      }
+    }
+    const grp = new Group();
+    const mk = (P, C, mat) => {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new Float32BufferAttribute(P, 3));
+      g.setAttribute('color', new Float32BufferAttribute(C, 3));
+      if (mat === deckMat) g.computeVertexNormals();
+      const m = new Mesh(g, mat);
+      grp.add(m);
+      return m;
+    };
+    mk(pos, col, deckMat);
+    mk(npos, ncol, neonMat);
+    mk(gpos, gcol, glowMat).renderOrder = 1;
+    return grp;
+  }
+
+  function disposeChunk(grp) {
+    scene.remove(grp);
+    grp.children.forEach((m) => m.geometry.dispose());
+  }
+
+  function syncRoad(playerSeg, e, eraKey) {
+    if (path.source !== track.segments || eraKey !== lastEraKey) {
+      chunks.forEach(disposeChunk);
+      chunks.clear();
+      lastEraKey = eraKey;
+    }
+    path.sync(track.segments);
+    const lo = Math.max(0, Math.floor((playerSeg - BEHIND) / CHUNK));
+    const hi = Math.floor((playerSeg + AHEAD) / CHUNK);
+    chunks.forEach((grp, c) => { if (c < lo || c > hi) { disposeChunk(grp); chunks.delete(c); } });
+    let built = 0;
+    for (let c = lo; c <= hi && built < 3; c++) {
+      if (chunks.has(c)) continue;
+      if ((c + 1) * CHUNK > path.count) break; // not generated yet
+      const grp = buildChunk(c, e);
+      scene.add(grp);
+      chunks.set(c, grp);
+      built++;
+    }
+  }
+  let lastEraKey = '';
+
+  // ── Instanced props and pickups ────────────────────────────────────────────
+  const kinds = propKinds();
+  const props = {};
+  for (const [k, def] of Object.entries(kinds)) {
+    const m = new InstancedMesh(def.geo, def.mat, def.cap);
+    m.instanceMatrix.setUsage(DynamicDrawUsage);
+    m.frustumCulled = false;
+    m.count = 0;
+    if (def.billboard) m.renderOrder = 3;
+    scene.add(m);
+    props[k] = { mesh: m, def, n: 0 };
+  }
+  const dummy = new Object3D();
+  function placeProp(kind, x, y, z, yaw, scale = 1, spin = 0) {
+    const p = props[kind];
+    if (!p || p.n >= p.def.cap) return;
+    dummy.position.set(x, y, z);
+    if (p.def.billboard) dummy.quaternion.copy(camera.quaternion);
+    else { dummy.rotation.set(0, yaw + spin, 0); }
+    dummy.scale.setScalar(scale);
+    dummy.updateMatrix();
+    p.mesh.setMatrixAt(p.n++, dummy.matrix);
+  }
+
+  function syncProps(playerSeg, t) {
+    for (const k in props) props[k].n = 0;
+    const segs = track.segments;
+    const end = Math.min(segs.length, playerSeg + AHEAD, path.count);
+    for (let i = Math.max(0, playerSeg - BEHIND); i < end; i++) {
+      const items = segs[i].items;
+      if (!items || items.length === 0) continue;
+      for (let q = 0; q < items.length; q++) {
+        const it = items[q];
+        if (it.collected) continue;
+        path.at(i * ROAD_CFG.segLength, it.offset, pose);
+        const x = pose.x, y = pose.y, z = -pose.z, yaw = -pose.heading;
+        switch (it.type) {
+          case 'PALM_TREE': placeProp('PALM_TREE', x, y - 2, z, yaw + i, 1 + ((i * 13) % 5) * 0.06); break;
+          case 'STREET_LAMP': {
+            const side = it.offset < 0 ? Math.PI : 0;
+            placeProp('STREET_LAMP', x, y - 2, z, yaw + side);
+            path.at(i * ROAD_CFG.segLength, it.offset - Math.sign(it.offset) * 0.21, pose);
+            placeProp('LAMP_GLOW', pose.x, pose.y + 5.1, -pose.z, 0);
+            break;
+          }
+          case 'SIGN_88': placeProp('SIGN_88', x, y - 1, z, yaw); placeProp('SIGN_POST', x, y - 1, z, yaw); break;
+          case 'CLOCK_TOWER_BILLBOARD': placeProp('CLOCK_TOWER_BILLBOARD', x, y - 2, z, yaw); placeProp('CLOCK_FACE', x, y - 2, z, yaw); break;
+          case 'ARCH_HW': placeProp('ARCH_HW', x, y - 1, z, yaw); break;
+          case 'OVERHEAD_GATE': placeProp('OVERHEAD_GATE', x, y, z, yaw); break;
+          case 'MC_FLARE_GREEN': placeProp('MC_FLARE_GREEN', x, y, z, 0); break;
+          case 'HW_COIN': case 'PLUTONIUM': case 'REPAIR_WRENCH': {
+            const bob = 1.4 + Math.sin(t * 3 + (it.phase || 0)) * 0.25;
+            placeProp(it.type, x, y + bob, z, yaw, 1, t * 3 + (it.phase || 0));
+            placeProp('PICKUP_GLOW', x, y + bob, z, 0, it.type === 'HW_COIN' ? 0.9 : 1.3);
+            break;
+          }
+          default: break;
+        }
+      }
+    }
+    for (const k in props) {
+      const p = props[k];
+      p.mesh.count = p.n;
+      p.mesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  // ── Cars ───────────────────────────────────────────────────────────────────
+  const carPool = new Map(); // key → [groups]
+  const carsOut = [];
+  const usedCars = [];
+  function takeCar(style, length, width, police) {
+    const key = style + '|' + length.toFixed(1) + '|' + width.toFixed(1) + (police ? '|P' : '');
+    let list = carPool.get(key);
+    if (!list) { list = []; carPool.set(key, list); }
+    for (let i = 0; i < list.length; i++) if (!list[i].visible) { list[i].visible = true; return list[i]; }
+    const g = buildCar(style, length, width, { police });
+    list.push(g);
+    scene.add(g);
+    return g;
+  }
+
+  const playerCar = buildCar('TIME_CAR', 6.6, 3.0);
+  scene.add(playerCar);
+
+  function poseCar(g, trackZ, offset, lift, yawExtra, roll, pitch) {
+    path.at(trackZ, offset, pose);
+    g.position.set(pose.x, pose.y + lift, -pose.z);
+    g.rotation.set(pitch, -pose.heading + yawExtra, roll, 'YXZ');
+  }
+
+  function syncCars(t, dt) {
+    for (let i = 0; i < usedCars.length; i++) usedCars[i].visible = false;
+    usedCars.length = 0;
+    const n = Math.min(MAX_CARS, collectCars(carsOut));
+    const pz = playerZ();
+    for (let i = 0; i < n; i++) {
+      const b = carsOut[i];
+      if (b.takenDown) continue;
+      bodyPose(b, bp);
+      const dz = bp.z - pz;
+      if (dz < -3000 || dz > AHEAD * ROAD_CFG.segLength) continue;
+      const style = b.style === 'SEMI_TRUCK' ? 'SEMI_TRUCK' : (b.style || 'SEDAN');
+      const length = Math.max(4, (b.halfL || 110) * 2 * PATH_SCALE.zScale);
+      const width = Math.max(2.4, (b.halfW || 0.14) * 2 * HALF_W);
+      const police = b.type === 'POLICE_INTERCEPTOR';
+      const g = takeCar(style, length, width, police);
+      usedCars.push(g);
+      g.userData.paint.color.set(b.bodyColor || '#94a3b8');
+      g.userData.glow.color.set(b.underglow || (b.kind === 'RIVAL' ? NEON_PINK : '#000000'));
+      if (g.userData.lightbar) g.userData.lightbar.material.color.set(Math.floor(t * 6) % 2 ? '#ef4444' : '#3b82f6');
+      poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE, bp.yaw * 0.35, bp.rot, 0);
+    }
+  }
+
+  // ── Obstacles ──────────────────────────────────────────────────────────────
+  const obsPool = new Map();
+  const usedObs = [];
+  function syncObstacles() {
+    for (let i = 0; i < usedObs.length; i++) usedObs[i].visible = false;
+    usedObs.length = 0;
+    const list = obstacles();
+    for (let i = 0; i < list.length; i++) {
+      const ob = list[i];
+      let pool = obsPool.get(ob.type);
+      if (!pool) { pool = []; obsPool.set(ob.type, pool); }
+      let g = null;
+      for (let k = 0; k < pool.length; k++) if (!pool[k].visible) { g = pool[k]; break; }
+      if (!g) { g = buildObstacle(ob.type, Math.max(3, (ob.halfW || 0.21) * 2 * HALF_W)); pool.push(g); scene.add(g); }
+      g.visible = true;
+      usedObs.push(g);
+      bodyPose(ob, bp);
+      poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE, bp.yaw, bp.rot, 0);
+    }
+  }
+
+  // ── Flux fire trails (two ribbons from the rear wheels) ────────────────────
+  const TRAIL_N = 48;
+  const trails = [-1, 1].map((side) => {
+    const posArr = new Float32Array(TRAIL_N * 2 * 3);
+    const colArr = new Float32Array(TRAIL_N * 2 * 3);
+    const idx = [];
+    for (let i = 0; i < TRAIL_N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(posArr, 3).setUsage(DynamicDrawUsage));
+    g.setAttribute('color', new BufferAttribute(colArr, 3).setUsage(DynamicDrawUsage));
+    g.setIndex(idx);
+    const m = new Mesh(g, new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, side: 2 }));
+    m.frustumCulled = false;
+    m.renderOrder = 4;
+    scene.add(m);
+    return { side, m, posArr, colArr, xs: new Float32Array(TRAIL_N), ys: new Float32Array(TRAIL_N), zs: new Float32Array(TRAIL_N), age: new Float32Array(TRAIL_N).fill(9), head: 0, emitT: 0 };
+  });
+  const wheelLocal = new Vector3();
+  const flame = new Color(), plasma = new Color('#38e8ff'), fire = new Color('#ff7a1a');
+  function syncTrails(dt) {
+    const warp = state.warpActiveTimer > 0 || state.warpFxTimer > 0;
+    const active = state.status === 'PLAYING' && (warp || state.speed >= 82) && state.playerY < 8;
+    flame.copy(warp ? fire : plasma);
+    for (const tr of trails) {
+      for (let i = 0; i < TRAIL_N; i++) tr.age[i] += dt;
+      tr.emitT += dt;
+      if (active && tr.emitT > 1 / 40) {
+        tr.emitT = 0;
+        wheelLocal.set(tr.side * 1.25, 0.06, 2.3);
+        playerCar.localToWorld(wheelLocal);
+        tr.head = (tr.head + 1) % TRAIL_N;
+        tr.xs[tr.head] = wheelLocal.x; tr.ys[tr.head] = wheelLocal.y; tr.zs[tr.head] = wheelLocal.z; tr.age[tr.head] = 0;
+      }
+      // Newest → oldest, two vertices (low/high) per sample.
+      for (let n = 0; n < TRAIL_N; n++) {
+        const i = (tr.head - n + TRAIL_N) % TRAIL_N;
+        const life = Math.max(0, 1 - tr.age[i] / (warp ? 1.6 : 0.45));
+        const h = 0.55 * life;
+        const o = n * 6;
+        tr.posArr[o] = tr.xs[i]; tr.posArr[o + 1] = tr.ys[i]; tr.posArr[o + 2] = tr.zs[i];
+        tr.posArr[o + 3] = tr.xs[i]; tr.posArr[o + 4] = tr.ys[i] + h; tr.posArr[o + 5] = tr.zs[i];
+        const k = life * life;
+        tr.colArr[o] = flame.r * k; tr.colArr[o + 1] = flame.g * k; tr.colArr[o + 2] = flame.b * k;
+        tr.colArr[o + 3] = flame.r * k * 0.4; tr.colArr[o + 4] = flame.g * k * 0.4; tr.colArr[o + 5] = flame.b * k * 0.4;
+      }
+      tr.m.geometry.attributes.position.needsUpdate = true;
+      tr.m.geometry.attributes.color.needsUpdate = true;
+    }
+  }
+
+  // ── Player, camera, sky ────────────────────────────────────────────────────
+  function playerZ() {
+    return playerPose(state, pp).z;
+  }
+
+  const camLook = new Vector3();
+  let sunHeading = 0;
+  let groundY = 0;
+  let camInit = false;
+  let lastRig = -1;
+
+  function syncPlayer(dt) {
+    const s = state;
+    playerPose(s, pp);
+    const pz = pp.z;
+    const lift = pp.y * JUMP_SCALE - (s.suspOffset || 0) * 0.01;
+    const roll = -((s.chassisRoll || 0) * 0.6 + (s.stuntSpinAngle || 0)) * DEG;
+    const pitch = ((s.chassisPitch || 0) * 0.4 - (s.trickPitchAngle || 0)) * DEG;
+    poseCar(playerCar, pz, pp.x, lift, -(s.driftAngle || 0) * 0.55 * DEG, roll, pitch);
+    const p = player();
+    playerCar.userData.paint.color.set(p.body || '#c9ced6');
+    playerCar.userData.glow.color.set(p.underglow || NEON_CYAN);
+    return pz;
+  }
+
+  // The camera is locked to the player along the track (at ~100 m/s any positional lag
+  // would leave the car far ahead); only its sideways follow, height and aim are smoothed.
+  let camX = 0, camUp = 0, camLookX = 0;
+  function syncCamera(pz, dt, feel, t) {
+    const s = state;
+    const rigIdx = Math.max(0, Math.min(RIGS.length - 1, s.cameraMode | 0));
+    const rig = RIGS[rigIdx];
+    const ly = pp.y * JUMP_SCALE;
+    const wantX = pp.x * (rig.lag ? 0.8 : 1), wantUp = rig.up + ly * (rig.lag ? 0.55 : 1);
+    if (!camInit || rigIdx !== lastRig || rig.lag === 0) {
+      camX = wantX; camUp = wantUp; camLookX = pp.x * 0.6; camInit = true; lastRig = rigIdx;
+    } else {
+      const k = 1 - Math.exp(-dt * rig.lag);
+      camX += (wantX - camX) * k;
+      camUp += (wantUp - camUp) * k;
+      camLookX += (pp.x * 0.6 - camLookX) * k;
+    }
+    path.at(pz - rig.back / PATH_SCALE.zScale, camX, pose);
+    camera.position.set(pose.x, pose.y + camUp, -pose.z);
+    path.at(pz + rig.look / PATH_SCALE.zScale, camLookX, pose);
+    camLook.set(pose.x, pose.y + rig.lookUp + ly * 0.3, -pose.z);
+    // Shake: deterministic wobble, off under reduced motion.
+    if (!s.reducedMotion) {
+      const mag = (feel.shake * 0.02) + Math.min(1, s.screenShake || 0) * 0.25;
+      if (mag > 0) { camera.position.x += Math.sin(t * 61) * mag; camera.position.y += Math.sin(t * 47 + 1.3) * mag; }
+    }
+    camera.lookAt(camLook);
+    const warpKick = (!s.reducedMotion && s.warpFxTimer > 0) ? (s.warpFxTimer / 0.9) * 16 : 0;
+    const fov = 60 + (feel.fov - 1) * 160 + warpKick;
+    if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    path.at(pz, 0, pose);
+    sunHeading += (pose.heading - sunHeading) * Math.min(1, dt * 0.6);
+    groundY += ((pose.y - 9) - groundY) * Math.min(1, dt * 2);
+  }
+
+  function syncSky(e, t) {
+    const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+    skyMat.uniforms.top.value.set(e.skyTop || '#060919');
+    skyMat.uniforms.mid.value.set(e.skyBot || '#2d114d');
+    skyMat.uniforms.glow.value.set(e.horizonGlow || '#ff6a2b');
+    sky.position.set(cx, cy, cz);
+    stars.position.set(cx, cy, cz);
+    mountains.position.set(cx, groundY, cz);
+    const fx = Math.sin(sunHeading), fz = -Math.cos(sunHeading);
+    sun.position.set(cx + fx * 1500, groundY + 150, cz + fz * 1500);
+    sun.lookAt(camera.position);
+    sunMat.uniforms.t.value = t;
+    sunLight.position.set(cx + fx * 400, cy + 260, cz + fz * 400);
+    sunLight.target.position.set(cx, cy, cz);
+    fog.color.set(e.skyBot || '#2a0f3d').lerp(tmpCol.set(e.horizonGlow || '#ff6a2b'), 0.18).multiplyScalar(0.8);
+    grid.position.set(Math.round(cx / 14) * 14, groundY, Math.round(cz / 14) * 14);
+    gridMat.uniforms.origin.value.set(cx, groundY, cz);
+    gridMat.uniforms.far.value.copy(fog.color);
+    gridMat.uniforms.base.value.set(e.groundB || '#090314').multiplyScalar(0.7);
+  }
+
+  // ── Size and adaptive resolution ───────────────────────────────────────────
+  let sizeDirty = true;
+  const markDirty = () => { sizeDirty = true; };
+  window.addEventListener('resize', markDirty);
+  window.addEventListener('orientationchange', markDirty);
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(markDirty) : null;
+  if (ro) ro.observe(container);
+  function syncSize() {
+    if (!sizeDirty) return;
+    sizeDirty = false;
+    const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+
+  const stats = { frames: 0, dpr, avgMs: 16.7, chunks: 0, cars: 0, drawCalls: 0, triangles: 0 };
+  let slowFor = 0, fastFor = 0, lastNow = 0;
+  function adapt(now) {
+    if (lastNow) {
+      const ms = Math.min(100, now - lastNow);
+      stats.avgMs += (ms - stats.avgMs) * 0.05;
+      if (stats.avgMs > 22) { slowFor += ms; fastFor = 0; } else if (stats.avgMs < 15) { fastFor += ms; slowFor = 0; } else { slowFor = fastFor = 0; }
+      if (slowFor > 1500 && dpr > 0.6) { dpr = Math.max(0.6, dpr - 0.15); renderer.setPixelRatio(dpr); sizeDirty = true; slowFor = 0; }
+      if (fastFor > 5000 && dpr < Math.min(maxDpr, 1.5)) { dpr = Math.min(maxDpr, 1.5, dpr + 0.1); renderer.setPixelRatio(dpr); sizeDirty = true; fastFor = 0; }
+    }
+    lastNow = now;
+  }
+
+  let clock = 0;
+  return {
+    canvas,
+    stats,
+    /** Draw one frame. `feel` is fx.speedFeel() for this frame. */
+    render(dt, feel) {
+      if (lost) return;
+      clock += dt;
+      adapt(performance.now());
+      syncSize();
+      const e = era();
+      const pz = playerZ();
+      const playerSeg = Math.floor(pz / ROAD_CFG.segLength);
+      syncRoad(playerSeg, e, e.id || '');
+      const pzDrawn = syncPlayer(dt);
+      syncCamera(pzDrawn, dt, feel, clock);
+      syncProps(playerSeg, clock);
+      syncCars(clock, dt);
+      syncObstacles();
+      syncTrails(dt);
+      syncSky(e, clock);
+      renderer.render(scene, camera);
+      stats.frames++;
+      stats.dpr = dpr;
+      stats.chunks = chunks.size;
+      stats.cars = usedCars.length;
+      stats.drawCalls = renderer.info.render.calls;
+      stats.triangles = renderer.info.render.triangles;
+    },
+    dispose() {
+      window.removeEventListener('resize', markDirty);
+      window.removeEventListener('orientationchange', markDirty);
+      if (ro) ro.disconnect();
+      chunks.forEach(disposeChunk);
+      chunks.clear();
+      scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+      renderer.dispose();
+      canvas.remove();
+    },
+  };
+}

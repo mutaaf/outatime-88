@@ -57,8 +57,8 @@ describe('SaveStore', () => {
     const { LIVERY_OPTIONS } = await import('../../src/data.js');
     const { SETTINGS_DEFAULTS } = await import('../../src/settings.js');
     SaveStore.load();
-    // new defaults: progress (0011), onboarded (0022), initials (0025), settings (0050)
-    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS } });
+    // new defaults: progress (0011), onboarded (0022), initials (0025), settings (0050), renderMode (0040)
+    expect(SaveStore.data).toEqual({ ...oldSave, livery: 'ARC_MK88', progress: {}, onboarded: false, initials: '', settings: { ...SETTINGS_DEFAULTS }, renderMode: 'auto' });
     expect(LIVERY_OPTIONS.map((l) => l.id)).toContain(SaveStore.data.livery);
   });
 

@@ -309,3 +309,10 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 .title-tilt[aria-pressed="true"] b { background: #f97316; color: #fff; }
 /* Calm mode (settings or OS): no looping UI animations. */
 [data-motion="reduce"] .play-cta, [data-motion="reduce"] .steer-hint, [data-motion="reduce"] .timer-urgent { animation: none !important; }
+/* 2D/3D view chip on the title (ticket 0040): magenta, the active side lit. */
+.title-view { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px 0 14px; border-radius: 9999px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: #fbcfe8;
+  background: rgba(2, 6, 23, 0.82); border: 2px solid rgba(255, 43, 214, 0.7); box-shadow: 0 0 14px rgba(255, 43, 214, 0.25); }
+.title-view b { padding: 3px 9px; border-radius: 9999px; color: #94a3b8; }
+.title-view[aria-pressed="false"] .v2, .title-view[aria-pressed="true"] .v3 { background: #ff2bd6; color: #fff; box-shadow: 0 0 12px rgba(255, 43, 214, 0.7); }
+.title-view:disabled { opacity: 0.45; }

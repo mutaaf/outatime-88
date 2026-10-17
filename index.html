@@ -324,7 +324,10 @@
         <span class="play-cta-label">▶ PLAY</span>
         <span id="playHint" class="play-cta-hint">TAP ANYWHERE</span>
       </button>
-      <button id="btnTitleTilt" type="button" class="title-tilt hidden" aria-pressed="false" aria-label="Tilt steering"><span aria-hidden="true">📱</span> TILT STEERING <b>OFF</b></button>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <button id="btnTitleTilt" type="button" class="title-tilt hidden" aria-pressed="false" aria-label="Tilt steering"><span aria-hidden="true">📱</span> TILT STEERING <b>OFF</b></button>
+        <button id="btnViewMode" type="button" class="title-view" aria-pressed="false" aria-label="3D view"><span aria-hidden="true">🧊</span> VIEW <b class="v2">2D</b><b class="v3">3D</b></button>
+      </div>
       <div id="titleEventChip" class="font-arcade text-[10px] sm:text-xs text-orange-200/90 tracking-wider"></div>
     </div>
 
@@ -576,6 +579,15 @@
         <label class="set-row" for="setMaster"><span>Master</span><input id="setMaster" type="range" min="0" max="100" step="5" class="set-range" /></label>
         <label class="set-row" for="setMusic"><span>Music</span><input id="setMusic" type="range" min="0" max="100" step="5" class="set-range" /></label>
         <label class="set-row" for="setSfx"><span>Engine &amp; effects</span><input id="setSfx" type="range" min="0" max="100" step="5" class="set-range" /></label>
+      </section>
+
+      <section class="set-section" aria-labelledby="setHeadView">
+        <h3 id="setHeadView">🧊 VIEW</h3>
+        <div class="seg" role="group" aria-label="View">
+          <button id="setView2d" type="button" aria-pressed="true">🎞️ 2D CLASSIC</button>
+          <button id="setView3d" type="button" aria-pressed="false">🧊 3D</button>
+        </div>
+        <div id="setViewNote" class="set-status mt-1.5">3D draws the same race in real 3D. Press T to flip mid-race.</div>
       </section>
 
       <section class="set-section" aria-labelledby="setHeadGame">
