@@ -122,9 +122,11 @@ tests/unit/         Vitest: pure logic (save, input, physics, projection, data i
 tests/e2e/          Playwright: boot smoke, race advances, save round-trip, phone, perf probe
 ```
 
-Frame flow: `mainLoop(ts)` → `updateGame(dt)` (input → player physics → traffic/rivals →
-collisions/scoring → time-warp check → HUD) → `renderScene()` (sky/era backdrop → road
-segments back-to-front → sprites/cars → player car → FX). Carving rule: move a cohesive
+Frame flow: `mainLoop(ts)` → fixed 1/120 s steps from `src/fixedstep.js`, each `updateGame(step)` + `syncContactZ()`
+(never pass a frame-sized dt to the sim; anything that must happen once per frame — HUD, audio,
+render — lives in `mainLoop`) → `updateLiveHud()` once → `renderScene()` blended between the last two steps. Inside a step: `updateGame(dt)` (input → player physics → traffic/rivals →
+collisions/scoring → time-warp check). `renderScene()` draws sky/era backdrop → road
+segments back-to-front → sprites/cars → player car → FX. Carving rule: move a cohesive
 system into its own module with explicit imports, never change behavior in the same PR, and
 let `npm run lint` (no-undef) prove nothing was left dangling.
 **Sim/render rule:** renderers only read `GameState`, `track` and the traffic bodies; any
