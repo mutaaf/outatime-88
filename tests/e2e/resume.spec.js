@@ -151,3 +151,14 @@ test('dragging the thumbstick: the knob follows the finger and steering is propo
   await touch('touchEnd', []);
   await expect.poll(async () => Math.abs(await steer())).toBeLessThan(0.01);
 });
+
+test('a live race is never paused by leaving the app (friends are still driving)', async ({ page }) => {
+  await race(page);
+  await page.evaluate(() => { window.__OT.GameState.mode = 'LIVE'; });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  expect(await status(page)).toBe('PLAYING');
+  await expect(page.locator('#settingsModal')).toBeHidden();
+});
