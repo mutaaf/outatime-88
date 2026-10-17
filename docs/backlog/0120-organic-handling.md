@@ -1,11 +1,12 @@
 ---
 id: 0120
 title: Organic handling — keys ramp the wheel, speed-sensitive lock, grip-limited cornering
-status: in-progress
+status: shipped
 priority: P0
 size: M
 lens: player-feel
 created: 2026-10-17
+pr: 57
 
 ---
 
