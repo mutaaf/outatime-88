@@ -578,6 +578,11 @@ const announcer = createAnnouncer({
     const mainEl = document.getElementById('announcerMain');
     const subEl = document.getElementById('announcerSub');
     if (!mainEl || !subEl) return;
+    // The shared lane belongs to the announcer the moment it speaks — not a frame later —
+    // so the coach can never be caught on screen with it.
+    const coachBanner = document.getElementById('interactiveCoachBanner');
+    if (coachBanner) hideCoach(coachBanner);
+    coachYieldUntil = performance.now() + 350;
     mainEl.textContent = msg.main;
     subEl.textContent = msg.sub;
     mainEl.style.opacity = '1';
