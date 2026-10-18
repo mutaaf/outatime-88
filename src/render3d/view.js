@@ -231,6 +231,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     const skirt = new Color('#2a0a12'), lane = new Color('#ece6d4'), rail = new Color(NEON_CYAN), pink = new Color(NEON_PINK), black = new Color(0, 0, 0);
     const pinkGlow = new Color(NEON_PINK).multiplyScalar(0.85);
     const kerbRed = new Color('#c8102e'), kerbWhite = new Color('#e8e8ea'), edgeLine = new Color('#f2f2f2');
+    const toyOrange = new Color('#ff6a13'), toyGlow = new Color('#ffd166');
     for (let i = c * CHUNK; i < (c + 1) * CHUNK; i++) {
       const seg = track.segments[i];
       if (!seg) break;
@@ -253,6 +254,13 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       }
       if (seg.trackType === 'BOOSTER') {
         for (const o of [-0.22, 0.22]) quad(npos, ncol, pt(j, o - 0.012, 0.035), pt(j, o + 0.012, 0.035), pt(k, o + 0.012, 0.035), pt(k, o - 0.012, 0.035), rail);
+      }
+      // Set pieces (0124) glow toy-track orange: lit or not (a loop's inside sits in its own
+      // shade, a corkscrew is upside down), the lane grooves and edges always read.
+      const fk = seg.feature && seg.feature.kind;
+      if (fk === 'LOOP' || fk === 'CORKSCREW' || fk === 'WALLRIDE') {
+        for (const o of [-0.86, -0.3, 0.3, 0.86]) quad(npos, ncol, pt(j, o - 0.02, 0.03), pt(j, o + 0.02, 0.03), pt(k, o + 0.02, 0.03), pt(k, o - 0.02, 0.03), toyOrange);
+        if (i % 3 === 0) quad(npos, ncol, pt(j, -0.012, 0.03), pt(j, 0.012, 0.03), pt(k, 0.012, 0.03), pt(k, -0.012, 0.03), toyGlow);
       }
       // Neon rails (inner face + top) and their glow on the ground outside.
       for (const s of [-1, 1]) {
