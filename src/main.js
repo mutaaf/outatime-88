@@ -1805,74 +1805,6 @@ function updateGame(rawDt) {
           GameState.score += pts;
           spawnAcquireAnimation('PLUTONIUM', item.offset - GameState.playerX, `+25 💚 HP REPAIRED!`);
         }
-      } else if (item.type === 'LOW_LASER_BAR') {
-        // 2 SOLUTIONS: Solution 1 = Jump Over (playerY >= 24) • Solution 2 = Steer into open lane (dist >= 0.34)
-        if (dist < 0.34) {
-          if (GameState.playerY >= 22) {
-            if (!item.cleared) {
-              item.cleared = true;
-              GameState.lessonsCleared.jump++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
-              const pts = 600 * GameState.combo;
-              GameState.score += pts;
-              SoundEngine.playStunt();
-              spawnAcquireAnimation('HW_COIN', 0, `🔼 JUMP CLEARED! +${pts}`);
-            }
-          } else {
-            item.smashed = true;
-            applyPlayerDamage(15, 'LOW LASER HIT');
-            GameState.speed = Math.max(26, GameState.speed * 0.75);
-            spawnObstacleShatter(item.offset - GameState.playerX, '#ff5500', '#fde047', '💥 JUMP (W/UP/H) OR DODGE!');
-          }
-        } else if (offset === 0 && !item.cleared) {
-          item.cleared = true;
-          GameState.lessonsCleared.steer++;
-        }
-      } else if (item.type === 'HIGH_LIGHT_GATE') {
-        // 2 SOLUTIONS: Solution 1 = Hold Drift/Duck-Slide Under (isDuckSliding) • Solution 2 = Steer around (dist >= 0.34)
-        if (dist < 0.34) {
-          if (GameState.isDuckSliding || GameState.twoWheelTimer > 0) {
-            if (!item.cleared) {
-              item.cleared = true;
-              GameState.lessonsCleared.slide++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
-              const pts = 650 * GameState.combo;
-              GameState.score += pts;
-              GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSlide);
-              SoundEngine.playStunt();
-              spawnAcquireAnimation('PLUTONIUM', 0, `🔽 SLIDE UNDER! +${pts}`);
-            }
-          } else {
-            item.smashed = true;
-            applyPlayerDamage(15, 'HIGH LIGHT GATE HIT');
-            GameState.speed = Math.max(26, GameState.speed * 0.75);
-            spawnObstacleShatter(item.offset - GameState.playerX, '#00f0ff', '#d946ef', '💥 HOLD DRIFT (S/DOWN) TO SLIDE UNDER!');
-          }
-        } else if (offset === 0 && !item.cleared) {
-          item.cleared = true;
-          GameState.lessonsCleared.steer++;
-        }
-      } else if (item.type === 'FLUX_CRATE' || item.type === 'HOLO_BARRIER') {
-        if (dist < 0.34 && GameState.playerY < 52) {
-          item.smashed = true;
-          if (item.type === 'FLUX_CRATE' || GameState.agroTimer > 0 || GameState.warpActiveTimer > 0 || GameState.speed >= 72 || GameState.isDrifting) {
-            SoundEngine.playStunt();
-            GameState.lessonsCleared.smash++;
-            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSmash);
-            healPlayerHp(8);
-            GameState.speed = Math.min(135, GameState.speed + 8);
-            const pts = 750 * GameState.combo;
-            GameState.score += pts;
-            spawnObstacleShatter(
-              item.offset - GameState.playerX,
-              item.type === 'FLUX_CRATE' ? '#00f0ff' : '#ff5500',
-              '#fde047',
-              item.type === 'FLUX_CRATE' ? `📦 CRATE SMASH! +${pts} & +8 HP` : `⚡ BARRIER SHATTERED! +${pts}`
-            );
-          } else {
-            applyPlayerDamage(14, 'BARRIER HIT');
-            GameState.speed = Math.max(26, GameState.speed * 0.74);
-            spawnObstacleShatter(item.offset - GameState.playerX, '#ef4444', '#f97316', '💥 BARRIER HIT! -14 HP');
-          }
-        }
       }
     }
 
@@ -2566,18 +2498,6 @@ function renderScene() {
         ctx.arc(0, 0, rCoin * 0.55, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-      } else if (item.type === 'FLUX_CRATE') {
-        // Animated 3D Glowing Supply Crate (Shatters for bonus Flux when hit!)
-        const boxW = Math.max(6, itemW * 0.85);
-        const boxH = Math.max(6, itemH * 0.85);
-        ctx.fillStyle = '#0284c7';
-        ctx.fillRect(itemX - boxW * 0.5, roadY - boxH, boxW, boxH);
-        ctx.strokeStyle = '#00f0ff';
-        ctx.lineWidth = Math.max(1, boxW * 0.08);
-        ctx.strokeRect(itemX - boxW * 0.5, roadY - boxH, boxW, boxH);
-        // Pulsing X core
-        ctx.fillStyle = '#fde047';
-        ctx.fillRect(itemX - boxW * 0.22, roadY - boxH * 0.72, boxW * 0.44, boxH * 0.44);
       } else if (item.type === 'REPAIR_WRENCH') {
         // Spinning 3D Green Nano-Wrench (+25 HP Repair Pickup)
         const wy = roadY - itemH * 0.65 + bobY;
@@ -2593,52 +2513,6 @@ function renderScene() {
         ctx.fillRect(-wr * 0.6, -wr * 0.2, wr * 1.2, wr * 0.4);
         ctx.fillRect(-wr * 0.2, -wr * 0.6, wr * 0.4, wr * 1.2);
         ctx.restore();
-      } else if (item.type === 'LOW_LASER_BAR') {
-        // 🟠 LOW LASER HURDLE (Solution 1: Jump Over • Solution 2: Steer Around)
-        const barW = Math.max(10, itemW * 1.25);
-        const barH = Math.max(4, itemH * 0.42);
-        // Left & right emitters
-        ctx.fillStyle = '#334155';
-        ctx.fillRect(itemX - barW * 0.55, roadY - barH * 1.2, barW * 0.14, barH * 1.2);
-        ctx.fillRect(itemX + barW * 0.41, roadY - barH * 1.2, barW * 0.14, barH * 1.2);
-        // Glowing orange laser beam low to the track
-        ctx.fillStyle = '#ff5500';
-        ctx.fillRect(itemX - barW * 0.45, roadY - barH * 0.85, barW * 0.9, barH * 0.45);
-        ctx.fillStyle = '#fde047';
-        ctx.fillRect(itemX - barW * 0.45, roadY - barH * 0.70, barW * 0.9, barH * 0.18);
-        if (roadW > 55) {
-          ctx.fillStyle = '#fde047';
-          ctx.font = 'bold 8px Orbitron, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('🔼 JUMP OR DODGE', itemX, roadY - barH * 1.45);
-        }
-      } else if (item.type === 'HIGH_LIGHT_GATE') {
-        // 🔵 HIGH OVERHEAD LIGHT GATE (Solution 1: Hold Drift/Slide Under • Solution 2: Steer Around)
-        const gateW = Math.max(12, itemW * 1.35);
-        const gateH = Math.max(10, itemH * 1.45);
-        const clearanceH = gateH * 0.48; // Open space at the bottom to slide under!
-        // Side Pylons
-        ctx.fillStyle = '#0ea5e9';
-        ctx.fillRect(itemX - gateW * 0.5, roadY - gateH, Math.max(2, gateW * 0.10), gateH);
-        ctx.fillRect(itemX + gateW * 0.4, roadY - gateH, Math.max(2, gateW * 0.10), gateH);
-        // Overhead Cyan/Magenta Light-Wall Beam (Raised above the ground!)
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
-        ctx.fillRect(itemX - gateW * 0.48, roadY - gateH, gateW * 0.96, gateH - clearanceH);
-        if (roadW > 55) {
-          ctx.fillStyle = '#00f0ff';
-          ctx.font = 'bold 8px Orbitron, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('🔽 SLIDE (S) OR DODGE', itemX, roadY - gateH - 4);
-        }
-      } else if (item.type === 'HOLO_BARRIER') {
-        // Animated 2026 Clock Hollow Laser-Chevron Obstacle with Rotating Beacon!
-        const barW = Math.max(8, itemW * 1.15);
-        const barH = Math.max(5, itemH * 0.68);
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(itemX - barW * 0.5, roadY - barH, barW, barH);
-        ctx.fillStyle = (Math.floor(nowSec * 6) % 2 === 0) ? '#ff5500' : '#facc15';
-        ctx.fillRect(itemX - barW * 0.44, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
-        ctx.fillRect(itemX + barW * 0.08, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
       } else if ((item.type === 'STREET_LAMP' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW') && drawRoadsideProp(ctx, item.type, itemX, roadY, itemW, itemH, roadW, rw, rh)) {
         // the era's own roadside (ticket 0101)
       } else if (item.type === 'STREET_LAMP') {
