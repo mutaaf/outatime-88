@@ -46,3 +46,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0041 0092 · 3D atmosphere: rain streaks in rain eras and drifting dust in the Old West (on the GPU), neon bloom + vignette + anti-aliasing on HIGH/ULTRA, the ghost you race is a translucent car on the road, and friends in live rooms carry their initials over their cars
 2026-10-17 · 0110 · Deep links: ?play=friends|quick|daily, ?board=week…, ?level=N and ?garage open that screen straight from a link (the site launcher uses them)
 2026-10-17 · sprint 4 · Under the hood: one road contract (curvature, bank, pitch, set pieces per distance) for the physics and both renderers
+2026-10-18 · 0018 · Invented places all the way down: level 4 is now CEDAR RIDGE 2088, the fork's time route is the CEDAR TURBO TUNNEL, and two parody cars became the Nightwatch Scanner and the Takamura Comet GT (saves and medals untouched)
