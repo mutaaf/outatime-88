@@ -1,5 +1,5 @@
 // Audio engine (Web Audio): engine voice, SFX, procedural synthwave score. Recorded CC0 samples,
-// the sampled engine and the tyre squeal live in a lazy chunk (src/sfx/bank.js, ticket 0132);
+// the sampled engine and the tyre squeal live in a lazy chunk (src/sfx/bank.js, ticket 0133);
 // every sound keeps its synth voice as the fallback until (or unless) its sample decodes.
 // Graph (ticket 0006): musicBus / sfxBus / engineBus → compressor → masterGain → destination,
 // so stacked crashes and warps duck under a limiter instead of clipping over the music.

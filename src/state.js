@@ -49,7 +49,7 @@ export const GameState = {
   driftAngle: 0,
   carYaw: 0, // rad; the body's yaw on the road (src/handling.js stepLateral), + points right
   isDrifting: false,
-  // Tyre smoke and squeal (ticket 0132, src/smoke.js): wheelspin and tyreSlip come from the
+  // Tyre smoke and squeal (ticket 0133, src/smoke.js): wheelspin and tyreSlip come from the
   // drivetrain and handling; wallGrind is set while scraping a wall; smokePuffs counts 2D puffs.
   wheelSpin: 0,
   tyreSlip: 0,

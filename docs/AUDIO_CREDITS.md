@@ -1,4 +1,4 @@
-# Audio credits (ticket 0132)
+# Audio credits (ticket 0133)
 
 Every recorded sound in `src/sfx/audio/` is **CC0 1.0** (public domain). Nothing here needs
 attribution, but we credit the creators anyway. Each pack's license text is kept in

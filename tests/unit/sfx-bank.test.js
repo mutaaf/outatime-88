@@ -8,7 +8,7 @@ class DecodingCtx extends FakeAudioContext {
 const okFetch = () => Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(Object.assign(new ArrayBuffer(4), {})) });
 const bus = (ctx) => ctx.createGain();
 
-describe('sample bank (ticket 0132)', () => {
+describe('sample bank (ticket 0133)', () => {
   it('loads every sample and plays them through the sfx bus', async () => {
     const ctx = new DecodingCtx();
     const sfx = bus(ctx);

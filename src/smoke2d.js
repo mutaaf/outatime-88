@@ -1,4 +1,4 @@
-// 2D tyre smoke (ticket 0132), a lazy chunk: main.js fetches it right after startup and simply
+// 2D tyre smoke (ticket 0133), a lazy chunk: main.js fetches it right after startup and simply
 // draws no smoke until it arrives. Puffs live in road-lateral units (x), pixels up (y,
 // negative) and pixels toward the chase camera (z): the sim step spawns them at the rear tyres
 // from tyreSmokeLevel() (src/smoke.js), the 2D frame draws them over the car's tail. One fixed

@@ -1,4 +1,4 @@
-// Recorded sound effects (ticket 0132). A lazy chunk: src/audio.js imports it after the first
+// Recorded sound effects (ticket 0133). A lazy chunk: src/audio.js imports it after the first
 // tap/key (when the AudioContext exists), then this module fetches and decodes the samples in
 // the background. Until a sample is decoded, or if its fetch fails, SoundEngine keeps using
 // its synth voice for that sound, so audio never blocks or breaks the game.

@@ -3,7 +3,7 @@ import { tyreSmokeLevel, screechLevel, createScreechGate, createSmokePool, smoke
 
 const base = { status: 'PLAYING', speed: 60, playerY: 0, wheelSpin: 0, tyreSlip: 0, isDrifting: false, braking: false, wallGrind: false };
 
-describe('tyre smoke level (ticket 0132)', () => {
+describe('tyre smoke level (ticket 0133)', () => {
   it('is zero when the tyres are gripping, airborne or not racing', () => {
     expect(tyreSmokeLevel(base)).toBe(0);
     expect(tyreSmokeLevel({ ...base, wheelSpin: 1, playerY: 30 })).toBe(0);

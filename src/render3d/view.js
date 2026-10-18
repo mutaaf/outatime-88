@@ -687,7 +687,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     }
   }
 
-  // ── Tyre smoke (ticket 0132): one Points draw over a fixed pool of world-space puffs ──
+  // ── Tyre smoke (ticket 0133): one Points draw over a fixed pool of world-space puffs ──
   // Spawned at the rear wheels from the same tyreSmokeLevel() the 2D view and the squeal use;
   // the car drives out of them, they rise, spread and fade. Buffers are filled in place.
   const SMOKE_N = 140;

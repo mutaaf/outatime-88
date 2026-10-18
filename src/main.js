@@ -57,7 +57,7 @@ const sparks = createParticlePool(160);
 const hitStop = createHitStop();
 const nearMisses = nearMissChain();
 let fxClock = 0;
-// Tyre smoke (ticket 0132): src/smoke2d.js, lazy; until it loads there is simply no smoke.
+// Tyre smoke (ticket 0133): src/smoke2d.js, lazy; until it loads there is simply no smoke.
 // The 3D view keeps its own world-space puffs (src/render3d/view.js).
 let smoke2d = null;
 setTimeout(() => { import('./smoke2d.js').then((m) => { smoke2d = m.createTyreSmoke2D(); }, () => {}); }, 0);

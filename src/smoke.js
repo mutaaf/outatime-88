@@ -1,4 +1,4 @@
-// Tyre smoke and squeal (ticket 0132). Pure: no DOM, no allocation after a pool is created.
+// Tyre smoke and squeal (ticket 0133). Pure: no DOM, no allocation after a pool is created.
 //
 // One number says how hard the rear tyres are working past their grip, from the drivetrain's
 // wheelspin (src/drivetrain.js `spin`), the handling model's lateral slip and power drifts
