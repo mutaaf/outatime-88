@@ -123,6 +123,13 @@ describe('unlocks (ticket 0071)', () => {
     expect(grantEarnedCars(s)).toEqual(['BLUE_KESTREL']);
   });
 
+  it('a renamed level keeps its old id: old-save medals still unlock, the hint shows the new name (0018)', () => {
+    const s = freshSave({ progress: { LVL4_MULHOLLAND_2088: { best: 2_500_000, medal: 'silver' } } });
+    expect(unlockProgress(s, 'ARC_ROADSTER_88')).toMatchObject({ done: false, text: 'EARN 🥇 GOLD ON CEDAR RIDGE 2088' });
+    s.progress.LVL4_MULHOLLAND_2088.medal = 'gold';
+    expect(grantEarnedCars(s)).toContain('ARC_ROADSTER_88');
+  });
+
   it('the daily streak counts consecutive days and resets on a gap', () => {
     const s = freshSave();
     const daily = (day) => recordRace(s, { position: 3, daily: true, day });

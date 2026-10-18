@@ -120,7 +120,7 @@ export function generateNextTrackBiome(chosenBranch = null) {
   if (track.generatedCount % 4 === 2 && !chosenBranch) {
     addRoadSection(8, 20, 8, 0, 280, 0, 'SPLIT_FORK', {
       leftLabel: 'SKY-LOOP SHORTCUT (2X FLUX)',
-      rightLabel: 'WANGAN TURBO TUNNEL (+TIME)'
+      rightLabel: 'CEDAR TURBO TUNNEL (+TIME)'
     });
     populateChunkDecorations(startIdx, track.segments.length, 'FORK');
     return;
@@ -142,7 +142,7 @@ export function generateNextTrackBiome(chosenBranch = null) {
     addRoadSection(8, 18, 10, -0.7, -520, -0.15, 'STANDARD');
     populateChunkDecorations(startIdx, track.segments.length, 'JUMP');
   } else if (roll === 3) {
-    // Smooth Sweeping Mulholland S-Curves
+    // Smooth Sweeping Cedar Ridge S-Curves
     addRoadSection(12, 22, 12, 1.15, 380, 0.25, 'STANDARD');
     addRoadSection(12, 20, 12, -1.1, -380, -0.25, 'STANDARD');
     populateChunkDecorations(startIdx, track.segments.length, 'CORKSCREW');

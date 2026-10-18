@@ -1,12 +1,12 @@
 ---
 id: 0018
 title: Replace real-world place and route names (Mulholland, Wangan, Tokyo) with invented ones
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: authenticity
 created: 2026-10-17
-pr:
+pr: 59
 ---
 
 ## Why
@@ -26,10 +26,10 @@ level names/subtitles in `src/data.js`, fork labels and announcements in `src/ma
 (Clock Hollow, Cedar Ridge, Skyway).
 
 ## Acceptance criteria
-- [ ] No player-visible string contains "Mulholland", "Wangan", "Tokyo", "Sentry-2000", or "Go-Rocket"
-- [ ] Internal ids and the save key are unchanged; an old save still loads with its medals
-- [ ] The IP denylist unit test includes the new words and passes
-- [ ] Works at 390x844 and 1280x720 (new names fit their labels without wrapping or overlap)
+- [x] No player-visible string contains "Mulholland", "Wangan", "Tokyo", "Sentry-2000", or "Go-Rocket"
+- [x] Internal ids and the save key are unchanged; an old save still loads with its medals
+- [x] The IP denylist unit test includes the new words and passes
+- [x] Works at 390x844 and 1280x720 (new names fit their labels without wrapping or overlap)
 
 ## Test plan
 Extend the existing IP denylist test in `tests/unit/` with these words, scanning `src/` and

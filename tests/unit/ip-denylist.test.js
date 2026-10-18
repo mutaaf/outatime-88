@@ -19,6 +19,8 @@ const DENYLIST = [
   'Flux Capacitor', 'Mr. Fusion', 'Time Circuits', 'Twin Pines', 'Lone Pine',
   'N.O.V.A', 'Toyota', 'Nissan', 'Plymouth', 'Cadillac', 'Ferrari', 'Testarossa', 'Pontiac',
   'Vandura', 'La Bomba',
+  // ticket 0018: real places/routes and parody car names
+  'Mulholland', 'Wangan', 'Tokyo', 'Sentry-2000', 'Sentry 2000', 'Sentry2000', 'Go-Rocket', 'Go Rocket',
 ];
 // Short terms that are substrings of ordinary words ("Orbitron"): matched only when not
 // flanked by letters.
@@ -26,7 +28,14 @@ const DENYLIST_WORDS = ['Tron', 'BMW', 'GMC', 'Honda', 'Akira', 'DMC'];
 
 // Legacy save-data ids that must stay readable so old saves migrate (AGENTS.md invariant 6).
 // Exact token + exact file only; never player-visible.
-const ALLOWED = [{ file: 'src/save.js', token: 'STARK_MK88' }];
+const ALLOWED = [
+  { file: 'src/save.js', token: 'STARK_MK88' },
+  // level ids keyed by progress medals and car unlocks in old saves (ticket 0018)
+  ...['src/data.js', 'src/cars.js', 'src/progress.js'].flatMap((file) => [
+    { file, token: 'LVL3_TOKYO_2015' },
+    { file, token: 'LVL4_MULHOLLAND_2088' },
+  ]),
+];
 
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const PATTERN = new RegExp(

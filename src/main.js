@@ -1492,13 +1492,13 @@ function updateGame(rawDt) {
     if (GameState.forkPending) {
       GameState.forkPending = false;
       const chosen = GameState.playerX < 0 ? 'LEFT' : 'RIGHT';
-      GameState.branchName = chosen === 'LEFT' ? 'SKY-LOOP SHORTCUT' : 'WANGAN TURBO TUNNEL';
+      GameState.branchName = chosen === 'LEFT' ? 'SKY-LOOP SHORTCUT' : 'CEDAR TURBO TUNNEL';
       const branchBadge = document.getElementById('trackBranchBadge');
       if (branchBadge) branchBadge.textContent = `ROUTE: ${GameState.branchName}`;
       if (chosen === 'RIGHT' && GameState.mode === 'ARCADE') {
         const got = raceClock.extend(7.0);
         GameState.timeLeft = raceClock.timeLeft;
-        triggerAnnouncement('WANGAN TURBO SHORTCUT!', got > 0 ? `+${got}s BONUS TIME!` : 'NO TIME LEFT TO WIN — DRIVE!', 1400);
+        triggerAnnouncement('CEDAR TURBO SHORTCUT!', got > 0 ? `+${got}s BONUS TIME!` : 'NO TIME LEFT TO WIN — DRIVE!', 1400);
       } else {
         GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.skyLoop);
         triggerAnnouncement('ORANGE TRACK SKY-LOOP!', '+35% FLUX CORE CHARGE!', 1400);
@@ -3177,7 +3177,7 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
   ctx.fillStyle = '#1e293b';
   ctx.fillRect(-carW * 0.26, -carH * 0.46, carW * 0.52, carH * 0.28);
 
-  // Vehicle Signature Details (Muscle Blower, Sentry Scanner, Light-Cycle Canopy, or Flux Core)
+  // Vehicle Signature Details (Muscle Blower, Nightwatch Scanner, Light-Cycle Canopy, or Flux Core)
   if (activeChar.shape === 'MUSCLE') {
     ctx.fillStyle = '#e2e8f0';
     ctx.fillRect(-carW * 0.12, -carH * 0.64, carW * 0.24, carH * 0.18);
