@@ -3496,13 +3496,13 @@ let resultsLoading = null;
 function loadResultsUi() {
   if (!resultsLoading) resultsLoading = import('./results-ui.js').then(({ createResultsUI }) => (resultsUi = createResultsUI({
     run: { get: () => currentRun, set: (r) => { currentRun = r; } }, raceGhostOf, coarsePointer,
-  })));
+  }))).catch((e) => { resultsLoading = null; throw e; }); // a failed fetch is retried next time
   return resultsLoading;
 }
-/** Runs fn with the results UI: now if it has loaded, else as soon as it lands. */
-function withResults(fn) {
+/** Runs fn with the results UI: now if it has loaded, else as soon as it lands (offline: fallback). */
+function withResults(fn, fallback) {
   if (resultsUi) fn(resultsUi);
-  else loadResultsUi().then(fn, () => {});
+  else loadResultsUi().then(fn, () => { if (fallback) fallback(); });
 }
 const openLeaderboard = (view) => withResults((ui) => ui.openLeaderboard(view));
 const refreshRival = () => withResults((ui) => ui.refreshRival());
@@ -3926,7 +3926,11 @@ function endRaceRun(customBadgeText = null) {
   const verdict = ghostRace.verdict(GameState.finishTime);
   renderRaceResults(customBadgeText, lvl);
   const ghostInitials = ghostRace.initials;
-  withResults((ui) => ui.showResults({ lvl, result, newCarNames, verdict, ghostInitials, scoreSheet }));
+  // Values read late by showResults are safe: no new race starts until this modal is up.
+  withResults((ui) => ui.showResults({ lvl, result, newCarNames, verdict, ghostInitials, scoreSheet }), () => {
+    document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
+    document.getElementById('gameOverModal').classList.remove('hidden');
+  });
 }
 
 // Tilt steering lives in src/settings-ui.js (ticket 0050).

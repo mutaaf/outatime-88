@@ -11,7 +11,7 @@ import { normalizeSettings } from './settings.js';
 let music = null;
 let musicLoading = null;
 export function loadMusic() {
-  if (!musicLoading) musicLoading = import('./music.js').then((m) => (music = m));
+  if (!musicLoading) musicLoading = import('./music.js').then((m) => (music = m), (e) => { musicLoading = null; throw e; });
   return musicLoading;
 }
 
