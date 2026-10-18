@@ -52,7 +52,7 @@ test('first run asks for initials once, posts the run, then later runs post them
   const problems = watchPage(page);
   const posts = await mockApi(page);
   await page.goto(`${APP}?debug`);
-  await page.keyboard.press('Enter');
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' })); // a track race (PLAY is Endless, 0150)
   await page.waitForTimeout(500);
   await page.evaluate(() => { window.__OT.GameState.score = 123456; window.__OT.finishRun(); });
   await expect(page.locator('#initialsForm')).toBeVisible();

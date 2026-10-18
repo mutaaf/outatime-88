@@ -6,7 +6,7 @@ import { createBackend } from './backend.js';
 
 // Runs shorter than 4 s are rejected by the server's plausibility check, so each run waits.
 async function race(page, score) {
-  await page.keyboard.press('Enter');
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' })); // a track race (PLAY is Endless, 0150)
   await page.waitForTimeout(4300);
   await page.evaluate((s) => { window.__OT.GameState.score = s; window.__OT.finishRun(); }, score);
 }
@@ -129,7 +129,7 @@ test('a finished race leaves a ghost, and you can race it from the results', asy
   await page.addInitScript(() => { if (!localStorage.getItem('outatime_cruisn_88_save_v2')) localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ initials: 'CLD', bestScore: 1, onboarded: true })); });
   await page.goto(`${APP}?debug`);
   await expect(page.locator('#racerPillName')).toHaveText('CLD', { timeout: 15000 });
-  await page.keyboard.press('Enter');
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' })); // a track race (PLAY is Endless, 0150)
   await page.waitForTimeout(6000);
   await page.evaluate(() => { const G = window.__OT.GameState; G.finishTime = G.raceTime; G.score = 300000; window.__OT.finishRun(); });
   await expect(page.locator('#endRankCard .rank-ghost')).toHaveText('👻 RACE YOUR BEST');

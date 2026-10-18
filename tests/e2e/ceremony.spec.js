@@ -11,7 +11,7 @@ test('the lineup calls out all six racers, you last, and a tap skips to the ligh
   const problems = watchPage(page);
   await page.goto(`${APP}?debug&intro`);
   await ready(page);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   expect(await gs(page, 'racePhase')).toBe('START');
   const names = new Set();
   for (let i = 0; i < 5; i++) {
@@ -27,7 +27,7 @@ test('the lineup calls out all six racers, you last, and a tap skips to the ligh
   // Coming back to the same track (0145): the lineup is remembered, so it's straight to the lights.
   await page.reload();
   await ready(page);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await expect(page.locator('#rcLights')).toBeVisible({ timeout: 1500 });
   await expect(page.locator('#rcCard')).toBeHidden();
 
@@ -35,7 +35,7 @@ test('the lineup calls out all six racers, you last, and a tap skips to the ligh
   await page.evaluate(() => { const k = 'outatime_cruisn_88_save_v2'; const d = JSON.parse(localStorage.getItem(k)); d.lineupsSeen = []; localStorage.setItem(k, JSON.stringify(d)); });
   await page.reload();
   await ready(page);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await expect(page.locator('#rcSkip')).toBeVisible();
   await page.locator('#rcSkip').click();
   await expect(page.locator('#rcLights')).toBeVisible({ timeout: 1500 });
@@ -51,7 +51,7 @@ test('tapping boost right on green is a rocket start; too early stalls you', asy
   const problems = watchPage(page);
   await page.goto(`${APP}?debug&intro`);
   await ready(page);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.locator('#rcSkip').click();
   await expect(page.locator('#rcLights')).toHaveAttribute('data-state', '1');
   await page.waitForTimeout(700); // ~0.2 s before green
@@ -76,7 +76,7 @@ for (const vp of [{ width: 820, height: 1180 }, { width: 844, height: 390 }, { w
     await page.setViewportSize(vp);
     await page.goto(`${APP}?debug`);
     await ready(page);
-    await page.evaluate(() => window.__OT.startRace());
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
     await page.waitForTimeout(400);
     await page.evaluate(() => { const g = window.__OT.GameState; g.distance = g.raceLength - 15; });
     await expect(page.locator('#rcFinish')).toBeVisible({ timeout: 3000 });
@@ -93,7 +93,7 @@ for (const vp of [{ width: 820, height: 1180 }, { width: 844, height: 390 }, { w
 test('NEXT takes you to the next open level', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ unlockedLevel: 3, onboarded: true, bestScore: 1 })));
   await page.goto(`${APP}?debug`);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.waitForTimeout(300);
   await page.evaluate(() => window.__OT.finishRun());
   await expect(page.locator('#btnNextRace')).toBeVisible();

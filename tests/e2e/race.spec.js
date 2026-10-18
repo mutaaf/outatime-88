@@ -8,7 +8,7 @@ const gs = (page, expr) => page.evaluate(`window.__OT.GameState.${expr}`);
 test('the HUD shows your place in a field of six, the lap, and the cars either side', async ({ page }) => {
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await expect(page.locator('#hudPosOf')).toHaveText('/6');
   await expect(page.locator('#hudLap')).toHaveText('LAP 1/3');
   await expect(page.locator('#hudDots .hud-dot')).toHaveCount(6);
@@ -23,7 +23,7 @@ test('the HUD shows your place in a field of six, the lap, and the cars either s
 
 test('the last third of the race is the FINAL LAP', async ({ page }) => {
   await page.goto(`${APP}?debug`);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.evaluate(() => { const g = window.__OT.GameState; g.distance = g.raceLength * 0.7; });
   await expect(page.locator('#hudLap')).toHaveText('FINAL LAP');
 });
@@ -31,7 +31,7 @@ test('the last third of the race is the FINAL LAP', async ({ page }) => {
 test('crossing the line finishes the race with your place and a finish bonus', async ({ page }) => {
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.waitForTimeout(500);
   await page.evaluate(() => { const g = window.__OT.GameState; g.distance = g.raceLength - 20; g.speed = 120; });
   await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 5000 });
@@ -46,7 +46,7 @@ test('rotating a tablet mid-race keeps racing and refits the screen', async ({ p
   const problems = watchPage(page);
   await page.setViewportSize({ width: 820, height: 1180 });
   await page.goto(`${APP}?debug`);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.waitForTimeout(800);
   const before = await page.evaluate(() => ({ t: window.__OT.GameState.raceTime, d: window.__OT.GameState.distance }));
   await page.setViewportSize({ width: 1180, height: 820 });

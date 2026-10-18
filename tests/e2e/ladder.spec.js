@@ -40,7 +40,7 @@ test('a gas-only arcade race reaches the finish within the level cap', async ({ 
   test.setTimeout(170_000);
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
-  await page.keyboard.press('Enter');
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' })); // a track race (PLAY is Endless, 0150)
   await page.keyboard.down('ArrowUp');
   const t0 = Date.now();
   await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 125_000 }); // cap 100 s of game time + CI slack

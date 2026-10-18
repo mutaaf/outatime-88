@@ -7,7 +7,7 @@ async function finishFirst(page) {
   await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ initials: 'ACE', onboarded: true, bestScore: 1 })));
   await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.ready()); // results come from the lazy ceremony chunk
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.waitForTimeout(400);
   await page.evaluate(() => { const g = window.__OT.GameState; g.distance = g.raceLength - 10; g.speed = 140; });
   await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 8000 });

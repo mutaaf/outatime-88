@@ -272,6 +272,11 @@ export const SoundEngine = {
       this.playTone(783.99, 'sawtooth', 0.55, 0.15);
     }, 320);
   },
+  /** Endless tier up (ticket 0150): a bright rising arpeggio over the checkpoint chime. */
+  playLevelUp() {
+    if (this.sample('checkpoint', 1.25)) { this.sample('whoosh', 0.8, 0.6); return; }
+    [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => setTimeout(() => this.playTone(n, 'square', 0.16, 0.13), i * 70));
+  },
   playCheckpoint() {
     if (this.sample('checkpoint')) return;
     const notes = [440, 554.37, 659.25, 880];

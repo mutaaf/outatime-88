@@ -144,12 +144,16 @@ export function renderResults({ badgeText, lvl, next, racers, speedToWorld, play
   const aheadRow = rows[place - 2];
   const aheadField = aheadRow && field.find((f) => f.id === aheadRow.id);
   const beatBy = aheadRow && aheadRow.finished && GameState.finishTime != null ? Math.max(0, GameState.finishTime - (aheadField.finishTime || 0)) : null;
-  const head = infinite ? { title: 'STREET RUN SUMMARY', line: '' } : resultHeadline(place, rows.length, { startPos: fieldSize, beatBy, outcome });
+  const er = infinite ? GameState.endlessResult : null;
+  const head = er
+    ? { title: er.isBest ? '🏆 NEW BEST RUN!' : `♾️ TIER ${er.tier} REACHED`,
+      line: `${er.distance.toLocaleString()} m · TIER ${er.tier} · BEST ${er.best.toLocaleString()} m${er.isBest ? '' : ` (${Math.max(0, er.best - er.distance).toLocaleString()} m to go)`}` }
+    : infinite ? { title: 'STREET RUN SUMMARY', line: '' } : resultHeadline(place, rows.length, { startPos: fieldSize, beatBy, outcome });
   $('endModalTitle').textContent = head.title;
   const headLine = $('endHeadline');
   headLine.textContent = head.line;
   headLine.classList.toggle('hidden', !head.line);
-  headLine.classList.remove('is-win');
+  headLine.classList.toggle('is-win', Boolean(er && er.isBest));
   $('endPodiumBox').classList.toggle('hidden', infinite);
   stage.podium(rows);
   $('gameOverModal').dataset.place = infinite ? '' : String(place);
@@ -161,7 +165,7 @@ export function renderResults({ badgeText, lvl, next, racers, speedToWorld, play
   GameState.lastResult = {
     place, total: rows.length, outcome, rows, levelIndex: lvl.index, levelName: lvl.name, look: myLook || lookOf(me),
     time: GameState.finishTime != null ? GameState.finishTime : GameState.raceTime,
-    beat: rows.filter((r) => r.place > place).map((r) => r.name), daily: Boolean(GameState.daily), headline: head, beatBy,
+    beat: rows.filter((r) => r.place > place).map((r) => r.name), daily: Boolean(GameState.daily), headline: head, beatBy, endless: er,
   };
 }
 

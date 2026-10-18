@@ -11,6 +11,7 @@ export function createHud(doc = document) {
   const $ = (id) => doc.getElementById(id);
   const el = {
     pos: $('hudPos'), posOf: $('hudPosOf'), posCard: $('hudPosCard'), lap: $('hudLap'), hp: $('hudHp'),
+    hpBox: $('hudHpBox'), hpPop: $('hudHpPop'),
     time: $('hudTime'), clock: $('hudClock'), clockWrap: $('hudClockWrap'),
     ahead: $('hudGapAhead'), behind: $('hudGapBehind'), dots: $('hudDots'),
     speed: $('hudSpeed'), speedBar: $('hudSpeedBar'), speedCard: $('hudSpeedCard'),
@@ -18,6 +19,25 @@ export function createHud(doc = document) {
   };
   const last = Object.create(null);
   const dots = new Map(); // racer id -> { node, left }
+  // HP feedback (ticket 0150): a hit flashes the bar red and floats −N, a heal glows green and
+  // floats +N. Animations restart by alternating two identical keyframe names (no reflow read).
+  const hpFx = { hp: null, max: 0, n: 0 };
+  function hpChanged(hp, max) {
+    if (hp == null || !max) return;
+    const prev = hpFx.hp;
+    hpFx.hp = hp;
+    if (prev == null || max !== hpFx.max) { hpFx.max = max; return; }
+    const d = hp - prev;
+    // Small per-frame regen ticks only move the bar; real hits and heals get the pop.
+    if (d > -1 && d < 2) return;
+    hpFx.n++;
+    const kind = d < 0 ? 'hit' : 'heal';
+    if (el.hpBox) el.hpBox.dataset.fx = `${kind}${hpFx.n % 2}`;
+    if (el.hpPop) {
+      el.hpPop.textContent = `${d < 0 ? '−' : '+'}${Math.round(Math.abs(d))} HP`;
+      el.hpPop.dataset.fx = `${kind}${hpFx.n % 2}`;
+    }
+  }
 
   /** Sets a text/attr/style only when it differs from what this HUD last wrote. */
   function put(key, value, apply) {
@@ -50,7 +70,7 @@ export function createHud(doc = document) {
 
   return {
     /** Forget what was written (after a restart) so the next update repaints everything. */
-    reset() { for (const k of Object.keys(last)) delete last[k]; },
+    reset() { for (const k of Object.keys(last)) delete last[k]; hpFx.hp = null; },
 
     /**
      * @param s { position, total, progress, length, raceTime, timeLeft, clockUrgent, infinite,
@@ -64,7 +84,7 @@ export function createHud(doc = document) {
       if (el.posCard) put('podium', s.position <= 3 ? `p${s.position}` : 'p', (v) => { el.posCard.dataset.place = v; });
 
       if (s.infinite) {
-        text(el.lap, 'lap', `${Math.floor(s.progress).toLocaleString()} m`);
+        text(el.lap, 'lap', `${s.tier ? `T${s.tier} · ` : ''}${Math.floor(s.progress).toLocaleString()} m`);
         flag(el.lap, 'finalLap', 'is-final', false);
       } else {
         const { lap } = lapOf(s.progress, s.length);
@@ -73,6 +93,7 @@ export function createHud(doc = document) {
       }
       width(el.hp, 'hp', Math.max(0, Math.min(1, s.hpFrac)) * 100);
       flag(el.hp, 'hpLow', 'is-low', s.hpFrac <= 0.3);
+      hpChanged(s.hp, s.maxHp);
 
       text(el.time, 'time', formatRaceTime(s.raceTime));
       flag(el.clockWrap, 'noClock', 'hidden', s.infinite);

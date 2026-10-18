@@ -215,7 +215,7 @@ export async function drawShareCard(canvas, d, format = 'post') {
   canvas.height = h;
   const ctx = canvas.getContext('2d');
   const copy = shareCopy(d);
-  const ord = d.outcome === 'wrecked' ? 'WRECKED' : `${ordinal(d.place)}!`;
+  const ord = d.endless ? `TIER ${d.endless.tier}` : d.outcome === 'wrecked' ? 'WRECKED' : `${ordinal(d.place)}!`;
   const color = d.color || '#00f0ff';
   const who = d.initials || 'YOU';
   const timeText = formatRaceTime(d.time);

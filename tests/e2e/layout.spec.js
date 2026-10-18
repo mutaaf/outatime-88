@@ -59,7 +59,7 @@ for (const vp of VIEWPORTS) {
     await page.setViewportSize(vp);
     await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ controls: { coachSeen: true } })));
     await page.goto(`${APP}?debug`);
-    await page.evaluate(() => window.__OT.startRace());
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
     await page.waitForTimeout(600);
     // Put every floating element on screen at once so their slots can be measured.
     await page.evaluate(() => {
@@ -103,7 +103,7 @@ for (const vp of [{ width: 844, height: 390 }, { width: 360, height: 640 }, { wi
     const problems = watchPage(page);
     await page.setViewportSize(vp);
     await page.goto(`${APP}?debug`);
-    await page.evaluate(() => window.__OT.startRace());
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
     await page.waitForTimeout(300);
     await page.evaluate(() => { window.__OT.GameState.score = 734210; window.__OT.finishRun(); });
     await expect(page.locator('#gameOverModal')).toBeVisible();
@@ -126,7 +126,7 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
       const b = await page.locator(id).boundingBox();
       expect(Math.min(b.width, b.height), `${id} target`).toBeGreaterThanOrEqual(44);
     }
-    await page.evaluate(() => window.__OT.startRace());
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
     const coach = page.locator('#btnDismissCoach');
     if (await coach.isVisible()) expect((await coach.boundingBox()).height).toBeGreaterThanOrEqual(44);
     expect(problems).toEqual([]);
