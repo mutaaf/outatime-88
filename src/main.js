@@ -20,7 +20,10 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult, medalFor } from './progress.js';
-import { track, generateNextTrackBiome, buildInitialTrack, featureAt, setTrackLine } from './track.js';
+import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, hasSetPieceBetween, featureAt } from './track.js';
+import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
+let setPieceArt = null; // src/setpieces-2d.js, lazy: the art waits for it, the sim never does
+setTimeout(() => { import('./setpieces-2d.js').then((m) => { setPieceArt = m; }, () => {}); }, 0);
 import { createLine, createHazardPlanner, TRAFFIC_LATERAL } from './cleanline.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
@@ -157,7 +160,7 @@ const LiveTraffic = {
     this.prevPlayerZ = (GameState.trackPos || 0) + ROAD_CFG.playerZOffset;
     this.props.clear();
     this.nextPropZ = this.prevPlayerZ + 9000;
-    this.planner = createHazardPlanner({ line: track.line || createLine(1), rand: () => trafficRand(), level: GameState.levelIndex });
+    this.planner = createHazardPlanner({ line: track.line || createLine(1), rand: () => trafficRand(), level: GameState.levelIndex, avoid: hasSetPieceBetween });
 
     // The field (ticket 0051): five named rivals from the roster (never your own driver) on a
     // two-wide grid, you at the back. Each keeps its name for the whole race.
@@ -460,11 +463,14 @@ const LiveTraffic = {
     for (let i = 0; i < this.traffic.length; i++) {
       const tr = this.traffic[i];
       const relZ = tr.worldZ - playerZ;
-      if (relZ < -800 || tr.takenDown) {
+      // Traffic doesn't drive loops, corkscrews or gaps (sprint 4): it peels off and rejoins ahead.
+      const trF = featureAt(tr.worldZ);
+      if (relZ < -800 || tr.takenDown || (trF && trF.kind !== 'BOOSTER')) {
         tr.takenDown = false;
         tr.y = 0; tr.vy = 0; tr.vx = 0; tr.rot = 0; tr.vRot = 0; tr.yaw = 0; tr.vYaw = 0;
         const maxT = Math.max(playerZ + 12000, ...this.traffic.map(t => t.worldZ));
         tr.worldZ = maxT + (4800 + trafficRand() * 2200) * GameState.trafficGapScale;
+        for (let k = 0; k < 20 && hasSetPieceBetween(tr.worldZ - 600, tr.worldZ + 600); k++) tr.worldZ += 2000;
         tr.prevZ = tr.worldZ;
         tr.offset = this.planner.trafficLane(i, tr.worldZ, GameState.waveTier || 1, tr.halfW, tr.halfL);
         tr.nearMissed = false;
@@ -1576,6 +1582,19 @@ function updateGame(rawDt) {
     }
   }
 
+  // 3b. Orange-track set pieces (sprint 4, src/setpieces.js): booster gates kick you up to loop
+  //     speed; missing a gap costs time, never points (loops: handling.js loopStep above).
+  const spF = currentSeg ? currentSeg.feature : null;
+  const spEv = stepSetPieces(GameState, spF, GameState.trackPos + ROAD_CFG.playerZOffset);
+  if (spEv === 'BOOST') {
+    SoundEngine.playBoosterHit();
+    if (spF.boostTo) triggerAnnouncement('BOOSTER GATE!', `${spF.boostTo} MPH — HOLD IT`, 900);
+  } else if (spEv === 'GAP_FALL') {
+    GameState.speed = Math.max(28, GameState.speed * 0.6);
+    GameState.playerVY = 420; // a scramble across the gap: slow, but you make it
+    triggerAnnouncement('MISSED THE JUMP!', '52+ MPH OFF THE RAMP', 1200);
+  }
+
   // 4. Jump Ramps, Hover Conversion & Mid-Air Stunts
   if (currentSeg && currentSeg.trackType === 'JUMP_RAMP' && GameState.playerY <= 2 && GameState.speed > 52) {
     GameState.playerVY = 560 + GameState.speed * 3.6;
@@ -1785,74 +1804,6 @@ function updateGame(rawDt) {
           const pts = 400 * GameState.combo;
           GameState.score += pts;
           spawnAcquireAnimation('PLUTONIUM', item.offset - GameState.playerX, `+25 💚 HP REPAIRED!`);
-        }
-      } else if (item.type === 'LOW_LASER_BAR') {
-        // 2 SOLUTIONS: Solution 1 = Jump Over (playerY >= 24) • Solution 2 = Steer into open lane (dist >= 0.34)
-        if (dist < 0.34) {
-          if (GameState.playerY >= 22) {
-            if (!item.cleared) {
-              item.cleared = true;
-              GameState.lessonsCleared.jump++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
-              const pts = 600 * GameState.combo;
-              GameState.score += pts;
-              SoundEngine.playStunt();
-              spawnAcquireAnimation('HW_COIN', 0, `🔼 JUMP CLEARED! +${pts}`);
-            }
-          } else {
-            item.smashed = true;
-            applyPlayerDamage(15, 'LOW LASER HIT');
-            GameState.speed = Math.max(26, GameState.speed * 0.75);
-            spawnObstacleShatter(item.offset - GameState.playerX, '#ff5500', '#fde047', '💥 JUMP (W/UP/H) OR DODGE!');
-          }
-        } else if (offset === 0 && !item.cleared) {
-          item.cleared = true;
-          GameState.lessonsCleared.steer++;
-        }
-      } else if (item.type === 'HIGH_LIGHT_GATE') {
-        // 2 SOLUTIONS: Solution 1 = Hold Drift/Duck-Slide Under (isDuckSliding) • Solution 2 = Steer around (dist >= 0.34)
-        if (dist < 0.34) {
-          if (GameState.isDuckSliding || GameState.twoWheelTimer > 0) {
-            if (!item.cleared) {
-              item.cleared = true;
-              GameState.lessonsCleared.slide++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
-              const pts = 650 * GameState.combo;
-              GameState.score += pts;
-              GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSlide);
-              SoundEngine.playStunt();
-              spawnAcquireAnimation('PLUTONIUM', 0, `🔽 SLIDE UNDER! +${pts}`);
-            }
-          } else {
-            item.smashed = true;
-            applyPlayerDamage(15, 'HIGH LIGHT GATE HIT');
-            GameState.speed = Math.max(26, GameState.speed * 0.75);
-            spawnObstacleShatter(item.offset - GameState.playerX, '#00f0ff', '#d946ef', '💥 HOLD DRIFT (S/DOWN) TO SLIDE UNDER!');
-          }
-        } else if (offset === 0 && !item.cleared) {
-          item.cleared = true;
-          GameState.lessonsCleared.steer++;
-        }
-      } else if (item.type === 'FLUX_CRATE' || item.type === 'HOLO_BARRIER') {
-        if (dist < 0.34 && GameState.playerY < 52) {
-          item.smashed = true;
-          if (item.type === 'FLUX_CRATE' || GameState.agroTimer > 0 || GameState.warpActiveTimer > 0 || GameState.speed >= 72 || GameState.isDrifting) {
-            SoundEngine.playStunt();
-            GameState.lessonsCleared.smash++;
-            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSmash);
-            healPlayerHp(8);
-            GameState.speed = Math.min(135, GameState.speed + 8);
-            const pts = 750 * GameState.combo;
-            GameState.score += pts;
-            spawnObstacleShatter(
-              item.offset - GameState.playerX,
-              item.type === 'FLUX_CRATE' ? '#00f0ff' : '#ff5500',
-              '#fde047',
-              item.type === 'FLUX_CRATE' ? `📦 CRATE SMASH! +${pts} & +8 HP` : `⚡ BARRIER SHATTERED! +${pts}`
-            );
-          } else {
-            applyPlayerDamage(14, 'BARRIER HIT');
-            GameState.speed = Math.max(26, GameState.speed * 0.74);
-            spawnObstacleShatter(item.offset - GameState.playerX, '#ef4444', '#f97316', '💥 BARRIER HIT! -14 HP');
-          }
         }
       }
     }
@@ -2293,6 +2244,22 @@ function renderScene() {
     ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
   }
 
+  // Set-piece roll (sprint 4): the world barrel-rolls through a corkscrew and leans up a
+  // half-pipe wall; the car stays put on screen. Undone before the car is drawn.
+  const rollF = featureAt(GameState.trackPos + ROAD_CFG.playerZOffset);
+  const roll = GameState.status === 'PLAYING' || GameState.status === 'PAUSED' ? viewRoll(rollF, GameState.trackPos + ROAD_CFG.playerZOffset, GameState.reducedMotion) : 0;
+  let rolled = false;
+  if (roll !== 0) {
+    ctx.fillStyle = eraCfg.skyTop || '#05040d';
+    ctx.fillRect(0, 0, rw, rh);
+    ctx.save();
+    ctx.translate(rw / 2, rh * 0.62);
+    ctx.rotate(roll);
+    ctx.scale(1.5, 1.5);
+    ctx.translate(-rw / 2, -rh * 0.62);
+    rolled = true;
+  }
+
   // 1. The era's world: sky, parallax layers and live set pieces (src/backdrop.js, ticket 0100).
   const horizonY = Math.floor(rh * 0.46 - GameState.loopPitchOffset * (rh / 420));
   const bgSeg = track.segments[Math.floor(GameState.trackPos / ROAD_CFG.segLength)];
@@ -2313,6 +2280,7 @@ function renderScene() {
   const basePercent = (GameState.trackPos % ROAD_CFG.segLength) / ROAD_CFG.segLength;
   const baseSeg = track.segments[baseIndex] || track.segments[0];
   if (!baseSeg) {
+    if (rolled) ctx.restore();
     ctx.restore();
     return;
   }
@@ -2357,6 +2325,7 @@ function renderScene() {
     }
 
     visibleSegments.push(seg);
+    if (seg.trackType === 'GAP') continue; // a jump's gap: no road, just air
 
     const x1 = seg.p1.screen.x;
     const y1 = seg.p1.screen.y;
@@ -2431,6 +2400,8 @@ function renderScene() {
 
     maxY = y2;
   }
+
+  if (setPieceArt) setPieceArt.drawAhead(ctx, visibleSegments, eraCfg);
 
   // 3. Draw Scenery, Night-Street Smoke Flares, Collectibles & Rival/Police Cars
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
@@ -2527,18 +2498,6 @@ function renderScene() {
         ctx.arc(0, 0, rCoin * 0.55, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-      } else if (item.type === 'FLUX_CRATE') {
-        // Animated 3D Glowing Supply Crate (Shatters for bonus Flux when hit!)
-        const boxW = Math.max(6, itemW * 0.85);
-        const boxH = Math.max(6, itemH * 0.85);
-        ctx.fillStyle = '#0284c7';
-        ctx.fillRect(itemX - boxW * 0.5, roadY - boxH, boxW, boxH);
-        ctx.strokeStyle = '#00f0ff';
-        ctx.lineWidth = Math.max(1, boxW * 0.08);
-        ctx.strokeRect(itemX - boxW * 0.5, roadY - boxH, boxW, boxH);
-        // Pulsing X core
-        ctx.fillStyle = '#fde047';
-        ctx.fillRect(itemX - boxW * 0.22, roadY - boxH * 0.72, boxW * 0.44, boxH * 0.44);
       } else if (item.type === 'REPAIR_WRENCH') {
         // Spinning 3D Green Nano-Wrench (+25 HP Repair Pickup)
         const wy = roadY - itemH * 0.65 + bobY;
@@ -2554,52 +2513,6 @@ function renderScene() {
         ctx.fillRect(-wr * 0.6, -wr * 0.2, wr * 1.2, wr * 0.4);
         ctx.fillRect(-wr * 0.2, -wr * 0.6, wr * 0.4, wr * 1.2);
         ctx.restore();
-      } else if (item.type === 'LOW_LASER_BAR') {
-        // 🟠 LOW LASER HURDLE (Solution 1: Jump Over • Solution 2: Steer Around)
-        const barW = Math.max(10, itemW * 1.25);
-        const barH = Math.max(4, itemH * 0.42);
-        // Left & right emitters
-        ctx.fillStyle = '#334155';
-        ctx.fillRect(itemX - barW * 0.55, roadY - barH * 1.2, barW * 0.14, barH * 1.2);
-        ctx.fillRect(itemX + barW * 0.41, roadY - barH * 1.2, barW * 0.14, barH * 1.2);
-        // Glowing orange laser beam low to the track
-        ctx.fillStyle = '#ff5500';
-        ctx.fillRect(itemX - barW * 0.45, roadY - barH * 0.85, barW * 0.9, barH * 0.45);
-        ctx.fillStyle = '#fde047';
-        ctx.fillRect(itemX - barW * 0.45, roadY - barH * 0.70, barW * 0.9, barH * 0.18);
-        if (roadW > 55) {
-          ctx.fillStyle = '#fde047';
-          ctx.font = 'bold 8px Orbitron, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('🔼 JUMP OR DODGE', itemX, roadY - barH * 1.45);
-        }
-      } else if (item.type === 'HIGH_LIGHT_GATE') {
-        // 🔵 HIGH OVERHEAD LIGHT GATE (Solution 1: Hold Drift/Slide Under • Solution 2: Steer Around)
-        const gateW = Math.max(12, itemW * 1.35);
-        const gateH = Math.max(10, itemH * 1.45);
-        const clearanceH = gateH * 0.48; // Open space at the bottom to slide under!
-        // Side Pylons
-        ctx.fillStyle = '#0ea5e9';
-        ctx.fillRect(itemX - gateW * 0.5, roadY - gateH, Math.max(2, gateW * 0.10), gateH);
-        ctx.fillRect(itemX + gateW * 0.4, roadY - gateH, Math.max(2, gateW * 0.10), gateH);
-        // Overhead Cyan/Magenta Light-Wall Beam (Raised above the ground!)
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
-        ctx.fillRect(itemX - gateW * 0.48, roadY - gateH, gateW * 0.96, gateH - clearanceH);
-        if (roadW > 55) {
-          ctx.fillStyle = '#00f0ff';
-          ctx.font = 'bold 8px Orbitron, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('🔽 SLIDE (S) OR DODGE', itemX, roadY - gateH - 4);
-        }
-      } else if (item.type === 'HOLO_BARRIER') {
-        // Animated 2026 Clock Hollow Laser-Chevron Obstacle with Rotating Beacon!
-        const barW = Math.max(8, itemW * 1.15);
-        const barH = Math.max(5, itemH * 0.68);
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(itemX - barW * 0.5, roadY - barH, barW, barH);
-        ctx.fillStyle = (Math.floor(nowSec * 6) % 2 === 0) ? '#ff5500' : '#facc15';
-        ctx.fillRect(itemX - barW * 0.44, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
-        ctx.fillRect(itemX + barW * 0.08, roadY - barH * 0.78, barW * 0.36, barH * 0.52);
       } else if ((item.type === 'STREET_LAMP' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW') && drawRoadsideProp(ctx, item.type, itemX, roadY, itemW, itemH, roadW, rw, rh)) {
         // the era's own roadside (ticket 0101)
       } else if (item.type === 'STREET_LAMP') {
@@ -2925,6 +2838,7 @@ function renderScene() {
     GameState.playerScreenX = Math.floor(rw * 0.5);
   }
 
+  if (rolled) { ctx.restore(); rolled = false; }
   if (GameState.cameraMode !== 2) {
     drawPlayerCar(ctx, rw, rh, eraCfg);
   }
@@ -2978,6 +2892,14 @@ function renderScene() {
   }
   drawSpeedLines(mainCtx, feel.lines);
   drawSparks(mainCtx, rw, rh);
+  // The side-on loop cam (sprint 4) while you're going round a loop.
+  if (setPieceArt && rollF && rollF.kind === 'LOOP') {
+    const pc = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+    setPieceArt.drawCutaway(mainCtx, mainCanvas.width, mainCanvas.height, {
+      t: progressIn(rollF, GameState.trackPos + ROAD_CFG.playerZOffset), mph: GameState.speed,
+      color: pc.body, eraCfg, failed: GameState.peeledLoop === rollF, reduced: GameState.reducedMotion,
+    });
+  }
   mainCtx.restore();
 }
 
@@ -4848,6 +4770,7 @@ window.onload = () => {
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
     traffic: () => LiveTraffic,
+    track: () => track,
     backdrop: backdropDebug,
     gfx: () => gfx,
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),

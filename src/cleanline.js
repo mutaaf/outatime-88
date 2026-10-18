@@ -88,7 +88,9 @@ const TRAFFIC_LANES = [-0.48, 0.48, -0.2, 0.2];
  * Where every hazard goes. main.js (LiveTraffic) and the tests drive the same planner, so the
  * clean-line property test checks the code the game runs. `rand` is the race's traffic RNG.
  */
-export function createHazardPlanner({ line, rand = Math.random, level = 0 }) {
+export function createHazardPlanner({ line, rand = Math.random, level = 0, avoid = null }) {
+  // `avoid(z0, z1)` → true where set pieces (loops, gaps, ramps, half-pipes) live: no hazards there.
+  const blocked = (z0, z1) => Boolean(avoid && avoid(z0, z1));
   return {
     line,
     /** Base spacing between the recycled obstacles, before density. */
@@ -100,10 +102,12 @@ export function createHazardPlanner({ line, rand = Math.random, level = 0 }) {
       const m = materialFor(type);
       let z = pastBreather(fromZ, level, wave);
       const pref = (i * 7 + wave) % 3;
-      for (let tries = 0; tries < 8; tries++) {
-        for (let k = 0; k < 3; k++) {
-          const offset = OBSTACLE_LANES[(pref + k) % 3];
-          if (line.isClear(z, offset, m.halfW, m.halfL)) return { type, z, offset };
+      for (let tries = 0; tries < 40; tries++) {
+        if (!blocked(z - m.halfL - 600, z + m.halfL + 600)) {
+          for (let k = 0; k < 3; k++) {
+            const offset = OBSTACLE_LANES[(pref + k) % 3];
+            if (line.isClear(z, offset, m.halfW, m.halfL)) return { type, z, offset };
+          }
         }
         z = pastBreather(z + 1500, level, wave);
       }
@@ -124,6 +128,7 @@ export function createHazardPlanner({ line, rand = Math.random, level = 0 }) {
     planProps(z0, wave = 1) {
       const items = [];
       const z = pastBreather(z0, level, wave);
+      if (blocked(z - 600, z + 1400)) return { items, nextZ: z + 2400 };
       const pattern = Math.floor(rand() * 3);
       const c = line.centreAt(z);
       const far = c >= 0 ? -1 : 1; // the side of the road away from the line

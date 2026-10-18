@@ -10,7 +10,7 @@ test('main bundle stays in budget and does not contain three.js', () => {
   const files = readdirSync(DIR);
   const main = files.filter((f) => /^index-.*\.js$/.test(f));
   expect(main.length).toBe(1);
-  expect(gz(main[0])).toBeLessThan(64); // 60 → 64 for handling, NOS and the clean-line planner (tickets 0120–0122)
+  expect(gz(main[0])).toBeLessThan(64); // 60 → 64 for handling, NOS, the clean-line planner and set pieces (0120–0123)
   expect(readFileSync(`${DIR}/${main[0]}`, 'utf8')).not.toContain('WebGLRenderer');
 });
 

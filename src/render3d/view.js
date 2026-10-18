@@ -7,7 +7,7 @@ import {
   MeshBasicMaterial, MeshLambertMaterial, Object3D, PerspectiveCamera, PlaneGeometry,
   Points, PointsMaterial, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
   Float32BufferAttribute, MeshStandardMaterial, ACESFilmicToneMapping, PCFSoftShadowMap, PCFShadowMap,
-  CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace,
+  CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace, Quaternion, Euler, DoubleSide,
 } from 'three';
 import { asphaltTextures, bakeEnvironment, paletteFor } from './surfaces.js';
 import { ROAD_CFG } from '../data.js';
@@ -174,10 +174,10 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   const asph = asphaltTextures();
   const deckMat = new MeshStandardMaterial({
     vertexColors: true, map: asph.map, roughnessMap: asph.roughnessMap, normalMap: asph.normalMap,
-    roughness: 1, metalness: 0, envMapIntensity: 1,
+    roughness: 1, metalness: 0, envMapIntensity: 1, side: DoubleSide, // loops are seen from outside too
   });
   // LOW (and software GPUs) draw the same asphalt colour map without the PBR lighting cost.
-  const deckLite = new MeshLambertMaterial({ vertexColors: true, map: asph.map });
+  const deckLite = new MeshLambertMaterial({ vertexColors: true, map: asph.map, side: DoubleSide });
   const deckFor = () => (q.env ? deckMat : deckLite);
   const neonMat = new MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   const glowMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
@@ -192,6 +192,9 @@ export function createView3D({ container, state, track, era, collectCars, obstac
 
   function segColor(seg, e, out) {
     const alt = (Math.floor(seg.index / 10) % 2) === 0;
+    // Orange-track set pieces (sprint 4): loops, corkscrews and half-pipes in toy-track orange.
+    const fk = seg.feature && seg.feature.kind;
+    if (fk === 'LOOP' || fk === 'CORKSCREW' || fk === 'WALLRIDE') return out.set(alt ? '#ff6a13' : '#f25205');
     if (seg.trackType === 'BOOSTER') return out.set(alt ? '#ea580c' : '#d9460f');
     if (seg.trackType === 'JUMP_RAMP') return out.set(alt ? '#f59e0b' : '#d97706');
     if (seg.trackType === 'CHECKPOINT') return out.set(seg.index % 2 ? '#f8fafc' : '#1e1b2e');
@@ -215,13 +218,15 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       P.push(a[0], a[1], a[2], b[0], b[1], b[2], cc[0], cc[1], cc[2], a[0], a[1], a[2], cc[0], cc[1], cc[2], d[0], d[1], d[2]);
       C.push(ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, cb.r, cb.g, cb.b, ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, ca.r, ca.g, ca.b);
     };
+    // A point on the road frame at segment boundary j: `off` half-widths right, `up` metres up
+    // the road's normal (so banks, half-pipes, corkscrews and loops all just work).
     const pt = (j, off, up) => {
-      const segs = track.segments;
-      const s = segs[Math.min(j, segs.length - 1)];
-      const y = (j < segs.length ? s.p1.world.y : s.p2.world.y) * PATH_SCALE.yScale;
-      const h = path.h[j], cx = path.x[j], cz = path.z[j];
       const lat = off * HALF_W;
-      return [cx + Math.cos(h) * lat, y + up, -(cz - Math.sin(h) * lat)];
+      return [
+        path.cx[j] + path.rx[j] * lat + path.ux[j] * up,
+        path.cy[j] + path.ry[j] * lat + path.uy[j] * up,
+        -(path.cz[j] + path.rz[j] * lat + path.uz[j] * up),
+      ];
     };
     const skirt = new Color('#2a0a12'), lane = new Color('#ece6d4'), rail = new Color(NEON_CYAN), pink = new Color(NEON_PINK), black = new Color(0, 0, 0);
     const pinkGlow = new Color(NEON_PINK).multiplyScalar(0.85);
@@ -229,6 +234,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     for (let i = c * CHUNK; i < (c + 1) * CHUNK; i++) {
       const seg = track.segments[i];
       if (!seg) break;
+      if (seg.trackType === 'GAP') continue; // the jump's gap: no road, just air
       const j = i, k = i + 1;
       segColor(seg, e, tmpCol);
       // Deck (between the kerbs), red/white kerbs, solid edge lines, underside skirts.
@@ -468,10 +474,19 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     playerCar = buildPlayer(player().shape);
   }
 
+  // Cars sit on the road's frame (sprint 4): up is the road's normal, so they bank, wall-ride,
+  // corkscrew and loop with it. Model forward is -Z; three's Z is the sim's -Z.
+  const qFrame = new Quaternion(), qLocal = new Quaternion(), eLocal = new Euler(0, 0, 0, 'YXZ');
+  const bx = new Vector3(), by = new Vector3(), bz = new Vector3(), basis = new Matrix4();
   function poseCar(g, trackZ, offset, lift, yawExtra, roll, pitch) {
     path.at(trackZ, offset, pose);
-    g.position.set(pose.x, pose.y + lift, -pose.z);
-    g.rotation.set(pitch, -pose.heading + yawExtra, roll, 'YXZ');
+    g.position.set(pose.x + pose.ux * lift, pose.y + pose.uy * lift, -(pose.z + pose.uz * lift));
+    bx.set(pose.rx, pose.ry, -pose.rz);
+    by.set(pose.ux, pose.uy, -pose.uz);
+    bz.set(-pose.fx, -pose.fy, pose.fz);
+    qFrame.setFromRotationMatrix(basis.makeBasis(bx, by, bz));
+    qLocal.setFromEuler(eLocal.set(pitch, yawExtra, roll, 'YXZ'));
+    g.quaternion.multiplyQuaternions(qFrame, qLocal);
   }
 
   function syncCars(t, dt) {
@@ -629,10 +644,16 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       camUp += (wantUp - camUp) * k;
       camLookX += (pp.x * 0.6 - camLookX) * k;
     }
+    // The chase cam rides the road's frame through set pieces (sprint 4): up the loop, round the
+    // corkscrew. Calm mode keeps the horizon level instead.
     path.at(pz - rig.back / PATH_SCALE.zScale, camX, pose);
-    camera.position.set(pose.x, pose.y + camUp, -pose.z);
+    camera.position.set(pose.x + pose.ux * camUp, pose.y + pose.uy * camUp, -(pose.z + pose.uz * camUp));
+    path.at(pz, camX, pose);
+    if (s.reducedMotion) camera.up.set(0, 1, 0);
+    else camera.up.set(pose.ux, pose.uy, -pose.uz);
     path.at(pz + rig.look / PATH_SCALE.zScale, camLookX, pose);
-    camLook.set(pose.x, pose.y + rig.lookUp + ly * 0.3, -pose.z);
+    const lu = rig.lookUp + ly * 0.3;
+    camLook.set(pose.x + pose.ux * lu, pose.y + pose.uy * lu, -(pose.z + pose.uz * lu));
     // Shake: deterministic wobble, off under reduced motion.
     if (!s.reducedMotion) {
       const mag = (feel.shake * 0.02) + Math.min(1, s.screenShake || 0) * 0.25;

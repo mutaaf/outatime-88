@@ -42,6 +42,13 @@ Triggers live in `src/scenes/eggs.js` (unit-tested in `tests/unit/eggs.test.js`)
 | 1955 | **A B-movie flying saucer wobbles across the sky** | Final lap | Generic saucer |
 | 1955 | ATOMIC DINER with a boomerang sign, SODA FOUNTAIN, NEW '55 MODELS lot, the BIJOU again | Square | Invented names; the same theatre exists in 2026, seventy years apart |
 
+## Track set pieces (ticket 0124)
+
+| Era | Nod | Where | Why it's safe |
+|---|---|---|---|
+| 1955, 2026 | **The clock-face loop**: a clock stopped at 10:04 at the top of the orange loop | Every loop in those eras, and the side-on loop cam | An original clock drawing; no names or logos |
+| all | Orange toy-track loops, corkscrews, gap jumps and booster gates | The track | A generic toy-track *style*; no brand name or logo anywhere in the game |
+
 ## Operator note (2026-10-17)
 
 `docs/LESSONS.md` (0008) once kept the courthouse clock tower out of 1955 because the
