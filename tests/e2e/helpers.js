@@ -58,3 +58,33 @@ export async function skipToGreen(page, { tap = false } = {}) {
   if (tap) await skip.tap(); else await skip.click();
   await page.locator('#raceStage').waitFor({ state: 'hidden', timeout: 6000 });
 }
+
+/**
+ * Frame-cost probe for perf tests on shared CI runners (software GL, noisy neighbours).
+ * Waits `warmup` frames (lazy chunks, shader compiles, the first GC), then over `frames`
+ * frames records both the rAF interval and the game's own JS time per frame (every rAF
+ * callback timed by wrapping requestAnimationFrame). Medians and p90s, not means, so one
+ * stall from the runner doesn't fail a run, while a real regression (every frame slower)
+ * still does. Returns { interval: { p50, p90 }, js: { p50, p90 } } in ms.
+ */
+export function frameStats(page, { frames = 120, warmup = 30 } = {}) {
+  return page.evaluate(({ frames, warmup }) => new Promise((resolve) => {
+    const raf = window.requestAnimationFrame;
+    const work = new Map(); // frame timestamp → JS ms spent in its callbacks
+    window.requestAnimationFrame = (cb) => raf.call(window, (t) => {
+      const t0 = performance.now();
+      try { cb(t); } finally { work.set(t, (work.get(t) || 0) + performance.now() - t0); }
+    });
+    const stamps = [];
+    let n = 0;
+    (function tick(t) {
+      if (n++ >= warmup) stamps.push(t);
+      if (stamps.length <= frames) { raf.call(window, tick); return; }
+      window.requestAnimationFrame = raf;
+      const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * p))]; };
+      const gaps = []; for (let i = 1; i < stamps.length; i++) gaps.push(stamps[i] - stamps[i - 1]);
+      const js = stamps.map((s) => work.get(s)).filter((v) => v != null);
+      resolve({ interval: { p50: q(gaps, 0.5), p90: q(gaps, 0.9) }, js: { p50: q(js, 0.5), p90: q(js, 0.9) } });
+    })(performance.now());
+  }), { frames, warmup });
+}
