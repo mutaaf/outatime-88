@@ -45,6 +45,7 @@ import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortS
 import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { pickMissions, advanceMission, missionsDone, recordMissions, titleMissionLine } from './missions.js';
 import { beginRun, fetchGhost, normalizeInitials } from './leaderboard.js';
+import { registerOffline, onOffline, offlineLabel, offlineDebug } from './offline.js';
 import { createGhostRecorder, createGhostRace } from './ghost.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
@@ -3956,7 +3957,7 @@ function startNewRace(opts) {
     return;
   }
   currentRun = {
-    tokenPromise: beginRun(), t0: performance.now(), level: lvl.index,
+    tokenPromise: beginRun(), t0: performance.now(), level: lvl.index, online: navigator.onLine !== false,
     mode: daily ? 'DAILY' : (GameState.mode === 'INFINITE' ? 'INFINITE' : 'ARCADE'),
   };
 
@@ -4884,12 +4885,27 @@ function mainLoop(timestamp) {
   rafId = requestAnimationFrame(mainLoop);
 }
 
-// Offline + instant repeat loads (ticket 0075). Production builds only; the API, identity and
-// live rooms are never cached (see scripts/sw-template.js).
+// Offline play (tickets 0075, 0158): production builds register the service worker, which
+// precaches the whole game; the API, identity and live rooms are never cached.
 function registerServiceWorker() {
-  if (!import.meta.env.PROD || !('serviceWorker' in navigator) || new URLSearchParams(location.search).has('nosw')) return;
-  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }).catch(() => {});
+  if (!import.meta.env.PROD) return;
+  registerOffline(import.meta.env.BASE_URL);
+  const pill = document.getElementById('offlinePill');
+  onOffline((s) => {
+    document.documentElement.classList.toggle('is-offline', !s.online);
+    if (!pill) return;
+    const label = offlineLabel(s);
+    pill.textContent = label;
+    pill.classList.toggle('hidden', !label);
+    pill.classList.toggle('is-ready', s.ready);
+    // The install / Add-to-Home-Screen hint is a lazy chunk, shown once everything is saved.
+    if (s.ready && !offlineHintLoaded) {
+      offlineHintLoaded = true;
+      import('./offline-ui.js').then((m) => m.initOfflineHint({ pill })).catch(() => {});
+    }
+  });
 }
+let offlineHintLoaded = false;
 
 window.onload = () => {
   registerServiceWorker();
@@ -4903,6 +4919,7 @@ window.onload = () => {
     traffic: () => LiveTraffic,
     track: () => track,
     backdrop: backdropDebug,
+    offline: offlineDebug,
     ads: boardsDebug,
     gfx: () => gfx,
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),

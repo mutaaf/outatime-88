@@ -65,6 +65,8 @@ function persist() {
 }
 
 async function call(method, path, body, cred = session?.cred) {
+  // Certainly offline (a plane): keep playing as the saved racer at once (ticket 0158).
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, status: 0, body: {} };
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {

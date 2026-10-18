@@ -2,7 +2,8 @@
 // off the racing line, rotated contextually per seed, and counted only when really seen.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { track, buildInitialTrack, generateNextTrackBiome, setTrackSeed, RING } from '../../src/track.js';
-import { SPEC, HOUSE, BUCKETS, bucketFor, validCampaign, applyManifest, creativeFor, noteView, flush, VIEW, debug } from '../../src/billboard-art.js';
+import { SPEC, HOUSE, BUCKETS, bucketFor, validCampaign, applyManifest, creativeFor, noteView, flush, VIEW, debug, stash, flushStash } from '../../src/billboard-art.js';
+import { vi } from 'vitest';
 import { GameState } from '../../src/state.js';
 
 function boards() {
@@ -145,5 +146,28 @@ describe('viewability', () => {
     expect(body.counts).toEqual({ 'house-daily': 1 });
     expect(body.day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(flush(false)).toBeNull(); // nothing pending any more
+  });
+
+  it('offline (ticket 0158): totals wait in storage and go out when the network is back', () => {
+    const mem = new Map();
+    vi.stubGlobal('localStorage', { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) });
+    let online = false;
+    const sent = [];
+    vi.stubGlobal('navigator', { get onLine() { return online; } });
+    vi.stubGlobal('fetch', (url, init) => { sent.push(JSON.parse(init.body)); return Promise.resolve({ ok: true, status: 204 }); });
+    applyManifest({ v: 1, report: true, campaigns: [] });
+    const it = { slot: 98 };
+    for (let t = 0; t < 1500; t += 16) noteView(it, 'house-daily', 0, 0, 400, 225, 1280, 720, t);
+    flush(false);
+    expect(sent).toHaveLength(0);
+    stash('2026-10-17', { 'house-site': 2 });
+    expect(Object.keys(JSON.parse(mem.get('outatime88_ads_outbox_v1'))).length).toBe(2);
+    expect(flushStash()).toBe(0); // still offline
+    online = true;
+    expect(flushStash()).toBe(2);
+    expect(sent.map((b) => Object.keys(b).sort().join())).toEqual(['counts,day,v', 'counts,day,v']);
+    expect(mem.has('outatime88_ads_outbox_v1')).toBe(false);
+    applyManifest({ v: 1, report: false, campaigns: [] });
+    vi.unstubAllGlobals();
   });
 });

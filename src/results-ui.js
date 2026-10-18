@@ -6,7 +6,8 @@ import { GameState } from './state.js';
 import { WORLD_LEVELS } from './data.js';
 import { MEDAL_ICON, nextTarget, medalFor } from './progress.js';
 import { dailySpec, utcDay } from './daily.js';
-import { submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
+import { normalizeInitials, rankLine } from './leaderboard.js';
+import { submitRunQueued as submitRun, fetchBoardCached as fetchBoard, fetchStandingCached as fetchStanding, fetchHallCached as fetchHall } from './board-offline.js';
 import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
 import { ordinal } from './raceflow.js';
 import { missionLine } from './missions.js';
@@ -119,6 +120,14 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
 
   const sameView = (a, b) => a.board === b.board && a.mode === b.mode && Boolean(a.track) === Boolean(b.track);
 
+  function offlineAge(at) {
+    if (!at) return 'YOUR LAST VISIT';
+    const mins = Math.round((Date.now() - at) / 60000);
+    if (mins < 60) return `${Math.max(1, mins)} MIN AGO`;
+    const hrs = Math.round(mins / 60);
+    return hrs < 48 ? `${hrs} H AGO` : `${Math.round(hrs / 24)} DAYS AGO`;
+  }
+
   function renderBoard(data, view) {
     const list = $('boardList');
     const status = $('boardStatus');
@@ -126,7 +135,8 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     list.textContent = '';
     if (!data) { status.textContent = 'LEADERBOARD OFFLINE — YOUR BEST IS SAVED ON THIS DEVICE'; return; }
     const lvl = view.track ? WORLD_LEVELS[data.level] : null;
-    if (data.entries.length) status.textContent = lvl ? `TRACK: ${lvl.name.replace(/^LVL \d+:\s*/, '')}` : '';
+    if (data.offline) status.textContent = `📴 OFFLINE — SCORES AS OF ${offlineAge(data.cachedAt)}`;
+    else if (data.entries.length) status.textContent = lvl ? `TRACK: ${lvl.name.replace(/^LVL \d+:\s*/, '')}` : '';
     else status.textContent = view.board === 'friends'
       ? 'NO FRIENDS HERE YET — SEND A CHALLENGE OR RACE IN A ROOM'
       : 'NO SCORES YET — BE THE FIRST';
@@ -203,7 +213,13 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     form.classList.add('hidden');
     rankEl.textContent = 'POSTING…';
     const token = await current.tokenPromise;
-    if (!token) { rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY'; return; }
+    if (!token) {
+      // Started with no connection (a plane): no run token, so it can't count on the board.
+      rankEl.textContent = (typeof navigator !== 'undefined' && navigator.onLine === false) || !current.online
+        ? '✈️ PLAYED OFFLINE — BEST SAVED ON THIS DEVICE. RACES STARTED ONLINE COUNT ON THE BOARD'
+        : 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY';
+      return;
+    }
     const r = await submitRun({
       token, initials, score: current.score, distance: current.distance, durationMs: current.durationMs,
       warps: current.warps, level: current.level, mode: current.mode, car: current.car, earned: current.earned, pen: current.pen, trace: current.trace,
@@ -218,6 +234,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
       refreshRival();
     }
     else if (r.status === 400) { rankEl.textContent = 'PICK OTHER INITIALS'; SaveStore.data.initials = ''; SaveStore.save(); run.set(current); form.classList.remove('hidden'); }
+    else if (r.queued) rankEl.textContent = '✈️ SAVED — POSTS WHEN YOU\'RE BACK ONLINE';
     else if (r.status === 0 || r.status === 503) rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY';
     else rankEl.textContent = 'SCORE NOT ACCEPTED';
   }

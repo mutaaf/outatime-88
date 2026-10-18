@@ -6,7 +6,10 @@ import { authHeaders } from './identity.js';
 const API = `${import.meta.env.BASE_URL}api`;
 const TIMEOUT_MS = 6000;
 
-async function call(path, init) {
+/** One API call; never throws. `status` 0 means the network is gone. */
+export async function call(path, init) {
+  // Certainly offline (a plane): answer at once instead of waiting out the timeout.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, status: 0, body: {} };
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
@@ -34,7 +37,7 @@ export async function submitRun(run) {
   return call('/scores', { method: 'POST', body: JSON.stringify(run) });
 }
 
-const query = (o) => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '')
+export const query = (o) => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '')
   .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 
 /** opts: { level, around } — a per-track board and your own row even outside the top N. */

@@ -106,6 +106,7 @@ export function createLive(hooks) {
   // ---------- network ----------
 
   function connect(c) {
+    if (needsInternet()) return;
     if (sock) sock.close();
     code = c;
     room = null; me = null; raceNo = 0; finished = false;
@@ -166,12 +167,23 @@ export function createLive(hooks) {
   let lastPostStatus = 0;
   async function post(path) {
     lastPostStatus = 0;
+    if (needsInternet()) return null;
+    // Airplane Wi-Fi can "connect" and never answer: give up instead of spinning forever.
+    const ctrl = typeof AbortController === 'undefined' ? null : new AbortController();
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 8000) : 0;
     try {
-      const res = await fetch(`${API}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const res = await fetch(`${API}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', signal: ctrl ? ctrl.signal : undefined });
       lastPostStatus = res.status;
       const body = await res.json().catch(() => ({}));
       return res.ok ? cleanCode(body.code) : null;
-    } catch { return null; }
+    } catch { return null; } finally { clearTimeout(timer); }
+  }
+
+  /** Live races need the internet; on a plane say so plainly (ticket 0158). */
+  function needsInternet() {
+    if (typeof navigator === 'undefined' || navigator.onLine !== false) return false;
+    message('NEEDS INTERNET', 'Racing friends live needs Wi-Fi or data. Solo races, the daily challenge, the garage and 2D/3D all work offline — close this and tap PLAY.');
+    return true;
   }
 
   /** Why a room couldn't be opened, in words a kid can act on. */
@@ -183,6 +195,7 @@ export function createLive(hooks) {
 
   async function createRoom(replacing = false) {
     hooks.unlockAudio();
+    if (needsInternet()) return;
     busy(true);
     const c = await post('/room');
     busy(false);
@@ -202,6 +215,7 @@ export function createLive(hooks) {
 
   async function quickRace() {
     hooks.unlockAudio();
+    if (needsInternet()) return;
     busy(true);
     const c = await post('/quick');
     busy(false);
