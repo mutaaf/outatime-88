@@ -47,6 +47,7 @@ export const GameState = {
   rpm: 2000,
   // Pro Drift & Slipstream State
   driftAngle: 0,
+  carYaw: 0, // rad; the body's yaw on the road (src/handling.js stepLateral), + points right
   isDrifting: false,
   currentDriftScore: 0,
   driftChargeTime: 0,

@@ -1437,8 +1437,6 @@ function updateGame(rawDt) {
   if (wantsDrift) {
     GameState.isDrifting = true;
     GameState.driftChargeTime += rawDt * (1 + (upg.tires - 1) * 0.18);
-    const targetYaw = (steerInput * 32 + Math.sign(steerInput || GameState.playerVX) * Math.min(1, lateral.slip) * 14) * carP.slipMult; // looser cars swing wider
-    GameState.driftAngle += (targetYaw - GameState.driftAngle) * Math.min(1, rawDt * 10);
 
     const ptsAdded = Math.floor(680 * rawDt * GameState.combo);
     GameState.currentDriftScore += ptsAdded;
@@ -1488,7 +1486,6 @@ function updateGame(rawDt) {
       GameState.driftTier = 0;
       if (driftBox) driftBox.classList.add('hidden');
     }
-    GameState.driftAngle += (0 - GameState.driftAngle) * Math.min(1, rawDt * 12);
   }
 
   // Lateral motion: grip-limited tyres against the corner's pull (src/handling.js).
@@ -1507,6 +1504,9 @@ function updateGame(rawDt) {
   GameState.playerX = lateral.x;
   GameState.playerVX = lateral.vx;
   GameState.tyreSlip = lateral.slip;
+  // The body's yaw on the road (travel heading + sideslip; the tail steps out in a drift).
+  GameState.carYaw = lateral.yaw;
+  GameState.driftAngle = lateral.yaw * (180 / Math.PI);
 
   // Side-Slam Shove Button / Key (F)
   if (InputState.slamPressed && GameState.slamCooldown <= 0) {
@@ -3096,9 +3096,13 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
     ctx.scale(sPulse, sPulse);
   }
 
-  // Apply camera banking + 2-Wheel tilt + stunt barrel roll + counter-steer drift yaw!
-  const rollRad = (GameState.cameraBank + GameState.stuntSpinAngle + GameState.driftAngle * 0.38) * (Math.PI / 180);
+  // Camera banking + 2-wheel tilt + stunt barrel roll, plus a little body roll away from the turn.
+  const yaw = Math.max(-0.7, Math.min(0.7, GameState.carYaw || 0));
+  const rollRad = (GameState.cameraBank + GameState.stuntSpinAngle) * (Math.PI / 180) + yaw * 0.22;
   ctx.rotate(rollRad);
+  // Body yaw seen from the chase cam: the rear face foreshortens and its far corner rides up
+  // the screen, so the car visibly points where it's going (and the tail swings out in a drift).
+  ctx.transform(Math.cos(yaw * 1.4), -Math.sin(yaw * 1.4) * 0.32, 0, 1, 0, 0);
   if (GameState.trickPitchAngle > 0) {
     const pitchScaleY = Math.cos(GameState.trickPitchAngle * Math.PI / 180);
     ctx.scale(1, Math.abs(pitchScaleY) < 0.22 ? 0.22 : pitchScaleY);
@@ -3613,7 +3617,8 @@ function startNewRace(opts) {
   GameState.playerX = 0;
   GameState.playerVX = 0;
   steerWheel.value = 0;
-  lateral.slip = 0;
+  Object.assign(lateral, createLateral(0));
+  GameState.carYaw = 0;
   resetNos();
   GameState.playerY = 0;
   GameState.playerVY = 0;
