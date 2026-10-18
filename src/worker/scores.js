@@ -12,9 +12,11 @@
 //   GET  /outatime/api/hall?mode=…                                     weekly champions
 //   GET  /outatime/api/ghost?mode=…&level=N[&initials=ABC]              a ghost to race
 //   /outatime/api/me, /link, /recovery, /use, /forget → zero-login identity (identity.js)
+//   POST/GET /outatime/api/ads/impressions             sponsor-board counts (ads.js, docs/ADS.md)
 
 import { SCHEMA, MIGRATIONS } from './schema.js';
 import { handleIdentity, whoIs } from './identity.js';
+import { handleAds } from './ads.js';
 import { cleanInitials } from './initials.js';
 import { implausible } from './plausible.js';
 import { signToken, verifyToken, randomId } from './token.js';
@@ -239,6 +241,7 @@ export async function handleApi(request, deps) {
     const ident = await handleIdentity(request, path, { ...deps, secret: () => signingSecret(deps.db) });
     if (ident) return ident;
     if (path === '/outatime/api/run' && request.method === 'POST') return await issueRun(deps);
+    if (path === '/outatime/api/ads/impressions') return await handleAds(request, url, { ...deps, secret: () => signingSecret(deps.db) });
     if (request.method === 'GET') {
       const read = { '/outatime/api/scores': readBoard, '/outatime/api/standing': readStanding, '/outatime/api/hall': readHall, '/outatime/api/ghost': readGhostApi }[path];
       if (read) return await read(url.searchParams, { ...deps, request });
