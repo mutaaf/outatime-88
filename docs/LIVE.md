@@ -75,3 +75,22 @@ Sources: developers.cloudflare.com/durable-objects/platform/pricing/ and /limits
   Playwright with `LIVE_TEST=1`, which unlocks a few-seconds `TEST` race length that
   production rooms refuse): link → racing in ≤3 taps, synced start, identical results,
   rematch, reconnect, quick race, lobby layout on phones and tablets.
+
+## Friends 10x (2026-10-18)
+
+- **Lobby**
+  - Every seat shows the racer's car on the garage turntable (`src/live/thumbs.js`, cached bitmaps).
+  - The first empty seat is an **INVITE A FRIEND** button.
+  - There's a copy-link row, and phones get **SHOW QR** so a friend can scan your screen.
+  - Ready pills, full track names, and a one-line how-to-drive tip (touch or keyboard; Enter = READY).
+- **Late joiners** see a **LIVE NOW** board, built from the frames the room already relays to every socket, until the next race.
+- **Quick chat**
+  - Seven preset emotes, never free text (`src/live/emotes.js`).
+  - Mid-race an emote rides bits 2–6 of the state frame's flags byte, so it needs no server change. It pops in the sender's name tag (both renderers draw `ghostTag`) and as a toast.
+  - In the lobby or results the client also sends `{ t: 'emo', e }`. Rooms that relay it show it to everyone; older rooms ignore it.
+  - Keys: Y opens the tray, then 1–7.
+- **In race:** an F1-style standings tower with gaps (desktop and large non-touch screens only; touch keeps the left side for the stick) and a RECONNECTING pill. The first-run thumb guide waits for your first solo race, because live races can't pause.
+- **Results:** a 2-1-3 podium with cars, gaps in hundredths, a series score after race 2, who wants a rematch, and emotes. The waiting screen shows live progress bars.
+- **RACE AGAIN**
+  - The friends menu remembers your last private room and crew on this device (initials only, `src/live/crew.js`).
+  - One tap rejoins; if the room has closed, a fresh room opens and the player is told to invite the crew.
