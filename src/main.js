@@ -10,6 +10,7 @@ import { RigidBody3D } from './physics.js';
 import { createSteer, stepSteer, createLateral, stepLateral, handlingFor, loopStep, landingKeep, wallContact } from './handling.js';
 import { createDrive, stepDrive, rpmFor } from './drivetrain.js';
 import { nosFor, createNos, stepNos, addNos, nosSpeed, nosFill } from './nos.js';
+import { PICKUPS, PICKUP, pickupReach, magnetPull } from './pickups.js';
 import { materialFor, impactVelocities } from './materials.js';
 import { createWorld, createPropPool } from './world.js';
 import { projectPoint } from './projection.js';
@@ -23,6 +24,8 @@ import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, applyRunResult } from './progress.js';
 import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt } from './track.js';
 import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
+let pickupArt = null; // src/pickup-art.js, lazy: crisp cached pickup icons (simple shapes until it lands)
+setTimeout(() => { import('./pickup-art.js').then((m) => { pickupArt = m; }, () => {}); }, 0);
 let setPieceArt = null; // src/setpieces-2d.js, lazy: the art waits for it, the sim never does
 setTimeout(() => { import('./setpieces-2d.js').then((m) => { setPieceArt = m; }, () => {}); }, 0);
 let carArt = null; // src/car-sprite.js, lazy: each roster car's own model as cached race sprites
@@ -903,6 +906,28 @@ function performHumanTrick(direction) {
   return false;
 }
 
+/** A pickup was collected: its effect, score, cue and burst (defs in src/pickups.js). */
+function applyPickup(item, def) {
+  const rel = item.offset - GameState.playerX;
+  if (def.combo) { GameState.combo = Math.min(12, GameState.combo + 1); GameState.comboTimer = 5.0; }
+  if (def.flux) GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains[def.flux]);
+  if (def.coins) { GameState.runCoins += def.coins; SaveStore.data.fluxCoins += def.coins; }
+  if (def.heal) healPlayerHp(def.heal);
+  if (def.nos) { addNos(nos, def.nos); GameState.nosFill = nosFill(nos); }
+  const pts = def.pts * GameState.combo;
+  GameState.score += pts;
+  if (def.cue === 'repair') SoundEngine.playCheckpoint();
+  else if (def.cue === 'nos') { if (!SoundEngine.sample('nos', 1.2, 0.8)) SoundEngine.playBoosterHit(); }
+  else if (item.type === 'PLUTONIUM') { if (!SoundEngine.sample('coin', 1.3)) SoundEngine.playCoinPickup(); }
+  else SoundEngine.playCoinPickup();
+  if (touch) touch.controls.haptics.pulse('pickup');
+  GameState.pickupsTaken = (GameState.pickupsTaken || 0) + 1;
+  if (pickupArt) pickupArt.burst(item.type, rel);
+  const label = item.type === 'PLUTONIUM' ? `+${pts} ⚡ 1.88GW!` : item.type === 'HW_COIN' ? `+${pts} 🔥 x${GameState.combo}`
+    : item.type === 'REPAIR_WRENCH' ? `+${def.heal} 💚 HP REPAIRED!` : '💨 NOS REFILL!';
+  spawnAcquireAnimation(item.type, rel, label);
+}
+
 function spawnAcquireAnimation(itemType, offsetFromCenter, bonusLabel) {
   GameState.carSurgeTimer = 0.55;
   GameState.pickupAnimations.push({
@@ -918,7 +943,7 @@ function spawnAcquireAnimation(itemType, offsetFromCenter, bonusLabel) {
     y: 0,
     radius: 12,
     maxRadius: 115,
-    color: itemType === 'PLUTONIUM' ? '#00f0ff' : '#ffd000',
+    color: PICKUPS[itemType] ? PICKUPS[itemType].color : '#ffd000',
     label: bonusLabel,
     life: 0.65,
     maxLife: 0.65
@@ -1373,6 +1398,7 @@ function updateGame(rawDt) {
   let curveAhead = 0;
   let nearestThreat = null;
   let bestCollectible = null;
+  let hintItem = null, hintSegs = 0;
   for (let look = 1; look <= 26; look++) {
     const lSeg = track.seg(currentSegIdx + look);
     if (!lSeg) break;
@@ -1388,9 +1414,14 @@ function updateGame(rawDt) {
       if (!it.collected && (it.type === 'PLUTONIUM' || it.type === 'HW_COIN') && !bestCollectible) {
         bestCollectible = { item: it, distSegs: look };
       }
+      if (!it.collected && !hintItem && PICKUPS[it.type] && PICKUPS[it.type].power) { hintItem = it; hintSegs = look; }
     }
   }
   GameState.upcomingCurveSum = curveAhead;
+  // The HUD's power-up hint: the next core, wrench or NOS canister and which way it is.
+  GameState.pickupHint = hintItem ? hintItem.type : '';
+  GameState.pickupHintSide = hintItem ? Math.sign(Math.round((hintItem.offset - GameState.playerX) * 5)) : 0;
+  GameState.pickupHintSegs = hintSegs;
   GameState.lockedTarget = nearestThreat;
 
   if (GameState.unibeamTimer > 0) {
@@ -1748,6 +1779,15 @@ function updateGame(rawDt) {
       car.offset = Math.max(-0.88, Math.min(0.88, car.offset));
     }
 
+    // Magnetic pickups just ahead drift toward the car.
+    if (offset >= 0 && offset <= PICKUP.magnetSegs) {
+      for (let i = 0; i < seg.items.length; i++) {
+        const it = seg.items[i];
+        const def = PICKUPS[it.type];
+        if (def && !it.collected) magnetPull(it, def, GameState.playerX, offset, pickupReach(def, GameState.speed, coarsePointer, GameState.magnetTimer > 0 || GameState.dodgeStreak >= 4), rawDt);
+      }
+    }
+
     if (offset < -1 || offset > 1) continue;
 
     // Checkpoint Gate
@@ -1768,44 +1808,15 @@ function updateGame(rawDt) {
       );
     }
 
-    // Animated Collectibles & Destructible 2026 Obstacles
+    // Pickups (src/pickups.js): one collection path for every kind.
     for (let i = 0; i < seg.items.length; i++) {
       const item = seg.items[i];
       if (item.collected || item.smashed) continue;
-      const dist = Math.abs(GameState.playerX - item.offset);
-
-      if (item.type === 'PLUTONIUM' || item.type === 'HW_COIN') {
-        const pickupRadius = (GameState.magnetTimer > 0 || GameState.dodgeStreak >= 4) ? 1.25 : 0.44;
-        if (dist < pickupRadius && GameState.playerY < 95) {
-          item.collected = true;
-          SoundEngine.playCoinPickup();
-          GameState.combo = Math.min(12, GameState.combo + 1);
-          GameState.comboTimer = 5.0;
-          if (item.type === 'PLUTONIUM') {
-            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.plutonium);
-            GameState.runCoins += 8;
-            SaveStore.data.fluxCoins += 8;
-            const pts = 500 * GameState.combo;
-            GameState.score += pts;
-            spawnAcquireAnimation('PLUTONIUM', item.offset - GameState.playerX, `+${pts} ⚡ 1.88GW!`);
-          } else {
-            GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.coin);
-            GameState.runCoins += 4;
-            SaveStore.data.fluxCoins += 4;
-            const pts = 300 * GameState.combo;
-            GameState.score += pts;
-            spawnAcquireAnimation('HW_COIN', item.offset - GameState.playerX, `+${pts} 🔥 x${GameState.combo}`);
-          }
-        }
-      } else if (item.type === 'REPAIR_WRENCH') {
-        if (dist < 0.42 && GameState.playerY < 95) {
-          item.collected = true;
-          SoundEngine.playCheckpoint();
-          healPlayerHp(25);
-          const pts = 400 * GameState.combo;
-          GameState.score += pts;
-          spawnAcquireAnimation('PLUTONIUM', item.offset - GameState.playerX, `+25 💚 HP REPAIRED!`);
-        }
+      const def = PICKUPS[item.type];
+      if (!def) continue;
+      if (Math.abs(GameState.playerX - item.offset) < pickupReach(def, GameState.speed, coarsePointer, GameState.magnetTimer > 0 || GameState.dodgeStreak >= 4) && GameState.playerY < 95) {
+        item.collected = true;
+        applyPickup(item, def);
       }
     }
 
@@ -2475,60 +2486,12 @@ function renderScene() {
             ctx.stroke();
           });
         }
-      } else if (item.type === 'PLUTONIUM') {
-        // Animated 3D Bobbing Plutonium Core with Orbiting Electron Rings!
-        const py = roadY - itemH * 0.65 + bobY;
-        const pr = Math.max(3, itemW * 0.44);
-        // Ground glow pool
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.32)';
-        ctx.fillRect(itemX - pr, roadY - 3, pr * 2, 4);
-        // Outer pulsing energy sphere
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.75)';
-        ctx.beginPath();
-        ctx.arc(itemX, py, pr, 0, Math.PI * 2);
-        ctx.fill();
-        // Inner golden nuclear cylinder
-        ctx.fillStyle = '#fde047';
-        ctx.fillRect(itemX - pr * 0.45, py - pr * 0.55, pr * 0.9, pr * 1.1);
-        // Orbiting 3D electron dot
-        const orbX = itemX + Math.cos(nowSec * 8 + (item.phase || 0)) * (pr * 1.35);
-        const orbY = py + Math.sin(nowSec * 8 + (item.phase || 0)) * (pr * 0.45);
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(orbX, orbY, Math.max(2, pr * 0.28), 0, Math.PI * 2);
-        ctx.fill();
-      } else if (item.type === 'HW_COIN') {
-        // Animated 3D Spinning Orange-Track Flame Medallion!
-        const cyCoin = roadY - itemH * 0.58 + bobY;
-        const rCoin = Math.max(3, itemW * 0.40);
-        const spinScaleX = Math.max(0.22, Math.abs(Math.cos(nowSec * 5.5 + (item.phase || 0))));
-        ctx.save();
-        ctx.translate(itemX, cyCoin);
-        ctx.scale(spinScaleX, 1);
-        ctx.fillStyle = '#facc15';
-        ctx.beginPath();
-        ctx.arc(0, 0, rCoin, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ff5500';
-        ctx.beginPath();
-        ctx.arc(0, 0, rCoin * 0.55, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      } else if (item.type === 'REPAIR_WRENCH') {
-        // Spinning 3D Green Nano-Wrench (+25 HP Repair Pickup)
-        const wy = roadY - itemH * 0.65 + bobY;
-        const wr = Math.max(4, itemW * 0.42);
-        ctx.save();
-        ctx.translate(itemX, wy);
-        ctx.rotate(nowSec * 3.5);
-        ctx.fillStyle = '#10b981';
-        ctx.beginPath();
-        ctx.arc(0, 0, wr, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(-wr * 0.6, -wr * 0.2, wr * 1.2, wr * 0.4);
-        ctx.fillRect(-wr * 0.2, -wr * 0.6, wr * 0.4, wr * 1.2);
-        ctx.restore();
+      } else if (PICKUPS[item.type]) {
+        // Crisp cached icon (src/pickup-art.js); a plain disc until the chunk lands.
+        const size = Math.max(6, itemW * 0.95);
+        const py = roadY - itemW * 0.72 + bobY;
+        if (pickupArt) pickupArt.drawPickup(ctx, item.type, itemX, py, size, nowSec, item.phase || 0, GameState.reducedMotion);
+        else { ctx.fillStyle = PICKUPS[item.type].color; ctx.beginPath(); ctx.arc(itemX, py, size * 0.4, 0, Math.PI * 2); ctx.fill(); }
       } else if ((item.type === 'STREET_LAMP' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW') && drawRoadsideProp(ctx, item.type, itemX, roadY, itemW, itemH, roadW, rw, rh)) {
         // the era's own roadside (ticket 0101)
       } else if (item.type === 'STREET_LAMP') {
@@ -3032,6 +2995,7 @@ function drawCarFx(ctx, rw, rh) {
     const curY = (carCenterY + pa.startY) * (1 - t) + carCenterY * t - arcLift;
     const r = Math.max(4, (1 - t * 0.4) * 14);
 
+    if (pickupArt && PICKUPS[pa.type]) { pickupArt.drawPickup(ctx, pa.type, curX, curY, r * 2.4, 0, 0, true); continue; }
     ctx.save();
     ctx.translate(curX, curY);
     ctx.rotate(pa.spin);
@@ -3040,6 +3004,10 @@ function drawCarFx(ctx, rw, rh) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(-r * 0.5, -r * 0.5, r, r);
     ctx.restore();
+  }
+  if (pickupArt) {
+    pickupArt.drawBursts(ctx, GameState.playerScreenX || carCenterX, carCenterY, rw);
+    if (GameState.status === 'PLAYING' && !GameState.loopRide) pickupArt.drawHint(ctx, rw, rh, GameState.pickupHint, GameState.pickupHintSide, GameState.pickupHintSegs, fxClock);
   }
 
   // 5.3 Render Expanding 3D Shockwave Rings & Floating Holo-Popups on Acquire / Hit!
@@ -4660,6 +4628,7 @@ window.onload = () => {
     lateral: () => lateral,
     audio: () => SoundEngine,
     smoke: () => smoke2d && smoke2d.pool,
+    pickupArt: () => pickupArt && pickupArt.stats,
   };
   initSettings({ announce: triggerAnnouncement });
   // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.

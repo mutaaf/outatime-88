@@ -13,10 +13,11 @@ export const HAPTIC_PATTERNS = Object.freeze({
   special: [22],            // special picker opened, special fired
   hit: [38, 24, 38],        // crash / penalty
   lap: [14, 50, 14, 50, 30], // new lap, final lap
+  pickup: [7],              // a coin, core, wrench or NOS canister collected
 });
 
 /** Shortest gap between two pulses of the same kind (ms). */
-export const HAPTIC_GAP = Object.freeze({ engage: 60, tick: 45, press: 40, boost: 140, special: 140, hit: 220, lap: 600 });
+export const HAPTIC_GAP = Object.freeze({ engage: 60, tick: 45, press: 40, boost: 140, special: 140, hit: 220, lap: 600, pickup: 55 });
 
 /** Game events (not under the player's thumb): skipped in calm mode, and at low strength. */
 const AMBIENT = new Set(['hit', 'lap']);

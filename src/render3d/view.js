@@ -406,6 +406,8 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   const kinds = propKinds();
   const props = {};
   for (const [k, def] of Object.entries(kinds)) {
+    // Pickups cut through the fog so you can line up for them early.
+    if (def.spin || k === 'PICKUP_GLOW') def.mat.fog = false;
     const m = new InstancedMesh(def.geo, def.mat, def.cap);
     m.instanceMatrix.setUsage(DynamicDrawUsage);
     m.frustumCulled = false;
@@ -453,7 +455,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
           case 'ARCH_HW': placeProp('ARCH_HW', x, y - 1, z, yaw); break;
           case 'OVERHEAD_GATE': placeProp('OVERHEAD_GATE', x, y, z, yaw); break;
           case 'MC_FLARE_GREEN': placeProp('MC_FLARE_GREEN', x, y, z, 0); break;
-          case 'HW_COIN': case 'PLUTONIUM': case 'REPAIR_WRENCH': {
+          case 'HW_COIN': case 'PLUTONIUM': case 'REPAIR_WRENCH': case 'NOS_CAN': {
             const bob = 1.4 + Math.sin(t * 3 + (it.phase || 0)) * 0.25;
             placeProp(it.type, x, y + bob, z, yaw, 1, t * 3 + (it.phase || 0));
             placeProp('PICKUP_GLOW', x, y + bob, z, 0, it.type === 'HW_COIN' ? 0.9 : 1.3);

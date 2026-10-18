@@ -8,6 +8,7 @@
 // the road with `track.end`; `track.start` is the oldest live index.
 import { ROAD_CFG } from './data.js';
 import { GameState } from './state.js';
+import { placePickup } from './pickups.js';
 import { SETPIECE, loopLength, loopEntryMph, makeFeature } from './setpieces.js';
 
 /**
@@ -179,18 +180,8 @@ export function populateChunkDecorations(startIdx, endIdx, patternType) {
       addItem(seg, 0, 'OVERHEAD_GATE');
     }
 
-    // Animated 3D Power-Ups (Plutonium Cores, Orange-Track Flame Coins) & Destructible 2026 Obstacles
-    if (i % 18 === 0 && seg.trackType !== 'CHECKPOINT') {
-      const lane = ((i * 19) % 3) - 1;
-      const isPlutonium = (i % 12 === 0) || (patternType === 'STUNT_LOOP');
-      addItem(seg, lane * 0.52, isPlutonium ? 'PLUTONIUM' : 'HW_COIN', true, i * 0.8);
-    }
-
-    // Spawn Nano-Wrench HP Repair Pickups every 22 segments
-    if (i > 30 && i % 38 === 0 && seg.trackType !== 'CHECKPOINT') {
-      const healLane = (((i * 7) % 3) - 1) * 0.52;
-      addItem(seg, healLane, 'REPAIR_WRENCH', true, i * 0.4);
-    }
+    // Pickups (src/pickups.js): coin trails, flux cores, wrenches and NOS on the clean line.
+    if (seg.trackType !== 'CHECKPOINT') placePickup(seg, i, patternType, track.line, addItem);
   }
 }
 
