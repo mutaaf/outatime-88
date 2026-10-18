@@ -10,7 +10,7 @@
 // trails (the cutaway itself never rolls the screen).
 import { ERA_PALETTES } from './era-palettes.js';
 import { ROAD_CFG } from './data.js';
-import { LOOP_CAM, NEAR, loopPoint, loopCamera, horizonRow } from './loopcam.js';
+import { LOOP_CAM, NEAR, loopPoint, loopCamera, carPose, peelFall, projectLoop, horizonRow, approachScale } from './loopcam.js';
 
 const ORANGE = '#ff6a13', ORANGE_DARK = '#b83a00', ORANGE_LIT = '#ffb15c';
 
@@ -184,13 +184,14 @@ const SEG = 200;            // sim Z per stripe (ROAD_CFG.segLength)
 const RUN_IN = 3000;        // sim Z of run-in road drawn behind the loop's start
 const RUN_OUT = 4500;       // and of exit lane after it
 const WALL_M = 1.3;         // toy-track side wall height (m)
-const MAX_POLYS = 900;
+const MAX_POLYS = 1400;
 
 const polys = [];
 for (let i = 0; i < MAX_POLYS; i++) polys.push({ n: 0, x: new Float32Array(10), y: new Float32Array(10), depth: 0, fill: '', stroke: '', width: 0 });
 const order = new Int16Array(MAX_POLYS);
 let polyCount = 0;
-const cam = {}, pt = {}, pq = {};
+let depthBias = 0; // metres nearer than its average depth a polygon sorts (decals on a face)
+const cam = {}, pt = {}, pq = {}, pose = {}, sc = {};
 // Clip scratch (camera space): input corners and Sutherland–Hodgman output.
 const inX = new Float32Array(10), inY = new Float32Array(10), inZ = new Float32Array(10);
 const outX = new Float32Array(10), outY = new Float32Array(10), outZ = new Float32Array(10);
@@ -202,7 +203,7 @@ function shade(hex, k) {
   return `rgb(${Math.min(255, r)},${Math.min(255, g)},${Math.min(255, b)})`;
 }
 const shadeMemo = new Map();
-const shadeOf = (hex, k) => { const key = hex + k; let v = shadeMemo.get(key); if (!v) { v = shade(hex, k); shadeMemo.set(key, v); } return v; };
+const shadeOf = (hex, k) => { if (typeof hex !== 'string' || hex.length !== 7 || hex[0] !== '#') return hex || '#334155'; const key = hex + k; let v = shadeMemo.get(key); if (!v) { v = shade(hex, k); shadeMemo.set(key, v); } return v; };
 
 /** Corner `i` of the polygon being built: loop-space point at (s, lat) lifted `up` metres. */
 function corner(f, i, s, lat, up) {
@@ -236,7 +237,7 @@ function emit(n, W, H, fill, stroke, width, closed) {
     p.y[i] = H / 2 - fy * outY[i] / outZ[i];
     d += outZ[i];
   }
-  p.n = m; p.depth = d / m; p.fill = fill; p.stroke = stroke; p.width = width;
+  p.n = m; p.depth = d / m - depthBias; p.fill = fill; p.stroke = stroke; p.width = width;
 }
 
 /** True if the road's top surface at (s) faces the camera. */
@@ -286,7 +287,169 @@ function buildRoad(f, from, to, W, H, th) {
   }
 }
 
-function drawPolys(ctx, mapK, mapX, mapY, bx, by) {
+// --- Things on the loop road: cars (rivals, traffic, ghosts, and you when you fall off) as
+// small boxes in the road's frame, and pickups as billboards. They go into the same polygon
+// pool as the road, so they sort with it (a car up on the loop is hidden by the road between).
+
+const CAR_W = 0.16 * 11, CAR_L = 4.6, CAR_H = 1.35, CAB_H = 0.95; // metres (2D: 0.32 road half-widths wide)
+
+/** Corner `i`: the point (dr right, df forward, du up) of a body at (x, y, z) with frame angle a. */
+function boxCorner(i, x, y, z, a, dr, df, du) {
+  const sa = Math.sin(a), ca = Math.cos(a);
+  const dx = x + dr - cam.ex, dy = y + df * sa + du * ca - cam.ey, dz = z + df * ca - du * sa - cam.ez;
+  inX[i] = dx; inY[i] = dy * cam.uy + dz * cam.uz; inZ[i] = dy * cam.fy + dz * cam.fz;
+}
+
+/** True if a face of the body with normal (nr right, nf forward, nu up) at that point faces the eye. */
+function faces(x, y, z, a, nr, nf, nu, dr, df, du) {
+  const sa = Math.sin(a), ca = Math.cos(a);
+  const px = x + dr, py = y + df * sa + du * ca, pz = z + df * ca - du * sa;
+  const ny = nf * sa + nu * ca, nz = nf * ca - nu * sa;
+  return (cam.ex - px) * nr + (cam.ey - py) * ny + (cam.ez - pz) * nz > 0;
+}
+
+/** A quad of body-frame corners (r, f, u) × 4 into the pool. */
+function quad(W, H, x, y, z, a, r0, f0, u0, r1, f1, u1, r2, f2, u2, r3, f3, u3, fill) {
+  boxCorner(0, x, y, z, a, r0, f0, u0); boxCorner(1, x, y, z, a, r1, f1, u1);
+  boxCorner(2, x, y, z, a, r2, f2, u2); boxCorner(3, x, y, z, a, r3, f3, u3);
+  emit(4, W, H, fill, '', 0, true);
+}
+
+/** An axis-aligned box (in the body frame) from (r0,f0,u0) to (r1,f1,u1): its visible faces. */
+function box(W, H, x, y, z, a, r0, r1, f0, f1, u0, u1, top, side, back, front) {
+  const rm = (r0 + r1) / 2, fm = (f0 + f1) / 2, um = (u0 + u1) / 2;
+  if (faces(x, y, z, a, 0, 0, 1, rm, fm, u1)) quad(W, H, x, y, z, a, r0, f0, u1, r1, f0, u1, r1, f1, u1, r0, f1, u1, top);
+  if (faces(x, y, z, a, 0, -1, 0, rm, f0, um)) quad(W, H, x, y, z, a, r0, f0, u0, r1, f0, u0, r1, f0, u1, r0, f0, u1, back);
+  if (faces(x, y, z, a, 0, 1, 0, rm, f1, um)) quad(W, H, x, y, z, a, r0, f1, u0, r1, f1, u0, r1, f1, u1, r0, f1, u1, front);
+  if (faces(x, y, z, a, -1, 0, 0, r0, fm, um)) quad(W, H, x, y, z, a, r0, f0, u0, r0, f1, u0, r0, f1, u1, r0, f0, u1, side);
+  if (faces(x, y, z, a, 1, 0, 0, r1, fm, um)) quad(W, H, x, y, z, a, r1, f0, u0, r1, f1, u0, r1, f1, u1, r1, f0, u1, side);
+}
+
+function decal(W, H, x, y, z, a, r0, r1, f, u0, u1, fill) {
+  quad(W, H, x, y, z, a, r0, f, u0, r1, f, u0, r1, f, u1, r0, f, u1, fill);
+}
+
+/** One car on (or flying off) the loop. `body`/`cabin` are its colours; `lights` its tail (or head) lights. */
+function carBox(W, H, x, y, z, a, body, cabin, lights, scale) {
+  const w = CAR_W * scale, l = CAR_L * scale, h = CAR_H * scale, hc = CAB_H * scale;
+  depthBias = 0.05;
+  box(W, H, x, y, z, a, -w, w, -l / 2, l / 2, 0.25 * scale, h, shadeOf(body, 1.1), shadeOf(body, 0.62), shadeOf(body, 0.82), shadeOf(body, 0.9));
+  depthBias = 0.35;
+  box(W, H, x, y, z, a, -w * 0.78, w * 0.78, -l * 0.3, l * 0.12, h, h + hc, shadeOf(cabin, 1.05), '#0f172a', '#0f172a', '#1e293b');
+  // Lights on whichever end faces you (the rear, unless it is coming at you).
+  depthBias = 0.6;
+  const end = faces(x, y, z, a, 0, -1, 0, 0, -l / 2, h / 2) ? -l / 2 - 0.02 : l / 2 + 0.02;
+  decal(W, H, x, y, z, a, -w * 0.92, -w * 0.5, end, h * 0.5, h * 0.75, lights);
+  decal(W, H, x, y, z, a, w * 0.5, w * 0.92, end, h * 0.5, h * 0.75, lights);
+  // Wheels: dark slabs at the corners, just under the body.
+  depthBias = 0.02;
+  for (let side = -1; side <= 1; side += 2) {
+    for (let e = -1; e <= 1; e += 2) box(W, H, x, y, z, a, side > 0 ? w * 0.7 : -w * 1.02, side > 0 ? w * 1.02 : -w * 0.7, e * l * 0.32 - 0.35 * scale, e * l * 0.32 + 0.35 * scale, 0, 0.7 * scale, '#111318', '#090a0f', '#090a0f', '#090a0f');
+  }
+  depthBias = 0;
+}
+
+/** Rivals, traffic and ghosts (arrays of movers with worldZ/offset) on the drawn stretch. */
+function buildMovers(f, movers, from, to, W, H) {
+  if (!movers) return;
+  for (let g = 0; g < movers.length; g++) {
+    const list = movers[g];
+    if (!list) continue;
+    for (let m = 0; m < list.length; m++) {
+      const mv = list[m];
+      if (!mv || mv.takenDown || polyCount > MAX_POLYS - 40) continue;
+      const s = mv.worldZ - f.z0;
+      if (s < from || s > to) continue;
+      loopPoint(f, s, mv.offset || 0, pt);
+      const lift = ((mv.y || 0) / 180) * LOOP_CAM.halfW * 0.45;
+      const x = pt.x, y = pt.y + pt.uy * lift, z = pt.z + pt.uz * lift;
+      const truck = mv.style === 'SEMI_TRUCK';
+      carBox(W, H, x, y, z, pt.a, truck ? '#cbd5e1' : (mv.bodyColor || '#334155'), truck ? '#94a3b8' : (mv.accentColor || '#64748b'), mv.oncoming ? '#fef08a' : '#ff1e1e', truck ? 1.25 : 1);
+    }
+  }
+}
+
+const PICKUP = {
+  PLUTONIUM: ['#16a34a', '#86efac', 1.3],
+  HW_COIN: ['#f59e0b', '#fde68a', 1.1],
+  REPAIR_WRENCH: ['#94a3b8', '#f1f5f9', 1.2],
+};
+
+/** Pickups on the drawn stretch: glowing billboards hovering over the road (`road`: the track ring). */
+function buildPickups(f, road, from, to, W, H, t) {
+  if (!road || typeof road.seg !== 'function') return;
+  const i0 = Math.floor((f.z0 + from) / SEG), i1 = Math.floor((f.z0 + to) / SEG);
+  for (let i = i0; i <= i1; i++) {
+    const seg = road.seg(i);
+    if (!seg || !seg.items.length) continue;
+    for (let k = 0; k < seg.items.length; k++) {
+      const it = seg.items[k];
+      const look = PICKUP[it.type];
+      if (!look || it.collected || it.smashed || polyCount > MAX_POLYS - 4) continue;
+      loopPoint(f, i * SEG - f.z0, it.offset || 0, pt);
+      const hover = 1.3 + Math.sin(t * 5.5 + (it.phase || 0)) * 0.25;
+      const dx = pt.x - cam.ex, dy = pt.y + pt.uy * hover - cam.ey, dz = pt.z + pt.uz * hover - cam.ez;
+      const cx = dx, cy = dy * cam.uy + dz * cam.uz, cz = dy * cam.fy + dz * cam.fz;
+      if (cz <= 4) continue; // (one right in front of the lens would fill the screen)
+      const r = look[2];
+      for (let layer = 0; layer < 2; layer++) {
+        const rr = layer ? r * 0.5 : r;
+        depthBias = layer ? 0.4 : 0.3;
+        // A spinning diamond (the coin is an octagon), facing the camera.
+        const n = it.type === 'HW_COIN' ? 8 : 4;
+        const spin = Math.cos(t * 3 + (it.phase || 0));
+        for (let v = 0; v < n; v++) {
+          const ang = (v / n) * Math.PI * 2;
+          inX[v] = cx + Math.sin(ang) * rr * (0.35 + 0.65 * Math.abs(spin)); inY[v] = cy + Math.cos(ang) * rr; inZ[v] = cz;
+        }
+        emit(n, W, H, look[layer], '', 0, true);
+      }
+      depthBias = 0;
+    }
+  }
+}
+
+/**
+ * You, when you came off the top: where your car (the usual sprite) goes on screen. The fall
+ * is a ballistic pose in loop space (src/loopcam.js carPose); this projects it through the
+ * current camera and compares it with where the car sits when riding normally, so main.js can
+ * move, scale, flip and tumble the very same sprite (no swap to a different-looking car).
+ */
+const camStd = {}, std = {}, prj = {};
+const SHADOW = [0.12, 0.2, 0.28, 0.36, 0.44, 0.52].map((a) => `rgba(0,0,0,${a})`);
+
+/** The car's shadow on the road where it will land, darker and bigger as it drops toward it. */
+function buildLandingShadow(f, s, W, H) {
+  const P = peelFall(f, s.peelT, s.ups);
+  const e = Math.min(1, Math.max(0, cam.fall / P.kHit));
+  const sHit = (P.aHit / (2 * Math.PI)) * f.length;
+  const rl = 0.2 + 0.12 * e, rf = (1.6 + 1.4 * e) / LOOP_CAM.zScale;
+  depthBias = 4; // a decal on a 6 m road stripe: sort it over the stripe it lies on
+  for (let v = 0; v < 8; v++) {
+    const ang = (v / 8) * Math.PI * 2;
+    corner(f, v, sHit + Math.cos(ang) * rf, s.lat + Math.sin(ang) * rl, 0.03);
+  }
+  emit(8, W, H, SHADOW[Math.min(SHADOW.length - 1, Math.floor(e * SHADOW.length))], '', 0, true);
+  depthBias = 0;
+}
+function placePlayer(f, sRel, s, W, H) {
+  carPose(f, sRel, s.lat, s.peelT, s.ups, pose);
+  // Where (and how deep) the car projects when riding normally at this point.
+  loopCamera(f, sRel, s.lat, null, camStd);
+  loopPoint(f, sRel, s.lat, std);
+  projectLoop(camStd, std.x, std.y, std.z, W, H, prj);
+  const sx0 = prj.sx, sy0 = prj.sy, cz0 = prj.cz;
+  if (!projectLoop(cam, pose.x, pose.y, pose.z, W, H, prj)) { RIDE.k = 0; return; }
+  RIDE.dx = prj.sx - sx0; RIDE.dy = prj.sy - sy0;
+  RIDE.k = Math.max(0.08, Math.min(2.5, cz0 / prj.cz));
+  // Pitch relative to the camera shows as foreshortening (negative: you see it upside down).
+  const c = Math.cos(pose.a - cam.a);
+  RIDE.flip = Math.abs(c) < 0.3 ? 0.3 * Math.sign(c || 1) : c;
+  RIDE.roll = pose.air ? 0.35 * Math.sin(Math.PI * Math.min(1, pose.k * 3)) : 0;
+}
+
+
+function drawPolys(ctx, kx, ky, mapX, mapY, bx, by) {
   for (let i = 0; i < polyCount; i++) order[i] = i;
   // Painter's order: farthest first.
   const sub = order.subarray(0, polyCount);
@@ -296,11 +459,11 @@ function drawPolys(ctx, mapK, mapX, mapY, bx, by) {
     const p = polys[sub[k]];
     ctx.beginPath();
     for (let i = 0; i < p.n; i++) {
-      const x = mapX + (p.x[i] - bx) * mapK, y = mapY + (p.y[i] - by) * mapK;
+      const x = mapX + (p.x[i] - bx) * kx, y = mapY + (p.y[i] - by) * ky;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     if (p.fill) { ctx.closePath(); ctx.fillStyle = p.fill; ctx.fill(); }
-    if (p.stroke) { ctx.strokeStyle = p.stroke; ctx.lineWidth = p.width * mapK; ctx.stroke(); }
+    if (p.stroke) { ctx.strokeStyle = p.stroke; ctx.lineWidth = p.width * Math.sqrt(kx * ky); ctx.stroke(); }
   }
 }
 
@@ -369,11 +532,20 @@ function gridLine(ctx, W, H, x0, z0, x1, z1) {
 
 /**
  * The ride view. `s`: { f (the LOOP feature), z (the car's track Z), lat (playerX),
- * peelT (progress where it fell off, or null), blend (0..1), eraCfg, t, reduced }.
- * Returns the camera's fall progress (0 unless you peeled off).
+ * peelT (progress where it fell off, or null), ups (sim Z per second when it fell off),
+ * blend (0..1), eraCfg, t, reduced, road (the track: pickups), movers (arrays of cars),
+ * color/cabin (your car) }.
+ * Returns RIDE: { fall (0..1 from the peel to the exit; 0 riding normally), air (flying),
+ * landed (true on the frame the fall touched down), and while you fall (`ownCar`): how to
+ * draw your sprite — moved by (dx, dy) px from its usual spot, scaled by k, foreshortened by
+ * flip (negative: upside down) and rolled by roll }.
  */
+const RIDE = { fall: 0, air: false, ownCar: false, landed: false, dx: 0, dy: 0, k: 1, flip: 1, roll: 0 };
+let wasAir = false;
 export function drawLoopRide(ctx, W, H, s) {
-  if (s.blend <= 0) return 0;
+  RIDE.fall = 0; RIDE.air = false; RIDE.ownCar = false; RIDE.landed = false;
+  RIDE.dx = 0; RIDE.dy = 0; RIDE.k = 1; RIDE.flip = 1; RIDE.roll = 0;
+  if (s.blend <= 0) { wasAir = false; return RIDE; }
   if (!rideCanvas) { rideCanvas = document.createElement('canvas'); rideCtx = rideCanvas.getContext('2d'); }
   if (rideCanvas.width !== W || rideCanvas.height !== H) { rideCanvas.width = W; rideCanvas.height = H; }
   const f = s.f;
@@ -381,24 +553,24 @@ export function drawLoopRide(ctx, W, H, s) {
   const pal = ERA_PALETTES[year] || ERA_PALETTES[2026];
   const th = themeFor(year);
   const sRel = s.z - f.z0;
-  loopCamera(f, sRel, s.lat, s.peelT, cam);
+  loopCamera(f, sRel, s.lat, s.peelT, cam, s.ups);
   const c = rideCtx;
   drawWorld(c, W, H, pal, s.t, s.reduced);
   polyCount = 0;
   buildRoad(f, -RUN_IN, f.length + RUN_OUT, W, H, th);
-  drawPolys(c, 1, 0, 0, 0, 0);
+  buildPickups(f, s.road, -RUN_IN, f.length + RUN_OUT, W, H, s.t || 0);
+  buildMovers(f, s.movers, -RUN_IN, f.length + RUN_OUT, W, H);
+  if (cam.air) buildLandingShadow(f, s, W, H);
+  drawPolys(c, 1, 1, 0, 0, 0, 0);
+  if (cam.fall > 0) { placePlayer(f, sRel, s, W, H); RIDE.ownCar = RIDE.k > 0; }
   ctx.save();
   ctx.globalAlpha = s.blend;
-  if (cam.fall > 0 && !s.reduced) {
-    // Off the top: the world tumbles while you drop (overscaled so no corner shows).
-    ctx.translate(W / 2, H * 0.62);
-    ctx.rotate(Math.sin(Math.PI * cam.fall) * 0.55);
-    ctx.scale(1.35, 1.35);
-    ctx.translate(-W / 2, -H * 0.62);
-  }
   ctx.drawImage(rideCanvas, 0, 0);
   ctx.restore();
-  return cam.fall;
+  RIDE.fall = cam.fall; RIDE.air = cam.air;
+  RIDE.landed = wasAir && !cam.air && cam.fall > 0;
+  wasAir = cam.air;
+  return RIDE;
 }
 
 /**
@@ -418,9 +590,11 @@ export function drawLoopAhead(ctx, W, H, f, sCar, x, y, w, eraCfg) {
   const fx = LOOP_CAM.depth * W / 2;
   const bx = W / 2 + fx * (pt.x - cam.ex) / cz, by = H / 2 - (LOOP_CAM.depth * H / 2) * cy / cz;
   const bw = fx * LOOP_CAM.halfW / cz;
+  approachScale(f, sCar, w / bw, sc);
   polyCount = 0;
   buildRoad(f, 0, f.length + SEG * 4, W, H, th);
-  drawPolys(ctx, w / bw, x, y, bx, by);
+  // Pinned to the 2D mouth, easing onto the ride camera's own placement as it blends in.
+  drawPolys(ctx, sc.kx, sc.ky, x + (bx - x) * sc.b, y + (by - y) * sc.b, bx, by);
 }
 
 export { LOOP_CAM, rideBlend } from './loopcam.js';

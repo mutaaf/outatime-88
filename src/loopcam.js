@@ -53,40 +53,154 @@ export function loopPoint(f, s, lat, out) {
   return out;
 }
 
-const pa = {}, pb = {}, pc = {};
+const pa = {}, pb = {}, pc = {}, pd = {};
 const smooth = (k) => k * k * (3 - 2 * k);
+const clamp01 = (k) => (k < 0 ? 0 : k > 1 ? 1 : k);
+const lerpAngle = (a, b, k) => a + (b - a) * k;
+
+/**
+ * Falling off the top (too slow over the top of a loop): a real ballistic arc in loop space.
+ * The car leaves the track at progress `peelT` along the tangent at the sim's speed `ups`
+ * (sim Z per second), gravity pulls it straight down, and it lands back on the loop's far side
+ * (or the exit lane). The sim carries on round the loop at its own pace and leaves it at
+ * s = f.length, so the fall is laid out on the sim's own progress: `k` (0..1) from the peel
+ * point to the exit. The arc lands at `kHit`; the car then rides the rest of the loop down to
+ * the exit, so what you see lands exactly when the sim leaves the loop. Memoized (one per
+ * peel); deterministic.
+ *
+ * Returns { a0, aHit, kHit, T, g, vy, vz, y0, z0 } (angles in radians, metres, seconds).
+ */
+let fallMemo = null;
+export function peelFall(f, peelT, ups) {
+  const key = f.id + ':' + peelT + ':' + Math.round(ups);
+  if (fallMemo && fallMemo.key === key) return fallMemo;
+  const R = loopRadius(f);
+  const a0 = loopAngle(f, peelT * f.length);
+  const sPeel = peelT * f.length;
+  const T = Math.max(0.4, (f.length - sPeel) / Math.max(200, ups));
+  const v = Math.max(200, ups) * LOOP_CAM.zScale;
+  const y0 = R * (1 - Math.cos(a0)), z0 = R * Math.sin(a0);
+  const vy = v * Math.sin(a0), vz = v * Math.cos(a0);
+  // Where (and when) an arc under gravity g comes back to the track.
+  const hit = (g) => {
+    const n = 240, dt = T / n;
+    for (let i = 1; i <= n; i++) {
+      const t = i * dt;
+      const y = y0 + vy * t - 0.5 * g * t * t, z = z0 + vz * t;
+      if (y <= 0) return { t, a: 2 * Math.PI };
+      const dy = y - R;
+      if (i > 2 && dy * dy + z * z >= R * R) {
+        let a = Math.atan2(z, R - y);
+        if (a < a0) a += 2 * Math.PI;
+        return { t, a: Math.min(2 * Math.PI, a) };
+      }
+    }
+    return { t: Infinity, a: 2 * Math.PI };
+  };
+  // Pick g so the arc lands about half way to the exit: slow enough to watch, and it has to be
+  // well over v²/R so it visibly drops away rather than skimming the road. Bisect (hit time
+  // falls with g).
+  let lo = 3 * v * v / R, hi = Math.max(lo * 4, 4000);
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (hit(mid).t > 0.5 * T) lo = mid; else hi = mid;
+  }
+  const g = hi;
+  const h = hit(g);
+  fallMemo = { key, a0, aHit: h.a, kHit: Math.min(0.95, h.t / T), T, g, vy, vz, y0, z0 };
+  return fallMemo;
+}
+
+/**
+ * The player's car at sim progress `s` after peeling off at `peelT` (null: no peel; the car is
+ * on the track at s). Writes the car's loop-space position (x, y, z), its body angle `a` (the
+ * frame angle its forward/up use), `air` (true while flying) and `bounce` (landing bounce, m).
+ */
+export function carPose(f, s, lat, peelT, ups, out) {
+  out.air = false; out.bounce = 0;
+  if (peelT == null || s <= peelT * f.length || s >= f.length) {
+    loopPoint(f, s, lat, pd);
+    out.x = pd.x; out.y = pd.y; out.z = pd.z; out.a = pd.a; out.k = -1;
+    return out;
+  }
+  const P = peelFall(f, peelT, ups);
+  const k = (s - peelT * f.length) / ((1 - peelT) * f.length);
+  out.k = k;
+  const shift = loopExitShift(), off = lat * LOOP_CAM.halfW;
+  if (k < P.kHit) {
+    const t = k * P.T, e = k / P.kHit;
+    out.y = P.y0 + P.vy * t - 0.5 * P.g * t * t;
+    out.z = P.z0 + P.vz * t;
+    const aRef = lerpAngle(P.a0, P.aHit, e);
+    out.x = shift * (aRef / (2 * Math.PI)) + off;
+    // Nose first: the body pitches round toward where it will land, with a little tumble.
+    out.a = lerpAngle(P.a0, P.aHit, smooth(e)) + Math.sin(Math.PI * e) * 0.6;
+    out.air = true;
+    return out;
+  }
+  // Landed: ride the rest of the loop down to the exit, with a decaying bounce.
+  const e = (k - P.kHit) / (1 - P.kHit);
+  const a = lerpAngle(P.aHit, 2 * Math.PI, e);
+  loopPoint(f, (a / (2 * Math.PI)) * f.length, lat, pd);
+  out.x = pd.x; out.y = pd.y; out.z = pd.z; out.a = a;
+  const tl = (k - P.kHit) * P.T;
+  out.bounce = 1.6 * Math.exp(-5 * tl) * Math.abs(Math.sin(tl * 11));
+  out.y += pd.uy * out.bounce; out.z += pd.uz * out.bounce;
+  return out;
+}
+
+/** The ride camera for a car that is on the track at `s` (no peel). */
+function rideCam(f, s, lat, out) {
+  const back = LOOP_CAM.back / LOOP_CAM.zScale;
+  loopPoint(f, s - back, lat, pa);
+  loopPoint(f, s - back * 0.5, lat, pb);
+  // Sideways it tracks the car (the loop drifts across a road width), like the 2D camera.
+  out.ex = loopPoint(f, s, lat, pc).x; out.ey = pa.y + pa.uy * LOOP_CAM.up; out.ez = pa.z + pa.uz * LOOP_CAM.up;
+  out.a = pb.a;
+}
+
+const camA = {}, camB = {}, car = {};
 
 /**
  * The chase camera for a car at `s`, `lat` half-widths across. Writes the eye (ex, ey, ez) and
  * the view's forward/up (fy, fz, uy, uz; right is +x). When the car peeled off at progress
- * `peelT` (too slow over the top), it falls from that point back down to the exit lane, nose
- * first, while the sim carries on round: `fall` (0..1) says how far down it is.
+ * `peelT` (too slow over the top) the camera keeps riding the track for a moment, so you see
+ * the car fall away from it, then swings round to chase the falling car, levelling toward
+ * world-up; once it lands it settles back behind the car. `fall` (0..1) is the sim's progress
+ * from the peel to the exit (0 when riding normally) and `air` whether the car is flying.
  */
-export function loopCamera(f, s, lat, peelT, out) {
-  const back = LOOP_CAM.back / LOOP_CAM.zScale;
-  let a;
-  if (peelT != null && s > peelT * f.length && s < f.length) {
-    const k = (s - peelT * f.length) / ((1 - peelT) * f.length);
-    const e = smooth(k);
-    loopPoint(f, peelT * f.length, lat, pa);
-    loopPoint(f, f.length, lat, pb);
-    // Drops like a stone (y eases in with k²), sliding across to land on the exit lane.
-    const cx = pa.x + (pb.x - pa.x) * e, cy = pa.y * (1 - k * k), cz = pa.z + (pb.z - pa.z) * e;
-    a = pa.a + (2 * Math.PI - pa.a) * e;
-    const fy = Math.sin(a), fz = Math.cos(a), uy = Math.cos(a), uz = -Math.sin(a);
-    out.ex = cx; out.ey = cy - fy * LOOP_CAM.back + uy * LOOP_CAM.up; out.ez = cz - fz * LOOP_CAM.back + uz * LOOP_CAM.up;
-    out.fall = k;
+export function loopCamera(f, s, lat, peelT, out, ups = 1600) {
+  out.fall = 0; out.air = false;
+  if (peelT == null || s <= peelT * f.length || s >= f.length) {
+    rideCam(f, s, lat, out);
   } else {
-    // Ride the frame: the eye is on the road behind the car, aimed along the frame between it
-    // and the car so the road ahead stays framed as it curls up.
-    loopPoint(f, s - back, lat, pa);
-    loopPoint(f, s - back * 0.5, lat, pb);
-    a = pb.a;
-    // Sideways it tracks the car (the loop drifts across a road width), like the 2D camera.
-    out.ex = loopPoint(f, s, lat, pc).x; out.ey = pa.y + pa.uy * LOOP_CAM.up; out.ez = pa.z + pa.uz * LOOP_CAM.up;
-    out.fall = 0;
+    const P = peelFall(f, peelT, ups);
+    carPose(f, s, lat, peelT, ups, car);
+    const k = car.k;
+    out.fall = k; out.air = car.air;
+    // A: still riding the track at the sim's progress (the car drops out of its frame).
+    rideCam(f, s, lat, camA);
+    // B: chasing the car, its angle easing from the loop's frame toward level (world-up).
+    const aB = lerpAngle(P.a0, 2 * Math.PI, smooth(clamp01(k / P.kHit)));
+    const back = LOOP_CAM.back * 2.6, up = LOOP_CAM.up * 2.2; // pulled back: you see the gap open up
+    camB.a = aB;
+    camB.ex = car.x;
+    camB.ey = car.y - Math.sin(aB) * back + Math.cos(aB) * up;
+    camB.ez = car.z - Math.cos(aB) * back - Math.sin(aB) * up;
+    // Landed: the ride camera behind the car where it now is on the loop.
+    let w, from = camA, to = camB;
+    if (k < P.kHit) w = smooth(clamp01(k / (0.45 * P.kHit)));
+    else {
+      rideCam(f, (car.a / (2 * Math.PI)) * f.length, lat, camA);
+      from = camB; to = camA;
+      w = smooth(clamp01((k - P.kHit) / (0.5 * (1 - P.kHit))));
+    }
+    out.ex = from.ex + (to.ex - from.ex) * w;
+    out.ey = from.ey + (to.ey - from.ey) * w;
+    out.ez = from.ez + (to.ez - from.ez) * w;
+    out.a = lerpAngle(from.a, to.a, w);
   }
-  out.a = a;
+  const a = out.a;
   out.fy = Math.sin(a); out.fz = Math.cos(a);
   out.uy = Math.cos(a); out.uz = -Math.sin(a);
   return out;
@@ -116,6 +230,32 @@ export function rideBlend(f, s) {
   if (s < 0) return smooth(1 + s / k);
   if (s > f.length) return smooth(1 - (s - f.length) / k);
   return 1;
+}
+
+/**
+ * How the approach view (drawLoopAhead) scales the loop it pins onto the 2D road's mouth.
+ * The 2D road squashes distance: at the mouth its road is `kx0` times wider than the real
+ * loop camera sees it, and drawing the whole loop at that scale made it loom far too big just
+ * before you went in. So its height (`ky`) eases from the 2D scale far away to the real
+ * camera's own scale by the time the ride view starts to blend in, growing all the way (never
+ * shrinking as you close in). Across (`kx`) it leans toward the 2D road's width, but never
+ * more than `stretch` times its height scale (more turns the loop's far side into a slab).
+ * Through the blend the width and the anchor ease to the ride view too (`b`), so nothing pops.
+ */
+export const APPROACH = {
+  span: 26000,  // starts at the edge of the 2D draw distance
+  power: 2,
+  stretch: 1.8, // most the width may be stretched past the height to sit on the 2D road
+};
+export function approachScale(f, sCar, kx0, out) {
+  const fade = LOOP_CAM.fade;
+  const u = Math.max(0, Math.min(1, (sCar + fade + APPROACH.span) / APPROACH.span));
+  const e = Math.pow(u, APPROACH.power);
+  const k0 = Math.max(1e-3, kx0);
+  out.b = rideBlend(f, sCar);
+  out.ky = Math.pow(k0, 1 - e);
+  out.kx = Math.pow(Math.min(k0, out.ky * APPROACH.stretch), 1 - out.b);
+  return out;
 }
 
 /** Screen row of the horizon and which side the sky is on (+1: above). Null if off-screen. */

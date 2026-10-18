@@ -62,7 +62,8 @@ export const LATERAL = {
   throttleGrip: 0.97, // weight back: slightly less turn-in on throttle
   driftGrip: 0.62,    // a power drift breaks the rear loose
   driftLat: 1.15,     // …and the car swings across the road a little faster
-  driftBeta: 0.3,     // rad; how far the tail steps out in a full power drift
+  driftBeta: 0.12,    // rad the tail steps out in a full power drift, on top of the cornering load
+                      // (≈15–18° of visible yaw in a typical drift; 0.3 read as a spin-out)
   loadBeta: 0.12,     // rad the nose points into a turn at the grip limit
   slipBeta: 0.08,     // rad of sideslip per unit of understeer slip (capped at 1)
   bodyHz: 2.4,        // the body's yaw spring (Hz) …
@@ -197,8 +198,10 @@ export function stepLateral(lt, steer, dt, p) {
   // Cornering load points the nose a little into the turn (rear sideslip); past the grip
   // limit it slides more; a power drift kicks the tail right out.
   const load = clamp(U * lt.r / grip, -1, 1);
-  lt.beta = load * LATERAL.loadBeta + dir * LATERAL.slipBeta * Math.min(1, lt.slip) * slipMult +
-    (p.drifting ? dir * LATERAL.driftBeta * Math.min(1, Math.abs(steer) / 0.6) * slipMult : 0);
+  // The drift kick replaces the understeer slide rather than stacking on it.
+  lt.beta = load * LATERAL.loadBeta + (p.drifting
+    ? dir * LATERAL.driftBeta * Math.min(1, Math.abs(steer) / 0.6) * slipMult
+    : dir * LATERAL.slipBeta * Math.min(1, lt.slip) * slipMult);
   const w = 2 * Math.PI * LATERAL.bodyHz;
   const acc = w * w * (heading + lt.beta - lt.yaw) - 2 * LATERAL.bodyDamp * w * lt.yawVel;
   lt.yawVel += acc * dt;
