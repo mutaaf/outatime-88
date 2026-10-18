@@ -252,6 +252,15 @@ these instead of segment internals (`z` = track Z in sim units):
 Owners: the track lead owns geometry, set pieces and hazard placement; the handling lead
 owns car physics, input and NOS, and reads this contract.
 
+### Handling (ticket 0120)
+
+`src/handling.js` turns input into steering and steering into lateral motion. It's pure and
+deterministic, called once per 120 Hz step from `updateGame`. Keys are digital and ramp
+(`stepSteer`). Stick, tilt, wheel and touch are analog and share the same speed-sensitive lock.
+`stepLateral` is grip-limited: corners pull ∝ curve·v², banks relieve it, and slip past grip is
+a drift. Tune it with the constants `STEER` and `LATERAL` and keep `tests/unit/handling.test.js`
+green. Car specs feed it through `handlingFor(carParams(car), tyreLevel)`.
+
 ### URL parameters (deep links, ticket 0110)
 
 The site launcher and share links open screens with these. One-shot params are stripped with
@@ -328,7 +337,7 @@ every device running the same simulation.
 | `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
 | `npm run check:fast` | Everything but e2e, for sandboxes that can't install Playwright browsers. CI still runs the full gate. |
 
-Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 60 kB gzipped (today ~59 kB; keep anything not needed on the first frame lazy — the touch kit (`bridge-*.js`, ~11 kB) loads only on touch devices and its Controls panel/editor (`panel-*.js`) on first open; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), era backdrops + roadside (`stage-*.js` incl. roadside art and name tags < 10 kB, six `s<era>-*.js` < 5 kB each, shared kit chunk) ≤ 25 kB gzipped in total (today ~23 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
+Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 64 kB gzipped (raised from 60 on 2026-10-17 for the handling model and NOS, tickets 0120/0121: they run every sim step, so they can't be lazy; today ~61 kB; keep anything not needed on the first frame lazy — the touch kit (`bridge-*.js`, ~11 kB) loads only on touch devices and its Controls panel/editor (`panel-*.js`) on first open; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), era backdrops + roadside (`stage-*.js` incl. roadside art and name tags < 10 kB, six `s<era>-*.js` < 5 kB each, shared kit chunk) ≤ 25 kB gzipped in total (today ~23 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
 
 ## 6 · The agents
 

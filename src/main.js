@@ -7,6 +7,7 @@ import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
+import { createSteer, stepSteer, createLateral, stepLateral, handlingFor } from './handling.js';
 import { materialFor, impactVelocities } from './materials.js';
 import { createWorld, createPropPool } from './world.js';
 import { projectPoint } from './projection.js';
@@ -1125,6 +1126,12 @@ function updateEraHud() {
 
 
 // --- PRO PHYSICS & GAMEPLAY UPDATE LOOP ---
+// Handling state (ticket 0120), reset with each race; latParams is reused to avoid per-step garbage.
+const steerWheel = createSteer();
+const lateral = createLateral();
+let latCarP = null, latTires = 0;
+const latParams = { speedMph: 0, curve: 0, bank: 0, worldScale: 1, h: null, braking: false, throttle: false, drifting: false, gripBonus: 1 };
+
 function updateGame(rawDt) {
   if (GameState.status !== 'PLAYING') return;
   // Grid lineup and start lights (ticket 0052): the world waits for GO.
@@ -1288,9 +1295,10 @@ function updateGame(rawDt) {
   }
 
   // 2. Pro Counter-Steer Drift Physics & Multi-Device Steering
+  // Keys are digital and ramp in through the handling model (ticket 0120); stick, tilt,
+  // wheel and touch are analog. Both pass through the same speed-sensitive lock below.
+  const digitalSteer = (InputState.right ? 1 : 0) - (InputState.left ? 1 : 0);
   let steerInput = 0;
-  if (InputState.left) steerInput -= 1;
-  if (InputState.right) steerInput += 1;
   if (Math.abs(InputState.wheelSteerVal) > 0.02) steerInput += InputState.wheelSteerVal;
   if (Math.abs(InputState.touchSteerVal) > 0.01) steerInput += InputState.touchSteerVal;
   if (InputState.tiltEnabled && Math.abs(InputState.tiltSteerVal) > 0.03) {
@@ -1345,7 +1353,7 @@ function updateGame(rawDt) {
     if (GameState.fluxCharge >= 95 && GameState.speed >= 86) {
       InputState.boostPressed = true;
     }
-  } else if (GameState.jarvisMode === 0 && Math.abs(steerInput) < 0.08) {
+  } else if (GameState.jarvisMode === 0 && Math.abs(steerInput) < 0.08 && digitalSteer === 0) {
     // SMART ASSIST: Gently keep the player car centered on curves & nudge away from head-on bumper hits
     const recenter = -GameState.playerX * 0.35 + (currentSeg ? currentSeg.curve * 0.08 : 0);
     steerInput += Math.max(-0.45, Math.min(0.45, recenter));
@@ -1367,21 +1375,21 @@ function updateGame(rawDt) {
     }
   }
 
-  steerInput = Math.max(-1.4, Math.min(1.4, steerInput));
+  const analogSteer = Math.max(-1.25, Math.min(1.25, steerInput));
+  const autopilot = GameState.jarvisMode === 1;
+  steerInput = stepSteer(steerWheel, autopilot ? 0 : digitalSteer, analogSteer, rawDt, GameState.speed, GameState.isDrifting);
   GameState.steerInput = steerInput; // published for the renderers (3D front wheels)
   GameState.braking = Boolean(braking);
 
-  const gripFactor = (1.15 + (upg.tires - 1) * 0.12) * carP.gripMult * (GameState.zoneTimer > 0 ? 1.25 : 1.0);
-  const speedRatio = Math.min(1.0, GameState.speed / 88);
-
-  // Initiate or maintain Power Drift when holding Brake/Drift + steering or hard cornering
-  const wantsDrift = (braking || Math.abs(currentSeg ? currentSeg.curve : 0) > 1.8) && Math.abs(steerInput) > 0.35 && GameState.speed > 45 && GameState.playerY < 10;
+  // A power drift is asked for (brake + steer) or happens (the tyres are sliding past grip).
+  const wantsDrift = GameState.speed > 45 && GameState.playerY < 10 &&
+    ((braking && Math.abs(steerInput) > 0.3) || (GameState.isDrifting ? lateral.slip > 0.12 : lateral.slip > 0.35));
   const driftBox = document.getElementById('driftCounterBox');
 
   if (wantsDrift) {
     GameState.isDrifting = true;
     GameState.driftChargeTime += rawDt * (1 + (upg.tires - 1) * 0.18);
-    const targetYaw = steerInput * 32 * carP.slipMult; // looser cars swing wider
+    const targetYaw = (steerInput * 32 + Math.sign(steerInput || GameState.playerVX) * Math.min(1, lateral.slip) * 14) * carP.slipMult; // looser cars swing wider
     GameState.driftAngle += (targetYaw - GameState.driftAngle) * Math.min(1, rawDt * 10);
 
     const ptsAdded = Math.floor(680 * rawDt * GameState.combo);
@@ -1435,16 +1443,22 @@ function updateGame(rawDt) {
     GameState.driftAngle += (0 - GameState.driftAngle) * Math.min(1, rawDt * 12);
   }
 
-  // Lateral movement with smooth momentum
-  const targetVX = steerInput * gripFactor * Math.max(0.4, speedRatio);
-  GameState.playerVX += (targetVX - GameState.playerVX) * Math.min(1, rawDt * 14);
-  GameState.playerX += GameState.playerVX * rawDt;
-
-  // Gentle, predictable curve pull
-  if (currentSeg) {
-    const centrifugal = (currentSeg.curve * 0.14 * speedRatio) / ((1 + (upg.tires - 1) * 0.15) * carP.gripMult);
-    GameState.playerX -= centrifugal * dt;
-  }
+  // Lateral motion: grip-limited tyres against the corner's pull (src/handling.js).
+  lateral.x = GameState.playerX;
+  lateral.vx = GameState.playerVX;
+  latParams.speedMph = GameState.speed;
+  latParams.curve = currentSeg ? currentSeg.curve : 0;
+  latParams.bank = currentSeg ? currentSeg.bank : 0;
+  latParams.worldScale = timeScale;
+  if (latCarP !== carP || latTires !== upg.tires) { latCarP = carP; latTires = upg.tires; latParams.h = handlingFor(carP, upg.tires); }
+  latParams.braking = Boolean(braking);
+  latParams.throttle = Boolean(accelerating);
+  latParams.drifting = GameState.isDrifting && Boolean(braking);
+  latParams.gripBonus = GameState.zoneTimer > 0 ? 1.25 : 1;
+  stepLateral(lateral, steerInput, rawDt, latParams);
+  GameState.playerX = lateral.x;
+  GameState.playerVX = lateral.vx;
+  GameState.tyreSlip = lateral.slip;
 
   // Side-Slam Shove Button / Key (F)
   if (InputState.slamPressed && GameState.slamCooldown <= 0) {
@@ -3738,6 +3752,8 @@ function startNewRace(opts) {
   GameState.trackPos = 0;
   GameState.playerX = 0;
   GameState.playerVX = 0;
+  steerWheel.value = 0;
+  lateral.slip = 0;
   GameState.playerY = 0;
   GameState.playerVY = 0;
   GameState.speed = 26;
