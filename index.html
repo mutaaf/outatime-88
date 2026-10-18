@@ -282,14 +282,11 @@
     </div>
   </div>
 
-  <!-- SPLIT TRACK / STREET SHORTCUT CHOICE BANNER -->
-  <div id="forkChoiceBanner" class="slot-fork hidden pointer-events-none absolute inset-x-0 z-20 flex justify-center gap-3 sm:gap-12 px-3">
-    <div id="forkLeftCard" class="px-3 py-1.5 rounded-xl bg-slate-950/90 border-2 border-cyan-400 text-cyan-300 font-arcade text-xs sm:text-sm font-bold shadow-lg">
-      ⬅ LEFT: SKY-LOOP SHORTCUT (2X FLUX ⚡)
-    </div>
-    <div id="forkRightCard" class="px-3 py-1.5 rounded-xl bg-slate-950/90 border-2 border-orange-400 text-orange-300 font-arcade text-xs sm:text-sm font-bold shadow-lg">
-      RIGHT: CEDAR TURBO TUNNEL (+TIME ⏱️) ➡
-    </div>
+  <!-- FORK CUE (ticket 0019): two compact arrows, a word each; the announcer stays the one banner.
+       Labels are unit-tested (tests/unit/fork.test.js); main.js only toggles .fork-lean. -->
+  <div id="forkChoiceBanner" class="slot-fork hidden pointer-events-none absolute inset-x-0 z-20 flex justify-center gap-3 sm:gap-10 px-3">
+    <div id="forkLeftCard" class="fork-cue px-2.5 py-1 rounded-lg bg-slate-950/85 border-2 border-cyan-400 text-cyan-300 font-arcade text-[11px] sm:text-xs font-bold whitespace-nowrap">◀ SKY-LOOP ⚡</div>
+    <div id="forkRightCard" class="fork-cue px-2.5 py-1 rounded-lg bg-slate-950/85 border-2 border-orange-400 text-orange-300 font-arcade text-[11px] sm:text-xs font-bold whitespace-nowrap">TUNNEL ⏱️ ▶</div>
   </div>
 
   <!-- TOUCH CONTROLS (ticket 0041): filled by src/touch/controller.js on touch devices —
