@@ -13,6 +13,7 @@ import { asphaltTextures, bakeEnvironment, paletteFor } from './surfaces.js';
 import { ROAD_CFG } from '../data.js';
 import { InputState } from '../input.js';
 import { createTrackPath } from './path.js';
+import { featureAt } from '../track.js';
 import { bodyPose, playerPose } from '../render-pose.js';
 import { buildCar, buildObstacle, propKinds, mountainRing, turnWheels, bodyStyle, NEON_CYAN, NEON_PINK } from './meshes.js';
 
@@ -722,7 +723,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
 
   // The camera is locked to the player along the track (at ~100 m/s any positional lag
   // would leave the car far ahead); only its sideways follow, height and aim are smoothed.
-  let camX = 0, camUp = 0, camLookX = 0, lean = 0;
+  let camX = 0, camUp = 0, camLookX = 0, lean = 0, loopK = 0;
   function syncCamera(pz, dt, feel, t) {
     const s = state;
     const rigIdx = Math.max(0, Math.min(RIGS.length - 1, s.cameraMode | 0));
@@ -744,7 +745,12 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     path.at(pz, camX, pose);
     if (s.reducedMotion) camera.up.set(0, 1, 0);
     else camera.up.set(pose.ux, pose.uy, -pose.uz);
-    path.at(pz + rig.look / PATH_SCALE.zScale, camLookX, pose);
+    // Round a loop the road curls up fast: aim closer so the car stays in frame (eased, no snap).
+    const lf = featureAt(pz), la = featureAt(pz + rig.look / PATH_SCALE.zScale);
+    const inLoop = (lf && lf.kind === 'LOOP') || (la && la.kind === 'LOOP') ? 1 : 0;
+    loopK += (inLoop - loopK) * Math.min(1, dt * 3);
+    const look = rig.lag === 0 ? rig.look : rig.look + (6 - rig.look) * loopK;
+    path.at(pz + look / PATH_SCALE.zScale, camLookX, pose);
     const lu = rig.lookUp + ly * 0.3;
     camLook.set(pose.x + pose.ux * lu, pose.y + pose.uy * lu, -(pose.z + pose.uz * lu));
     // Shake: deterministic wobble, off under reduced motion.

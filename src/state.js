@@ -71,6 +71,7 @@ export const GameState = {
   branchName: 'MAIN STREET',
   forkPending: false,
   loopPitchOffset: 0,
+  loopRide: 0, // how much of the 2D ride-the-loop view is showing (0..1), for tests/debug
   cameraBank: 0,
   particles: [],
   lightningBolts: [],
