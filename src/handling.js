@@ -158,3 +158,36 @@ export function stepLateral(lt, steer, dt, p) {
   lt.x += lt.vx * dt;
   return lt;
 }
+
+// ---------------------------------------------------------------------------------------
+// Set pieces (with the track lead's road contract: src/track.js featureAt(z)).
+// A feature is { kind, z0, length, ...params }; t = (z - z0) / length is progress through it.
+
+export const SETPIECE = {
+  loopMinMph: 62,      // default speed needed over the top of a loop (feature.minMph overrides)
+  loopTop: [0.38, 0.62], // the stretch of a loop where you're upside down
+  loopGravity: 30,     // mph/s lost climbing the first half, regained coming down (net zero)
+  landVx: 0.12,        // landing speed lost per half-width/s of sideways slide
+  landSteer: 0.05,     // …and per unit of steering lock held on touchdown
+  landMax: 0.25,       // never lose more than a quarter of your speed on a landing
+};
+
+/**
+ * One step through a loop. Returns 'peel' if you're too slow at the top (you fall off),
+ * otherwise the speed change from gravity along the loop.
+ * @param {number} speedMph
+ * @param {{minMph?:number}} feature
+ * @param {number} t progress through the loop, 0..1
+ * @param {number} dt
+ */
+export function loopStep(speedMph, feature, t, dt) {
+  const min = (feature && feature.minMph) || SETPIECE.loopMinMph;
+  if (t >= SETPIECE.loopTop[0] && t <= SETPIECE.loopTop[1] && speedMph < min) return { peel: true, dv: 0 };
+  return { peel: false, dv: -SETPIECE.loopGravity * Math.sin(2 * Math.PI * t) * dt };
+}
+
+/** Fraction of speed kept on touchdown: land straight to keep it all. */
+export function landingKeep(vx, steer) {
+  const loss = Math.abs(vx) * SETPIECE.landVx + Math.abs(steer) * SETPIECE.landSteer;
+  return 1 - Math.min(SETPIECE.landMax, loss);
+}
