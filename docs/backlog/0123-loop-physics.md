@@ -1,11 +1,12 @@
 ---
 id: 0123
 title: Loop and landing physics — carry speed over the top, land straight
-status: in-progress
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-17
+pr: 62
 ---
 
 ## Why
