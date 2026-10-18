@@ -123,6 +123,8 @@ export function createTurntable(canvas, { reducedMotion = false } = {}) {
   window.addEventListener('pointerup', onUp);
 
   function frame(ts) {
+    // 30 fps is plenty for a slow spin and halves the painting cost.
+    if (last && ts - last < 30) { raf = requestAnimationFrame(frame); return; }
     const dt = last ? Math.min(0.05, (ts - last) / 1000) : 0;
     last = ts;
     idleFor += dt;

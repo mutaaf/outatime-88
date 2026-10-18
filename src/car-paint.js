@@ -293,8 +293,24 @@ function fillFace(ctx, f, fill, seam) {
 const baseFor = (kind, body, cabin) => (kind === 'roof' || kind === 'pillar' ? cabin : body);
 
 function drawFaces(ctx, faces, body, cabin, seam) {
+  // Under-fill the visible strips in one path first, so the hairline gaps between neighbouring
+  // strips show paint, not background (cheaper than stroking every strip).
+  let any = false;
+  for (const f of faces) if (prep(f)) any = true;
+  if (!any) return;
+  if (seam) {
+    let first = null;
+    ctx.beginPath();
+    for (const f of faces) {
+      if (!f.vis || f.kind === 'glass' || f.kind === 'rear' || f.kind === 'front') continue;
+      pathOf(ctx, f);
+      if (!first) first = f;
+    }
+    if (first) { rotN(first.nx, first.ny, first.nz); ctx.fillStyle = lit(first.kind, baseFor(first.kind, body, cabin)); ctx.fill(); }
+  }
   for (const f of faces) {
-    if (!prep(f)) continue;
+    if (!f.vis) continue;
+    rotN(f.nx, f.ny, f.nz);
     if (f.kind === 'rear' || f.kind === 'front') {
       // Big flat end panels get a top-lit gradient so they read as curved paint.
       const fill = lit('paint', body);
@@ -304,7 +320,7 @@ function drawFaces(ctx, faces, body, cabin, seam) {
       fillFace(ctx, f, g, 0);
       continue;
     }
-    fillFace(ctx, f, lit(f.kind, baseFor(f.kind, body, cabin)), seam);
+    fillFace(ctx, f, lit(f.kind, baseFor(f.kind, body, cabin)), 0);
   }
 }
 
@@ -496,7 +512,7 @@ function frontDetails(ctx, G, f) {
 
 function drawWheel(ctx, w, withWell) {
   if (withWell && w.well) { prep(w.well); ctx.beginPath(); pathOf(ctx, w.well); ctx.fillStyle = '#050608'; ctx.fill(); }
-  for (const t of w.tread) if (prep(t)) fillFace(ctx, t, lit('rubber'), 0.6);
+  for (const t of w.tread) if (prep(t)) fillFace(ctx, t, lit('rubber'), 0);
   for (const [face, rimF] of [[w.outer, w.rim], [w.innerF, w.rimIn]]) {
     if (!prep(face)) continue;
     rotN(face.nx, face.ny, face.nz);

@@ -57,8 +57,26 @@ describe('car sprites', () => {
     expect(yawStep(-5)).toBe(0);
     expect(yawStep(5)).toBe(YAW_STEPS - 1);
     expect(bucketFor(1)).toBe(24);
-    expect(bucketFor(25)).toBe(48);
+    expect(bucketFor(25)).toBe(32);
     expect(bucketFor(1e6)).toBe(480);
+  });
+});
+
+describe('frame budget', () => {
+  it('paints at most one new sprite a frame; the nearest cached one stands in for the rest', async () => {
+    const { beginFrame } = await import('../../src/car-sprite.js');
+    const van = { shape: 'HEAVY_VAN', body: '#fff', cabin: '#000' };
+    const first = carSprite(van, 100, { yaw: 0 });
+    beginFrame();
+    const second = carSprite(van, 200, { yaw: 0 });
+    expect(spriteStats.built).toBe(2);
+    const stand = carSprite(van, 400, { yaw: 0 }); // over budget: reuse, don't paint
+    expect(spriteStats.built).toBe(2);
+    expect(stand).toBe(second); // the most recent sprite of this car and view
+    expect(stand).not.toBe(first);
+    beginFrame();
+    expect(carSprite(van, 400, { yaw: 0 })).not.toBe(stand); // next frame it gets its own
+    expect(spriteStats.built).toBe(3);
   });
 });
 

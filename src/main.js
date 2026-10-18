@@ -2505,7 +2505,7 @@ function renderScene() {
     pixelCanvas.width = bw;
     pixelCanvas.height = bh;
   }
-  if (carArt && carArt.setSpriteScale) carArt.setSpriteScale(pk);
+  if (carArt) { carArt.setSpriteScale(pk); carArt.beginFrame(); }
   if (pickupArt && pickupArt.setPixelScale) pickupArt.setPixelScale(pk);
   GameState.pixelScale = pk; // for lazy 2D art (billboards…): cache at pixelScale × drawn size
 

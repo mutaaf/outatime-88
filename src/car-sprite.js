@@ -16,8 +16,12 @@ import { projectLast } from './car-paint.js';
 export const YAW_STEPS = 15;       // body yaw from -YAW_MAX to +YAW_MAX, in equal steps
 export const YAW_MAX = 0.7;        // radians (GameState.carYaw is clamped to this)
 export const CACHE_MAX = 160;
-const BUCKET = 24;                 // sprite widths round up to a multiple of this (px)
-const MIN_W = 24, MAX_W = 480;
+// Sprite widths round up to one of these (px): fine steps when small, coarser when big, so a
+// car closing in from the horizon only needs a handful of renders.
+const BUCKETS = [24, 32, 40, 48, 64, 80, 96, 128, 160, 192, 240, 288, 352, 416, 480];
+// At most this many new sprites are painted per frame (main.js calls beginFrame()); past it,
+// the nearest sprite already in the cache stands in for a frame or two (no hitches).
+const BUILDS_PER_FRAME = 1;
 // Sprite layout for a typical car: 3.4 m wide at the rear bumper, which stands 0.38 m above
 // the sprite's bottom edge. Long or tall bodies (a semi) get a wider, taller frame.
 export const SPRITE_ASPECT = 0.8;  // height / width for a typical car
@@ -44,9 +48,15 @@ const makeCanvas = (w, h) => {
 
 /** Width bucket for a requested on-screen sprite width. */
 export function bucketFor(w) {
-  const c = Math.max(MIN_W, Math.min(MAX_W, w));
-  return Math.ceil(c / BUCKET) * BUCKET;
+  for (let i = 0; i < BUCKETS.length; i++) if (w <= BUCKETS[i]) return BUCKETS[i];
+  return BUCKETS[BUCKETS.length - 1];
 }
+
+let builds = 0, budget = Infinity;
+/** Starts a frame's build budget (until first called, every sprite is painted on demand). */
+export function beginFrame() { builds = 0; budget = BUILDS_PER_FRAME; }
+// Stand-ins: the last sprite used per look and yaw step, and per look (cached sprites only).
+const byStep = new Map(), byLook = new Map();
 
 /** Quantised yaw step (0..YAW_STEPS-1) for a body yaw in radians. */
 export function yawStep(yaw) {
@@ -87,12 +97,19 @@ export function carSprite(look, w, o = {}) {
   const bw = bucketFor(w);
   const step = o.view === 'three-quarter' ? -1 : yawStep(o.yaw);
   const key = `${look.shape}|${look.body}|${look.cabin}|${look.glow || ''}|${bw}|${step}|${o.hover ? 1 : 0}${o.brake ? 'b' : ''}`;
+  const lk = `${look.shape}|${look.body}|${look.cabin}|${look.glow || ''}|${o.hover ? 1 : 0}${o.brake ? 'b' : ''}`;
   let c = cache.get(key);
   if (c) {
     cache.delete(key); cache.set(key, c); // LRU touch
     spriteStats.hits++;
+    if (step >= 0) { byStep.set(`${lk}|${step}`, c); byLook.set(lk, c); }
     return c;
   }
+  if (step >= 0 && builds >= budget) {
+    const alt = byStep.get(`${lk}|${step}`) || byLook.get(lk);
+    if (alt) { spriteStats.standIns = (spriteStats.standIns || 0) + 1; return alt; }
+  }
+  builds++;
   const fr = frameOf(look.shape);
   const bh = Math.round(bw * fr.tall / fr.across);
   const gy = bh - (BELOW * bw) / fr.across;
@@ -134,7 +151,12 @@ export function carSprite(look, w, o = {}) {
   c.thrust = shapeOf(look.shape).thrust;
   cache.set(key, c);
   spriteStats.built++;
-  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+  if (step >= 0) { byStep.set(`${lk}|${step}`, c); byLook.set(lk, c); }
+  if (cache.size > CACHE_MAX) {
+    const oldKey = cache.keys().next().value, old = cache.get(oldKey);
+    cache.delete(oldKey);
+    for (const m of [byStep, byLook]) for (const [k, v] of m) if (v === old) m.delete(k);
+  }
   return c;
 }
 
@@ -276,8 +298,9 @@ export const widthOf = (shape) => shapeOf(shape).W / CAR_METRES;
 
 /** Test helper: empties the caches. */
 export function clearSpriteCache() {
-  cache.clear(); models.clear(); portraits.clear();
-  spriteStats.built = 0; spriteStats.hits = 0;
+  cache.clear(); models.clear(); portraits.clear(); byStep.clear(); byLook.clear();
+  spriteStats.built = 0; spriteStats.hits = 0; spriteStats.standIns = 0;
+  builds = 0; budget = Infinity;
 }
 
 export const cacheSize = () => cache.size;
