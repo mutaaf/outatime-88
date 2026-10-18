@@ -6,6 +6,7 @@ priority: P0
 size: M
 lens: player-feel
 created: 2026-10-18
+pr: 89
 ---
 
 ## Why
@@ -30,12 +31,20 @@ racers need to be way more intelligent as the game progresses".
   HUD gaps, tighter rubber band so it stays in your mirrors.
 - Callouts: "DOWN TO 3RD" now says who passed you and how (NOS / SLIPSTREAM / INSIDE LINE).
 
+## Acceptance criteria
+- Rivals brake ahead of tight bends (novices more than aces) and never leave the road.
+- Rivals pass slower cars without contact, draft, burn NOS at sensible moments and clear loops.
+- The field gets sharper (skill, aggression, consistency, NOS craft never drop) as level and
+  wave climb; mistakes get rarer.
+- Same seed, same race; no allocation growth per step; player scoring unchanged.
+- One nemesis per race, called out and tagged in the HUD.
+
 ## Determinism
 Brains are seeded from `GameState.lineSeed` (shared on live rooms and dailies) and use their own
 PRNG; no Math.random, no wall clock. Live friends are humans (ghosts), not local AI. The
 player's score rules and the server's checks are unchanged.
 
-## Tests
+## Test plan
 `tests/unit/rival-ai.test.js` (corners, apex, passing without contact, hazard avoidance, NOS,
 drafting, loops, tier ramp, mistakes vs tier, nemesis, determinism, footprint) and
 `tests/e2e/rivals.spec.js` (a real race: on the road, order changes, spread, nemesis).
