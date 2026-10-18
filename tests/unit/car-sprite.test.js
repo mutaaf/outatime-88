@@ -63,20 +63,22 @@ describe('car sprites', () => {
 });
 
 describe('frame budget', () => {
-  it('paints at most one new sprite a frame; the nearest cached one stands in for the rest', async () => {
+  it('a car growing on screen reuses its largest sprite until it outgrows it, and paints at most one new sprite a frame', async () => {
     const { beginFrame } = await import('../../src/car-sprite.js');
     const van = { shape: 'HEAVY_VAN', body: '#fff', cabin: '#000' };
-    const first = carSprite(van, 100, { yaw: 0 });
     beginFrame();
-    const second = carSprite(van, 200, { yaw: 0 });
-    expect(spriteStats.built).toBe(2);
-    const stand = carSprite(van, 400, { yaw: 0 }); // over budget: reuse, don't paint
-    expect(spriteStats.built).toBe(2);
-    expect(stand).toBe(second); // the most recent sprite of this car and view
-    expect(stand).not.toBe(first);
+    const big = carSprite(van, 200, { yaw: 0 });
     beginFrame();
-    expect(carSprite(van, 400, { yaw: 0 })).not.toBe(stand); // next frame it gets its own
-    expect(spriteStats.built).toBe(3);
+    expect(carSprite(van, 100, { yaw: 0 })).toBe(big);   // drawn down from the bigger one
+    expect(carSprite(van, 250, { yaw: 0 })).toBe(big);
+    expect(spriteStats.built).toBe(1);
+    beginFrame();
+    const bigger = carSprite(van, 480, { yaw: 0 });       // outgrew it: one fresh paint
+    expect(bigger).not.toBe(big);
+    expect(carSprite(van, 480, { yaw: 0.5 })).toBe(bigger); // over budget this frame: stand-in
+    expect(spriteStats.built).toBe(2);
+    beginFrame();
+    expect(carSprite(van, 480, { yaw: 0.5 })).not.toBe(bigger); // next frame it gets its own view
   });
 });
 

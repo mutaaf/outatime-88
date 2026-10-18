@@ -239,36 +239,27 @@ export function buildCar(style, length, width, { police = false, clearcoat = fal
 }
 
 // Flames from each car's own exhaust tips (src/car-shapes.js), the same anchors the 2D sprites
-// use: NOS (blue-violet), warp fire (orange), cold-gas puffs for the electric roadster, one big
-// jet for the rocket. Hidden (no draw call) until `setThrust(level, kind, t)` lights them.
-const flameMats = {
-  nos: [new MeshBasicMaterial({ color: '#7c6cff', transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
-    new MeshBasicMaterial({ color: '#e8f4ff', transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false, toneMapped: false })],
-  fire: [new MeshBasicMaterial({ color: '#ff6a1a', transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
-    new MeshBasicMaterial({ color: '#fff1c2', transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false, toneMapped: false })],
-  cold: [new MeshBasicMaterial({ color: '#bfe9ff', transparent: true, opacity: 0.6, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
-    new MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, blending: AdditiveBlending, depthWrite: false, toneMapped: false })],
-};
-for (const k in flameMats) for (const m of flameMats[k]) m.userData.shared = true;
+// use: NOS (blue-violet), warp fire (orange), cold gas for the electric roadster, one big jet
+// for the rocket. Hidden (no draw call) until `setThrust(level, kind, t)` lights them.
+const FLAME = { nos: ['#7c6cff', '#e8f4ff'], fire: ['#ff6a1a', '#fff1c2'], cold: ['#bfe9ff', '#ffffff'] };
 
 function addThrusters(g, style, length, bodyW, isTruck) {
   const S = shapeOf(style === 'TIME_CAR' ? 'GULLWING' : style);
-  if (isTruck || S.thrust === 'none' || !S.exhaust.length) return;
-  const kx = bodyW / S.W;
-  const cone = (r, k) => new ConeGeometry(r * k, 1, 10, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5);
-  const outer = [], core = [];
+  if (isTruck || S.thrust === 'none') return;
+  const kx = bodyW / S.W, outer = [], core = [];
   for (const [x, y, r] of S.exhaust) {
     const rr = Math.max(0.06, r * kx * (S.thrust === 'jet' ? 1.6 : 1.9));
-    // (car-shapes x is the car's left as seen from behind; three's +x is its right)
-    outer.push(cone(rr, 1).translate(-x * kx, y, 0));
-    core.push(cone(rr, 0.45).translate(-x * kx, y, 0));
+    // (car-shapes x is the car's left seen from behind; three's +x is its right)
+    for (const [list, k] of [[outer, 1], [core, 0.45]]) list.push(new ConeGeometry(rr * k, 1, 10, 1, true).rotateX(Math.PI / 2).translate(-x * kx, y, 0.5));
   }
+  const mk = (geo, order) => {
+    const m = new Mesh(merged(geo), new MeshBasicMaterial({ transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
+    m.frustumCulled = false; m.renderOrder = order;
+    return m;
+  };
+  const mo = mk(outer, 4), mc = mk(core, 5);
   const grp = new Group();
   grp.position.z = length / 2 + 0.02;
-  const mo = new Mesh(merged(outer), flameMats.fire[0]);
-  const mc = new Mesh(merged(core), flameMats.fire[1]);
-  mo.frustumCulled = false; mc.frustumCulled = false;
-  mo.renderOrder = 4; mc.renderOrder = 5;
   grp.add(mo, mc);
   grp.visible = false;
   g.add(grp);
@@ -276,10 +267,9 @@ function addThrusters(g, style, length, bodyW, isTruck) {
   g.userData.setThrust = (level, kind, t) => {
     grp.visible = level > 0;
     if (!grp.visible) return;
-    const mats = S.thrust === 'cold' ? flameMats.cold : flameMats[kind] || flameMats.fire;
-    mo.material = mats[0]; mc.material = mats[1];
-    const fl = 0.85 + 0.15 * Math.sin((t || 0) * 43);
-    mo.scale.z = base * (0.6 + 1.4 * level) * fl;
+    const c = FLAME[S.thrust === 'cold' ? 'cold' : kind] || FLAME.fire;
+    mo.material.color.set(c[0]); mc.material.color.set(c[1]);
+    mo.scale.z = base * (0.6 + 1.4 * level) * (0.85 + 0.15 * Math.sin((t || 0) * 43));
     mc.scale.z = mo.scale.z * 0.6;
   };
 }

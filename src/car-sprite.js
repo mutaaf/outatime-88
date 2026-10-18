@@ -102,12 +102,18 @@ export function carSprite(look, w, o = {}) {
   if (c) {
     cache.delete(key); cache.set(key, c); // LRU touch
     spriteStats.hits++;
-    if (step >= 0) { byStep.set(`${lk}|${step}`, c); byLook.set(lk, c); }
     return c;
   }
-  if (step >= 0 && builds >= budget) {
-    const alt = byStep.get(`${lk}|${step}`) || byLook.get(lk);
-    if (alt) { spriteStats.standIns = (spriteStats.standIns || 0) + 1; return alt; }
+  if (step >= 0) {
+    // The largest sprite already painted for this car and view is drawn down to size (crisp)
+    // or up by a little; only a car that has grown well past it gets a fresh paint, and then
+    // only within the frame's budget.
+    const same = byStep.get(`${lk}|${step}`);
+    if (same && (same.width >= bw * 0.7 || builds >= budget)) { spriteStats.standIns = (spriteStats.standIns || 0) + 1; return same; }
+    if (builds >= budget) {
+      const alt = byLook.get(lk);
+      if (alt) { spriteStats.standIns = (spriteStats.standIns || 0) + 1; return alt; }
+    }
   }
   builds++;
   const fr = frameOf(look.shape);
@@ -151,7 +157,12 @@ export function carSprite(look, w, o = {}) {
   c.thrust = shapeOf(look.shape).thrust;
   cache.set(key, c);
   spriteStats.built++;
-  if (step >= 0) { byStep.set(`${lk}|${step}`, c); byLook.set(lk, c); }
+  if (step >= 0) {
+    const sk = `${lk}|${step}`, prev = byStep.get(sk);
+    if (!prev || prev.width < c.width) byStep.set(sk, c);
+    const pl = byLook.get(lk);
+    if (!pl || pl.width <= c.width) byLook.set(lk, c);
+  }
   if (cache.size > CACHE_MAX) {
     const oldKey = cache.keys().next().value, old = cache.get(oldKey);
     cache.delete(oldKey);
