@@ -145,11 +145,11 @@ async function upsertProfile(db, pub, now, fields = {}) {
 }
 
 /** Hourly-salted, so the stored key can't be joined to anything after the hour. */
-async function throttleKey(kind, ip, secret, now) {
+export async function throttleKey(kind, ip, secret, now) {
   return `${kind}|${hex((await hmac(secret, `ip|${ip}|${Math.floor(now / 3600e3)}`)).slice(0, 10))}`;
 }
 
-async function throttled(db, key, max, now) {
+export async function throttled(db, key, max, now) {
   await db.prepare('DELETE FROM throttle WHERE at < ?').bind(now - THROTTLE.keepMs).run();
   const row = await db.prepare('SELECT COUNT(*) AS n FROM throttle WHERE key = ? AND at > ?').bind(key, now - THROTTLE.windowMs).first();
   if ((row?.n ?? 0) >= max) return true;

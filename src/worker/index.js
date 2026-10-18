@@ -24,6 +24,7 @@ export default {
         db: env.DB,
         now: () => Date.now(),
         ip: request.headers.get('cf-connecting-ip') || '',
+        assets: env.ASSETS,
       });
     }
     return env.ASSETS.fetch(request);

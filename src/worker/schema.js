@@ -76,4 +76,15 @@ export const MIGRATIONS = [
       'CREATE INDEX IF NOT EXISTS ghosts_board ON ghosts (mode, level, score DESC)',
     ],
   },
+  {
+    // Sponsor boards (ticket 0140, docs/ADS.md): impressions per campaign per UTC day. Nothing
+    // else: no racer, device, address or time of day.
+    v: 3,
+    sql: [
+      `CREATE TABLE IF NOT EXISTS ad_impressions (
+        day TEXT NOT NULL, campaign TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, campaign)
+      )`,
+    ],
+  },
 ];
