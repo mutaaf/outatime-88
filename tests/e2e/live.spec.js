@@ -8,6 +8,9 @@ import { LENGTHS } from '../../src/worker/live-rules.js';
 const BASE = `http://127.0.0.1:${LIVE_PORT}`;
 const TEST_LEN = LENGTHS.findIndex((l) => l.test);
 test.describe.configure({ mode: 'serial' });
+// Room creation is throttled per IP (10 a minute, src/worker/live.js), so later tests reuse
+// the first test's room where they can.
+let sharedCode = null;
 
 function watch(page) {
   const problems = [];
@@ -52,6 +55,7 @@ test('share link → lobby → racing in ≤3 taps, synced start, matching resul
   await expect(host.page.locator('#liveQrWrap')).toBeVisible(); // desktop shows a scannable QR
   await expect(host.page).toHaveURL(new RegExp(`room=${code}`));
   await host.page.evaluate((len) => window.__OT.live.debugSend({ t: 'cfg', len }), TEST_LEN);
+  sharedCode = code;
 
   // Guest: opens the invite link — straight into the lobby with suggested initials, no setup.
   let guestTaps = 0;
@@ -75,6 +79,11 @@ test('share link → lobby → racing in ≤3 taps, synced start, matching resul
 
   // Each sees the other's car on the road (interpolated ghost with initials).
   await guest.page.waitForFunction(() => window.__OT.live.ghosts.some((g) => !g.cpu && g.progress > 20), null, { timeout: 10_000 });
+  // The first-run thumb guide never covers a live race (live races can't pause).
+  await expect(guest.page.locator('#tcCoach')).toHaveCount(0);
+  // Quick chat: the guest's emote pops over their car on the host's screen, mid-race.
+  expect(await guest.page.evaluate(() => window.__OT.live.emote(2))).toBe(true);
+  await host.page.waitForFunction(() => window.__OT.live.ghosts.some((g) => !g.cpu && g.ghostTag.includes('🔥')), null, { timeout: 5_000 });
 
   // The shared race HUD ranks the whole room: you + 1 friend + 4 CPU cars.
   await expect.poll(() => guest.page.evaluate(() => window.__OT.GameState.totalRacers)).toBe(6);
@@ -84,6 +93,9 @@ test('share link → lobby → racing in ≤3 taps, synced start, matching resul
   for (const p of [host.page, guest.page]) await expect(p.locator('#liveResTitle')).toHaveText(/RESULTS/, { timeout: 30_000 });
   const order = await Promise.all([host.page, guest.page].map((p) => p.locator('#livePodium li span').allInnerTexts()));
   expect(order[0]).toEqual(order[1]);
+  // The top three stand on a podium with their cars.
+  await expect(host.page.locator('#liveSteps li')).toHaveCount(3);
+  await expect(host.page.locator('#liveSteps li canvas[data-car]')).toHaveCount(3);
 
   // Rematch keeps the room together: one tap each, auto countdown, race 2.
   await host.page.locator('#liveRematch').click();
@@ -91,6 +103,18 @@ test('share link → lobby → racing in ≤3 taps, synced start, matching resul
   for (const p of [host.page, guest.page]) {
     await p.waitForFunction(() => window.__OT.live.room && window.__OT.live.room.race === 2, null, { timeout: 15_000 });
   }
+
+  // A third friend opens the link mid-race: they watch it live and are on the next grid.
+  await host.page.waitForFunction(() => window.__OT.live.room.state === 'RACING', null, { timeout: 15_000 });
+  const late = await newPlayer(browser, { width: 1180, height: 820 });
+  await late.page.goto(`/outatime/?room=${code}&debug`);
+  await expect(late.page.locator('#liveSpec')).toBeVisible();
+  await expect(late.page.locator('#liveSpec li')).toHaveCount(2);
+  await expect(late.page.locator('#liveSpec li em').first()).toHaveText(/\d+%|🏁/);
+  await expect(late.page.locator('#liveGrid li.you .live-flag')).toContainText('NEXT RACE');
+  await expect(late.page.locator('#liveReady')).toBeDisabled();
+  expect(late.problems).toEqual([]);
+  await late.ctx.close();
 
   expect(host.problems).toEqual([]);
   expect(guest.problems).toEqual([]);
@@ -110,6 +134,52 @@ test('a dropped connection slides back into the same seat', async ({ browser }) 
   const after = await a.page.evaluate(() => window.__OT.live.room.players.map((p) => p.id));
   expect(after).toEqual([before]);
   expect(a.problems).toEqual([]);
+  await a.ctx.close();
+});
+
+test('RACE AGAIN takes you back to your crew’s room — or a fresh one if it closed', async ({ browser }) => {
+  test.skip(!sharedCode, 'needs the first test’s room');
+  const code = sharedCode;
+  const a = await newPlayer(browser, { width: 1280, height: 720 });
+  const b = await newPlayer(browser, { width: 390, height: 844 });
+  await a.page.goto('/outatime/?debug');
+  await a.page.locator('#btnOpenLive').click();
+  await expect(a.page.locator('#liveAgain')).toBeHidden(); // no crew yet
+  // b opens a friend's link; a is in that room too, then leaves to the menu.
+  await b.page.goto(`/outatime/?room=${code}&debug`);
+  await expect(b.page.locator('#liveGrid li.you')).toHaveCount(1);
+  const bName = await b.page.locator('#liveGrid li.you .live-name').innerText();
+  await a.page.evaluate((c) => window.__OT.live.join(c), code);
+  await expect(a.page.locator('#liveGrid li.you')).toHaveCount(1);
+  await expect(a.page.locator('#liveGrid li:not(.cpu)', { hasText: bName.replace(/\W/g, '') })).toHaveCount(1);
+  await a.page.locator('.live-lobby .live-x').click();
+  await a.page.locator('#btnOpenLive').click();
+  await expect(a.page.locator('#liveAgain')).toContainText(bName.replace(/\W/g, ''));
+  await a.page.locator('#liveAgain').click();
+  await expect(a.page.locator('#liveCode')).toHaveText(code);
+  await expect(a.page.locator('#liveGrid li.you')).toHaveCount(1);
+
+  // A crew whose room has closed: one tap still lands you in a (new) room.
+  await a.page.evaluate(() => localStorage.setItem('outatime_live_crew_v1', JSON.stringify({ code: 'BCDF', at: Date.now(), names: ['ZZZ'], races: 1 })));
+  await a.page.locator('.live-lobby .live-x').click();
+  await a.page.locator('#btnOpenLive').click();
+  await a.page.locator('#liveAgain').click();
+  await expect(a.page.locator('#liveCode')).toHaveText(/^[BCDFGHJKLMNPQRSTVWXZ]{4}$/);
+  await expect(a.page.locator('#liveCode')).not.toHaveText('BCDF');
+  await expect(a.page.locator('#liveGrid li.you')).toHaveCount(1);
+  expect(a.problems).toEqual([]);
+  await a.ctx.close();
+  await b.ctx.close();
+});
+
+test('a mistyped code explains itself instead of doing nothing', async ({ browser }) => {
+  const a = await newPlayer(browser, { width: 390, height: 844 });
+  await a.page.goto('/outatime/?debug');
+  await a.page.locator('#btnOpenLive').click();
+  await a.page.locator('#liveCodeInput').fill('ABCD'); // vowels are never in a code
+  await a.page.locator('.live-code-form button').click();
+  await expect(a.page.locator('#liveCodeHint')).toContainText('4 letters');
+  await expect(a.page.locator('.live-menu')).toBeVisible();
   await a.ctx.close();
 });
 

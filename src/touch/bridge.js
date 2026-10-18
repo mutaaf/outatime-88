@@ -111,7 +111,9 @@ export function connectTouch(game) {
     }
     apply();
     controls.relayout();
-    if (controls.isActive() && !cfg().coachSeen && GameState.status === 'PLAYING') {
+    // Live races can't pause (everyone shares one clock), so the guide waits for your first
+    // solo race instead of covering the countdown; the lobby shows a one-line tip meanwhile.
+    if (controls.isActive() && !cfg().coachSeen && GameState.status === 'PLAYING' && GameState.mode !== 'LIVE') {
       // Hold the race while the guide loads, so the first second isn't spent unguided.
       GameState.status = 'PAUSED';
       loadPanel().then(({ maybeShowCoach }) => maybeShowCoach({
