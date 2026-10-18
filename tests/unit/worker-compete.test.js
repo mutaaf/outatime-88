@@ -26,7 +26,9 @@ describe('payload versions', () => {
   it('tell v1 from penalty-scored v2 runs and keep car/class', () => {
     expect(readPayload(base)).toEqual({ pv: 1, car: '', cls: '' });
     expect(readPayload({ ...base, earned: 1500, pen: { obstacle: [], traffic: [], wallMs: 0 }, car: 'ARC_MK88', cls: 'B' })).toEqual({ pv: 2, car: 'ARC_MK88', cls: 'B' });
-    expect(readPayload({ ...base, v: 3 }).error).toMatch(/version/);
+    expect(readPayload({ ...base, earned: 1500, pen: { obstacle: [], traffic: [], wallMs: 0, wallN: 0, wallBill: 0 } })).toEqual({ pv: 3, car: '', cls: '' });
+    expect(readPayload({ ...base, v: 3, earned: 1, pen: { obstacle: [], traffic: [], wallMs: 0 } }).error).toMatch(/wall/);
+    expect(readPayload({ ...base, v: 4 }).error).toMatch(/version/);
     expect(readPayload({ ...base, v: 2 }).error).toMatch(/penalty/);
     expect(readPayload({ ...base, car: 'bad car!', cls: 'xx' })).toEqual({ pv: 1, car: '', cls: '' });
   });

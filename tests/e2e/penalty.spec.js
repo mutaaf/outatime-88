@@ -47,3 +47,25 @@ test('a clean run says so', async ({ page }) => {
   await expect(page.locator('#endScoreText')).toHaveText('123,456');
   expect(problems).toEqual([]);
 });
+
+test('a long wall grind costs a capped amount and wears HP instead (ticket 0165)', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ onboarded: true, initials: 'TST' })));
+  await page.goto(`${APP}?debug`);
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+  await page.keyboard.down('ArrowUp');
+  await page.waitForFunction(() => window.__OT.GameState.speed > 45, null, { timeout: 15000 });
+  const hp0 = await page.evaluate(() => window.__OT.GameState.hp);
+  await page.keyboard.down('ArrowRight');
+  await page.waitForFunction(() => window.__OT.GameState.penaltyLog.wallMs > 3000, null, { timeout: 20000 });
+  await page.keyboard.up('ArrowRight');
+  const { log, hp } = await page.evaluate(() => ({ log: { ...window.__OT.GameState.penaltyLog }, hp: window.__OT.GameState.hp }));
+  await page.keyboard.up('ArrowUp');
+  expect(log.wallN).toBeGreaterThanOrEqual(1);
+  // Each contact is capped at 300 points; bouncing off the wall may make a few contacts.
+  expect(75 * log.wallN + Math.floor(log.wallBill * 150 / 1000)).toBeLessThanOrEqual(300 * log.wallN);
+  expect(log.wallBill).toBeLessThanOrEqual(1500 * log.wallN);
+  expect(hp).toBeLessThan(hp0);
+  expect(hp).toBeGreaterThanOrEqual(1);
+  expect(problems).toEqual([]);
+});
