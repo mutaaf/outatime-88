@@ -33,7 +33,7 @@ export const LENGTHS = [
   // LIVE_TEST=1 (wrangler dev in CI); production rooms refuse it and the lobby never shows it.
   { id: 'TEST', label: 'TEST', dist: 220, capMs: 60000, test: true },
 ];
-export const LEVEL_COUNT = 5; // WORLD_LEVELS.length; checked by a unit test
+export const LEVEL_COUNT = 6; // WORLD_LEVELS.length (6 with the orbit skyway, ticket 0155); checked by a unit test
 
 // Fastest anyone can legitimately gain progress: warp + booster tops out near 150 mph.
 export const MAX_PROGRESS_PER_SEC = 175;

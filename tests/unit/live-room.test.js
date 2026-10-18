@@ -26,10 +26,11 @@ describe('room codes and config', () => {
     for (const bad of ['ABCD', 'BCD', 'BCDFG', '12AB', '', null]) expect(cleanCode(bad)).toBeNull();
   });
   it('level count matches the game and config is clamped', () => {
-    // Rooms may lag a newly added level until the room server learns it (the lobby offers only
-    // the first LEVEL_COUNT tracks); they must never offer a level the game doesn't have.
-    expect(LEVEL_COUNT).toBeGreaterThanOrEqual(5);
+    // The lobby offers the first LEVEL_COUNT tracks; a new level can lag here until an operator
+    // PR teaches the room server about it, but it must never offer one the game doesn't have.
     expect(LEVEL_COUNT).toBeLessThanOrEqual(WORLD_LEVELS.length);
+    expect(LEVEL_COUNT).toBe(6);
+    expect(cleanConfig({ level: 5, len: 0 }).level).toBe(5); // the orbit skyway
     expect(cleanConfig({ level: 99, len: -1 })).toEqual({ level: 0, len: 0 });
     expect(cleanConfig({ level: 2, len: 1 })).toEqual({ level: 2, len: 1 });
     const test = LENGTHS.findIndex((l) => l.test);
