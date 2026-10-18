@@ -12,6 +12,7 @@ export class RigidBody3D {
     this.type = opts.type || 'HOLO_BARRIER';
     this.name = opts.name || 'OBJECT';
     this.style = opts.style || 'SEDAN';
+    this.shape = opts.shape || null;  // roster shape (src/car-art.js) for rivals: drawn as that car in 2D and 3D
     // 3D World Coordinates & Velocities
     this.offset = opts.offset || 0;          // Lateral lane position [-0.72, +0.72]
     this.prevOffset = this.offset;

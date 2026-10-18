@@ -10,6 +10,7 @@
 // trails (the cutaway itself never rolls the screen).
 import { ERA_PALETTES } from './era-palettes.js';
 import { ROAD_CFG } from './data.js';
+import { shapeOf } from './car-art.js';
 import { LOOP_CAM, NEAR, loopPoint, loopCamera, carPose, peelFall, projectLoop, horizonRow, approachScale } from './loopcam.js';
 
 const ORANGE = '#ff6a13', ORANGE_DARK = '#b83a00', ORANGE_LIT = '#ffb15c';
@@ -329,22 +330,39 @@ function decal(W, H, x, y, z, a, r0, r1, f, u0, u1, fill) {
   quad(W, H, x, y, z, a, r0, f, u0, r1, f, u0, r1, f, u1, r0, f, u1, fill);
 }
 
-/** One car on (or flying off) the loop. `body`/`cabin` are its colours; `lights` its tail (or head) lights. */
-function carBox(W, H, x, y, z, a, body, cabin, lights, scale) {
-  const w = CAR_W * scale, l = CAR_L * scale, h = CAR_H * scale, hc = CAB_H * scale;
+/**
+ * One car on (or flying off) the loop. `body`/`cabin` are its colours; `lights` its tail (or
+ * head) lights; `shape` its roster shape (src/car-art.js), so a van is tall, a light-cycle thin
+ * and a tuner carries its wing, here as everywhere else.
+ */
+function carBox(W, H, x, y, z, a, body, cabin, lights, scale, shape) {
+  const S = shape ? shapeOf(shape) : null;
+  const kw = S ? S.W / 1.86 : 1, kl = S ? S.L / 4.4 : 1;
+  const w = CAR_W * scale * kw, l = CAR_L * scale * kl;
+  const h = CAR_H * scale * (S ? S.hull[1] / 0.72 : 1);
+  const hc = CAB_H * scale * (S ? Math.max(0.15, (S.cab[3] - S.cab[2]) / 0.4) : 1);
+  const c0 = S ? (S.cab[0] / (S.L / 2)) * l / 2 : -l * 0.3, c1 = S ? (S.cab[1] / (S.L / 2)) * l / 2 : l * 0.12;
   depthBias = 0.05;
   box(W, H, x, y, z, a, -w, w, -l / 2, l / 2, 0.25 * scale, h, shadeOf(body, 1.1), shadeOf(body, 0.62), shadeOf(body, 0.82), shadeOf(body, 0.9));
   depthBias = 0.35;
-  box(W, H, x, y, z, a, -w * 0.78, w * 0.78, -l * 0.3, l * 0.12, h, h + hc, shadeOf(cabin, 1.05), '#0f172a', '#0f172a', '#1e293b');
+  box(W, H, x, y, z, a, -w * 0.78, w * 0.78, c0, c1, h, h + hc, shadeOf(cabin, 1.05), '#0f172a', '#0f172a', '#1e293b');
+  if (S && S.extras.includes('wing')) {
+    box(W, H, x, y, z, a, -w * 0.95, w * 0.95, -l / 2 + 0.05 * scale, -l / 2 + 0.5 * scale, h + 0.45 * scale, h + 0.6 * scale, shadeOf(body, 1.0), '#111318', '#111318', '#111318');
+  } else if (S && S.extras.includes('fin')) {
+    box(W, H, x, y, z, a, -0.08 * scale, 0.08 * scale, -l / 2 + 0.1 * scale, -l / 2 + 0.8 * scale, h, h + 0.7 * scale, shadeOf(body, 1.0), shadeOf(body, 0.7), shadeOf(body, 0.8), shadeOf(body, 0.8));
+  }
   // Lights on whichever end faces you (the rear, unless it is coming at you).
   depthBias = 0.6;
   const end = faces(x, y, z, a, 0, -1, 0, 0, -l / 2, h / 2) ? -l / 2 - 0.02 : l / 2 + 0.02;
   decal(W, H, x, y, z, a, -w * 0.92, -w * 0.5, end, h * 0.5, h * 0.75, lights);
   decal(W, H, x, y, z, a, w * 0.5, w * 0.92, end, h * 0.5, h * 0.75, lights);
-  // Wheels: dark slabs at the corners, just under the body.
+  // Wheels: dark slabs at the corners, just under the body (a light-cycle has two, in line).
   depthBias = 0.02;
+  const cycle = S && S.cycle;
   for (let side = -1; side <= 1; side += 2) {
-    for (let e = -1; e <= 1; e += 2) box(W, H, x, y, z, a, side > 0 ? w * 0.7 : -w * 1.02, side > 0 ? w * 1.02 : -w * 0.7, e * l * 0.32 - 0.35 * scale, e * l * 0.32 + 0.35 * scale, 0, 0.7 * scale, '#111318', '#090a0f', '#090a0f', '#090a0f');
+    if (cycle && side > 0) continue;
+    const r0 = cycle ? -w * 0.5 : side > 0 ? w * 0.7 : -w * 1.02, r1 = cycle ? w * 0.5 : side > 0 ? w * 1.02 : -w * 0.7;
+    for (let e = -1; e <= 1; e += 2) box(W, H, x, y, z, a, r0, r1, e * l * 0.32 - 0.35 * scale, e * l * 0.32 + 0.35 * scale, 0, 0.7 * scale, '#111318', '#090a0f', '#090a0f', '#090a0f');
   }
   depthBias = 0;
 }
@@ -364,7 +382,7 @@ function buildMovers(f, movers, from, to, W, H) {
       const lift = ((mv.y || 0) / 180) * LOOP_CAM.halfW * 0.45;
       const x = pt.x, y = pt.y + pt.uy * lift, z = pt.z + pt.uz * lift;
       const truck = mv.style === 'SEMI_TRUCK';
-      carBox(W, H, x, y, z, pt.a, truck ? '#cbd5e1' : (mv.bodyColor || '#334155'), truck ? '#94a3b8' : (mv.accentColor || '#64748b'), mv.oncoming ? '#fef08a' : '#ff1e1e', truck ? 1.25 : 1);
+      carBox(W, H, x, y, z, pt.a, truck ? '#cbd5e1' : (mv.bodyColor || '#334155'), truck ? '#94a3b8' : (mv.accentColor || '#64748b'), mv.oncoming ? '#fef08a' : '#ff1e1e', truck ? 1.25 : 1, truck ? '' : mv.shape);
     }
   }
 }

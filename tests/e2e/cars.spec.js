@@ -1,7 +1,7 @@
 // Car unlocks (ticket 0071): locked cars can't be driven, milestones unlock them, the
 // car you pick is remembered and its specs (HP here) are what you race with.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, skipToGreen } from './helpers.js';
 
 const car = (page, id) => page.locator(`#characterRosterGrid button[data-car-id="${id}"]`);
 const save = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('outatime_cruisn_88_save_v2') || '{}'));
@@ -38,5 +38,33 @@ test('locked cars stay locked until earned; an unlocked car is remembered and ra
   await page.locator('#btnStartEvent').click();
   const hp = await page.evaluate(() => [window.__OT.GameState.maxHp, window.__OT.GameState.carParamsFor]);
   expect(hp).toEqual([108, 'BLUE_KESTREL']);
+  expect(problems).toEqual([]);
+});
+
+// Car identity: the car you pick is the car you see — its own shape in the race (not one
+// generic sprite in different paint), on the lineup card, and on the podium.
+test('the chosen car races as itself: its shape on the road, the lineup and the podium', async ({ page }, info) => {
+  const problems = watchPage(page);
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({
+      garage: { owned: ['FLUX_COUPE_88', 'PASS_RUNNER_86', 'BULLDOG_VAN'], selected: 'BULLDOG_VAN', paint: {}, revealed: ['BULLDOG_VAN'] },
+    }));
+  });
+  await page.goto(`${APP}?debug&intro`);
+  await page.locator('#btnOpenEvents').click();
+  await page.locator('#btnStartEvent').click();
+  // The lineup card for each racer shows that racer's car (a rendered portrait, not an emoji).
+  await expect(page.locator('#rcCard .rc-car-art')).toBeVisible({ timeout: 8000 });
+  await skipToGreen(page);
+  await expect.poll(() => page.evaluate(() => window.__OT.GameState.playerShape2D), { timeout: 8000 }).toBe('HEAVY_VAN');
+  expect(await page.evaluate(() => window.__OT.GameState.carParamsFor)).toBe('BULLDOG_VAN');
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: info.outputPath('van-race.png') });
+  // The podium lists every racer with their car.
+  await page.evaluate(() => { window.__OT.GameState.score = 1000; window.__OT.finishRun(); });
+  await expect(page.locator('#endPodium .pod-car').first()).toBeVisible({ timeout: 8000 });
+  expect(await page.locator('#endPodium .pod-car').count()).toBeGreaterThanOrEqual(5);
   expect(problems).toEqual([]);
 });

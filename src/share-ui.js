@@ -31,7 +31,7 @@ function cardData() {
   return {
     place: r.place, total: r.total, startPos: r.total, beatBy: r.beatBy ?? null, outcome: r.outcome,
     beat: r.beat, time: r.time, bestLap: laps.length > 1 ? Math.min(...laps) : null, levelName: r.levelName.replace(/^LVL \d+:\s*/i, ''),
-    daily: r.daily, initials, car: me.car, color: SaveStore.data.underglow || me.glow, url, isRoom: Boolean(live),
+    daily: r.daily, initials, car: me.car, look: r.look || null, color: SaveStore.data.underglow || me.glow, url, isRoom: Boolean(live),
     displayUrl: url.replace(/^https?:\/\//, '').replace(/\?.*$/, ''),
   };
 }
