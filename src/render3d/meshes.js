@@ -278,24 +278,6 @@ function lampGeometry() {
   ]);
 }
 
-let signTex = null;
-function signTexture() {
-  if (signTex) return signTex;
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 128;
-  const g = c.getContext('2d');
-  g.fillStyle = '#12051f'; g.fillRect(0, 0, 256, 128);
-  g.strokeStyle = NEON_PINK; g.lineWidth = 6; g.strokeRect(6, 6, 244, 116);
-  g.fillStyle = NEON_CYAN; g.font = 'bold 74px Orbitron, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.shadowColor = NEON_CYAN; g.shadowBlur = 14;
-  g.fillText('88', 128, 62);
-  g.font = 'bold 18px Orbitron, sans-serif'; g.fillStyle = '#ffd166'; g.shadowBlur = 0;
-  g.fillText('MILES PER HOUR', 128, 108);
-  signTex = new CanvasTexture(c);
-  signTex.colorSpace = SRGBColorSpace;
-  return signTex;
-}
-
 /** Instanced prop kinds: geometry, material and a per-kind capacity. */
 export function propKinds() {
   const lit = new MeshLambertMaterial({ vertexColors: true });
@@ -304,8 +286,6 @@ export function propKinds() {
     PALM_TREE: { geo: palmGeometry(), mat: lit, cap: 48 },
     STREET_LAMP: { geo: lampGeometry(), mat: lit, cap: 48, mirror: true },
     LAMP_GLOW: { geo: new PlaneGeometry(4, 4), mat: glowMaterial('#ffc27a', 0.9), cap: 48, billboard: true },
-    SIGN_88: { geo: new PlaneGeometry(7, 3.5).translate(0, 6, 0), mat: new MeshBasicMaterial({ map: signTexture(), side: DoubleSide }), cap: 32 },
-    SIGN_POST: { geo: merged([colored(new BoxGeometry(0.2, 4.5, 0.2).translate(-2.5, 2.25, 0), '#374151'), colored(new BoxGeometry(0.2, 4.5, 0.2).translate(2.5, 2.25, 0), '#374151')]), mat: lit, cap: 32 },
     CLOCK_TOWER_BILLBOARD: { geo: merged([colored(new BoxGeometry(3, 14, 3).translate(0, 7, 0), '#2a1840'), colored(new ConeGeometry(2.4, 3, 4).rotateY(Math.PI / 4).translate(0, 15.5, 0), '#3d2160')]), mat: lit, cap: 32 },
     CLOCK_FACE: { geo: new CircleGeometry(1.1, 16).translate(0, 11.5, 1.52), mat: new MeshBasicMaterial({ color: '#fff3c4' }), cap: 32 },
     ARCH_HW: { geo: new BoxGeometry(0.5, 9, 0.5).translate(0, 4.5, 0), mat: neonOrange, cap: 32 },

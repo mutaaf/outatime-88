@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "report": false,
+  "note": "Sponsor boards for OUTATIME 88. Spec and policy: docs/ADS.md. Every campaign must be kidSafe: true; images live in this folder only.",
+  "campaigns": [
+    { "id": "house-friends", "name": "Race your friends", "creative": { "house": "friends" }, "weight": 3, "kidSafe": true },
+    { "id": "house-daily", "name": "Daily challenge", "creative": { "house": "daily" }, "weight": 3, "kidSafe": true },
+    { "id": "house-board", "name": "Leaderboard season", "creative": { "house": "board" }, "weight": 2, "kidSafe": true },
+    { "id": "house-openaero", "name": "OpenAero DFW", "creative": { "house": "openaero" }, "weight": 2, "kidSafe": true },
+    { "id": "house-88", "name": "88 MPH", "creative": { "house": "sign88" }, "weight": 2, "kidSafe": true, "kinds": ["ROADSIDE", "GATE_SIGN"] },
+    { "id": "house-site", "name": "mutaafaziz.com", "creative": { "house": "site" }, "weight": 1, "kidSafe": true },
+    { "id": "house-advertise", "name": "Advertise here", "creative": { "house": "advertise" }, "weight": 1, "kidSafe": true }
+  ]
+}

@@ -8,6 +8,7 @@ import {
   Points, PointsMaterial, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
   Float32BufferAttribute, MeshStandardMaterial, ACESFilmicToneMapping, PCFSoftShadowMap, PCFShadowMap,
   CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace, Quaternion, Euler, DoubleSide, Sphere,
+  BoxGeometry, LinearMipmapLinearFilter,
 } from 'three';
 import { asphaltTextures, bakeEnvironment, paletteFor } from './surfaces.js';
 import { ROAD_CFG } from '../data.js';
@@ -16,6 +17,7 @@ import { createTrackPath } from './path.js';
 import { featureAt } from '../track.js';
 import { tyreSmokeLevel, smokeRate, createSmokePool } from '../smoke.js';
 import { bodyPose, playerPose } from '../render-pose.js';
+import { SPEC as BOARD, creativeFor, faceCanvas, faceGeneration, noteView } from '../billboard-art.js';
 import { buildCar, buildObstacle, propKinds, mountainRing, turnWheels, bodyStyle, NEON_CYAN, NEON_PINK } from './meshes.js';
 
 // Simulation units → metres. Depth is stretched and the road narrowed (see path.js).
@@ -430,6 +432,109 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     p.mesh.setMatrixAt(p.n++, dummy.matrix);
   }
 
+  // ── Billboards (docs/ADS.md): a fixed pool of lit boards, one crisp texture per campaign ──
+  // Faces come from the same vector painter as 2D (src/billboard-art.js) at 1024 px (512 on
+  // LOW), mipmapped with full anisotropy so text holds up at a grazing angle. Unlit and not
+  // tone-mapped: a sponsor's colours read exactly as supplied, by day or by neon night.
+  const BOARD_POOL = 16;
+  const BOARD_REACH = 110; // segments ahead: further out a face is a few pixels anyway
+  const unitPlane = new PlaneGeometry(1, 1);
+  const boardBlank = new MeshBasicMaterial({ color: '#0c0e13' });
+  // Every board's back panel and two legs are one instanced draw; each face is one more.
+  const boardFrames = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshLambertMaterial({ color: '#14161d' }), BOARD_POOL * 3);
+  boardFrames.instanceMatrix.setUsage(DynamicDrawUsage);
+  boardFrames.frustumCulled = false;
+  boardFrames.castShadow = true;
+  boardFrames.count = 0;
+  scene.add(boardFrames);
+  const boardFaces = [];
+  for (let n = 0; n < BOARD_POOL; n++) {
+    const face = new Mesh(unitPlane, boardBlank);
+    face.visible = false;
+    scene.add(face);
+    boardFaces.push(face);
+  }
+  const bd = new Object3D();
+  let nFrames = 0;
+  /** One frame piece at local (lx, ly, lz) of a board at (ox, oy, oz) turned `yaw`. */
+  function boardPiece(ox, oy, oz, yaw, lx, ly, lz, sx, sy, sz) {
+    const c = Math.cos(yaw), sn = Math.sin(yaw);
+    bd.position.set(ox + lx * c + lz * sn, oy + ly, oz - lx * sn + lz * c);
+    bd.rotation.set(0, yaw, 0);
+    bd.scale.set(sx, sy, sz);
+    bd.updateMatrix();
+    boardFrames.setMatrixAt(nFrames++, bd.matrix);
+  }
+  const boardMats = new Map(); // `${cid}|${kind aspect}` → material (bounded: campaigns × 3 aspects)
+  function boardMat(cid, kind) {
+    const key = cid + '|' + BOARD[kind].key;
+    let m = boardMats.get(key);
+    if (m && m.userData.gen === faceGeneration()) return m;
+    const tex = new CanvasTexture(faceCanvas(cid, kind, q.tier === 'low' ? 512 : 1024));
+    tex.colorSpace = SRGBColorSpace;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    tex.minFilter = LinearMipmapLinearFilter;
+    tex.generateMipmaps = true;
+    if (!m) { m = new MeshBasicMaterial({ map: tex, toneMapped: false }); boardMats.set(key, m); }
+    else { if (m.map) m.map.dispose(); m.map = tex; m.needsUpdate = true; }
+    m.userData.gen = faceGeneration();
+    return m;
+  }
+  const bc = new Vector3(), bq = new Vector3();
+  function syncBoards(playerSeg, e) {
+    let used = 0;
+    nFrames = 0;
+    const end = Math.min(track.end, playerSeg + Math.min(AHEAD, BOARD_REACH), path.count);
+    const eraId = e.id || '';
+    const vw = canvas.clientWidth || 1, vh = canvas.clientHeight || 1;
+    for (let i = Math.max(track.start, playerSeg - 2); i < end && used < BOARD_POOL; i++) {
+      const items = track.seg(i).items;
+      for (let k = 0; k < items.length && used < BOARD_POOL; k++) {
+        const it = items[k];
+        if (it.type !== 'BILLBOARD' || !BOARD[it.kind]) continue;
+        const s = BOARD[it.kind];
+        const face = boardFaces[used++];
+        const w = s.w * HALF_W, h = w / s.aspect, lift = s.lift * HALF_W, bez = Math.max(0.12, w * 0.022);
+        path.at(i * ROAD_CFG.segLength, it.offset, pose);
+        const ox = pose.x, oy = pose.y, oz = -pose.z;
+        const ground = s.overhead ? 0 : -2;
+        // Roadside boards toe in toward the road so they read on the approach.
+        const yaw = -pose.heading + (s.overhead ? 0 : -Math.sign(it.offset) * 0.28);
+        const cy = lift + h / 2;
+        const c = Math.cos(yaw), sn = Math.sin(yaw);
+        face.position.set(ox + 0.07 * sn, oy + cy, oz + 0.07 * c);
+        face.rotation.set(0, yaw, 0);
+        face.scale.set(w, h, 1);
+        boardPiece(ox, oy, oz, yaw, 0, cy, 0, w + bez * 2, h + bez * 2, 0.12);
+        if (s.overhead) {
+          const lh = lift + h - ground, lx = w / 2 + bez + 0.2;
+          boardPiece(ox, oy, oz, yaw, -lx, ground + lh / 2, 0, 0.35, lh, 0.35);
+          boardPiece(ox, oy, oz, yaw, lx, ground + lh / 2, 0, 0.35, lh, 0.35);
+        } else {
+          const lh = lift - ground;
+          boardPiece(ox, oy, oz, yaw, -w * 0.3, ground + lh / 2, -0.05, 0.18, lh, 0.18);
+          boardPiece(ox, oy, oz, yaw, w * 0.3, ground + lh / 2, -0.05, 0.18, lh, 0.18);
+        }
+        const cid = creativeFor(it, eraId);
+        face.material = boardMat(cid, it.kind);
+        face.visible = true;
+        // Viewability: the face's screen rect from two opposite corners.
+        bc.set(ox - c * w / 2, oy + lift + h, oz + sn * w / 2).project(camera);
+        bq.set(ox + c * w / 2, oy + lift, oz - sn * w / 2).project(camera);
+        if (bc.z < 1 && bq.z < 1 && bc.z > -1 && bq.z > -1) {
+          const x0 = (Math.min(bc.x, bq.x) + 1) / 2 * vw, x1 = (Math.max(bc.x, bq.x) + 1) / 2 * vw;
+          const y0 = (1 - Math.max(bc.y, bq.y)) / 2 * vh, y1 = (1 - Math.min(bc.y, bq.y)) / 2 * vh;
+          noteView(it, cid, x0, y0, x1 - x0, y1 - y0, vw, vh);
+        }
+      }
+    }
+    for (let n = used; n < BOARD_POOL; n++) boardFaces[n].visible = false;
+    boardFrames.count = nFrames;
+    boardFrames.visible = nFrames > 0;
+    if (nFrames) boardFrames.instanceMatrix.needsUpdate = true;
+    stats.boards = used;
+  }
+
   function syncProps(playerSeg, t) {
     for (const k in props) props[k].n = 0;
     const end = Math.min(track.end, playerSeg + AHEAD, path.count);
@@ -450,7 +555,6 @@ export function createView3D({ container, state, track, era, collectCars, obstac
             placeProp('LAMP_GLOW', pose.x, pose.y + 5.1, -pose.z, 0);
             break;
           }
-          case 'SIGN_88': placeProp('SIGN_88', x, y - 1, z, yaw); placeProp('SIGN_POST', x, y - 1, z, yaw); break;
           case 'CLOCK_TOWER_BILLBOARD': placeProp('CLOCK_TOWER_BILLBOARD', x, y - 2, z, yaw); placeProp('CLOCK_FACE', x, y - 2, z, yaw); break;
           case 'ARCH_HW': placeProp('ARCH_HW', x, y - 1, z, yaw); break;
           case 'OVERHEAD_GATE': placeProp('OVERHEAD_GATE', x, y, z, yaw); break;
@@ -1048,6 +1152,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       const pzDrawn = syncPlayer(dt);
       syncCamera(pzDrawn, dt, feel, clock);
       syncProps(playerSeg, clock);
+      syncBoards(playerSeg, e);
       syncCars(clock, dt);
       syncObstacles();
       syncTrails(dt);
@@ -1107,6 +1212,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       if (env) env.dispose();
       if (post) post.dispose();
       tagTex.forEach((t) => t.dispose());
+      boardMats.forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); });
       scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
       renderer.dispose();
       canvas.remove();

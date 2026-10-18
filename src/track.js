@@ -133,6 +133,20 @@ export function addItem(seg, offset, type, collectible = false, phase = 0) {
   return it;
 }
 
+/**
+ * A billboard: an ad slot of its own (docs/ADS.md; art and rotation in src/billboard-art.js).
+ * `slot` is stable for a given road (absolute segment index × 4 + `k`), so every racer on the
+ * same seed sees the same board in the same place. Pooled like every other item.
+ */
+export function addBoard(seg, offset, kind, k) {
+  const it = addItem(seg, offset, 'BILLBOARD');
+  it.kind = kind;
+  it.slot = seg.index * 4 + k;
+  it.cid = '';
+  it.mv = -1;
+  return it;
+}
+
 const lastY = () => (track.end > track.start ? track.ring[(track.end - 1) & MASK].p2.world.y : 0);
 
 export function addRoadSection(enter, hold, leave, curve, yDelta, bank, trackType = 'STANDARD', forkInfo = null) {
@@ -167,12 +181,26 @@ export function populateChunkDecorations(startIdx, endIdx, patternType) {
       addItem(seg, 1.15, 'MC_FLARE_GREEN');
     }
 
+    // Billboards (docs/ADS.md): the start arch, a gantry over every checkpoint, a banner on
+    // the run-up to a loop and a sign at the other booster gates. All off the road or overhead.
+    if (patternType === 'OPENING' && i === startIdx + 14) addBoard(seg, 0, 'START_ARCH', 1);
+    if (seg.trackType === 'CHECKPOINT' && i === startIdx + 1) addBoard(seg, 0, 'GANTRY', 1);
+    const gate = seg.feature && seg.feature.kind === 'BOOSTER' && seg.feature.z0 === i * L() ? seg.feature : null;
+    if (gate) addBoard(seg, -1.72, gate.lead === 'LOOP' ? 'LOOP_BANNER' : 'GATE_SIGN', 2);
+
     // Roadside Streetlamps, Billboards & Orange-Track Arches
     if (i % 6 === 0) {
-      const propTypes = ['STREET_LAMP', 'SIGN_88', 'PALM_TREE', 'CLOCK_TOWER_BILLBOARD', 'ARCH_HW'];
+      const propTypes = ['STREET_LAMP', 'BILLBOARD', 'PALM_TREE', 'CLOCK_TOWER_BILLBOARD', 'ARCH_HW'];
       const pType = propTypes[(i / 6) % propTypes.length | 0];
-      addItem(seg, -1.42, pType);
-      addItem(seg, 1.42, pType);
+      if (pType === 'BILLBOARD') {
+        // One big roadside board, alternating sides, with a lamp across the road.
+        const side = ((i / 30) | 0) % 2 ? 1 : -1;
+        addBoard(seg, 1.58 * side, 'ROADSIDE', 0);
+        addItem(seg, -1.42 * side, 'STREET_LAMP');
+      } else {
+        addItem(seg, -1.42, pType);
+        addItem(seg, 1.42, pType);
+      }
     }
 
     // Overhead Loop & Tunnel Rings
@@ -233,9 +261,9 @@ const PIECES = {
     addRoadSection(4, 6, 4, 0.9 * d * amp, 0, 0.2 * d);
     addRoadSection(6, 22, 10, 2.3 * d * amp, -140, 0.5 * d);
   },
-  gate: (boostTo) => addFeatureRun('BOOSTER', 12, 0, 0, 'BOOSTER', { boostTo }),
+  gate: (boostTo, lead = '') => addFeatureRun('BOOSTER', 12, 0, 0, 'BOOSTER', { boostTo, lead }),
   loop: () => {
-    PIECES.gate(loopEntryMph());
+    PIECES.gate(loopEntryMph(), 'LOOP');
     addFeatureRun('LOOP', Math.round(loopLength() / L()), 0, 0, 'STANDARD', { radius: SETPIECE.LOOP.radius, minMph: SETPIECE.LOOP.minMph });
     addRoadSection(6, 10, 6, 0, 0, 0);
   },
