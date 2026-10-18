@@ -12,10 +12,19 @@ test('holding Shift burns NOS: speed goes past top speed and the gauge drains', 
   const before = await page.evaluate(() => window.__OT.GameState.nosFill);
   expect(before).toBeGreaterThan(0.3);
   const gauge0 = await page.locator('#hudNos').evaluate((e) => parseFloat(e.style.width));
+  // Track the peak speed while burning, in simulation time (CI runs the sim slower than real
+  // time, and a bump from traffic can scrub speed mid-burn).
+  await page.evaluate(() => {
+    const g = window.__OT.GameState;
+    g.invulnTimer = 30;
+    window.__peak = 0;
+    window.__nosRec = setInterval(() => { if (g.nosBurning) window.__peak = Math.max(window.__peak, g.speed); }, 5);
+  });
   await page.keyboard.down('Shift');
   await page.waitForFunction(() => window.__OT.GameState.nosBurning === true);
-  await page.waitForTimeout(700);
-  const mid = await page.evaluate(() => ({ s: window.__OT.GameState.speed, f: window.__OT.GameState.nosFill }));
+  const t0 = await page.evaluate(() => window.__OT.GameState.raceTime);
+  await page.waitForFunction((t) => window.__OT.GameState.raceTime - t > 0.9, t0, { timeout: 15000 });
+  const mid = await page.evaluate(() => ({ s: window.__peak, f: window.__OT.GameState.nosFill }));
   await expect(page.locator('#hudSpeedCard')).toHaveClass(/is-nos/);
   await page.keyboard.up('Shift');
   expect(mid.s).toBeGreaterThan(100);
