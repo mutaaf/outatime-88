@@ -9,6 +9,7 @@ import { dailySpec, utcDay } from './daily.js';
 import { submitRun, fetchBoard, fetchStanding, fetchHall, normalizeInitials, rankLine } from './leaderboard.js';
 import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
 import { ordinal } from './raceflow.js';
+import { missionLine } from './missions.js';
 
 /**
  * deps: run (get/set the current leaderboard run, owned by main.js), raceGhostOf(initials, level),
@@ -56,6 +57,19 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     el.className = 'mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-rose-300';
   }
 
+  /** Results: the run's three missions (ticket 0026). */
+  function renderMissions(run) {
+    const list = $('endMissions');
+    if (!list) return;
+    list.textContent = '';
+    for (const m of run || []) {
+      const li = document.createElement('li');
+      li.className = m.done ? 'done' : '';
+      li.textContent = missionLine(m);
+      list.appendChild(li);
+    }
+  }
+
   /** Results line for cars a race just unlocked (the garage plays the full reveal). */
   function announceNewCars(names) {
     if (!names.length) return;
@@ -88,6 +102,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     $('endWarpsText').textContent = `${ordinal(GameState.racePosition)} • ${GameState.timeWarps} WARPS`;
     $('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
     $('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
+    renderMissions(GameState.missions);
     $('gameOverModal').classList.remove('hidden');
     offerScoreSubmission();
   }

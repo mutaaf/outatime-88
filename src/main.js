@@ -1,7 +1,7 @@
 import './fonts.js';
 import './styles.css';
 import { drawBackdrop, drawRoadsideAd, drawRoadsideProp, drawHazardArt, drawSoftShadow, queueTag, flushTags, drawWeather, preloadBackdrops, resetBackdrop, backdropDebug, setBackdropQuality } from './backdrop.js';
-import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
+import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks, loadMusic } from './audio.js';
@@ -33,6 +33,7 @@ let shareUi = null;
 const loadShareUi = () => (shareUi = shareUi || import('./share-ui.js').then((m) => { m.initShareUi({ startChallenge }); return m; }));
 import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
+import { pickMissions, advanceMission, missionsDone, recordMissions, titleMissionLine } from './missions.js';
 import { beginRun, fetchGhost, normalizeInitials } from './leaderboard.js';
 import { createGhostRecorder, createGhostRace } from './ghost.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
@@ -732,31 +733,18 @@ function triggerAnnouncement(mainText, subText = '', duration = 950, priority) {
   announcer.push(mainText, subText, duration, priority);
 }
 
+// Run missions (ticket 0026): the run's three contracts; a completion pays out and goes
+// through the announcer (no HUD row). The results card lists all three.
 function advanceContractProgress(type, amount) {
-  const tmpl = CONTRACT_TEMPLATES[GameState.contractIdx % CONTRACT_TEMPLATES.length];
-  if (!tmpl || tmpl.type !== type) return;
-  GameState.contractProgress += amount;
-  if (GameState.contractProgress >= tmpl.target) {
-    // Contract Completed!
-    SaveStore.data.fluxCoins += tmpl.reward;
-    GameState.runCoins += tmpl.reward;
-    GameState.score += 3000 * GameState.combo;
-    GameState.specialCharges = Math.min(5, GameState.specialCharges + 1);
-    SoundEngine.playCheckpoint();
-    triggerAnnouncement('🎯 STREET CONTRACT COMPLETE!', `+${tmpl.reward} ⚡ FLUX & +1 SPECIAL CHARGE!`, 1900);
-    GameState.contractIdx = (GameState.contractIdx + 1) % CONTRACT_TEMPLATES.length;
-    GameState.contractProgress = 0;
-    SaveStore.save();
-  }
-  updateContractHud();
-}
-
-function updateContractHud() {
-  const tmpl = CONTRACT_TEMPLATES[GameState.contractIdx % CONTRACT_TEMPLATES.length];
-  const textEl = document.getElementById('activeContractText');
-  const rewEl = document.getElementById('activeContractReward');
-  if (textEl && tmpl) textEl.textContent = tmpl.label(GameState.contractProgress, tmpl.target);
-  if (rewEl && tmpl) rewEl.textContent = `+${tmpl.reward} ⚡`;
+  const m = advanceMission(GameState.missions, type, amount);
+  if (!m) return;
+  SaveStore.data.fluxCoins += m.reward;
+  GameState.runCoins += m.reward;
+  GameState.score += 3000 * GameState.combo;
+  GameState.specialCharges = Math.min(5, GameState.specialCharges + 1);
+  SoundEngine.playCheckpoint();
+  triggerAnnouncement(`🎯 MISSION ${missionsDone(GameState.missions)}/3 COMPLETE!`, `${m.label} · +${m.reward} ⚡ & +1 SPECIAL`, 1900);
+  SaveStore.save();
 }
 
 // --- 2026 3D ANIMATED POWER-UP ACQUISITION & OBSTACLE IMPACT FX ---
@@ -3458,6 +3446,8 @@ function updateTitleChip() {
   const chip = document.getElementById('titleEventChip');
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
   if (chip) chip.textContent = `${lvl.name} · ${GameState.mode === 'INFINITE' ? 'ENDLESS' : 'ARCADE'}`;
+  const missions = document.getElementById('titleMissions');
+  if (missions) missions.textContent = titleMissionLine(SaveStore.data, utcDay(Date.now()));
 }
 
 function openEventsPanel() {
@@ -3594,6 +3584,8 @@ function startNewRace(opts) {
   trafficRand = liveRace ? mulberry32(liveRace.seed) : daily ? mulberry32(daily.seed) : Math.random;
   // The racing line (sprint 4) is shared by everyone on a seeded race (live rooms, dailies).
   GameState.lineSeed = liveRace ? liveRace.seed : daily ? daily.seed : (1 + Math.random() * 2147483646) | 0;
+  // Missions (0026) draw from their own stream so they never shift the seeded traffic.
+  GameState.missions = pickMissions(liveRace || daily ? mulberry32(GameState.lineSeed ^ 0x5eed) : Math.random);
   GameState.trafficGapScale = 1;
 
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
@@ -3663,7 +3655,6 @@ function startNewRace(opts) {
   }
   syncAudioUI();
   updateEraHud();
-  updateContractHud();
   if (raceHud) raceHud.reset();
   updateLiveHud(true);
 
@@ -3918,6 +3909,7 @@ function endRaceRun(customBadgeText = null) {
     daily: Boolean(GameState.daily),
     day: utcDay(Date.now()),
   });
+  recordMissions(SaveStore.data, utcDay(Date.now()), missionsDone(GameState.missions));
   SaveStore.save();
   const newCarNames = carNamesFor(newCars);
   if (currentRun) {
@@ -4615,6 +4607,7 @@ window.onload = () => {
     GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
+    mission: advanceContractProgress,
     traffic: () => LiveTraffic,
     track: () => track,
     backdrop: backdropDebug,
@@ -4653,7 +4646,6 @@ window.onload = () => {
   updateTitleChip();
   syncAudioUI();
   updateEraHud();
-  updateContractHud();
   updateLiveHud();
   // A ?room=CODE invite drops you straight into that room's lobby (no title, no menus).
   const roomParam = new URLSearchParams(location.search).get('room');
@@ -4677,4 +4669,5 @@ function renderRacerPill(p) {
   if (name) name.textContent = p?.initials || SaveStore.data.initials || 'RACER';
   const best = document.getElementById('titleBestScore');
   if (best) best.textContent = SaveStore.data.bestScore.toLocaleString();
+  updateTitleChip();
 }

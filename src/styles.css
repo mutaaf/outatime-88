@@ -459,6 +459,16 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 /* Competition (ticket 0091): rank card, rival line, podium board. */
 .title-rival { min-height: 1.2em; max-width: min(92vw, 34rem); font-size: 10px; font-weight: 900; letter-spacing: 0.12em; color: #fde68a; text-shadow: 0 0 10px rgba(255, 136, 0, 0.6); }
 .title-rival:empty { display: none; }
+/* Run missions (ticket 0026): one line on the title, three rows on the results card. */
+.title-missions { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: #a5f3fc; text-shadow: 0 0 8px rgba(0, 240, 255, 0.45); }
+.title-missions:empty, .end-missions:empty { display: none; }
+.end-missions { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; text-align: left; font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 800; color: #cbd5e1; }
+.end-missions li { padding: 2px 8px; border-radius: 8px; background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.end-missions li.done { color: #6ee7b7; border-color: rgba(16, 185, 129, 0.6); }
+/* Title (0026): the event chip and today's missions; side by side on a phone on its side. */
+.title-lines { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+@media (max-height: 430px) { .title-lines { flex-direction: row; gap: 14px; } }
+@media (max-height: 700px) and (orientation: portrait) { .end-missions { margin-top: 3px; gap: 1px; font-size: 9px; } .end-missions li { padding: 0 8px; } }
 .rank-card { margin-top: 2px; padding: 8px 10px; border-radius: 14px; background: linear-gradient(135deg, rgba(255, 0, 127, 0.18), rgba(0, 240, 255, 0.12)); border: 1px solid rgba(255, 0, 127, 0.55); font-family: 'Orbitron', sans-serif; }
 .rank-card-in { animation: rankPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 @keyframes rankPop { from { transform: scale(0.85); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -588,6 +598,8 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
   .end-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 4px; }
   .end-stats .led-box { padding: 3px 8px; }
   .end-stats b { font-size: 12px; }
+  .end-missions { margin-top: 3px; font-size: 9px; }
+  .end-missions li { padding: 1px 8px; }
   .end-actions { margin-top: 6px; }
   .end-btn { min-height: 44px; }
   .res-right { display: flex; flex-direction: column; justify-content: center; }

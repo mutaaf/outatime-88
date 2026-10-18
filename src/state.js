@@ -75,8 +75,7 @@ export const GameState = {
   particles: [],
   lightningBolts: [],
   flyingWrecks: [], // Rivals launched into the air on Takedown!
-  contractIdx: 0,
-  contractProgress: 0,
+  missions: null, // this run's three missions (src/missions.js, ticket 0026)
   // LUMEN Co-Pilot / Mark-88 State
   jarvisMode: 2, // Default to 100% pure manual player control
   jarvisArEnabled: true,
