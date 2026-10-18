@@ -30,6 +30,7 @@ export const CAR_SPECS = {
   GO_ROCKET_5: { cls: 'LAUNCHER', stats: { speed: 8, accel: 8, grip: 5, flux: 6, armor: 3 }, unlock: { type: 'wins', count: 3 } },
   TWIN_TURBINE: { cls: 'DRAG KING', stats: { speed: 9, accel: 6, grip: 5, flux: 7, armor: 3 }, unlock: { type: 'rival', count: 20 } },
   GRID_CYCLE: { cls: 'GLASS CANNON', stats: { speed: 9, accel: 8, grip: 6, flux: 5, armor: 2 }, unlock: { type: 'coins', cost: 1600 } },
+  VOLT_ROADSTER: { cls: 'ELECTRIC', stats: { speed: 9, accel: 9, grip: 5, flux: 4, armor: 3 }, unlock: { type: 'coins', cost: 1200 } },
   ARC_ROADSTER_88: { cls: 'SELF-HEALER', stats: { speed: 7, accel: 6, grip: 6, flux: 7, armor: 4 }, unlock: { type: 'medal', level: 'LVL4_MULHOLLAND_2088', medal: 'gold' } },
 };
 

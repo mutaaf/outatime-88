@@ -5,7 +5,7 @@
 import { qrToCanvas } from './qr.js'; // the shared on-device encoder (ticket 0090)
 import { formatRaceTime, ordinal } from './raceflow.js';
 import { shareCopy } from './sharelink.js';
-import { carSprite, SPRITE_ASPECT, GROUND_Y } from './car-sprite.js';
+import { carSprite } from './car-sprite.js';
 
 export const FORMATS = Object.freeze({
   post: { w: 1080, h: 1350 },
@@ -200,8 +200,8 @@ function carArt(ctx, look, x, groundY, w, color) {
   ctx.fill();
   ctx.restore();
   const spr = carSprite(look, w, { view: 'three-quarter' });
-  const h = w * SPRITE_ASPECT;
-  ctx.drawImage(spr, x - w / 2, groundY - h * GROUND_Y, w, h);
+  const h = w * spr.height / spr.width;
+  ctx.drawImage(spr, x - w / 2, groundY - h * (spr.gy / spr.height), w, h);
 }
 
 /**

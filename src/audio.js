@@ -28,6 +28,7 @@ export function setAudioHooks(h) { Object.assign(hooks, h); }
 const ENGINE_VOICES = {
   GULLWING: [1, 1], MUSCLE: [0.82, 1.3], TUNER_WING: [1.12, 0.9], SCANNER: [0.92, 1.15],
   ROCKET: [1.22, 0.8], HEAVY_VAN: [0.7, 1.4], LIGHTCYCLE: [1.45, 0.7],
+  ROADSTER: [1, 1, true], // electric: a motor whine, not an engine (no recorded engine loop)
 };
 
 export const SoundEngine = {
@@ -183,6 +184,7 @@ export const SoundEngine = {
     this.engineFilter.connect(this.engineBus);
     this.engineOsc.start(ctx.currentTime);
     this.engineSub.start(ctx.currentTime);
+    this.applyVoiceType();
   },
   enginePitch: 1,
   engineGrowl: 1,
@@ -191,6 +193,15 @@ export const SoundEngine = {
     const v = ENGINE_VOICES[shape] || ENGINE_VOICES.GULLWING;
     this.enginePitch = v[0];
     this.engineGrowl = v[1];
+    this.electric = Boolean(v[2]);
+    this.applyVoiceType();
+  },
+  electric: false,
+  /** An electric car whines (sine + triangle); everything else growls (saw + square). */
+  applyVoiceType() {
+    if (!this.engineOsc) return;
+    this.engineOsc.type = this.electric ? 'sine' : 'sawtooth';
+    this.engineSub.type = this.electric ? 'triangle' : 'square';
   },
   /** Called every frame; cheap (three param targets, no allocation). */
   updateEngine(speedMph, playing) {
@@ -200,14 +211,25 @@ export const SoundEngine = {
     if (b) {
       b.tyres(playing ? GameState : null, playing && GameState.wallGrind && speedMph > 20 ? Math.min(1, speedMph / 100) : 0);
       b.nos(Boolean(playing && GameState.nosBurning));
-      if (b.engine({ rpm: GameState.rpm, gear: GameState.gear, throttle: Boolean(GameState.throttle), playing, pitch: this.enginePitch, growl: this.engineGrowl })) {
+      // (An electric car mutes the recorded engine and keeps its synth whine.)
+      if (b.engine({ rpm: GameState.rpm, gear: GameState.gear, throttle: Boolean(GameState.throttle), playing: playing && !this.electric, pitch: this.enginePitch, growl: this.engineGrowl }) && !this.electric) {
         // The recorded engine has taken over: the synth growl goes quiet, the bus envelope stays.
         if (!this.synthEngineOff) { this.synthEngineOff = true; try { this.engineFilter.disconnect(); } catch (e) { /* not connected */ } }
         this.engineBus.gain.setTargetAtTime(playing && this.sfxMix > 0 ? (0.09 + Math.min(1, Math.max(0, speedMph) / 120) * 0.08) * this.sfxMix : 0.0001, t, 0.12);
         return;
       }
     }
+    if (this.synthEngineOff) { this.synthEngineOff = false; this.engineFilter.connect(this.engineBus); }
     const s = Math.max(0, speedMph);
+    if (this.electric) {
+      // One smooth rising motor whine with an inverter overtone: no gears, no rumble.
+      const hz = 150 + s * 10;
+      this.engineOsc.frequency.setTargetAtTime(hz, t, 0.06);
+      this.engineSub.frequency.setTargetAtTime(hz * 1.5, t, 0.06);
+      this.engineFilter.frequency.setTargetAtTime(5200, t, 0.08);
+      this.engineBus.gain.setTargetAtTime(playing && this.sfxMix > 0 ? (0.03 + Math.min(1, s / 120) * 0.05) * this.sfxMix : 0.0001, t, 0.12);
+      return;
+    }
     // Gear-ish sawtooth on top of a smooth climb, so it revs, shifts and revs again.
     const gearPhase = (s % 26) / 26;
     const hz = (42 + s * 0.9 + gearPhase * 38) * this.enginePitch;

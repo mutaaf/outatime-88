@@ -416,6 +416,23 @@ export const POP_CULTURE_ROSTER = [
     glow: '#00f0ff',
     shape: 'GULLWING',
     perk: 'Nanotech Self-Healing Hull (+2 HP/sec Regen)'
+  },
+  {
+    // An original electric two-seat roadster (no real make, badge or logo: docs/EASTER_EGGS.md).
+    id: 'VOLT_ROADSTER',
+    driver: 'Juno Vale',
+    car: "'26 Volt Roadster",
+    franchise: 'Ion Coast Motors',
+    massKg: 1350,
+    maxHp: 101,
+    speedBonus: 7,
+    gripBonus: 0.2,
+    jumpBonus: 1.1,
+    body: '#c8102e',
+    cabin: '#111827',
+    glow: '#38e8ff',
+    shape: 'ROADSTER',
+    perk: 'Instant electric torque • whisper-quiet launch • cold-gas boost'
   }
 ];
 

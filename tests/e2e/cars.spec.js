@@ -68,3 +68,33 @@ test('the chosen car races as itself: its shape on the road, the lineup and the 
   expect(await page.locator('#endPodium .pod-car').count()).toBeGreaterThanOrEqual(5);
   expect(problems).toEqual([]);
 });
+
+// Workstream J: every car on the road is painted (no blocks), the new electric roadster is in
+// the garage and races, and boost leaves each car from its own pipes (cold-gas for the roadster).
+test('the Volt Roadster is in the garage, races as itself, and its boost leaves its own nozzles', async ({ page }, info) => {
+  const problems = watchPage(page);
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({
+      garage: { owned: ['FLUX_COUPE_88', 'PASS_RUNNER_86', 'VOLT_ROADSTER'], selected: 'VOLT_ROADSTER', paint: {}, revealed: ['VOLT_ROADSTER'] },
+    }));
+  });
+  await page.goto(`${APP}?debug`);
+  await page.locator('#btnOpenEvents').click();
+  await expect(car(page, 'VOLT_ROADSTER')).toHaveAttribute('data-locked', '0');
+  await page.screenshot({ path: info.outputPath('roadster-garage.png') });
+  await page.locator('#btnStartEvent').click();
+  await expect.poll(() => page.evaluate(() => window.__OT.GameState.playerShape2D), { timeout: 8000 }).toBe('ROADSTER');
+  await page.waitForFunction(() => window.__OT.GameState.racePhase !== 'START', null, { timeout: 15000 });
+  await page.keyboard.down('ArrowUp');
+  await page.waitForTimeout(1500);
+  await page.keyboard.down('Shift');
+  await expect.poll(() => page.evaluate(() => window.__OT.GameState.nosBurning), { timeout: 5000 }).toBe(true);
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(() => window.__OT.GameState.thrustTips)).toBe(2); // two cold-gas nozzles
+  await page.screenshot({ path: info.outputPath('roadster-nos.png') });
+  await page.keyboard.up('Shift');
+  await page.keyboard.up('ArrowUp');
+  expect(problems).toEqual([]);
+});
