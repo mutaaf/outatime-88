@@ -376,27 +376,61 @@ const privacyOff = () => typeof navigator !== 'undefined' && (navigator.globalPr
  */
 export function flush(beacon) {
   if (!pending) return null;
-  const body = JSON.stringify({ v: 1, day: today(), counts });
+  const day = today();
+  const snap = counts;
+  const body = JSON.stringify({ v: 1, day, counts: snap });
   counts = Object.create(null);
   pending = 0;
   if (!store.report || privacyOff()) return body;
-  const url = `${BASE}api/ads/impressions`;
+  // Offline (ticket 0158): keep the totals and send them when the connection is back.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) { stash(day, snap); return body; }
+  send(body, beacon, () => stash(day, snap));
+  return body;
+}
+
+const url = () => `${BASE}api/ads/impressions`;
+function send(body, beacon, onFail) {
   try {
     if (beacon && navigator.sendBeacon) {
-      if (navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) stats.posted++;
+      if (navigator.sendBeacon(url(), new Blob([body], { type: 'application/json' }))) stats.posted++;
+      else onFail();
     } else {
-      fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body, keepalive: true })
-        .then((r) => { if (r.ok) stats.posted++; }).catch(() => {});
+      fetch(url(), { method: 'POST', headers: { 'content-type': 'application/json' }, body, keepalive: true })
+        .then((r) => { if (r.ok) stats.posted++; else if (r.status >= 500) onFail(); }).catch(onFail);
     }
   } catch { /* never let reporting break a race */ }
-  return body;
+}
+
+// Unsent totals per day (the server takes today and yesterday only; older ones are dropped).
+const OUTBOX = 'outatime88_ads_outbox_v1';
+function readStash() { try { return JSON.parse(localStorage.getItem(OUTBOX) || '{}') || {}; } catch { return {}; } }
+export function stash(day, c) {
+  const all = readStash();
+  const into = all[day] || {};
+  for (const k of Object.keys(c)) into[k] = Math.min(200, (into[k] || 0) + c[k]);
+  all[day] = into;
+  for (const d of Object.keys(all).sort().slice(0, -2)) delete all[d];
+  try { localStorage.setItem(OUTBOX, JSON.stringify(all)); } catch { /* blocked */ }
+}
+export function flushStash() {
+  if (!store.report || privacyOff() || (typeof navigator !== 'undefined' && navigator.onLine === false)) return 0;
+  const all = readStash();
+  try { localStorage.removeItem(OUTBOX); } catch { /* blocked */ }
+  let n = 0;
+  for (const day of Object.keys(all)) {
+    if (!Object.keys(all[day]).length) continue;
+    send(JSON.stringify({ v: 1, day, counts: all[day] }), false, () => stash(day, all[day]));
+    n++;
+  }
+  return n;
 }
 
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => flush(true));
+  window.addEventListener('online', () => flushStash());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(true); });
   fetch(`${BASE}ads/manifest.json`, { cache: 'no-cache' })
-    .then((r) => (r.ok ? r.json() : null)).then(applyManifest).catch(() => {});
+    .then((r) => (r.ok ? r.json() : null)).then((m) => { applyManifest(m); flushStash(); }).catch(() => {});
 }
 
 export function debug() {

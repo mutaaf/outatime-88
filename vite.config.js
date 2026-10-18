@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+import { walk, precacheList, versionOf, bundleContent, publicContent } from './scripts/precache.mjs';
 
 // Cloudflare Web Analytics is on for the mutaafaziz.com zone and auto-injects its beacon into
 // every HTML response. Path exclusions need a paid plan, so the game's HTML opts out with
@@ -11,23 +11,20 @@ const HEADERS = ['/outatime/', '/outatime/index.html']
   .map((path) => `${path}\n  Cache-Control: public, max-age=0, must-revalidate, no-transform\n`)
   .join('') + '/outatime/sw.js\n  Cache-Control: no-cache\n';
 
-// Offline + instant repeat loads (ticket 0075): emit sw.js with the boot files precached.
-// The 3D chunk is left out (big, optional); it's cached the first time it's used.
+// Offline play (tickets 0075, 0158): emit sw.js precaching EVERYTHING the game needs, built
+// from the real bundle and public/ (scripts/precache.mjs), so new chunks and assets are
+// offline-ready automatically. The version hashes every file's contents.
 const offlineServiceWorker = {
   name: 'offline-service-worker',
   apply: 'build',
+  enforce: 'post',
   generateBundle(_options, bundle) {
-    const files = Object.keys(bundle)
-      .filter((f) => f.startsWith('assets/'))
-      .filter((f) => !/\.(woff|ttf|map)$/.test(f))
-      // audio (src/sfx, ticket 0133) loads after the first tap and is cached on first use
-      .filter((f) => !/\.(mp3|wav|ogg|m4a)$/.test(f))
-      // fonts: precache only the latin subsets; others are cached the first time they're used
-      .filter((f) => !f.endsWith('.woff2') || /-latin-\d/.test(f))
-      // …and so is the rest of the 3D view (src/render3d: view, garage preview, post-processing)
-      .filter((f) => !(bundle[f].type === 'chunk' && bundle[f].moduleIds && bundle[f].moduleIds.some((m) => m.includes('node_modules/three') || m.includes('/src/render3d/'))))
-      .sort();
-    const version = createHash('sha256').update(files.join('|')).digest('hex').slice(0, 12);
+    const publicFiles = walk('public');
+    const files = precacheList(Object.keys(bundle), publicFiles);
+    const version = versionOf([
+      ...Object.keys(bundle).sort().map((f) => [f, bundleContent(bundle[f])]),
+      ...publicFiles.sort().map((f) => [f, publicContent('public', f)]),
+    ]);
     const source = readFileSync('scripts/sw-template.js', 'utf8')
       .replace('__VERSION__', version)
       .replace('__BASE__', '/outatime/')

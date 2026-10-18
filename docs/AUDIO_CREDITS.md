@@ -10,7 +10,7 @@ opengameart.org) on 2026-10-18 and are served only from the game's own `/outatim
 - **Engine loops:** 16-bit WAV at 22.05 kHz, so they loop with no MP3 encoder gap. `engine-lo` was re-cut with a 0.2 s equal-power crossfade so its seam doesn't click.
 - **`whoosh`:** trimmed to 2.4 s with fades.
 
-Total size: about 372 kB. It loads after the first tap or key, and the service worker caches it the first time.
+Total size: about 372 kB. It loads after the first tap or key; the service worker precaches it for offline play (ticket 0158).
 
 | File | Used for | Source file | Pack / page | License |
 |---|---|---|---|---|

@@ -509,6 +509,16 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 /* Competition (ticket 0091): rank card, rival line, podium board. */
 .title-rival { min-height: 1.2em; max-width: min(92vw, 34rem); font-size: 10px; font-weight: 900; letter-spacing: 0.12em; color: #fde68a; text-shadow: 0 0 10px rgba(255, 136, 0, 0.6); }
 .title-rival:empty { display: none; }
+/* Offline play (ticket 0158): the pill under the title lines, and the one-time install hint. */
+.offline-pill { font-size: 9px; font-weight: 900; letter-spacing: 0.14em; padding: 4px 10px; border-radius: 999px; color: #bae6fd; background: rgba(2, 6, 23, 0.7); border: 1px solid rgba(56, 189, 248, 0.45); min-height: 24px; }
+.offline-pill.is-ready { color: #bbf7d0; border-color: rgba(74, 222, 128, 0.55); }
+.offline-hint { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); transform: translateX(-50%); width: min(92vw, 22rem); padding: 12px 14px; border-radius: 14px; background: rgba(2, 6, 23, 0.94); border: 1px solid rgba(56, 189, 248, 0.6); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); text-align: left; z-index: 5; }
+.offline-hint b { display: block; font-family: 'Press Start 2P', monospace; font-size: 10px; color: #7dd3fc; letter-spacing: 0.08em; }
+.offline-hint p { margin: 6px 0 10px; font-size: 13px; line-height: 1.35; color: #e2e8f0; }
+.offline-hint-row { display: flex; gap: 8px; justify-content: flex-end; }
+.offline-hint-row button { min-height: 44px; padding: 0 14px; border-radius: 10px; font-family: 'Press Start 2P', monospace; font-size: 9px; }
+.offline-hint-go { background: #38bdf8; color: #020617; }
+.offline-hint-later { background: transparent; color: #94a3b8; border: 1px solid #334155; }
 /* Run missions (ticket 0026): one line on the title, three rows on the results card. */
 .title-missions { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: #a5f3fc; text-shadow: 0 0 8px rgba(0, 240, 255, 0.45); }
 .title-missions:empty, .end-missions:empty { display: none; }
