@@ -35,6 +35,20 @@
 //   - Anything that shoves the car (contacts, walls, slams) changes `vx` directly; the next
 //     step reads the travel heading back from it, so the body lags the shove like a real one.
 //   - Heavier cars respond more slowly; grippier cars respond faster and hold more.
+//
+// v3 (ticket 0131), with src/drivetrain.js:
+//   - Friction circle: the tyres share one grip budget. Braking or accelerating hard (the
+//     drivetrain's `use`) leaves less for cornering, so braking mid-bend runs wide and a car
+//     on the limit that lifts or brakes gives up grip, not just speed.
+//   - Weight transfer: braking loads the front (sharper turn-in, the tail lightens and
+//     steps out: trail-braking rotates the car); throttle loads the rear (gentle push).
+//   - Airborne: no tyre forces. The yaw rate carries (a little air control), the heading no
+//     longer self-aligns, and landing crooked costs speed (landingKeep's `misalign`).
+//   - Walls: an impact keeps 30% of the sideways speed as a bounce, scrubs forward speed by
+//     friction ∝ how hard you hit, knocks the nose away from the wall and kills the yaw rate;
+//     grinding along a wall scrubs speed continuously (wallContact).
+//   - `load` (−1..1) is the share of lateral grip in use, for the drivetrain's circle and
+//     the body roll.
 
 export const STEER = {
   rampIn: 4.2,        // lock per second while a key is held (≈0.22 s to full lock)
@@ -71,6 +85,19 @@ export const LATERAL = {
   corner: 0.152,      // road turn rate (rad/s) per unit of segment curve at 88 mph
   bankRelief: 2.2,    // fraction of the turn a bank cancels, per unit of bank (capped)
   bankMax: 0.6,
+  circleFloor: 0.55,  // lateral grip never drops below this share under full pedal (v3)
+  brakeTurnIn: 0.3,   // extra yaw gain at full brakes (weight on the front)
+  brakeBeta: 0.06,    // rad the tail steps out at full brakes mid-corner (trail-braking)
+  throttlePush: 0.08, // yaw gain lost at full throttle (weight on the rear)
+  airControl: 0.12,   // share of the yaw ask you get with the wheels off the road
+  airYawDamp: 0.6,    // 1/s; the yaw rate fades slowly in the air
+};
+
+export const WALL = {
+  restitution: 0.3,   // share of sideways speed kept as a bounce
+  friction: 0.3,      // forward speed scrubbed per unit of sideways impact (μ of the barrier)
+  scrape: 7,          // mph/s lost grinding along a wall at speed
+  yawKick: 0.35,      // rad/s of yaw away from the wall per unit of impact speed
 };
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -136,7 +163,7 @@ export function handlingFor(carP, tireLevel = 1) {
 }
 
 export function createLateral(x = 0) {
-  return { x, vx: 0, slip: 0, ay: 0, heading: 0, r: 0, yaw: 0, yawVel: 0, beta: 0 };
+  return { x, vx: 0, slip: 0, ay: 0, heading: 0, r: 0, yaw: 0, yawVel: 0, beta: 0, load: 0 };
 }
 
 /**
@@ -154,16 +181,26 @@ export function createLateral(x = 0) {
  * @param {boolean} [p.throttle]
  * @param {boolean} [p.drifting] power drift held
  * @param {number} [p.gripBonus=1] temporary multipliers (e.g. ZONE)
+ * @param {number} [p.use] share of grip the pedals are using (src/drivetrain.js `use`); when
+ *   given it replaces the old fixed brake/throttle grip factors with the friction circle
+ * @param {boolean} [p.airborne] wheels off the road
  */
 export function stepLateral(lt, steer, dt, p) {
   const v = Math.max(0, p.speedMph) / 88;
   const h = p.h;
   const U = Math.max(LATERAL.minFwd, LATERAL.fwd * v);
-  let grip = LATERAL.grip * h.grip * (p.gripBonus || 1) * (1 + LATERAL.downforce * v * v);
-  if (p.braking) grip *= LATERAL.brakeGrip;
-  else if (p.throttle) grip *= LATERAL.throttleGrip;
+  const base = LATERAL.grip * h.grip * (p.gripBonus || 1) * (1 + LATERAL.downforce * v * v);
+  let grip = base;
   let gain = LATERAL.yawGain;
+  let brakeUse = 0;
+  if (p.use != null) {
+    const u = clamp(p.use, 0, 0.95);
+    grip *= Math.max(LATERAL.circleFloor, Math.sqrt(1 - u * u));
+    if (p.braking) { brakeUse = u; gain *= 1 + LATERAL.brakeTurnIn * u; } else if (p.throttle) gain *= 1 - LATERAL.throttlePush * u;
+  } else if (p.braking) grip *= LATERAL.brakeGrip;
+  else if (p.throttle) grip *= LATERAL.throttleGrip;
   if (p.drifting) { grip *= LATERAL.driftGrip; gain *= LATERAL.driftLat; }
+  const air = Boolean(p.airborne);
 
   const curve = p.curve || 0;
   const bank = p.bank || 0;
@@ -178,13 +215,20 @@ export function stepLateral(lt, steer, dt, p) {
   // Yaw rate the wheel asks for, then what the tyres can actually give (understeer past grip).
   const ask = steer * U * gain * Math.min(1, p.speedMph / 8) / (1 + (U / LATERAL.understeerU) ** 2);
   const rMax = grip / U;
-  const r = clamp(ask, -rMax, rMax);
-  lt.slip = Math.abs(ask) > rMax ? (Math.abs(ask) - rMax) / rMax : 0;
-  // The car's yaw rate lags the ask by the car's response time.
-  lt.r += (r - lt.r) * (1 - Math.exp(-dt / Math.max(0.02, h.tau)));
+  if (air) {
+    // No tyre forces: the yaw rate carries (fading slowly), with a touch of air control.
+    lt.slip = 0;
+    lt.r += (ask * LATERAL.airControl - LATERAL.airYawDamp * lt.r) * dt;
+  } else {
+    const r = clamp(ask, -rMax, rMax);
+    lt.slip = Math.abs(ask) > rMax ? (Math.abs(ask) - rMax) / rMax : 0;
+    // The car's yaw rate lags the ask by the car's response time.
+    lt.r += (r - lt.r) * (1 - Math.exp(-dt / Math.max(0.02, h.tau)));
+  }
 
-  // Heading relative to the road: the car's yaw, minus the road turning away, relaxing back.
-  heading += (lt.r - roadTurn - LATERAL.align * heading) * dt;
+  // Heading relative to the road: the car's yaw, minus the road turning away, relaxing back
+  // (the tyres do the relaxing, so not in the air).
+  heading += (lt.r - roadTurn - (air ? 0 : LATERAL.align * heading)) * dt;
   heading = clamp(heading, -1.2, 1.2);
   const vx = U * Math.tan(heading);
   lt.ay = (vx - lt.vx) / dt;
@@ -197,11 +241,14 @@ export function stepLateral(lt, steer, dt, p) {
   const slipMult = h.slipMult || 1;
   // Cornering load points the nose a little into the turn (rear sideslip); past the grip
   // limit it slides more; a power drift kicks the tail right out.
-  const load = clamp(U * lt.r / grip, -1, 1);
-  // The drift kick replaces the understeer slide rather than stacking on it.
+  const load = air ? 0 : clamp(U * lt.r / grip, -1, 1);
+  lt.load = air ? 0 : clamp(U * lt.r / base, -1, 1);
+  // The drift kick replaces the understeer slide rather than stacking on it; trail-braking
+  // lets the tail step out a little on top (ticket 0131).
   lt.beta = load * LATERAL.loadBeta + (p.drifting
     ? dir * LATERAL.driftBeta * Math.min(1, Math.abs(steer) / 0.6) * slipMult
-    : dir * LATERAL.slipBeta * Math.min(1, lt.slip) * slipMult);
+    : dir * LATERAL.slipBeta * Math.min(1, lt.slip) * slipMult) +
+    (brakeUse > 0 ? Math.sign(lt.r) * LATERAL.brakeBeta * brakeUse * Math.min(1, Math.abs(load) * 2) * slipMult : 0);
   const w = 2 * Math.PI * LATERAL.bodyHz;
   const acc = w * w * (heading + lt.beta - lt.yaw) - 2 * LATERAL.bodyDamp * w * lt.yawVel;
   lt.yawVel += acc * dt;
@@ -220,6 +267,7 @@ export const SETPIECE = {
   landVx: 0.12,        // landing speed lost per half-width/s of sideways slide
   landSteer: 0.05,     // …and per unit of steering lock held on touchdown
   landMax: 0.25,       // never lose more than a quarter of your speed on a landing
+  landYaw: 0.35,       // …and per radian the body points away from where it's going (v3)
 };
 
 /**
@@ -236,8 +284,30 @@ export function loopStep(speedMph, feature, t, dt) {
   return { peel: false, dv: -SETPIECE.loopGravity * Math.sin(2 * Math.PI * t) * dt };
 }
 
-/** Fraction of speed kept on touchdown: land straight to keep it all. */
-export function landingKeep(vx, steer) {
-  const loss = Math.abs(vx) * SETPIECE.landVx + Math.abs(steer) * SETPIECE.landSteer;
+/**
+ * Fraction of speed kept on touchdown: land straight to keep it all.
+ * @param {number} vx sideways speed on touchdown
+ * @param {number} steer steering lock held
+ * @param {number} [misalign=0] rad between where the body points and where it's going (v3)
+ */
+export function landingKeep(vx, steer, misalign = 0) {
+  const loss = Math.abs(vx) * SETPIECE.landVx + Math.abs(steer) * SETPIECE.landSteer + Math.abs(misalign) * SETPIECE.landYaw;
   return 1 - Math.min(SETPIECE.landMax, loss);
+}
+
+/**
+ * Contact with a side wall this step (mutates `lt`, returns forward speed lost in mph).
+ * `side` is the wall: -1 left, +1 right. Moving into it bounces you off with friction and a
+ * yaw kick away from it; resting against it grinds speed off.
+ */
+export function wallContact(lt, side, speedMph, dt) {
+  const into = lt.vx * side;
+  let loss = WALL.scrape * Math.min(1, Math.max(0, speedMph) / 40) * dt;
+  if (into > 0) {
+    lt.vx = -side * into * WALL.restitution;
+    loss += WALL.friction * (1 + WALL.restitution) * into * (88 / LATERAL.fwd);
+    lt.yawVel -= side * into * WALL.yawKick;
+    lt.r *= 0.5;
+  }
+  return loss;
 }

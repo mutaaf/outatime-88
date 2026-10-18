@@ -64,7 +64,11 @@
         <div class="spd-foot"><span id="hudFluxLabel">FLUX</span><span id="hudScore" class="hud-score">0</span></div>
         <span id="hudPenalty" class="hud-penalty" aria-live="polite"></span>
       </div>
-      <button id="btnHudSettings" type="button" data-hud-rect title="Pause &amp; settings (P)" aria-label="Pause and settings" class="hud-gear pointer-events-auto">⚙️</button>
+      <div class="hud-gearcol">
+        <button id="btnHudSettings" type="button" data-hud-rect title="Pause &amp; settings (P)" aria-label="Pause and settings" class="hud-gear pointer-events-auto">⚙️</button>
+        <!-- Steering mode (ticket 0130): tap = next mode (K), hold or right-click = picker; co-pilot is I. -->
+        <button id="btnSteerMode" type="button" data-hud-rect title="Steering (K) · co-pilot (I) · hold for more" aria-label="Steering mode" class="hud-steer pointer-events-auto"><span aria-hidden="true">⌨️</span><b>KEYS</b></button>
+      </div>
     </div>
 
     <!-- Pre-0051 HUD, kept hidden: older systems still write these ids. -->
@@ -654,6 +658,24 @@
         <h2 id="settingsTitle" class="font-arcade text-lg sm:text-2xl font-black text-white tracking-wider">⚙️ SETTINGS</h2>
         <button id="btnSettingsDone" type="button" class="min-h-[44px] px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs sm:text-sm font-black">✓ DONE</button>
       </div>
+
+      <section class="set-section" aria-labelledby="setHeadSteer">
+        <h3 id="setHeadSteer">🎮 STEERING</h3>
+        <div class="seg seg-wrap" role="group" aria-label="Steering mode">
+          <button type="button" data-steer-mode="keys">⌨️ KEYS</button>
+          <button type="button" data-steer-mode="mouse">🖱️ MOUSE</button>
+          <button type="button" data-steer-mode="stick">🕹️ STICK</button>
+          <button type="button" data-steer-mode="dpad">✚ D-PAD</button>
+          <button type="button" data-steer-mode="tilt">📱 TILT</button>
+        </div>
+        <div class="set-label">Co-pilot</div>
+        <div class="seg" role="group" aria-label="Co-pilot">
+          <button type="button" data-assist="off">🙌 OFF</button>
+          <button type="button" data-assist="assist">🛟 ASSIST</button>
+          <button type="button" data-assist="auto">🤖 AUTO</button>
+        </div>
+        <p class="set-status mt-1.5">Mid-race: <b>K</b> switches steering, <b>I</b> the co-pilot, or tap the pill under ⚙️ (hold it for this list). Gamepad: BACK and L3. Live races skip autopilot.</p>
+      </section>
 
       <section class="set-section" aria-labelledby="setHeadTilt">
         <h3 id="setHeadTilt">📱 TILT STEERING</h3>
