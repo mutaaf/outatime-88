@@ -3,6 +3,7 @@
 // mutable container that main.js reads as `track.segments`.
 import { ROAD_CFG } from './data.js';
 import { GameState } from './state.js';
+import { SETPIECE, loopLength, makeFeature } from './setpieces.js';
 
 export const track = { segments: [], generatedCount: 0, line: null };
 
@@ -65,6 +66,8 @@ export function populateChunkDecorations(startIdx, endIdx, patternType) {
   for (let i = startIdx; i < endIdx; i++) {
     const seg = track.segments[i];
     if (!seg) continue;
+    // Set pieces stay clean: no lamps on a loop, no coins over a gap (booster gates keep theirs).
+    if ((seg.feature && seg.feature.kind !== 'BOOSTER') || seg.trackType === 'JUMP_RAMP') continue;
 
     // Night-Street Smoke Flares on Checkpoints & Forks
     if (seg.trackType === 'CHECKPOINT' && i === startIdx + 2) {
@@ -110,6 +113,64 @@ export function populateChunkDecorations(startIdx, endIdx, patternType) {
   }
 }
 
+// ---------------------------------------------------------------------------------------
+// Orange-track layouts (sprint 4). Each level cycles its own book of pieces: sweepers, S-bends,
+// banked hairpins, blind crests and toy-track set pieces (loops, corkscrews, gap jumps,
+// wall-ride half-pipes), each set piece led in by a booster gate. Deterministic per level.
+
+const L = () => ROAD_CFG.segLength;
+const lastY = () => (track.segments.length ? track.segments[track.segments.length - 1].p2.world.y : 0);
+
+/** A run of `segs` segments sharing one set-piece feature. */
+function addFeatureRun(kind, segs, curve, bank, trackType, extra) {
+  const startIdx = track.segments.length;
+  const f = makeFeature(kind, startIdx * L(), segs * L(), extra);
+  const y = lastY();
+  for (let n = 0; n < segs; n++) {
+    addSegment(curve, y, bank, trackType);
+    track.segments[startIdx + n].feature = f;
+  }
+  return f;
+}
+
+const PIECES = {
+  sweep: (d) => addRoadSection(12, 26, 12, 0.7 * d, 260, 0.12 * d),
+  sBends: (d) => { addRoadSection(10, 16, 10, 1.6 * d, 180, 0.32 * d); addRoadSection(10, 16, 10, -1.6 * d, -180, -0.32 * d); },
+  hairpin: (d) => { addRoadSection(8, 8, 6, 0, 0, 0); addRoadSection(12, 30, 12, 2.6 * d, 0, 0.55 * d); },
+  crest: () => { addRoadSection(10, 10, 12, 0, 900, 0); addRoadSection(12, 10, 10, 0.4, -900, 0.08); },
+  gate: (minMph) => addFeatureRun('BOOSTER', 12, 0, 0, 'BOOSTER', { minMph }),
+  loop: () => {
+    PIECES.gate(SETPIECE.LOOP.minMph);
+    addFeatureRun('LOOP', Math.round(loopLength() / L()), 0, 0, 'STANDARD', { radius: SETPIECE.LOOP.radius, minMph: SETPIECE.LOOP.minMph });
+    addRoadSection(6, 10, 6, 0, 0, 0);
+  },
+  corkscrew: (d) => {
+    PIECES.gate(50);
+    addFeatureRun('CORKSCREW', Math.round(SETPIECE.CORKSCREW.length / L()), 1.1 * d, 0, 'STANDARD', { dir: d });
+    addRoadSection(6, 10, 6, 0, 0, 0);
+  },
+  jump: () => {
+    PIECES.gate(60);
+    addRoadSection(2, 4, 2, 0, 160, 0, 'JUMP_RAMP');
+    addFeatureRun('GAP', Math.round(SETPIECE.JUMP.gap / L()), 0, 0, 'GAP');
+    addRoadSection(4, 10, 6, 0, -160, 0);
+  },
+  wallride: (d) => {
+    PIECES.gate(50);
+    addFeatureRun('WALLRIDE', Math.round(SETPIECE.WALLRIDE.length / L()), 2.2 * d, SETPIECE.WALLRIDE.bank * d, 'STANDARD', { dir: d });
+    addRoadSection(8, 8, 8, 0.6 * d, 0, 0.2 * d);
+  },
+};
+
+// Per level: [piece, direction]. Level 1 is gentle; level 5 is the full orange-track playset.
+const BOOKS = [
+  [['sweep', 1], ['sBends', 1], ['crest', 1], ['loop', 1], ['sBends', -1], ['jump', 1]],
+  [['sweep', -1], ['crest', 1], ['jump', 1], ['hairpin', 1], ['sBends', -1], ['corkscrew', 1]],
+  [['sBends', 1], ['loop', 1], ['wallride', -1], ['crest', 1], ['corkscrew', -1], ['jump', 1]],
+  [['hairpin', 1], ['sBends', -1], ['hairpin', -1], ['corkscrew', 1], ['loop', 1], ['wallride', 1]],
+  [['loop', 1], ['jump', 1], ['corkscrew', -1], ['wallride', 1], ['hairpin', -1], ['loop', 1]],
+];
+
 export function generateNextTrackBiome(chosenBranch = null) {
   const startIdx = track.segments.length;
   track.generatedCount++;
@@ -131,30 +192,20 @@ export function generateNextTrackBiome(chosenBranch = null) {
     return;
   }
 
-  const roll = chosenBranch === 'LEFT' ? 0 : (chosenBranch === 'RIGHT' ? 1 : ((track.generatedCount + GameState.levelIndex) % 5));
-
-  if (roll === 0) {
-    addRoadSection(8, 14, 8, 0, 0, 0, 'BOOSTER');
-    addRoadSection(12, 24, 12, 0.45, 650, 0.18, 'LOOP');
-    addRoadSection(12, 20, 12, -0.45, -650, -0.18, 'LOOP');
+  if (chosenBranch === 'LEFT') {
+    // The risky short way: straight into a loop.
+    PIECES.loop();
     populateChunkDecorations(startIdx, track.segments.length, 'STUNT_LOOP');
-  } else if (roll === 1) {
+  } else if (chosenBranch === 'RIGHT') {
+    // The safe long way: a fast booster tunnel through two gentle sweepers.
     addRoadSection(10, 20, 10, -0.95, 280, -0.22, 'BOOSTER');
     addRoadSection(10, 20, 10, 0.95, -280, 0.22, 'BOOSTER');
     populateChunkDecorations(startIdx, track.segments.length, 'SPEED_TUNNEL');
-  } else if (roll === 2) {
-    addRoadSection(10, 16, 8, 0, 520, 0, 'JUMP_RAMP');
-    addRoadSection(8, 18, 10, -0.7, -520, -0.15, 'STANDARD');
-    populateChunkDecorations(startIdx, track.segments.length, 'JUMP');
-  } else if (roll === 3) {
-    // Smooth Sweeping Cedar Ridge S-Curves
-    addRoadSection(12, 22, 12, 1.15, 380, 0.25, 'STANDARD');
-    addRoadSection(12, 20, 12, -1.1, -380, -0.25, 'STANDARD');
-    populateChunkDecorations(startIdx, track.segments.length, 'CORKSCREW');
   } else {
-    addRoadSection(10, 18, 10, 0.65, 320, 0.12, 'STANDARD');
-    addRoadSection(8, 14, 8, 0, -320, 0, 'CHECKPOINT');
-    populateChunkDecorations(startIdx, track.segments.length, 'CHECKPOINT');
+    const book = BOOKS[Math.max(0, Math.min(BOOKS.length - 1, GameState.levelIndex | 0))];
+    const [piece, dir] = book[(track.generatedCount - 2) % book.length];
+    PIECES[piece](dir);
+    populateChunkDecorations(startIdx, track.segments.length, piece === 'loop' ? 'STUNT_LOOP' : piece.toUpperCase());
   }
 
   if (track.generatedCount % 3 === 0) {
@@ -162,6 +213,17 @@ export function generateNextTrackBiome(chosenBranch = null) {
     addRoadSection(4, 8, 4, 0, 0, 0, 'CHECKPOINT');
     populateChunkDecorations(cpStart, track.segments.length, 'CHECKPOINT');
   }
+}
+
+/** True if any set piece (or a jump ramp/gap) covers track Z in [z0, z1]. */
+export function hasSetPieceBetween(z0, z1) {
+  const a = Math.max(0, Math.floor(z0 / L()));
+  const b = Math.floor(z1 / L());
+  for (let i = a; i <= b && i < track.segments.length; i++) {
+    const s = track.segments[i];
+    if (s.feature || s.trackType === 'JUMP_RAMP') return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------------------

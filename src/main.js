@@ -20,7 +20,10 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult, medalFor } from './progress.js';
-import { track, generateNextTrackBiome, buildInitialTrack, featureAt, setTrackLine } from './track.js';
+import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, hasSetPieceBetween, featureAt } from './track.js';
+import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
+let setPieceArt = null; // src/setpieces-2d.js, lazy: the art waits for it, the sim never does
+setTimeout(() => { import('./setpieces-2d.js').then((m) => { setPieceArt = m; }, () => {}); }, 0);
 import { createLine, createHazardPlanner, TRAFFIC_LATERAL } from './cleanline.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
@@ -157,7 +160,7 @@ const LiveTraffic = {
     this.prevPlayerZ = (GameState.trackPos || 0) + ROAD_CFG.playerZOffset;
     this.props.clear();
     this.nextPropZ = this.prevPlayerZ + 9000;
-    this.planner = createHazardPlanner({ line: track.line || createLine(1), rand: () => trafficRand(), level: GameState.levelIndex });
+    this.planner = createHazardPlanner({ line: track.line || createLine(1), rand: () => trafficRand(), level: GameState.levelIndex, avoid: hasSetPieceBetween });
 
     // The field (ticket 0051): five named rivals from the roster (never your own driver) on a
     // two-wide grid, you at the back. Each keeps its name for the whole race.
@@ -460,11 +463,14 @@ const LiveTraffic = {
     for (let i = 0; i < this.traffic.length; i++) {
       const tr = this.traffic[i];
       const relZ = tr.worldZ - playerZ;
-      if (relZ < -800 || tr.takenDown) {
+      // Traffic doesn't drive loops, corkscrews or gaps (sprint 4): it peels off and rejoins ahead.
+      const trF = featureAt(tr.worldZ);
+      if (relZ < -800 || tr.takenDown || (trF && trF.kind !== 'BOOSTER')) {
         tr.takenDown = false;
         tr.y = 0; tr.vy = 0; tr.vx = 0; tr.rot = 0; tr.vRot = 0; tr.yaw = 0; tr.vYaw = 0;
         const maxT = Math.max(playerZ + 12000, ...this.traffic.map(t => t.worldZ));
         tr.worldZ = maxT + (4800 + trafficRand() * 2200) * GameState.trafficGapScale;
+        for (let k = 0; k < 20 && hasSetPieceBetween(tr.worldZ - 600, tr.worldZ + 600); k++) tr.worldZ += 2000;
         tr.prevZ = tr.worldZ;
         tr.offset = this.planner.trafficLane(i, tr.worldZ, GameState.waveTier || 1, tr.halfW, tr.halfL);
         tr.nearMissed = false;
@@ -1576,6 +1582,22 @@ function updateGame(rawDt) {
     }
   }
 
+  // 3b. Orange-track set pieces (sprint 4, src/setpieces.js): booster gates kick you up to loop
+  //     speed; stalling in a loop or missing a gap costs time, never points.
+  const spF = currentSeg ? currentSeg.feature : null;
+  const spEv = stepSetPieces(GameState, spF, GameState.trackPos + ROAD_CFG.playerZOffset);
+  if (spEv === 'BOOST') {
+    SoundEngine.playBoosterHit();
+    if (spF.minMph) triggerAnnouncement('BOOSTER GATE!', `${spF.minMph}+ MPH FOR WHAT'S NEXT`, 900);
+  } else if (spEv === 'LOOP_FAIL') {
+    GameState.speed = Math.min(GameState.speed, 34);
+    triggerAnnouncement('TOO SLOW FOR THE LOOP!', 'HIT THE BOOSTER GATE ON THE GAS', 1400);
+  } else if (spEv === 'GAP_FALL') {
+    GameState.speed = Math.max(28, GameState.speed * 0.6);
+    GameState.playerVY = 420; // a scramble across the gap: slow, but you make it
+    triggerAnnouncement('MISSED THE JUMP!', '52+ MPH OFF THE RAMP', 1200);
+  }
+
   // 4. Jump Ramps, Hover Conversion & Mid-Air Stunts
   if (currentSeg && currentSeg.trackType === 'JUMP_RAMP' && GameState.playerY <= 2 && GameState.speed > 52) {
     GameState.playerVY = 560 + GameState.speed * 3.6;
@@ -2293,6 +2315,22 @@ function renderScene() {
     ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
   }
 
+  // Set-piece roll (sprint 4): the world barrel-rolls through a corkscrew and leans up a
+  // half-pipe wall; the car stays put on screen. Undone before the car is drawn.
+  const rollF = featureAt(GameState.trackPos + ROAD_CFG.playerZOffset);
+  const roll = GameState.status === 'PLAYING' || GameState.status === 'PAUSED' ? viewRoll(rollF, GameState.trackPos + ROAD_CFG.playerZOffset, GameState.reducedMotion) : 0;
+  let rolled = false;
+  if (roll !== 0) {
+    ctx.fillStyle = eraCfg.skyTop || '#05040d';
+    ctx.fillRect(0, 0, rw, rh);
+    ctx.save();
+    ctx.translate(rw / 2, rh * 0.62);
+    ctx.rotate(roll);
+    ctx.scale(1.5, 1.5);
+    ctx.translate(-rw / 2, -rh * 0.62);
+    rolled = true;
+  }
+
   // 1. The era's world: sky, parallax layers and live set pieces (src/backdrop.js, ticket 0100).
   const horizonY = Math.floor(rh * 0.46 - GameState.loopPitchOffset * (rh / 420));
   const bgSeg = track.segments[Math.floor(GameState.trackPos / ROAD_CFG.segLength)];
@@ -2313,6 +2351,7 @@ function renderScene() {
   const basePercent = (GameState.trackPos % ROAD_CFG.segLength) / ROAD_CFG.segLength;
   const baseSeg = track.segments[baseIndex] || track.segments[0];
   if (!baseSeg) {
+    if (rolled) ctx.restore();
     ctx.restore();
     return;
   }
@@ -2357,6 +2396,7 @@ function renderScene() {
     }
 
     visibleSegments.push(seg);
+    if (seg.trackType === 'GAP') continue; // a jump's gap: no road, just air
 
     const x1 = seg.p1.screen.x;
     const y1 = seg.p1.screen.y;
@@ -2431,6 +2471,8 @@ function renderScene() {
 
     maxY = y2;
   }
+
+  if (setPieceArt) setPieceArt.drawAhead(ctx, visibleSegments, eraCfg);
 
   // 3. Draw Scenery, Night-Street Smoke Flares, Collectibles & Rival/Police Cars
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
@@ -2925,6 +2967,7 @@ function renderScene() {
     GameState.playerScreenX = Math.floor(rw * 0.5);
   }
 
+  if (rolled) { ctx.restore(); rolled = false; }
   if (GameState.cameraMode !== 2) {
     drawPlayerCar(ctx, rw, rh, eraCfg);
   }
@@ -2978,6 +3021,14 @@ function renderScene() {
   }
   drawSpeedLines(mainCtx, feel.lines);
   drawSparks(mainCtx, rw, rh);
+  // The side-on loop cam (sprint 4) while you're going round a loop.
+  if (setPieceArt && rollF && rollF.kind === 'LOOP') {
+    const pc = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+    setPieceArt.drawCutaway(mainCtx, mainCanvas.width, mainCanvas.height, {
+      t: progressIn(rollF, GameState.trackPos + ROAD_CFG.playerZOffset), mph: GameState.speed,
+      color: pc.body, eraCfg, failed: Boolean(GameState.loopFailed), reduced: GameState.reducedMotion,
+    });
+  }
   mainCtx.restore();
 }
 
@@ -4848,6 +4899,7 @@ window.onload = () => {
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
     traffic: () => LiveTraffic,
+    track: () => track,
     backdrop: backdropDebug,
     gfx: () => gfx,
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),

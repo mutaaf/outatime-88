@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { track, generateNextTrackBiome, buildInitialTrack, resetTrack, addRoadSection, segmentAt, curvatureAt, bankAt, pitchAt, featureAt } from '../../src/track.js';
 import { GameState } from '../../src/state.js';
 import { ROAD_CFG, WORLD_LEVELS } from '../../src/data.js';
+import { loopLength, SETPIECE } from '../../src/setpieces.js';
+import { hasSetPieceBetween } from '../../src/track.js';
 
 // Anything on the road surface that the player must avoid occupies a lane: segment cars
 // (traffic, roadblocks) and non-pickup items. Roadside props (|offset| >= 1), overhead
@@ -81,7 +83,7 @@ describe('track generation (ticket 0004)', () => {
     generate(1);
     const before = track.segments.length;
     generateNextTrackBiome('LEFT');
-    expect(track.segments.slice(before).some(s => s.trackType === 'LOOP')).toBe(true);
+    expect(track.segments.slice(before).some(s => s.feature && s.feature.kind === 'LOOP')).toBe(true);
   });
 
   it('buildInitialTrack starts fresh with six biomes and a fork in them', () => {
@@ -108,5 +110,53 @@ describe('road contract (sprint 4)', () => {
     for (const z of [-1, L * 10 + 1]) {
       expect(curvatureAt(z)).toBe(0); expect(bankAt(z)).toBe(0); expect(pitchAt(z)).toBe(0); expect(featureAt(z)).toBeNull();
     }
+  });
+});
+
+describe('orange-track layouts (sprint 4)', () => {
+  const features = (segs) => {
+    const out = [];
+    for (const s of segs) if (s.feature && out[out.length - 1] !== s.feature) out.push(s.feature);
+    return out;
+  };
+
+  it('every level has real curves, hills and its set pieces within a lap of biomes', () => {
+    const want = [['LOOP', 'GAP'], ['GAP', 'CORKSCREW'], ['LOOP', 'WALLRIDE', 'CORKSCREW', 'GAP'], ['CORKSCREW', 'LOOP', 'WALLRIDE'], ['LOOP', 'GAP', 'CORKSCREW', 'WALLRIDE']];
+    for (let lvl = 0; lvl < 5; lvl++) {
+      const segs = generate(14, lvl);
+      const kinds = new Set(features(segs).map((f) => f.kind));
+      for (const k of want[lvl]) expect(kinds.has(k), `level ${lvl} has ${k}`).toBe(true);
+      expect(Math.max(...segs.map((s) => Math.abs(s.curve)))).toBeGreaterThanOrEqual(1.5);
+      const ys = segs.map((s) => s.p2.world.y);
+      expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(500);
+    }
+  });
+
+  it('set pieces are contiguous runs with matching Z extents, and a booster gate leads into each', () => {
+    for (let lvl = 0; lvl < 5; lvl++) {
+      const segs = generate(14, lvl);
+      for (const f of features(segs)) {
+        const run = segs.filter((s) => s.feature === f);
+        expect(run[0].p1.world.z).toBe(f.z0);
+        expect(run.length * ROAD_CFG.segLength).toBe(f.length);
+        for (let i = 1; i < run.length; i++) expect(run[i].index).toBe(run[i - 1].index + 1);
+        if (f.kind === 'LOOP' || f.kind === 'CORKSCREW' || f.kind === 'WALLRIDE') {
+          const before = segs[run[0].index - 1];
+          expect(before.feature && before.feature.kind, `${f.kind} at ${f.z0} has a gate`).toBe('BOOSTER');
+        }
+        if (f.kind === 'GAP') expect(segs[run[0].index - 1].trackType).toBe('JUMP_RAMP');
+        if (f.kind === 'LOOP') {
+          expect(Math.abs(f.length - loopLength())).toBeLessThan(ROAD_CFG.segLength);
+          expect(f.minMph).toBe(SETPIECE.LOOP.minMph);
+        }
+      }
+    }
+  });
+
+  it('hasSetPieceBetween sees set pieces and ramps, and nothing on plain road', () => {
+    const segs = generate(14, 4);
+    const f = features(segs)[0];
+    expect(hasSetPieceBetween(f.z0 + 10, f.z0 + 20)).toBe(true);
+    expect(hasSetPieceBetween(0, 1000)).toBe(false);
   });
 });

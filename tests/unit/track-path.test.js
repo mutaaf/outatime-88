@@ -86,3 +86,54 @@ describe('3D track path scales', () => {
     expect(scaled.at(z, 1, {}).x - b.x).toBeCloseTo(ROAD_CFG.roadWidth * 0.5 * Math.cos(b.heading), 6);
   });
 });
+
+describe('3D set-piece frames (sprint 4)', () => {
+  const run = (n, extra = {}) => Array.from({ length: n }, () => ({ ...seg(0), ...extra }));
+  const withFeature = (before, kind, n, after, extra = {}) => {
+    const f = { kind, z0: before * L, length: n * L, ...extra };
+    return [...run(before), ...Array.from({ length: n }, () => ({ ...seg(extra.curve || 0), feature: f })), ...run(after)];
+  };
+
+  it('a loop climbs to its top upside down, then exits level, beside its entry, heading the same way', () => {
+    const p = createTrackPath();
+    p.sync(withFeature(10, 'LOOP', 48, 20));
+    const entry = p.at(10 * L, 0, {});
+    const top = p.at((10 + 24) * L, 0, {});
+    const exit = p.at((10 + 48) * L, 0, {});
+    const R = (48 * L) / (2 * Math.PI);
+    expect(top.y - entry.y).toBeCloseTo(2 * R, 0);
+    expect(top.uy).toBeLessThan(-0.99);          // upside down at the top
+    expect(exit.y).toBeCloseTo(entry.y, 6);
+    expect(Math.abs(exit.z - entry.z)).toBeLessThan(1e-6); // back where it started along the road…
+    expect(exit.x - entry.x).toBeGreaterThan(ROAD_CFG.roadWidth * 2); // …but a road width over
+    const after = p.at((10 + 58) * L, 0, {});
+    expect(after.z - exit.z).toBeCloseTo(10 * L, 6); // and carries on straight from there
+    expect(after.heading).toBe(0);
+  });
+
+  it('every frame stays orthonormal through loops, corkscrews, wall-rides and banks', () => {
+    const p = createTrackPath();
+    const segs = [...withFeature(4, 'LOOP', 40, 4), ...withFeature(0, 'CORKSCREW', 36, 4, { dir: 1, curve: 1 }), ...withFeature(0, 'WALLRIDE', 30, 4, { dir: -1 }), ...run(10, { bank: 0.5, curve: 1.5 })];
+    for (const s of segs) if (s.feature) s.feature.z0 = segs.findIndex((x) => x.feature === s.feature) * L; // z0 in the joined list
+    p.sync(segs);
+    for (let z = 0; z < segs.length * L; z += 137) {
+      const o = p.at(z, 0, {});
+      expect(Math.hypot(o.ux, o.uy, o.uz)).toBeCloseTo(1, 4);
+      expect(Math.hypot(o.rx, o.ry, o.rz)).toBeCloseTo(1, 4);
+      expect(o.ux * o.rx + o.uy * o.ry + o.uz * o.rz).toBeCloseTo(0, 4);
+      expect(o.fx * o.ux + o.fy * o.uy + o.fz * o.uz).toBeCloseTo(0, 1);
+    }
+  });
+
+  it('a corkscrew rolls the road over halfway through; a bank leans into its corner', () => {
+    const p = createTrackPath();
+    const segs = withFeature(2, 'CORKSCREW', 40, 2, { dir: 1 });
+    p.sync(segs);
+    expect(p.at((2 + 20) * L, 0, {}).uy).toBeLessThan(-0.99);
+    const b = createTrackPath();
+    b.sync(run(4, { curve: 1, bank: 0.5 }));
+    const o = b.at(L * 2, 0, {});
+    expect(o.uy).toBeLessThan(1);
+    expect(o.ux * o.rx + o.uz * o.rz).toBeGreaterThan(0); // up tips toward the right: right side lower
+  });
+});
