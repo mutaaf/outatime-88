@@ -46,6 +46,13 @@ function legacyRendererContact(segments, s, camCfg, rw, rh) {
   return found;
 }
 
+// The live window of the ring as a plain array indexed by absolute segment index.
+function absSegments() {
+  const out = [];
+  for (let i = track.start; i < track.end; i++) out[i] = track.seg(i);
+  return out;
+}
+
 describe('contactZ (simulation-owned tyre contact)', () => {
   beforeAll(() => {
     buildInitialTrack();
@@ -54,10 +61,11 @@ describe('contactZ (simulation-owned tyre contact)', () => {
 
   it('matches the legacy renderer result exactly across random states, cameras and sizes', () => {
     const rand = mulberry32(88);
+    const segs = absSegments();
     let compared = 0;
     for (let i = 0; i < 4000; i++) {
       const state = {
-        trackPos: rand() * (track.segments.length - ROAD_CFG.drawDistance - 2) * ROAD_CFG.segLength,
+        trackPos: (track.start + rand() * (track.end - track.start - ROAD_CFG.drawDistance - 2)) * ROAD_CFG.segLength,
         playerX: rand() * 1.6 - 0.8,
         playerY: rand() < 0.3 ? rand() * 220 : 0,
         speed: rand() * 160,
@@ -65,22 +73,22 @@ describe('contactZ (simulation-owned tyre contact)', () => {
       const camCfg = CAMERA_MODES[i % CAMERA_MODES.length];
       const rh = 160 + Math.floor(rand() * 1200);
       const rw = 240 + Math.floor(rand() * 1800);
-      const expected = legacyRendererContact(track.segments, state, camCfg, rw, rh);
-      expect(contactZ(track.segments, state, camCfg, rh)).toBe(expected);
+      const expected = legacyRendererContact(segs, state, camCfg, rw, rh);
+      expect(contactZ(track, state, camCfg, rh)).toBe(expected);
       if (expected !== null) compared++;
     }
     expect(compared).toBeGreaterThan(3000);
   });
 
   it('does not mutate the track or the state it reads', () => {
-    const before = JSON.stringify(track.segments.slice(0, 200));
+    const before = JSON.stringify(track.liveSegments().slice(0, 200));
     const state = Object.freeze({ trackPos: 5000, playerX: 0.2, playerY: 0, speed: 90 });
-    contactZ(track.segments, state, CAMERA_MODES[1], 720);
-    expect(JSON.stringify(track.segments.slice(0, 200))).toBe(before);
+    contactZ(track, state, CAMERA_MODES[1], 720);
+    expect(JSON.stringify(track.liveSegments().slice(0, 200))).toBe(before);
   });
 
   it('puts the tyres ahead of the camera and widens the view with speed', () => {
-    const z = contactZ(track.segments, { trackPos: 4000, playerX: 0, playerY: 0, speed: 60 }, CAMERA_MODES[1], 720);
+    const z = contactZ(track, { trackPos: 4000, playerX: 0, playerY: 0, speed: 60 }, CAMERA_MODES[1], 720);
     expect(z).toBeGreaterThan(4000);
     expect(z).toBeLessThan(4000 + ROAD_CFG.playerZOffset * 2);
     expect(cameraDepth(CAMERA_MODES[1], 200)).toBeLessThan(cameraDepth(CAMERA_MODES[1], 50));

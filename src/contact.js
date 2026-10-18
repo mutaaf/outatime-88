@@ -20,13 +20,15 @@ function screenY(worldY, worldZ, camY, camZ, depth, h) {
 }
 
 /**
+ * `road` is the track container (src/track.js): segments are read by absolute index with
+ * `road.seg(i)`, which returns null outside the live window.
  * @returns {number|null} track Z under the tyre line, or null when no visible segment
  *   crosses it (callers keep the previous value, as the renderer used to).
  */
-export function contactZ(segments, state, camCfg, rh) {
+export function contactZ(road, state, camCfg, rh) {
   const baseIndex = Math.floor(state.trackPos / ROAD_CFG.segLength);
   const basePercent = (state.trackPos % ROAD_CFG.segLength) / ROAD_CFG.segLength;
-  const baseSeg = segments[baseIndex] || segments[0];
+  const baseSeg = road.seg(baseIndex) || road.seg(road.start);
   if (!baseSeg) return null;
   const elevation = baseSeg.p1.world.y + (baseSeg.p2.world.y - baseSeg.p1.world.y) * basePercent;
   const camY = elevation + camCfg.height + state.playerY * 3.5;
@@ -35,7 +37,7 @@ export function contactZ(segments, state, camCfg, rh) {
   const tyreY = Math.floor(rh * TYRE_LINE);
   let maxY = rh;
   for (let n = 0; n < ROAD_CFG.drawDistance; n++) {
-    const seg = segments[baseIndex + n];
+    const seg = road.seg(baseIndex + n);
     if (!seg) break;
     const y1 = screenY(seg.p1.world.y, seg.p1.world.z, camY, camZ, depth, rh);
     const y2 = screenY(seg.p2.world.y, seg.p2.world.z, camY, camZ, depth, rh);
