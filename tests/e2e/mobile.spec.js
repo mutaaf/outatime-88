@@ -1,5 +1,5 @@
 import { test, expect, devices } from '@playwright/test';
-import { APP, watchPage, canvasLitFraction, hudNumber, skipToGreen } from './helpers.js';
+import { APP, watchPage, canvasLitFraction, hudNumber, skipToGreen, frameStats } from './helpers.js';
 
 test.use({ ...devices['iPhone 13'], browserName: 'chromium', viewport: { width: 390, height: 844 } });
 
@@ -94,11 +94,9 @@ test('slow phone (4× CPU throttle): the race keeps moving and the governor hold
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   await page.evaluate(() => window.__OT.startRace());
   await page.waitForTimeout(2500);
-  const ms = await page.evaluate(() => new Promise((resolve) => {
-    const t = []; const f = (n) => { t.push(n); if (t.length < 91) requestAnimationFrame(f); else resolve((t[t.length - 1] - t[0]) / (t.length - 1)); };
-    requestAnimationFrame(f);
-  }));
-  console.log(`[perf] 4× throttled phone: ${ms.toFixed(1)} ms/frame (${(1000 / ms).toFixed(0)} fps)`);
+  const ms = (await frameStats(page, { frames: 90, warmup: 20 })).interval.p50; // median: one runner stall doesn't fail it
+
+  console.log(`[perf] 4× throttled phone: median ${ms.toFixed(1)} ms/frame (${(1000 / ms).toFixed(0)} fps)`);
   expect(ms).toBeLessThan(80);
   expect(await hudNumber(page, 'distMetersDisplay')).toBeGreaterThan(0);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });

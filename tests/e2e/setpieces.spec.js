@@ -2,7 +2,7 @@
 // corkscrew and a gap jump in 2D and 3D with no console errors, and screenshot them at phone,
 // tablet and laptop sizes in both orientations. Uses the ?debug hook to move the car.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage, canvasLitFraction } from './helpers.js';
+import { APP, frameStats, watchPage, canvasLitFraction } from './helpers.js';
 
 async function race(page, { level = 0, view = '' } = {}) {
   await page.goto(`${APP}?debug${view ? `&view=${view}` : ''}`);
@@ -157,21 +157,25 @@ for (const [w, h] of SIZES) {
   });
 }
 
-test('perf: frame interval through hairpins and a corkscrew stays playable in 2D and 3D', async ({ page }, info) => {
+test('perf: frame cost through hairpins and a corkscrew stays playable in 2D and 3D', async ({ page }, info) => {
   test.setTimeout(150000);
-  const probe = () => page.evaluate(() => new Promise((resolve) => {
-    const times = [];
-    (function tick(t) { times.push(t); if (times.length < 91) requestAnimationFrame(tick); else resolve((times[90] - times[0]) / 90); })(performance.now());
-  }));
+  // Shared CI runners render 3D in software (SwiftShader) next to noisy neighbours, so judge the
+  // game's own JS work per frame (median, after a warm-up), plus a loose ceiling on the median
+  // frame interval that only a frozen or crawling frame loop trips (helpers.js frameStats).
   for (const view of ['', '3d']) {
     await race(page, { level: 3, view });
     if (view) await page.waitForFunction(() => window.__OT.view().mode === '3d', null, { timeout: 30000 });
     await jumpTo(page, 'CORKSCREW', 1000);
     await page.keyboard.down('ArrowUp');
-    const ms = await probe();
+    const st = await frameStats(page, { frames: 90, warmup: 30 });
     await page.keyboard.up('ArrowUp');
-    info.annotations.push({ type: `curve-frame-ms-${view || '2d'}`, description: ms.toFixed(2) });
-    console.log(`[perf] curves ${view || '2d'}: ${ms.toFixed(2)} ms/frame`);
-    expect(ms).toBeLessThan(view ? 150 : 100);
+    const tag = view || '2d';
+    info.annotations.push({ type: `curve-frame-${tag}`, description: JSON.stringify(st) });
+    console.log(`[perf] curves ${tag}: js p50 ${st.js.p50.toFixed(2)} p90 ${st.js.p90.toFixed(2)} ms, interval p50 ${st.interval.p50.toFixed(2)} ms`);
+    // Local medians are ~10 ms (2D canvas work is on the JS thread) and ~2 ms (3D hands the GPU
+    // work to another process); CI runners are ~2× slower. A regression that makes every frame
+    // heavier still trips these.
+    expect(st.js.p50, `${tag} JS per frame`).toBeLessThan(view ? 20 : 30);
+    expect(st.interval.p50, `${tag} frame interval`).toBeLessThan(view ? 300 : 100);
   }
 });
