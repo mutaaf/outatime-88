@@ -6,6 +6,7 @@ priority: P0
 size: M
 lens: player-feel
 created: 2026-10-18
+pr: 85
 ---
 
 ## Why
@@ -14,6 +15,17 @@ up type of game play … things get progressively harder as you level up, and HP
 incrementing and decrementing." Endless existed but was hidden behind EVENTS, its difficulty
 maxed out in ~40 s (the arcade wave clock: a wave every 550 distance, speed capped by wave 7),
 and HP only ever went down until a wreck ended any race.
+
+## Acceptance criteria
+- PLAY / tap / Enter on the title start an Endless run; EVENTS opens on TRACK RACE; `?play=infinite` and `?level=N` pick the mode.
+- Tiers rise with distance, each one longer; difficulty is smooth, monotonic, 0 at the start and below 1.
+- Every tier-up shows LEVEL UP, heals, changes era and makes the road faster/busier/twistier; hazards keep a clean line.
+- HP never leaves 0..max; hits show a red −N, heals a green +N; low HP warns once per dip.
+- HP 0 ends an Endless run with distance, tier and best (saved); a track-race wreck patches you up.
+
+## Test plan
+- Unit: `tests/unit/endless.test.js` (tier curve, difficulty contract, tuning, bests), save defaults.
+- E2E: `tests/e2e/endless-highway.spec.js` (PLAY → endless, level-up, HP both ways and clamp, game over, track-race patch-up, deep links); track-race specs start `{ mode: 'ARCADE' }` explicitly.
 
 ## What shipped
 - **Default mode.** PLAY, a tap anywhere and Enter on the title start the Endless Highway. The
