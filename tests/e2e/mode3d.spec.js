@@ -53,7 +53,9 @@ test('3D: a race starts, the same simulation runs, and frames keep coming', asyn
   await page.waitForTimeout(1500);
   await page.keyboard.up('ArrowUp');
   expect(await hudNumber(page, 'distMetersDisplay')).toBeGreaterThan(d1);
-  expect(await frames(page)).toBeGreaterThan(f1 + 10);
+  // Frames keep coming: 10 more within 5 s (software 3D on CI runs ~7 fps, so a fixed 1.5 s
+  // window passed or failed by a single frame); a stalled loop still fails.
+  await page.waitForFunction((k) => window.__OT.view().stats.frames > k, f1 + 10, { timeout: 5_000 });
   const v = await page.evaluate(() => window.__OT.view());
   expect(v.mode).toBe('3d');
   expect(v.stats.chunks).toBeGreaterThan(2);       // road is built ahead
