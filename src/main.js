@@ -7,7 +7,8 @@ import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks, loadMusic } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
-import { createSteer, stepSteer, createLateral, stepLateral, handlingFor, loopStep, landingKeep } from './handling.js';
+import { createSteer, stepSteer, createLateral, stepLateral, handlingFor, loopStep, landingKeep, wallContact } from './handling.js';
+import { createDrive, stepDrive, rpmFor } from './drivetrain.js';
 import { nosFor, createNos, stepNos, addNos, nosSpeed, nosFill } from './nos.js';
 import { materialFor, impactVelocities } from './materials.js';
 import { createWorld, createPropPool } from './world.js';
@@ -1140,6 +1141,8 @@ function updateEraHud() {
 // Handling state (ticket 0120), reset with each race; latParams is reused to avoid per-step garbage.
 const steerWheel = createSteer();
 const lateral = createLateral();
+const drive = createDrive(); // ticket 0131: gears, traction, brakes (src/drivetrain.js)
+const driveIn = { speed: 0, throttle: false, brake: false, cap: 0, engine: 0, dt: 0, grip: 1, lat: 0, airborne: false };
 let latCarP = null, latTires = 0;
 // NOS (ticket 0122): the tank is per race and sized by the car's FLUX/BOOST rating.
 let nos = createNos(nosFor(5));
@@ -1229,22 +1232,25 @@ function updateGame(rawDt) {
   const targetMaxSpeed = (GameState.warpActiveTimer > 0 || GameState.agroTimer > 0 || isOnBooster) ? warpMaxMph : baseMaxMph;
 
   const gp = pollGamepad();
+  if (steerModes) steerModes.gamepad(gp);
   const accelerating = GameState.autoGas || InputState.up || InputState.touchUp || gp.gas;
   const braking = InputState.down || InputState.touchDown || gp.brake;
 
   const paceCfg = PACE_MODES[GameState.paceMode] || PACE_MODES[0];
-  if (braking) {
-    GameState.speed = Math.max(18, GameState.speed - 45 * rawDt);
-  } else if (accelerating) {
-    const accelRate = (14 + (upg.engine - 1) * 2.5) * carP.accelMult * paceCfg.accelMult * (GameState.warpActiveTimer > 0 ? 1.5 : 1.0);
-    if (GameState.speed < targetMaxSpeed) {
-      GameState.speed = Math.min(targetMaxSpeed, GameState.speed + accelRate * rawDt);
-    } else {
-      GameState.speed = Math.max(targetMaxSpeed, GameState.speed - 14 * rawDt);
-    }
-  } else {
-    GameState.speed = Math.max(0, GameState.speed - 18 * rawDt);
-  }
+  // Pedals through the drivetrain (ticket 0131): gears with a torque curve and shift cuts,
+  // traction-limited launches, speed-sensitive brakes, all sharing grip with cornering.
+  if (latCarP !== carP || latTires !== upg.tires) { latCarP = carP; latTires = upg.tires; latParams.h = handlingFor(carP, upg.tires); }
+  driveIn.speed = GameState.speed;
+  driveIn.throttle = Boolean(accelerating);
+  driveIn.brake = Boolean(braking);
+  driveIn.cap = targetMaxSpeed;
+  driveIn.engine = (14 + (upg.engine - 1) * 2.5) * carP.accelMult * paceCfg.accelMult * (GameState.warpActiveTimer > 0 ? 1.5 : 1.0);
+  driveIn.dt = rawDt;
+  driveIn.grip = latParams.h.grip * (GameState.zoneTimer > 0 ? 1.25 : 1);
+  driveIn.lat = lateral.load;
+  driveIn.airborne = GameState.playerY > 4;
+  GameState.speed = stepDrive(drive, driveIn);
+  GameState.wheelSpin = drive.spin;
 
   // NOS (ticket 0122): hold to burn the tank for extra thrust past top speed, capped at the
   // warp ceiling that live rooms and the leaderboard already allow.
@@ -1282,16 +1288,9 @@ function updateGame(rawDt) {
     }
   }
 
-  // 6-Speed Gearbox + RPM calculation
-  const gearThresholds = [0, 24, 44, 64, 82, 102, 140];
-  let newGear = 1;
-  for (let g = 1; g <= 6; g++) {
-    if (GameState.speed >= gearThresholds[g - 1]) newGear = g;
-  }
-  GameState.gear = newGear;
-  const gMin = gearThresholds[newGear - 1];
-  const gMax = gearThresholds[newGear];
-  GameState.rpm = Math.min(100, Math.max(18, ((GameState.speed - gMin) / Math.max(1, gMax - gMin)) * 82 + 18));
+  // 6-speed gearbox and tachometer (src/drivetrain.js keeps the gear, with shift hysteresis).
+  GameState.gear = drive.gear;
+  GameState.rpm = rpmFor(GameState.speed, drive.gear);
 
   // 10x Automotive Physics: Slope Gravity, Hill-Crest Airborne Launch, Quadratic Aero Drag & Weight Transfer!
   if (currentSeg) {
@@ -1357,6 +1356,7 @@ function updateGame(rawDt) {
   const digitalSteer = (InputState.right ? 1 : 0) - (InputState.left ? 1 : 0);
   let steerInput = 0;
   if (Math.abs(InputState.wheelSteerVal) > 0.02) steerInput += InputState.wheelSteerVal;
+  if (InputState.mouseSteerVal) steerInput += InputState.mouseSteerVal; // mouse mode (ticket 0130)
   if (Math.abs(InputState.touchSteerVal) > 0.01) steerInput += InputState.touchSteerVal;
   if (InputState.tiltEnabled && Math.abs(InputState.tiltSteerVal) > 0.03) {
     steerInput += InputState.tiltSteerVal; // sensitivity and invert are already applied (src/settings.js)
@@ -1504,11 +1504,12 @@ function updateGame(rawDt) {
   latParams.curve = currentSeg ? currentSeg.curve : 0;
   latParams.bank = currentSeg ? currentSeg.bank : 0;
   latParams.worldScale = timeScale;
-  if (latCarP !== carP || latTires !== upg.tires) { latCarP = carP; latTires = upg.tires; latParams.h = handlingFor(carP, upg.tires); }
   latParams.braking = Boolean(braking);
   latParams.throttle = Boolean(accelerating);
   latParams.drifting = GameState.isDrifting && Boolean(braking);
   latParams.gripBonus = GameState.zoneTimer > 0 ? 1.25 : 1;
+  latParams.use = drive.use; // friction circle (ticket 0131)
+  latParams.airborne = GameState.playerY > 4;
   stepLateral(lateral, steerInput, rawDt, latParams);
   GameState.playerX = lateral.x;
   GameState.playerVX = lateral.vx;
@@ -1516,6 +1517,10 @@ function updateGame(rawDt) {
   // The body's yaw on the road (travel heading + sideslip; the tail steps out in a drift).
   GameState.carYaw = lateral.yaw;
   GameState.driftAngle = lateral.yaw * (180 / Math.PI);
+  // Body roll on its springs from the cornering load (rolls away from the turn).
+  const rollF = -170 * ((GameState.chassisRoll || 0) - lateral.load * 0.09) - 15 * (GameState.chassisRollVel || 0);
+  GameState.chassisRollVel = (GameState.chassisRollVel || 0) + rollF * rawDt;
+  GameState.chassisRoll = (GameState.chassisRoll || 0) + GameState.chassisRollVel * rawDt;
 
   // Side-Slam Shove Button / Key (F)
   if (InputState.slamPressed && GameState.slamCooldown <= 0) {
@@ -1529,22 +1534,18 @@ function updateGame(rawDt) {
 
   // Strict Rigid-Body Toy-Track Side-Wall Containment (Car half-width = 0.14, Wall = ±0.86 -> Max X = ±0.72)
   const MAX_TRACK_X = 0.72;
-  if (GameState.playerX < -MAX_TRACK_X) {
-    GameState.playerX = -MAX_TRACK_X;
+  // Walls (ticket 0131, src/handling.js wallContact): a bounce with friction that scrubs
+  // speed by how hard you hit, a yaw kick away from the barrier, and grinding costs speed.
+  if (GameState.playerX < -MAX_TRACK_X || GameState.playerX > MAX_TRACK_X) {
+    const side = GameState.playerX < 0 ? -1 : 1;
+    GameState.playerX = side * MAX_TRACK_X;
     chargePenalty(logWall(GameState.penaltyLog, rawDt * 1000, GameState.speed), 'WALL SCRAPE');
-    if (GameState.playerVX < 0) {
-      GameState.playerVX = -GameState.playerVX * 0.42; // Elastic guardrail rebound impulse
-      GameState.speed = Math.max(25, GameState.speed - 12 * rawDt);
-      GameState.particles.push({ x: -38, y: -5, vx: 90, vy: -60, color: '#ffea00', life: 0.25 });
-    }
-  } else if (GameState.playerX > MAX_TRACK_X) {
-    GameState.playerX = MAX_TRACK_X;
-    chargePenalty(logWall(GameState.penaltyLog, rawDt * 1000, GameState.speed), 'WALL SCRAPE');
-    if (GameState.playerVX > 0) {
-      GameState.playerVX = -GameState.playerVX * 0.42;
-      GameState.speed = Math.max(25, GameState.speed - 12 * rawDt);
-      GameState.particles.push({ x: 38, y: -5, vx: -90, vy: -60, color: '#ffea00', life: 0.25 });
-    }
+    const hit = GameState.playerVX * side > 0;
+    lateral.vx = GameState.playerVX;
+    const lost = wallContact(lateral, side, GameState.speed, rawDt);
+    GameState.playerVX = lateral.vx;
+    GameState.speed = Math.max(Math.min(GameState.speed, 25), GameState.speed - lost);
+    if (hit) GameState.particles.push({ x: side * 38, y: -5, vx: -side * 90, vy: -60, color: '#ffea00', life: 0.25 });
   }
 
   // 3. Split-Track Crossroads Choice: a compact two-arrow cue (src/fork.js, ticket 0019),
@@ -1630,7 +1631,7 @@ function updateGame(rawDt) {
         if (driftBox && !GameState.isDrifting) driftBox.classList.add('hidden');
       }
       // Land straight to keep your speed (ticket 0120).
-      GameState.speed *= landingKeep(GameState.playerVX, GameState.steerInput);
+      GameState.speed *= landingKeep(GameState.playerVX, GameState.steerInput, lateral.yaw - lateral.heading);
       GameState.playerY = 0;
       GameState.playerVY = 0;
       GameState.stuntSpinAngle = 0;
@@ -3173,7 +3174,7 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
 
   // Camera banking + 2-wheel tilt + stunt barrel roll, plus a little body roll away from the turn.
   const yaw = Math.max(-0.7, Math.min(0.7, GameState.carYaw || 0));
-  const rollRad = (GameState.cameraBank + GameState.stuntSpinAngle) * (Math.PI / 180) + yaw * 0.22;
+  const rollRad = (GameState.cameraBank + GameState.stuntSpinAngle) * (Math.PI / 180) + yaw * 0.12 + (GameState.chassisRoll || 0);
   ctx.rotate(rollRad);
   // Body yaw seen from the chase cam: the rear face foreshortens and its far corner rides up
   // the screen, so the car visibly points where it's going (and the tail swings out in a drift).
@@ -3632,6 +3633,8 @@ function startNewRace(opts) {
   GameState.playerVX = 0;
   steerWheel.value = 0;
   Object.assign(lateral, createLateral(0));
+  Object.assign(drive, createDrive());
+  GameState.chassisRoll = 0; GameState.chassisRollVel = 0;
   GameState.carYaw = 0;
   resetNos();
   GameState.playerY = 0;
@@ -3683,6 +3686,7 @@ function startNewRace(opts) {
   document.getElementById('leaderboardModal').classList.add('hidden');
   GameState.autoGas = SaveStore.data.controls.autoAccel !== false;
   if (touch) touch.raceStart();
+  if (steerModes) steerModes.raceStart();
 
   if (daily) applyDailyModifier(daily.modifier.id);
   ghostRecorder.reset();
@@ -4008,6 +4012,7 @@ function bindAllControls() {
     if (e.code === 'KeyF') InputState.slamPressed = true;
     if (e.code === 'KeyB') JarvisAI.fireUnibeam();
     if (e.code === 'KeyI') cycleJarvisMode();
+    if (e.code === 'KeyK' && steerModes) steerModes.cycleMode(e.shiftKey ? -1 : 1);
     if (e.code === 'KeyJ') toggleJarvisArHud();
     if (e.code === 'KeyG') cyclePaceMode();
     if (e.code === 'KeyC') cycleCameraMode();
@@ -4270,13 +4275,11 @@ function syncAudioUI() {
   refreshSettingsPanel();
 }
 
+// The co-pilot: OFF → SMART ASSIST → AUTOPILOT (src/steermode-ui.js saves it; I or the pill).
 function cycleJarvisMode() {
-  GameState.jarvisMode = (GameState.jarvisMode + 1) % JARVIS_MODES.length;
+  if (steerModes) steerModes.cycleAssist();
   const m = JARVIS_MODES[GameState.jarvisMode];
-  const btn = document.getElementById('btnJarvisMode');
-  if (btn) btn.textContent = m.label;
-  JarvisAI.setStatus(m.desc, true);
-  triggerAnnouncement(m.label, m.desc, 1200);
+  if (m) JarvisAI.setStatus(m.desc, true);
 }
 
 function toggleJarvisArHud() {
@@ -4478,6 +4481,7 @@ function renderFrame(dt) {
 // Thumbstick / D-pad / tilt, an action arc and shortcuts (src/touch/). Touch devices (or any
 // device's first touch) load the kit as its own chunk; desktops never download it.
 let touch = null;
+let steerModes = null; // ticket 0130 (src/steermode-ui.js)
 let touchLoading = null;
 const canTouch = () => (navigator.maxTouchPoints || 0) > 0
   || (typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches);
@@ -4637,8 +4641,15 @@ window.onload = () => {
     input: InputState,
     controls: () => SaveStore.data.controls,
     touch: () => touch && touch.controls,
+    steer: () => steerModes,
+    drive: () => drive,
+    lateral: () => lateral,
   };
   initSettings({ announce: triggerAnnouncement });
+  // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.
+  setTimeout(() => import('./steermode-ui.js').then(({ initSteerModes }) => {
+    steerModes = initSteerModes({ announce: triggerAnnouncement, toggleTilt, recenterTilt, touch: () => touch });
+  }).catch(() => {}), 0);
   setTimeout(loadGfx, 0);
   setTimeout(() => { loadResultsUi().catch(() => {}); loadMusic().catch(() => {}); }, 0);
   bindRaceStageSkip();
