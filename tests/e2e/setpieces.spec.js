@@ -105,6 +105,34 @@ test('2D: you ride round the loop itself (camera on the loop, not a cutaway), an
   expect(problems).toEqual([]);
 });
 
+test('2D: rivals and pickups ride the loop with you, and falling off the top flies the car clear before it lands', async ({ page }, info) => {
+  test.setTimeout(90000);
+  const problems = watchPage(page);
+  await race(page, { level: 0 });
+  await page.waitForFunction(() => typeof window.__OT.GameState.loopRide === 'number');
+  // Cars and a coin ahead of you, part way up the loop.
+  const f = await jumpTo(page, 'LOOP', 0, 0.12);
+  await page.evaluate((f) => {
+    const OT = window.__OT, T = OT.traffic(), tr = OT.track();
+    T.racers.concat(T.traffic).forEach((c, i) => { c.worldZ = f.z0 + f.length * 0.12 + 700 + i * 650; c.offset = [-0.45, 0.4, 0][i % 3]; c.takenDown = false; });
+    const s = tr.seg(Math.floor((f.z0 + f.length * 0.2) / 200));
+    s.items.push({ offset: 0.3, type: 'HW_COIN', collected: false, phase: 0 });
+    OT.pause();
+  }, f);
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(() => window.__OT.GameState.loopRide)).toBe(1);
+  expect(await canvasLitFraction(page)).toBeGreaterThan(0.2);
+  await info.attach('loop-traffic', { body: await page.screenshot(), contentType: 'image/png' });
+  // Too slow over the top: you come off, fly, and land before the exit.
+  await page.evaluate(() => { window.__OT.GameState.status = 'PLAYING'; });
+  await jumpTo(page, 'LOOP', 0, 0.36);
+  await page.evaluate(() => { window.__OT.GameState.speed = 30; });
+  await page.waitForFunction(() => window.__OT.GameState.loopFall > 0.12, null, { timeout: 8000 });
+  await info.attach('loop-fall', { body: await page.screenshot(), contentType: 'image/png' });
+  await page.waitForFunction(() => window.__OT.GameState.loopFall === 0 && window.__OT.GameState.peeledLoop, null, { timeout: 15000 });
+  expect(problems).toEqual([]);
+});
+
 const SIZES = [[390, 844], [844, 390], [820, 1180], [1180, 820], [1280, 720]];
 for (const [w, h] of SIZES) {
   test(`screenshots: loop cam and corkscrew roll at ${w}x${h}`, async ({ page }, info) => {

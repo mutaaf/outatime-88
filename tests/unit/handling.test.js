@@ -148,7 +148,11 @@ describe('lateral motion (heading/yaw model, ticket 0120, v2)', () => {
   it('a power drift breaks the rear loose: the tail steps out, and counter-steering swings it back', () => {
     const grip = sim(1, 1, { speedMph: 95, curve: 2.2 });
     const drift = sim(1, 1, { speedMph: 95, curve: 2.2, drifting: true });
-    expect(drift.yaw - drift.heading).toBeGreaterThan(grip.yaw - grip.heading + 0.15);
+    expect(drift.yaw - drift.heading).toBeGreaterThan(grip.yaw - grip.heading + 0.1);
+    // A typical cornering drift reads as a slide, not a spin: about 15–18° of visible yaw.
+    const deg = drift.yaw * 180 / Math.PI;
+    expect(deg).toBeGreaterThan(14);
+    expect(deg).toBeLessThan(20);
     const caught = sim(-0.5, 0.6, { speedMph: 95, curve: 2.2, drifting: true }, drift);
     expect(caught.yaw - caught.heading).toBeLessThan(0);
   });

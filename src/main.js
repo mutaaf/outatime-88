@@ -1269,6 +1269,9 @@ function updateGame(rawDt) {
       GameState.peelT = lt; // where you came off: the 2D loop view drops you from here
       GameState.loopPeels = (GameState.loopPeels || 0) + 1;
       GameState.speed = Math.min(GameState.speed, 40);
+      // The fall's arc is laid out from this speed (src/loopcam.js peelFall), on the sim's own
+      // progress to the exit, so the car lands in the view when the sim says it does.
+      GameState.peelUps = (GameState.speed / 88) * 11000 * paceCfg.mult;
       GameState.playerVY = 0;
       triggerAnnouncement('🌀 TOO SLOW FOR THE LOOP!', 'HIT IT FASTER — NOS HELPS', 1300);
       if (touch) touch.controls.haptics.pulse('hit');
@@ -2842,17 +2845,42 @@ function renderScene() {
   // The real loop: drive round it with the camera riding the loop (src/loopcam.js). Calm mode
   // keeps the side-on loop cam instead (it never turns the screen over).
   const rideF = setPieceArt && !GameState.reducedMotion ? loopNear(GameState.trackPos + ROAD_CFG.playerZOffset) : null;
+  let rideOwnsCar = false;
   if (rideF) {
     const z = GameState.trackPos + ROAD_CFG.playerZOffset;
     const blend = setPieceArt.rideBlend(rideF, z - rideF.z0);
-    setPieceArt.drawLoopRide(ctx, rw, rh, {
+    const paint = carPaint(POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0]);
+    rideMovers[0] = LiveTraffic.racers; rideMovers[1] = LiveTraffic.traffic; rideMovers[2] = live.ghosts;
+    const ride = setPieceArt.drawLoopRide(ctx, rw, rh, {
       f: rideF, z, lat: GameState.playerX, peelT: GameState.peeledLoop === rideF ? GameState.peelT : null,
-      blend, eraCfg, t: fxClock, reduced: GameState.reducedMotion,
+      ups: GameState.peelUps || 1600, blend, eraCfg, t: fxClock, reduced: GameState.reducedMotion,
+      road: track, movers: rideMovers, color: paint.body, cabin: paint.cabin,
     });
+    if (ride.ownCar && GameState.cameraMode !== 2) {
+      // Fell off the top: the same car, flying the ballistic arc the ride view worked out.
+      rideOwnsCar = true;
+      const ax = rw * 0.5, ay = rh * 0.87;
+      ctx.save();
+      ctx.translate(ax + ride.dx, ay + ride.dy);
+      ctx.rotate(ride.roll);
+      ctx.scale(ride.k, ride.k * ride.flip);
+      ctx.translate(-ax, -ay);
+      GameState.playerScreenX = Math.floor(ax);
+      drawPlayerCar(ctx, rw, rh, eraCfg);
+      ctx.restore();
+    }
+    if (ride.landed) {
+      // Touchdown after falling off the top: a bounce, sparks and a thump.
+      burstSparks(26, 28, 1.2);
+      GameState.screenShake = Math.max(GameState.screenShake || 0, 0.35);
+      SoundEngine.playCrash();
+      if (touch) touch.controls.haptics.pulse('hit');
+    }
     GameState.playerScreenX = Math.floor(rw * 0.5);
     GameState.loopRide = blend;
-  } else GameState.loopRide = 0;
-  if (GameState.cameraMode !== 2) {
+    GameState.loopFall = ride.fall;
+  } else { GameState.loopRide = 0; GameState.loopFall = 0; }
+  if (GameState.cameraMode !== 2 && !rideOwnsCar) {
     drawPlayerCar(ctx, rw, rh, eraCfg);
   }
 
@@ -2915,6 +2943,8 @@ function renderScene() {
   }
   mainCtx.restore();
 }
+
+const rideMovers = [null, null, null]; // reused: the cars the loop ride view draws
 
 /** A loop under the car, or one it is just entering or leaving (the ride view's blend). */
 function loopNear(z) {
