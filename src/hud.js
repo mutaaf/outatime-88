@@ -112,7 +112,10 @@ export function createHud(doc = document) {
       const ready = s.flux >= 95;
       text(el.fluxLabel, 'fluxLabel', ready ? '⚡ WARP READY' : 'FLUX');
       flag(el.speedCard, 'ready', 'is-ready', ready);
-      text(el.score, 'score', Math.floor(s.score).toLocaleString());
+      // The score sits under the FLUX meter; label it so a post-penalty negative never reads as flux.
+      const pts = Math.floor(s.score);
+      text(el.score, 'score', `${pts.toLocaleString()} PTS`);
+      flag(el.score, 'scoreNeg', 'is-neg', pts < 0);
     },
   };
 }
