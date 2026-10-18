@@ -24,6 +24,15 @@ test('the lineup calls out all six racers, you last, and a tap skips to the ligh
   expect(await gs(page, 'speed')).toBe(0); // nobody moves before green
   expect(await gs(page, 'raceTime')).toBe(0);
 
+  // Coming back to the same track (0140): the lineup is remembered, so it's straight to the lights.
+  await page.reload();
+  await ready(page);
+  await page.evaluate(() => window.__OT.startRace());
+  await expect(page.locator('#rcLights')).toBeVisible({ timeout: 1500 });
+  await expect(page.locator('#rcCard')).toBeHidden();
+
+  // A track you haven't seen yet plays the lineup, and a tap skips it.
+  await page.evaluate(() => { const k = 'outatime_cruisn_88_save_v2'; const d = JSON.parse(localStorage.getItem(k)); d.lineupsSeen = []; localStorage.setItem(k, JSON.stringify(d)); });
   await page.reload();
   await ready(page);
   await page.evaluate(() => window.__OT.startRace());
