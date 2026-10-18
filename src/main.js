@@ -147,7 +147,7 @@ const JarvisAI = {
 const PROP_POOL_SIZE = 24;
 // The AI reads bends in segment `curve` units (what the track pieces are written in).
 const segCurveAt = (z) => curvatureAt(z) * ROAD_CFG.segLength;
-// Rival racing AI (ticket 0151) is a lazy chunk, fetched at boot long before the first grid;
+// Rival racing AI (ticket 0160) is a lazy chunk, fetched at boot long before the first grid;
 // until it lands (or if it fails) rivals use the simple pace-and-dodge driver below.
 let RAI = null;
 const aiRoad = { curvatureAt: segCurveAt, bankAt, featureAt, line: null };
@@ -217,7 +217,7 @@ const LiveTraffic = {
       body.accent = rc.cabin;
       body.crew = rc.franchise;
       body.pace = RIVAL_PACES[idx] * pace;
-      // A driver (ticket 0151): personality from the car's class, seeded by the race.
+      // A driver (ticket 0160): personality from the car's class, seeded by the race.
       body.ai = null;
       body.rc = rc;
       body.progress = GameState.distance + slot.dz / this.speedToWorld();
@@ -289,7 +289,7 @@ const LiveTraffic = {
     GameState.racePosition = field.indexOf(this.playerEntry) + 1;
     GameState.totalRacers = field.length;
   },
-  // The world the rival AI sees (ticket 0151), refilled each frame without allocating.
+  // The world the rival AI sees (ticket 0160), refilled each frame without allocating.
   aiWorld: null,
   fillAiWorld(playerZ, speedToWorld) {
     if (!this.aiWorld) return null;
@@ -4098,7 +4098,7 @@ function updateRaceCeremony(rawDt) {
     const lap = GameState.raceLength ? lapOf(GameState.distance, GameState.raceLength).lap : 1;
     if (lap > lapNow) { GameState.lapSplits.push(GameState.raceTime - lapStartedAt); lapStartedAt = GameState.raceTime; lapNow = lap; if (touch) touch.controls.haptics.pulse('lap'); }
     const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
-    // Who got you and how, and the nemesis intro (ticket 0151, src/rival-ai.js).
+    // Who got you and how, and the nemesis intro (ticket 0160, src/rival-ai.js).
     const nc = RAI && LiveTraffic.aiWorld && RAI.raceCalls(LiveTraffic.aiWorld, LiveTraffic, c);
     if (nc) triggerAnnouncement(nc[0], nc[1], 1600, 2);
     if (c) {

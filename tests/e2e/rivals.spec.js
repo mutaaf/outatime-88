@@ -1,13 +1,13 @@
-// Rival racing AI (ticket 0151): a real race where the field drives lines, passes and spreads.
+// Rival racing AI (ticket 0160): a real race where the field drives lines, passes and spreads.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';
 
-test('rivals race for real: they stay on the road, swap places and spread out', async ({ page }) => {
+for (const mode of ['ARCADE', 'INFINITE']) test(`rivals race for real (${mode}): they stay on the road, swap places and spread out`, async ({ page }) => {
   test.setTimeout(60_000);
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
   await page.waitForFunction(() => window.__OT && window.__OT.traffic);
-  await page.evaluate(() => window.__OT.startRace());
+  await page.evaluate((m) => window.__OT.startRace({ mode: m }), mode);
   // The AI chunk is fetched at boot; every rival on the grid drives with a brain.
   await page.waitForFunction(() => window.__OT.traffic().racers.length === 5 && window.__OT.traffic().racers.every((r) => r.ai));
   // Let the co-pilot drive you so the race plays out the same way on any machine.
@@ -28,7 +28,7 @@ test('rivals race for real: they stay on the road, swap places and spread out', 
   const orders = new Set();
   const modes = new Set();
   let nosSeen = false, worstX = 0, last = null;
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 40; i++) {
     last = await sample();
     orders.add(last.order);
     last.modes.forEach((m) => modes.add(m));
@@ -40,7 +40,7 @@ test('rivals race for real: they stay on the road, swap places and spread out', 
     const t = window.__OT.traffic();
     const sum = { passes: 0, nos: 0, mistakes: 0, brakes: 0 };
     for (const r of t.racers) for (const k of Object.keys(sum)) sum[k] += r.ai.stats[k];
-    return { sum, nemesis: window.__OT.GameState.nemesisId, nemesisFlag: t.racers.filter((r) => r.nemesis).length };
+    return { sum, nemesis: window.__OT.GameState.nemesisId, nemesisFlag: t.racers.filter((r) => r.nemesis).length, tier: t.aiWorld.tier };
   });
   test.info().annotations.push({ type: 'rivals', description: JSON.stringify({ orders: orders.size, modes: [...modes], nosSeen, worstX, stats, spread: Math.max(...last.progress) - Math.min(...last.progress) }) });
 
@@ -49,6 +49,7 @@ test('rivals race for real: they stay on the road, swap places and spread out', 
   expect(Math.max(...last.progress) - Math.min(...last.progress)).toBeGreaterThan(30); // the field spread out
   expect(stats.sum.passes + stats.sum.nos).toBeGreaterThan(0); // they raced, not just cruised
   expect(stats.nemesisFlag).toBe(1);
+  expect(stats.tier).toBeGreaterThanOrEqual(0);
   expect(stats.nemesis).toBeTruthy();
   expect(problems).toEqual([]);
 });

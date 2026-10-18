@@ -1,4 +1,4 @@
-// Rival racing AI (ticket 0151). Each rival is a driver: a profile (skill, aggression,
+// Rival racing AI (ticket 0160). Each rival is a driver: a profile (skill, aggression,
 // consistency, NOS craft) from its roster car, ramped by a progression tier, driving the same
 // road the player does. Pure and deterministic per seed: no Math.random, no wall clock, no
 // allocation per step (one brain per rival, one reused context per frame).

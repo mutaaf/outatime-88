@@ -1,4 +1,4 @@
-// Rival racing AI (ticket 0151): corners, passes, NOS, loops, the tier ramp and determinism.
+// Rival racing AI (ticket 0160): corners, passes, NOS, loops, the tier ramp and determinism.
 import { describe, it, expect } from 'vitest';
 import { AI, aiTier, driverProfile, createBrain, rampBrain, cornerMph, createAiWorld, stepRival, pickNemesis } from '../../src/rival-ai.js';
 
