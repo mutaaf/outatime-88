@@ -25,6 +25,12 @@ and the Time Storm gains on scrapes, so points don't need to carry the whole con
   contact, contacts closer together than the join window allows.
 - Grinding wears HP (5/s, scaled by durability and difficulty), never below 1 HP.
 
-## Done when
-- A 3-second grind costs ≤ 300 points (was ~12,000) and drops HP; client charges equal the
-  server recompute; v2 runs still validate.
+## Acceptance criteria
+- A 3-second grind costs ≤ 300 points (was ~12,000) and drops HP, never below 1.
+- Client charges equal the server recompute for any log; v2 runs still validate.
+- Forged contact totals are rejected; a full log still fits the 2,048-byte API body.
+
+## Test plan
+- Unit: `tests/unit/scoring.test.js` (tap, grace, cap, join window, parity, v2 compatibility,
+  forged totals, body size) and `tests/unit/worker-compete.test.js` (payload v3 detection).
+- e2e: `tests/e2e/penalty.spec.js` grinds the wall for 3 s and checks the cap and HP.
