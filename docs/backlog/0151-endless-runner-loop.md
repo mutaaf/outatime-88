@@ -1,11 +1,12 @@
 ---
 id: 0151
 title: Endless runner loop — Time Storm pursuer, run goals with a permanent multiplier, one coins-only continue
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-18
+pr: 92
 ---
 
 ## Why
