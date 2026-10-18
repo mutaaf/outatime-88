@@ -131,7 +131,8 @@ test('after one visit the game boots, races in 2D and 3D, plays sounds and shows
   // (Firefox here: Wi-Fi that's down but not "offline" — the room request fails fast instead.)
   await expect(page.locator('#liveMsgTitle')).toHaveText(browserName === 'firefox' ? /NEEDS INTERNET|OFFLINE/ : /NEEDS INTERNET/, { timeout: 12_000 });
   await page.keyboard.press('Escape');
-  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await page.goto(net.url(`${APP}?debug`)); // (a fresh load: Firefox aborts a reload racing the room's history update)
   await page.waitForLoadState('networkidle');
 
   // A solo race in 2D…
@@ -152,7 +153,10 @@ test('after one visit the game boots, races in 2D and 3D, plays sounds and shows
 
   await net.up();
   await net.close();
-  expect(problems.filter((p) => !/Failed to load resource|ERR_INTERNET_DISCONNECTED|NetworkError|network connection|api\/|WebSocket|internet connection appears to be offline/i.test(p))).toEqual([]);
+  // WebKit reports a lazy import that a navigation cut short as "Importing a module script
+  // failed" (the next page loads it fine from the cache, as the 3D check above proves).
+  const benign = /Failed to load resource|ERR_INTERNET_DISCONNECTED|NetworkError|network connection|api\/|WebSocket|internet connection appears to be offline/i;
+  expect(problems.filter((p) => !benign.test(p) && !(browserName === 'webkit' && /Importing a module script failed/.test(p)))).toEqual([]);
 });
 
 /** A run token the way the server signs it (payload.t is all the client reads). */
@@ -160,6 +164,9 @@ const tokenAt = (t) => `${Buffer.from(JSON.stringify({ id: 'r1', t })).toString(
 
 test('a score whose connection dropped is kept and posts itself when the network is back', async ({ page, context, browserName }) => {
   test.skip(browserName === 'webkit', 'Playwright cannot stub API calls from a service-worker-controlled page in WebKit');
+  // Playwright's Firefox lets a stubbed request through after the route says the network is
+  // down (seen in CI: the run posted while "offline"), so this one is Chromium's to check.
+  test.skip(browserName === 'firefox', 'Playwright Firefox routing cannot simulate a dropped API call here');
   test.setTimeout(90_000);
   const net = await network(browserName, context);
   const posts = [];
