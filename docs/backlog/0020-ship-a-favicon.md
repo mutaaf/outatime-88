@@ -1,12 +1,12 @@
 ---
 id: 0020
 title: Ship a favicon so full Chrome stops logging a 404 on every load
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: tech-health
 created: 2026-10-17
-pr:
+pr: 68
 ---
 
 ## Why
@@ -20,9 +20,9 @@ Add an original inline SVG favicon (e.g. a neon "88" glyph) linked from `index.h
 data URI or an imported asset using `import.meta.env.BASE_URL` (never root-absolute, invariant 2).
 
 ## Acceptance criteria
-- [ ] Loading the page in full Chromium produces zero console errors and no failed requests
-- [ ] The favicon is bundled (no new hosts) and respects the `/outatime/` base path
-- [ ] The e2e smoke test would fail if the favicon link were removed
+- [x] Loading the page in full Chromium produces zero console errors and no failed requests
+- [x] The favicon is bundled (no new hosts) and respects the `/outatime/` base path
+- [x] The e2e smoke test would fail if the favicon link were removed
 
 ## Test plan
 Add an assertion to `tests/e2e/smoke.spec.js` that `link[rel~=icon]` exists with a non-root-absolute href and loads with a 200.

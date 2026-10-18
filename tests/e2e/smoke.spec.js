@@ -11,6 +11,25 @@ test('boots at the base path with no errors and no external requests', async ({ 
   expect(problems).toEqual([]);
 });
 
+// Full Chrome asks for /favicon.ico when no icon is linked (a console 404); the headless shell
+// here never does, so this guards the link itself.
+test('links a bundled favicon under the base path', async ({ page, request }) => {
+  const problems = watchPage(page);
+  await page.goto(APP);
+  const icon = page.locator('link[rel~="icon"]');
+  await expect(icon).toHaveCount(1);
+  const href = await icon.getAttribute('href');
+  expect(href).toBeTruthy();
+  // Never root-absolute outside the base (invariant 2), and never a third-party host.
+  expect(href.startsWith('/') && !href.startsWith(APP)).toBe(false);
+  const url = new URL(href, page.url());
+  expect(url.host).toBe(new URL(page.url()).host);
+  const res = await request.get(url.href);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toContain('image/svg+xml');
+  expect(problems).toEqual([]);
+});
+
 test('a race starts and advances under keyboard input', async ({ page }) => {
   const problems = watchPage(page);
   await page.goto(APP);
