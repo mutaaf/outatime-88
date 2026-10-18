@@ -106,8 +106,8 @@ export function createHud(doc = document) {
       const me = field[i];
       const a = field[i - 1];
       const b = field[i + 1];
-      text(el.ahead, 'ahead', a && me ? `▲ ${a.short} +${formatGap(gapSeconds(a.progress - me.progress, s.mph))}` : (me ? '★ LEADING' : ''));
-      text(el.behind, 'behind', b && me ? `▼ ${b.short} −${formatGap(gapSeconds(me.progress - b.progress, s.mph))}` : '');
+      text(el.ahead, 'ahead', a && me ? `▲ ${a.nemesis ? '😈' : ''}${a.short} +${formatGap(gapSeconds(a.progress - me.progress, s.mph))}` : (me ? '★ LEADING' : ''));
+      text(el.behind, 'behind', b && me ? `▼ ${b.nemesis ? '😈' : ''}${b.short} −${formatGap(gapSeconds(me.progress - b.progress, s.mph))}` : '');
 
       // Track strip: one dot per racer at its share of the race (endless: relative to you).
       syncDots(field);
