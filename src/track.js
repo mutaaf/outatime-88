@@ -68,6 +68,14 @@ export function setTrackSeed(seed) {
   track.seed = seed | 0;
 }
 
+/**
+ * Curve amplitude multiplier on top of the level's (Endless Highway tiers, ticket 0150).
+ * Applied to biomes generated from now on; seeded races (live, daily) keep 1.
+ */
+export function setTrackIntensity(k) {
+  track.intensity = k > 0 ? k : 1;
+}
+
 export function resetTrack() {
   // The pooled objects stay in the ring; they are simply reused from index 0 again.
   track.start = 0;
@@ -342,7 +350,7 @@ function nextPiece() {
 export function generateNextTrackBiome(chosenBranch = null) {
   const startIdx = track.end;
   track.generatedCount++;
-  amp = AMP[Math.max(0, Math.min(AMP.length - 1, GameState.levelIndex | 0))];
+  amp = AMP[Math.max(0, Math.min(AMP.length - 1, GameState.levelIndex | 0))] * (track.intensity || 1);
 
   if (track.generatedCount === 1) {
     addRoadSection(8, 18, 8, 0, 0, 0, 'STANDARD');

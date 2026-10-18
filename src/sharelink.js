@@ -60,6 +60,14 @@ export function namesSentence(names, max = 2) {
  * r: { place, total, startPos, beatBy, outcome, beat: [names], time }
  */
 export function shareCopy(r) {
+  if (r.endless) {
+    // Endless Highway (ticket 0150): distance and tier are the brag.
+    const m = r.endless.distance.toLocaleString();
+    return {
+      kicker: r.endless.isBest ? 'NEW PERSONAL BEST' : 'ENDLESS HIGHWAY',
+      brag: `I drove ${m} m and hit TIER ${r.endless.tier} on the Endless Highway. How far can you go?`,
+    };
+  }
   const beaten = namesSentence((r.beat || []).map((n) => n.split(/[ &]/)[0].toUpperCase()));
   const t = formatRaceTime(r.time);
   let kicker;

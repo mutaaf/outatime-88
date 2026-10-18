@@ -2,7 +2,7 @@
 
 export const GameState = {
   status: 'TITLE',
-  mode: 'ARCADE',
+  mode: 'INFINITE', // Endless Highway is the default (ticket 0150); EVENTS picks a track race
   levelIndex: 0,
   paceMode: 0, // 0: SMOOTH CRUISE (Default), 1: ARCADE NORMAL, 2: PRO FAST
   visualOverride: 'AUTO',

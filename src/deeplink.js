@@ -12,7 +12,7 @@ const BOARDS = {
   friends: { board: 'friends', mode: 'ARCADE' },
   daily: { board: 'daily', mode: 'DAILY' },
 };
-const PLAYS = ['friends', 'quick', 'daily'];
+const PLAYS = ['friends', 'quick', 'daily', 'infinite'];
 export const DEEP_PARAMS = Object.freeze(['play', 'board', 'level', 'garage']);
 export const DEEP_RE = /[?&](play|board|level|garage)(=|&|$)/;
 
@@ -49,6 +49,7 @@ export function applyDeepLink(h) {
     if (d.level < h.unlocked()) { h.pickLevel(d.level); hint(`TAP TO RACE ${h.levels[d.level].name}`); }
     else hint(`LEVEL ${d.level + 1} IS LOCKED — WIN TO UNLOCK · TAP TO RACE`);
   }
+  if (d.play === 'infinite') { h.titleStart({ mode: 'INFINITE' }); hint('TAP TO DRIVE THE ENDLESS HIGHWAY'); }
   if (d.play === 'daily') { h.titleStart({ daily: true }); hint("TAP TO RACE TODAY'S DAILY"); }
   if (d.play === 'friends' || d.play === 'quick') {
     return h.live().then((l) => {

@@ -23,6 +23,8 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, applyRunResult } from './progress.js';
+import { setTrackIntensity } from './track.js';
+import { difficultyOf, endlessTuning, recordEndless, ENDLESS } from './endless.js';
 import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt } from './track.js';
 import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
 let pickupArt = null; // src/pickup-art.js, lazy: crisp cached pickup icons (simple shapes until it lands)
@@ -707,6 +709,7 @@ function initTrack() {
   // Seeded races (live rooms, dailies) shuffle the road with their shared seed; a normal race
   // gets its level's fixed layout so the level's leaderboard is one road for everyone.
   setTrackSeed(GameState.daily || GameState.mode === 'LIVE' ? GameState.lineSeed : 0);
+  setTrackIntensity(1);
   buildInitialTrack();
   LiveTraffic.init();
 }
@@ -807,12 +810,64 @@ function applyPlayerDamage(rawDmg, reasonText) {
 
   if (GameState.hp <= 0) {
     if (GameState.mode === 'LIVE') live.wrecked(); // live races never end early: you respawn
-    else endRaceRun('WRECKED — CHASSIS HP DEPLETED!');
+    else if (GameState.mode === 'INFINITE') endRaceRun(`💥 WRECKED — RUN OVER AT TIER ${GameState.tier}`);
+    else patchUpWreck(); // a race with a finish line: limp on, the lost time is the cost
   }
 }
 
+/** Arcade/daily wreck (ticket 0150): the pit crew patches you up instead of ending the race. */
+function patchUpWreck() {
+  GameState.wrecks = (GameState.wrecks || 0) + 1;
+  GameState.hp = Math.round(GameState.maxHp * 0.35);
+  GameState.speed = Math.min(GameState.speed, 20);
+  GameState.invulnTimer = 2.2;
+  triggerAnnouncement('💥 WRECKED!', `PIT CREW PATCH-UP · +${GameState.hp} HP · KEEP RACING`, 1600, 3);
+}
+
+/** HP up (wrenches, regen, level-ups), clamped to max. Returns what was actually healed. */
 function healPlayerHp(amount) {
-  GameState.hp = Math.min(GameState.maxHp, GameState.hp + amount);
+  const before = GameState.hp;
+  GameState.hp = Math.max(0, Math.min(GameState.maxHp, GameState.hp + amount));
+  return GameState.hp - before;
+}
+
+// Endless Highway (ticket 0150): tier, difficulty and the level-up moment.
+const diffIn = { mode: 'ARCADE', distance: 0, levelIndex: 0, levels: 1, raceLength: 0 };
+const diffOut = { tier: 1, difficulty: 0 };
+const tune = { wave: 1, intensity: 1, coinMult: 1 };
+function updateDifficulty() {
+  diffIn.mode = GameState.mode;
+  diffIn.distance = GameState.distance;
+  diffIn.levelIndex = GameState.levelIndex;
+  diffIn.levels = WORLD_LEVELS.length;
+  diffIn.raceLength = GameState.raceLength;
+  difficultyOf(diffIn, diffOut);
+  if (diffOut.difficulty > GameState.difficulty) GameState.difficulty = diffOut.difficulty;
+  if (GameState.mode !== 'INFINITE') { GameState.tier = diffOut.tier; return false; }
+  const up = diffOut.tier > GameState.tier;
+  if (up) GameState.tier = diffOut.tier;
+  endlessTuning(GameState.difficulty, GameState.tier, tune);
+  if (tune.wave > GameState.waveTier) GameState.waveTier = tune.wave;
+  GameState.coinMult = tune.coinMult;
+  if (up) levelUpEndless();
+  return true;
+}
+
+function levelUpEndless() {
+  const tier = GameState.tier;
+  setTrackIntensity(tune.intensity);
+  const healed = Math.round(healPlayerHp(Math.round(GameState.maxHp * ENDLESS.healFrac)));
+  GameState.eraIndex = (GameState.eraIndex + 1) % ERAS.length; // every tier is a new era
+  updateEraHud();
+  if (!GameState.reducedMotion) GameState.takedownSlowMoTimer = Math.max(GameState.takedownSlowMoTimer, 0.45);
+  GameState.levelUpAt = performance.now();
+  const banner = document.getElementById('levelUpBanner');
+  if (banner) { document.getElementById('levelUpTier').textContent = `TIER ${tier}`; banner.dataset.fx = `t${tier % 2}`; }
+  SoundEngine.playLevelUp();
+  if (touch) touch.controls.haptics.pulse('lap');
+  burstSparks(30, 50, 1.2);
+  triggerAnnouncement(`⬆️ LEVEL UP! TIER ${tier}`,
+    `${healed > 0 ? `+${healed} HP · ` : ''}${GameState.coinMult.toFixed(1)}× COINS · ${ERAS[GameState.eraIndex].id} · FASTER!`, 2000, 3);
 }
 
 function addEndlessRunStreak(amount, reasonLabel, offsetFromCenter = 0) {
@@ -912,8 +967,10 @@ function applyPickup(item, def) {
   const rel = item.offset - GameState.playerX;
   if (def.combo) { GameState.combo = Math.min(12, GameState.combo + 1); GameState.comboTimer = 5.0; }
   if (def.flux) GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains[def.flux]);
-  if (def.coins) { GameState.runCoins += def.coins; SaveStore.data.fluxCoins += def.coins; }
-  if (def.heal) healPlayerHp(def.heal);
+  // Endless tiers multiply coin cash (ticket 0150); points are unchanged (the server re-checks them).
+  const cash = def.coins ? Math.round(def.coins * (GameState.coinMult || 1)) : 0;
+  if (cash) { GameState.runCoins += cash; SaveStore.data.fluxCoins += cash; }
+  const healed = def.heal ? Math.round(healPlayerHp(def.heal)) : 0;
   if (def.nos) { addNos(nos, def.nos); GameState.nosFill = nosFill(nos); }
   const pts = def.pts * GameState.combo;
   GameState.score += pts;
@@ -925,7 +982,7 @@ function applyPickup(item, def) {
   GameState.pickupsTaken = (GameState.pickupsTaken || 0) + 1;
   if (pickupArt) pickupArt.burst(item.type, rel);
   const label = item.type === 'PLUTONIUM' ? `+${pts} ⚡ 1.88GW!` : item.type === 'HW_COIN' ? `+${pts} 🔥 x${GameState.combo}`
-    : item.type === 'REPAIR_WRENCH' ? `+${def.heal} 💚 HP REPAIRED!` : '💨 NOS REFILL!';
+    : item.type === 'REPAIR_WRENCH' ? (healed > 0 ? `+${healed} 💚 HP REPAIRED!` : '💚 HP FULL!') : '💨 NOS REFILL!';
   spawnAcquireAnimation(item.type, rel, label);
 }
 
@@ -1248,8 +1305,15 @@ function updateGame(rawDt) {
   if (activeChar.id === 'ARC_ROADSTER_88' && GameState.hp < GameState.maxHp) {
     GameState.hp = Math.min(GameState.maxHp, GameState.hp + 2.0 * rawDt);
   }
+  // Low-HP warning (ticket 0150): once per dip under 30%, re-armed above 45%.
+  const hpFrac = GameState.maxHp ? GameState.hp / GameState.maxHp : 1;
+  if (!GameState.hpLowWarned && GameState.hp > 0 && hpFrac <= 0.3) {
+    GameState.hpLowWarned = true;
+    triggerAnnouncement('⚠️ LOW HP!', 'GRAB A 🔧 WRENCH · DRIVE CLEAN', 1500, 3);
+    if (touch) touch.controls.haptics.pulse('hit');
+  } else if (GameState.hpLowWarned && hpFrac > 0.45) GameState.hpLowWarned = false;
   const newWave = 1 + Math.floor(GameState.distance / 550);
-  if (newWave > GameState.waveTier) {
+  if (!updateDifficulty() && newWave > GameState.waveTier) {
     GameState.waveTier = newWave;
     triggerAnnouncement(`🌊 WAVE ${GameState.waveTier} REACHED!`, 'SPEED & OBSTACLE INTENSITY UP!', 1400);
   }
@@ -2071,6 +2135,9 @@ function updateRaceHud(force) {
   hudView.nos = GameState.nosFill || 0;
   hudView.nosOn = Boolean(GameState.nosBurning);
   hudView.hpFrac = GameState.maxHp ? GameState.hp / GameState.maxHp : 1;
+  hudView.hp = GameState.hp;
+  hudView.maxHp = GameState.maxHp;
+  hudView.tier = GameState.tier;
   hudView.score = GameState.score;
   raceHud.update(hudView);
   if (ghostRace.active) ghostRace.update(hudView.raceTime, GameState.distance, GameState.speed, hudView.length);
@@ -2108,7 +2175,7 @@ function updateLiveHud(forceHud) {
       ? 'h-full bg-gradient-to-r from-emerald-500 to-lime-400 transition-all duration-150'
       : (hpPct > 25 ? 'h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-150' : 'h-full bg-red-500 transition-all duration-150');
   }
-  if (waveEl) waveEl.textContent = `W${GameState.waveTier}`;
+  if (waveEl) waveEl.textContent = GameState.mode === 'INFINITE' ? `T${GameState.tier}` : `W${GameState.waveTier}`;
   const streakEl = document.getElementById('streakMultDisplay');
   const distEl = document.getElementById('distMetersDisplay');
   if (streakEl) {
@@ -3450,15 +3517,32 @@ function titleVisible() {
   return !!el && !el.classList.contains('hidden') && GameState.status !== 'PLAYING';
 }
 
+const MODE_BTN = 'mode-select-btn flex-1 text-left px-2.5 py-2 rounded-lg font-arcade text-[10px] font-bold flex items-center justify-between ';
+function syncModeButtons() {
+  const a = document.getElementById('modeBtnArcade'), i = document.getElementById('modeBtnInfinite');
+  if (!a || !i) return;
+  const endless = GameState.mode !== 'ARCADE';
+  i.className = MODE_BTN + (endless ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white' : 'bg-slate-900 border border-slate-700 text-slate-300');
+  a.className = MODE_BTN + (endless ? 'bg-slate-900 border border-slate-700 text-slate-300' : 'bg-orange-500/20 border-2 border-orange-500 text-white');
+}
+
 function updateTitleChip() {
   const chip = document.getElementById('titleEventChip');
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
-  if (chip) chip.textContent = `${lvl.name} · ${GameState.mode === 'INFINITE' ? 'ENDLESS' : 'ARCADE'}`;
+  // The title sells Endless Highway (ticket 0150): your best run and the next tier to beat.
+  const e = SaveStore.data.endless;
+  if (chip) chip.textContent = GameState.mode === 'ARCADE'
+    ? `🏁 TRACK RACE · ${lvl.name}`
+    : (e && e.bestDistance ? `♾️ BEST ${e.bestDistance.toLocaleString()} m · TIER ${e.bestTier} · BEAT IT!` : '♾️ ENDLESS HIGHWAY · LEVEL UP AS YOU GO');
   const missions = document.getElementById('titleMissions');
   if (missions) missions.textContent = titleMissionLine(SaveStore.data, utcDay(Date.now()));
 }
 
 function openEventsPanel() {
+  // EVENTS is where you pick a track race (ticket 0150): it opens on TRACK RACE; the Endless
+  // Highway is one tap away there and always on the title's PLAY.
+  GameState.mode = 'ARCADE';
+  syncModeButtons();
   renderCharacterRosterGrid();
   selectCharacterByIndex(GameState.selectedCharIdx || 0);
   renderLevelSelectGrid();
@@ -3514,7 +3598,7 @@ const refreshRival = () => withResults((ui) => ui.refreshRival());
 
 function restoreSoloSettings() {
   GameState.levelIndex = GameState.savedLevelIndex;
-  GameState.mode = GameState.savedMode || 'ARCADE';
+  GameState.mode = GameState.savedMode || 'INFINITE';
   if (GameState.savedPace !== undefined) GameState.paceMode = GameState.savedPace;
   GameState.savedLevelIndex = undefined;
   GameState.savedPace = undefined;
@@ -3568,6 +3652,11 @@ function startNewRace(opts) {
   // campaign selection; any other start (button, Enter, tap) is a normal race.
   const daily = opts && opts.daily ? todaysDaily() : null;
   const liveRace = opts && opts.live ? opts.live : null;
+  if (opts && (opts.mode === 'INFINITE' || opts.mode === 'ARCADE') && !daily && !liveRace) {
+    if (GameState.savedLevelIndex !== undefined) restoreSoloSettings();
+    GameState.mode = opts.mode;
+    syncModeButtons();
+  }
   GameState.daily = daily;
   if (liveRace) {
     // Live race (sprint 3): the room picks the road, the seed and one shared pace.
@@ -3607,6 +3696,11 @@ function startNewRace(opts) {
   GameState.hp = GameState.maxHp;
   GameState.invulnTimer = 0;
   GameState.waveTier = 1;
+  GameState.tier = 1;
+  GameState.difficulty = 0;
+  GameState.coinMult = 1;
+  GameState.wrecks = 0;
+  GameState.hpLowWarned = false;
   GameState.isDuckSliding = false;
   GameState.score = 0;
   GameState.penaltyLog = createPenaltyLog();
@@ -3922,6 +4016,11 @@ function endRaceRun(customBadgeText = null) {
   if (GameState.score > SaveStore.data.bestScore) {
     SaveStore.data.bestScore = GameState.score;
   }
+  // Endless Highway (ticket 0150): distance and tier are the run's story; keep the bests.
+  if (GameState.mode === 'INFINITE' && !GameState.daily) {
+    const rec = recordEndless(SaveStore.data, GameState.distance, GameState.tier);
+    GameState.endlessResult = { distance: Math.round(GameState.distance), tier: GameState.tier, best: rec.best, bestTier: rec.bestTier, isBest: rec.isBest };
+  } else GameState.endlessResult = null;
   SaveStore.data.onboarded = true;
   setSteerHint(false);
   // Daily runs count for the daily board, not the campaign ladder (their rules differ).
@@ -3969,7 +4068,7 @@ function bindAllControls() {
         && document.getElementById('leaderboardModal').classList.contains('hidden')
         && ['Enter', 'Space', 'NumpadEnter'].includes(e.code)) {
       e.preventDefault();
-      startNewRace(titleStart);
+      startNewRace(titleStart || { mode: 'INFINITE' });
       return;
     }
     if (['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(e.code)) onboarding.steer();
@@ -4141,7 +4240,7 @@ function bindAllControls() {
   document.getElementById('initialsInput').addEventListener('keydown', (e) => e.stopPropagation());
   // Tap anywhere on the title (outside its icons) to race.
   document.getElementById('titleScreen').addEventListener('click', (e) => {
-    if (!e.target.closest('button, nav, a')) startNewRace(titleStart);
+    if (!e.target.closest('button, nav, a')) startNewRace(titleStart || { mode: 'INFINITE' });
   });
   document.getElementById('btnOpenGarageFromEnd').addEventListener('click', () => {
     document.getElementById('gameOverModal').classList.add('hidden');
@@ -4167,16 +4266,9 @@ function bindAllControls() {
 
   const btnArcade = document.getElementById('modeBtnArcade');
   const btnInfinite = document.getElementById('modeBtnInfinite');
-  btnArcade.addEventListener('click', () => {
-    GameState.mode = 'ARCADE';
-    btnArcade.className = 'mode-select-btn flex-1 text-left px-2.5 py-2 rounded-lg bg-orange-500/20 border-2 border-orange-500 text-white font-arcade text-[10px] font-bold flex items-center justify-between';
-    btnInfinite.className = 'mode-select-btn flex-1 text-left px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 font-arcade text-[10px] font-bold flex items-center justify-between';
-  });
-  btnInfinite.addEventListener('click', () => {
-    GameState.mode = 'INFINITE';
-    btnInfinite.className = 'mode-select-btn flex-1 text-left px-2.5 py-2 rounded-lg bg-cyan-500/20 border-2 border-cyan-400 text-white font-arcade text-[10px] font-bold flex items-center justify-between';
-    btnArcade.className = 'mode-select-btn flex-1 text-left px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 font-arcade text-[10px] font-bold flex items-center justify-between';
-  });
+  btnArcade.addEventListener('click', () => { GameState.mode = 'ARCADE'; syncModeButtons(); updateTitleChip(); });
+  btnInfinite.addEventListener('click', () => { GameState.mode = 'INFINITE'; syncModeButtons(); updateTitleChip(); });
+  syncModeButtons();
 
   const sensSlider = document.getElementById('tiltSensSlider');
   const sensVal = document.getElementById('tiltSensValue');
@@ -4229,7 +4321,8 @@ function bindAllControls() {
     }
   });
 
-  document.getElementById('btnStartRace').addEventListener('click', () => startNewRace());
+  // PLAY is Endless Highway (ticket 0150); a deep link (daily, ?level=) can point it elsewhere.
+  document.getElementById('btnStartRace').addEventListener('click', () => startNewRace(titleStart || { mode: 'INFINITE' }));
   document.getElementById('btnOpenLive').addEventListener('click', () => loadLive().then((l) => l.openMenu()));
   document.getElementById('btnPlayAgain').addEventListener('click', () => startNewRace(GameState.daily ? { daily: true } : undefined));
   document.getElementById('btnNextRace').addEventListener('click', (e) => {
@@ -4238,8 +4331,7 @@ function bindAllControls() {
     GameState.levelIndex = idx;
     SaveStore.data.selectedLevel = idx;
     SaveStore.save();
-    updateTitleChip();
-    startNewRace();
+    startNewRace({ mode: 'ARCADE' });
   });
 
   window.addEventListener('resize', () => {
@@ -4651,6 +4743,8 @@ window.onload = () => {
     audio: () => SoundEngine,
     smoke: () => smoke2d && smoke2d.pool,
     pickupArt: () => pickupArt && pickupArt.stats,
+    damage: (n, why = 'BARREL HIT') => applyPlayerDamage(n, why),
+    heal: healPlayerHp,
   };
   initSettings({ announce: triggerAnnouncement });
   // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.
@@ -4680,7 +4774,7 @@ window.onload = () => {
   document.getElementById('titleBestScore').textContent = SaveStore.data.bestScore.toLocaleString();
   document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
   const playHint = document.getElementById('playHint');
-  if (playHint) playHint.textContent = coarsePointer ? 'TAP ANYWHERE' : 'PRESS ENTER';
+  if (playHint) playHint.textContent = coarsePointer ? 'ENDLESS HIGHWAY · TAP ANYWHERE' : 'ENDLESS HIGHWAY · PRESS ENTER';
   updateTitleChip();
   syncAudioUI();
   updateEraHud();
@@ -4692,7 +4786,7 @@ window.onload = () => {
   else if (/[?&](play|board|level|garage)(=|&|$)/.test(location.search)) import('./deeplink.js').then((m) => m.applyDeepLink({
     levels: WORLD_LEVELS, unlocked: () => SaveStore.data.unlockedLevel || 1, live: loadLive, board: openLeaderboard,
     garage: openGarageModal, titleStart: (o) => { titleStart = o; },
-    pickLevel: (i) => { GameState.levelIndex = i; SaveStore.data.selectedLevel = i; SaveStore.save(); updateTitleChip(); },
+    pickLevel: (i) => { GameState.levelIndex = i; GameState.mode = 'ARCADE'; titleStart = titleStart || { mode: 'ARCADE' }; SaveStore.data.selectedLevel = i; SaveStore.save(); syncModeButtons(); updateTitleChip(); },
   })).catch(() => {});
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(mainLoop);

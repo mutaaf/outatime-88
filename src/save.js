@@ -51,7 +51,9 @@ export const SaveStore = {
     // Defaults and repair live in src/touch/settings.js, applied when the touch kit loads.
     controls: {},
     // Run missions (ticket 0026): { day, done, best } for today; another day reads as zero.
-    missions: null
+    missions: null,
+    // Endless Highway (ticket 0150): { bestDistance, bestTier, runs }; null until the first run.
+    endless: null
   },
   load() {
     try {

@@ -20,9 +20,17 @@ const BASE = () => `${location.origin}${import.meta.env.BASE_URL}`;
 /** Everything the card needs, from the race that just ended. */
 function cardData() {
   const r = GameState.lastResult;
-  if (!r || !r.rows || !r.rows.length) return null;
+  if (!r || ((!r.rows || !r.rows.length) && !r.endless)) return null;
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   const initials = SaveStore.data.initials || '';
+  if (r.endless) {
+    const url = `${BASE()}?play=infinite`;
+    return {
+      place: 1, total: 1, startPos: 1, beatBy: null, outcome: 'endless', endless: r.endless, beat: [], time: r.time, bestLap: null,
+      levelName: `${r.endless.distance.toLocaleString()} m`, daily: false, initials, car: me.car, look: r.look || null,
+      color: SaveStore.data.underglow || me.glow, url, isRoom: false, displayUrl: url.replace(/^https?:\/\//, '').replace(/\?.*$/, ''),
+    };
+  }
   const live = typeof GameState.liveInvite === 'string' && GameState.liveInvite ? GameState.liveInvite : null;
   const url = live || challengeUrl(BASE(), {
     levelIndex: r.levelIndex, daily: r.daily ? (GameState.daily && GameState.daily.day) : null, time: r.time, initials,
