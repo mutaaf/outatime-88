@@ -136,7 +136,8 @@ test('a score whose connection dropped is kept and posts itself when the network
   await context.setOffline(false); // landed
   await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(1);
   expect(posts[0].score).toBe(123456);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('outatime88_outbox_v1') || '[]').length)).toBe(0);
+  // The outbox is rewritten once the server's answer arrives (just after the request).
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('outatime88_outbox_v1') || '[]').length)).toBe(0);
 });
 
 test('a race started offline says it saved your best on this device', async ({ page, context }) => {
