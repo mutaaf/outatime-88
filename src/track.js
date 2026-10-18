@@ -245,14 +245,17 @@ function addFeatureRun(kind, segs, curve, bank, trackType, extra) {
 
 // Curve amplitude per level: level 1 is gentler, level 5 is the full playset (every level
 // still gets every shape).
-const AMP = [0.8, 0.88, 0.95, 1, 1.08];
-let amp = 1;
+const AMP = [0.8, 0.88, 0.95, 1, 1.08, 1.02];
+// How long the sweeping corners hold per level: the orbit skyway (level 6, ticket 0150) bends
+// in long orbital arcs.
+const HOLD = [1, 1, 1, 1, 1, 1.6];
+let amp = 1, hold = 1;
 
 export const CURVES = ['sweep', 'sBends', 'hairpin', 'crest', 'chicane', 'doubleApex'];
 export const SET_PIECES = ['loop', 'corkscrew', 'jump', 'wallride'];
 
 const PIECES = {
-  sweep: (d) => addRoadSection(12, 26, 12, 0.7 * d * amp, 260, 0.12 * d),
+  sweep: (d) => addRoadSection(12, Math.round(26 * hold), 12, 0.7 * d * amp, 260, 0.12 * d),
   sBends: (d) => { addRoadSection(10, 16, 10, 1.6 * d * amp, 180, 0.32 * d); addRoadSection(10, 16, 10, -1.6 * d * amp, -180, -0.32 * d); },
   hairpin: (d) => { addRoadSection(8, 8, 6, 0, 0, 0); addRoadSection(12, 30, 12, 2.6 * d * amp, 0, 0.55 * d); },
   crest: (d) => { addRoadSection(10, 10, 12, 0, 900, 0); addRoadSection(12, 10, 10, 0.4 * d, -900, 0.08 * d); },
@@ -265,9 +268,9 @@ const PIECES = {
   },
   // A long banked 180 with two apexes: turn in, ease off mid-corner, tighten into the second.
   doubleApex: (d) => {
-    addRoadSection(10, 22, 6, 2.0 * d * amp, 140, 0.45 * d);
+    addRoadSection(10, Math.round(22 * hold), 6, 2.0 * d * amp / hold, 140, 0.45 * d);
     addRoadSection(4, 6, 4, 0.9 * d * amp, 0, 0.2 * d);
-    addRoadSection(6, 22, 10, 2.3 * d * amp, -140, 0.5 * d);
+    addRoadSection(6, Math.round(22 * hold), 10, 2.3 * d * amp / hold, -140, 0.5 * d);
   },
   gate: (boostTo, lead = '') => addFeatureRun('BOOSTER', 12, 0, 0, 'BOOSTER', { boostTo, lead }),
   loop: () => {
@@ -350,7 +353,8 @@ function nextPiece() {
 export function generateNextTrackBiome(chosenBranch = null) {
   const startIdx = track.end;
   track.generatedCount++;
-  amp = AMP[Math.max(0, Math.min(AMP.length - 1, GameState.levelIndex | 0))] * (track.intensity || 1);
+  const li = Math.max(0, Math.min(AMP.length - 1, GameState.levelIndex | 0));
+  amp = AMP[li] * (track.intensity || 1); hold = HOLD[li];
 
   if (track.generatedCount === 1) {
     addRoadSection(8, 18, 8, 0, 0, 0, 'STANDARD');

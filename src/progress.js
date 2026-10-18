@@ -15,6 +15,7 @@ export const LEVEL_MEDALS = {
   LVL3_TOKYO_2015: { bronze: 360000, silver: 1100000, gold: 2200000 },
   LVL4_MULHOLLAND_2088: { bronze: 400000, silver: 1200000, gold: 2400000 },
   LVL5_INFINITE_HW: { bronze: 450000, silver: 1350000, gold: 2700000 },
+  LVL6_LOW_ORBIT: { bronze: 480000, silver: 1450000, gold: 2900000 }, // a step past level 5 (ticket 0150)
 };
 
 export function medalFor(levelId, score) {

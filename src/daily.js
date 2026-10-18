@@ -30,8 +30,14 @@ export function seedFor(day) {
 
 export const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 
+/**
+ * Levels the daily draws from. Pinned to the first five (not WORLD_LEVELS.length) so adding a
+ * level never changes which track today's daily is mid-day (ticket 0150).
+ */
+export const DAILY_LEVELS = 5;
+
 /** Everything about today's challenge, derived only from the date. */
-export function dailySpec(day, levelCount = 5) {
+export function dailySpec(day, levelCount = DAILY_LEVELS) {
   const seed = seedFor(day);
   const r = mulberry32(seed);
   const levelIndex = Math.floor(r() * levelCount);

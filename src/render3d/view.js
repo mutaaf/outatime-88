@@ -11,6 +11,7 @@ import {
   BoxGeometry, LinearMipmapLinearFilter,
 } from 'three';
 import { asphaltTextures, bakeEnvironment, paletteFor } from './surfaces.js';
+import { createEarth } from './orbit.js';
 import { ROAD_CFG } from '../data.js';
 import { InputState } from '../input.js';
 import { createTrackPath } from './path.js';
@@ -53,19 +54,21 @@ function skyMaterial() {
 function sunMaterial() {
   return new ShaderMaterial({
     transparent: true, depthWrite: false, fog: false,
-    uniforms: { t: { value: 0 } },
+    uniforms: { t: { value: 0 }, space: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: `uniform float t; varying vec2 vUv;
+    fragmentShader: `uniform float t; uniform float space; varying vec2 vUv;
       void main(){ vec2 p = vUv * 2.0 - 1.0; float r = length(p);
       vec3 col = mix(vec3(1.0,0.0,0.43), vec3(1.0,0.95,0.69), smoothstep(-0.9, 0.85, p.y));
       col = mix(col, vec3(1.0,0.48,0.0), smoothstep(0.2,0.0,abs(p.y-0.05))*0.5);
       float disc = 1.0 - smoothstep(0.62, 0.635, r);
       // Retro scan bands across the lower half, thicker toward the horizon.
       float y = (p.y + 0.1) * -1.0;
-      float band = y > 0.0 ? step(0.5 + y * 0.9, fract(y * 9.0 - t * 0.25)) : 0.0;
-      float halo = exp(-max(r - 0.6, 0.0) * 5.0) * 0.55;
+      float band = y > 0.0 ? step(0.5 + y * 0.9, fract(y * 9.0 - t * 0.25)) * (1.0 - space) : 0.0;
+      // In orbit (ticket 0150) the sun is a small white-hot disc with a wide glare, no bands.
+      disc = mix(disc, 1.0 - smoothstep(0.18, 0.2, r), space);
+      float halo = mix(exp(-max(r - 0.6, 0.0) * 5.0) * 0.55, exp(-r * 4.0) * 0.9, space);
       float a = max(disc * (1.0 - band), halo * (1.0 - disc));
-      vec3 c = disc > 0.5 ? col : vec3(1.0, 0.3, 0.55);
+      vec3 c = disc > 0.5 ? mix(col, vec3(1.0, 0.98, 0.93), space) : mix(vec3(1.0, 0.3, 0.55), vec3(1.0, 0.93, 0.8), space);
       gl_FragColor = vec4(c, a); }`,
   });
 }
@@ -169,6 +172,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   const grid = new Mesh(new PlaneGeometry(2400, 2400), gridMat);
   grid.rotation.x = -Math.PI / 2;
   scene.add(grid);
+  let earth = null; // the orbit era's planet (ticket 0150), built the first time it is needed
 
   // ── Road chunks ────────────────────────────────────────────────────────────
   const path = createTrackPath(PATH_SCALE);
@@ -202,6 +206,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     if (seg.trackType === 'BOOSTER') return out.set(alt ? '#ea580c' : '#d9460f');
     if (seg.trackType === 'JUMP_RAMP') return out.set(alt ? '#f59e0b' : '#d97706');
     if (seg.trackType === 'CHECKPOINT') return out.set(seg.index % 2 ? '#f8fafc' : '#1e1b2e');
+    if (e.deck) return out.set(alt ? e.trackA : e.trackB).multiplyScalar(3.4); // orbit: glassy blue ribbon
     // Asphalt: near-neutral with a whisper of the era's road colour, and patched sections.
     out.set('#c9c7cc').lerp(tmpCol2.set(e.trackA), 0.1);
     return alt ? out : out.multiplyScalar(0.9);
@@ -995,6 +1000,16 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     deckMat.roughness = wet ? 0.5 : 1;
     deckMat.envMapIntensity = wet ? 0.75 : 0.45;
     deckMat.normalScale.set(wet ? 0.25 : 0.45, wet ? 0.25 : 0.45);
+    // Orbit: the deck is a lit glass ribbon (glossy, with a soft blue glow of its own).
+    if (pal.space) { deckMat.roughness = 0.22; deckMat.metalness = 0.35; deckMat.envMapIntensity = 1.2; deckMat.normalScale.set(0.08, 0.08); }
+    else deckMat.metalness = 0;
+    deckMat.emissive.set(pal.space ? '#0e2f78' : '#000000');
+    deckLite.emissive.set(pal.space ? '#0e2f78' : '#000000');
+    if (pal.space && !earth) { earth = createEarth(); scene.add(earth.group); }
+    if (earth) earth.group.visible = Boolean(pal.space);
+    mountains.visible = !pal.space;
+    grid.visible = !pal.space;
+    sunMat.uniforms.space.value = pal.space ? 1 : 0;
     sunLight.color.set(pal.sun);
     sunLight.intensity = pal.bright ? 2.6 : 1.5;
     hemi.color.set(pal.bright ? '#bfe3ff' : pal.horizon);
@@ -1016,7 +1031,8 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     stars.visible = e.id !== '1955'; // the one daytime era
     mountains.position.set(cx, groundY, cz);
     const fx = Math.sin(sunHeading), fz = -Math.cos(sunHeading);
-    sun.position.set(cx + fx * 1500, groundY + 150, cz + fz * 1500);
+    sun.position.set(cx + fx * 1500, groundY + (pal.space ? 420 : 150), cz + fz * 1500);
+    if (earth && pal.space) earth.update(cx, cy, cz, t);
     sun.lookAt(camera.position);
     sunMat.uniforms.t.value = t;
     if (!sunLight.castShadow) {

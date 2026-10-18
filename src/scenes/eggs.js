@@ -16,10 +16,12 @@ export const EGGS = {
   RAIN_STOPS: 'rainStops',  // 2015: the forecast is exact — rain stops on the second
   UNICORN: 'unicorn',       // 2088: an origami unicorn drifts by, final lap
   BALLOON: 'balloon',       // 2026: a giant marshmallow parade balloon looms on the final lap
+  ROADSTER: 'roadster',     // 2061: a cherry-red roadster with a suited mannequin drifts over Earth
+  LAUNCH: 'launch',         // 2061: a rocket climbs off the Earth's limb on the final lap
 };
 
 export function newEggMemory() {
-  return { lastLightning: -99, bikeMoonAt: -1, saucerAt: -1, unicornAt: -1, boothAt: -1 };
+  return { lastLightning: -99, bikeMoonAt: -1, saucerAt: -1, unicornAt: -1, boothAt: -1, launchAt: -1 };
 }
 
 const finalLap = (f) => f.laps > 0 && f.lap >= f.laps;
@@ -58,6 +60,11 @@ export function eggs(f, mem, out) {
   }
   if (f.era === '2088') o[EGGS.UNICORN] = once(mem, 'unicornAt', finalLap(f), t, 8);
   if (f.era === '2026') o[EGGS.BALLOON] = finalLap(f);
+  if (f.era === '2061') {
+    // The roadster drifts past for 12 s out of every 40 s of race time, from 8 s in.
+    o[EGGS.ROADSTER] = f.raceTime >= 8 && ((f.raceTime - 8) % 40) < 12;
+    o[EGGS.LAUNCH] = once(mem, 'launchAt', finalLap(f), t, 10);
+  }
   return o;
 }
 

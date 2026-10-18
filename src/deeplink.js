@@ -13,6 +13,8 @@ const BOARDS = {
   daily: { board: 'daily', mode: 'DAILY' },
 };
 const PLAYS = ['friends', 'quick', 'daily', 'infinite'];
+// Named levels for launcher links, e.g. ?level=orbit (1-based like the numeric form).
+const LEVEL_SLUGS = { clock: 1, canyon: 2, skyway: 3, cedar: 4, orange: 5, orbit: 6 };
 export const DEEP_PARAMS = Object.freeze(['play', 'board', 'level', 'garage']);
 export const DEEP_RE = /[?&](play|board|level|garage)(=|&|$)/;
 
@@ -22,7 +24,8 @@ export function parseDeepLink(search, levels) {
   try { p = new URLSearchParams(search); } catch (e) { p = new URLSearchParams(); }
   const play = (p.get('play') || '').toLowerCase();
   const board = (p.get('board') || '').toLowerCase();
-  const n = Number(p.get('level'));
+  const raw = (p.get('level') || '').toLowerCase();
+  const n = Object.prototype.hasOwnProperty.call(LEVEL_SLUGS, raw) ? LEVEL_SLUGS[raw] : Number(raw);
   return {
     play: PLAYS.includes(play) ? play : null,
     board: Object.prototype.hasOwnProperty.call(BOARDS, board) ? { ...BOARDS[board] } : null,
