@@ -184,3 +184,15 @@ describe('the clean line (sprint 4)', () => {
     expect(perNew).toBeLessThan(OLD_PER_100K * 0.75);
   });
 });
+
+describe('the line fits the real handling model (src/handling.js)', () => {
+  it('at top speed every car can steer sideways faster than the line ever moves', async () => {
+    const { createSteer, stepSteer, createLateral, stepLateral, handlingFor } = await import('../../src/handling.js');
+    for (const [grip, massKg] of [[1, 2200], [5, 1300], [10, 900]]) {
+      const h = handlingFor({ gripMult: 0.85 + grip * 0.03, slipMult: 1, massKg }, 1);
+      const st = createSteer(), lt = createLateral(0);
+      for (let i = 0; i < 240; i++) { stepSteer(st, 1, 0, 1 / 120, 140); stepLateral(lt, st.value, 1 / 120, { speedMph: 140, h, throttle: true }); }
+      expect(lt.vx, `grip ${grip}, ${massKg} kg`).toBeGreaterThanOrEqual(LINE.minLateral);
+    }
+  });
+});
