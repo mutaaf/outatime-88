@@ -24,7 +24,17 @@ through without losing points.
   points.
 - Live rooms and dailies share the line (it's seeded from the race seed).
 
-## Done when
-- [x] 500 seeds × 5 levels: nothing that costs points touches the line (`tests/unit/cleanline.test.js`)
-- [x] a lane × distance search finds a clean path for a slow-steering car at 55/95/135 mph
-- [x] density metric test (≤ 75% of the old generator)
+## Acceptance criteria
+- [x] 500 seeds × 5 levels: nothing that costs points touches the line
+- [x] a car steering at 0.55 lane/s finds a clean path at 55, 95 and 135 mph
+- [x] hazards per 100k track Z are at most 75% of the old generator's
+- [x] every car can steer sideways faster than the line moves, at top speed (real handling model)
+
+## Test plan
+`tests/unit/cleanline.test.js`: line bounds and slope, determinism, the 500-seed property test
+(obstacles, cones and barrels over their whole length; traffic at every step), a lane × distance
+search (mutation-checked: removing the clearance or the traffic lane keeping fails it), the
+density metric, and the handling-capacity check. e2e smoke/race/props/penalty/feel unchanged.
+
+## Out of scope
+Showing the racing line on screen; set-piece layouts (0123).
