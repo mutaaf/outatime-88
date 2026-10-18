@@ -15,7 +15,7 @@ import { createHaptics } from './haptics.js';
 import './touch.css';
 
 const SLIDABLE = new Set(['boost', 'drift', 'jump', 'special', 'accel', 'horn']);
-const HOLD = new Set(['drift', 'accel', 'rear']);
+const HOLD = new Set(['drift', 'accel', 'rear', 'horn']);
 const SPECIALS = ['ZONE', 'AGRO', 'ROAR'];
 const LONG_PRESS_MS = 380;
 const FLICK_MS = 260;
@@ -238,7 +238,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       case 'jump': h.onJump(); break;
       case 'drift': driftLatch = true; h.onDrift(); break;
       case 'accel': accelLatch = true; break;
-      case 'horn': h.onHorn(); break;
+      case 'horn': if (h.onNos) h.onNos(); break; // NOS: held, read in sample()
       case 'pause': h.onPause(); break;
       case 'camera': h.onCamera(); break;
       case 'respawn': h.onRespawn(); break;
@@ -512,6 +512,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     if (!active) {
       InputState.touchSteerVal = 0; InputState.touchUp = false; InputState.touchDown = false;
       InputState.lookBack = false;
+      InputState.touchNos = false;
       return;
     }
     const digital = movement === 'dpad';
@@ -522,6 +523,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     InputState.touchDown = pressCount.drift > 0 || driftLatch || throttleDown;
     driftLatch = false; accelLatch = false;
     InputState.lookBack = pressCount.rear > 0 || lookBack2D;
+    InputState.touchNos = pressCount.horn > 0;
     if (!lookDragging) {
       const k = Math.min(1, dt * 7);
       lookYaw -= lookYaw * k; lookPitch -= lookPitch * k;

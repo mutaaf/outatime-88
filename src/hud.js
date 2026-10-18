@@ -14,7 +14,7 @@ export function createHud(doc = document) {
     time: $('hudTime'), clock: $('hudClock'), clockWrap: $('hudClockWrap'),
     ahead: $('hudGapAhead'), behind: $('hudGapBehind'), dots: $('hudDots'),
     speed: $('hudSpeed'), speedBar: $('hudSpeedBar'), speedCard: $('hudSpeedCard'),
-    flux: $('hudFlux'), fluxLabel: $('hudFluxLabel'), score: $('hudScore'),
+    flux: $('hudFlux'), fluxLabel: $('hudFluxLabel'), score: $('hudScore'), nos: $('hudNos'),
   };
   const last = Object.create(null);
   const dots = new Map(); // racer id -> { node, left }
@@ -105,6 +105,10 @@ export function createHud(doc = document) {
       width(el.speedBar, 'speedBar', Math.min(100, (mph / SPEED_FULL) * 100));
       flag(el.speedCard, 'at88', 'is-88', mph >= 88);
       width(el.flux, 'flux', Math.max(0, Math.min(100, s.flux)));
+      if (el.nos) {
+        width(el.nos, 'nos', Math.round(Math.max(0, Math.min(1, s.nos || 0)) * 100));
+        flag(el.speedCard, 'nosOn', 'is-nos', Boolean(s.nosOn));
+      }
       const ready = s.flux >= 95;
       text(el.fluxLabel, 'fluxLabel', ready ? '⚡ WARP READY' : 'FLUX');
       flag(el.speedCard, 'ready', 'is-ready', ready);

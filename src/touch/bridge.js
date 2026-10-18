@@ -60,6 +60,7 @@ export function connectTouch(game) {
       onDrift: () => { if (GameState.playerY > 12) game.performHumanTrick('DOWN'); },
       onSpecial: (type) => game.activateMidnightSpecial(type),
       onHorn: () => { SoundEngine.init(); SoundEngine.playHorn(); },
+      onNos: () => { SoundEngine.init(); },
       onPause: () => game.openSettings(),
       onCamera: () => game.cycleCameraMode(),
       onRespawn: respawn,
