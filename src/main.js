@@ -3800,6 +3800,7 @@ function startNewRace(opts) {
   GameState.flyingWrecks = [];
   GameState.branchName = lvl.name;
   GameState.forkPending = false; // a fork left mid-race must not pay out (or mute the coach) next race
+  showForkCue('OFF');
 
   const branchBadge = document.getElementById('trackBranchBadge');
   if (branchBadge) branchBadge.textContent = lvl.name;
