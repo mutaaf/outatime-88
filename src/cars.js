@@ -51,15 +51,17 @@ const MEDAL_ICON = { bronze: '🥉', silver: '🥈', gold: '🥇' };
  */
 export function carParams(car) {
   const s = (CAR_SPECS[car && car.id] || CAR_SPECS[STARTER_CAR]).stats;
+  // Each point from 5 is felt (car identity, 2026-10-18): a speed-9 car tops out ~16 mph above a speed-5
+  // one, an accel-8 launches ~27% harder, grip-9 corners ~28% harder and holds its tail.
   return {
-    topMphBonus: 6 + (s.speed - 5) * 2.4,      // mph over the 92 base (top) / 128 (warp)
-    accelMult: 0.8 + s.accel * 0.04,           // launch and 0-88 rate
-    gripMult: 0.85 + s.grip * 0.03,            // steering response; resists curve pull
-    slipMult: 1.25 - s.grip * 0.05,            // low grip = looser rear, wider drift angle
-    fluxMult: 0.8 + s.flux * 0.04,             // passive flux charge and warp length
+    topMphBonus: 6 + (s.speed - 5) * 4,        // mph over the 92 base (top) / 128 (warp)
+    accelMult: 1 + (s.accel - 5) * 0.09,       // launch and 0-88 rate
+    gripMult: 1 + (s.grip - 5) * 0.07,         // tyre grip in the yaw handling (src/handling.js)
+    slipMult: 1 - (s.grip - 5) * 0.08,         // low grip = looser rear, wider drift angle
+    fluxMult: 1 + (s.flux - 5) * 0.04,         // passive flux charge and warp length
     maxHp: 80 + s.armor * 7,
     massKg: (car && car.massKg) || 1300,       // real mass: how hard you shove and get shoved
-    damageMult: 1.25 - s.armor * 0.05,         // durability: how much a hit costs in HP
+    damageMult: 1 - (s.armor - 5) * 0.08,      // durability: how much a hit costs in HP
   };
 }
 

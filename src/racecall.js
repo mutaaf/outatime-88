@@ -146,6 +146,7 @@ export function finishResults(field, { elapsed, length, playerOutcome = 'finishe
     name: r.isPlayer ? 'YOU' : r.driver,
     car: r.car,
     color: r.color,
+    look: r.look || null, // the racer's car { shape, body, cabin, glow } for the podium art
     isPlayer: Boolean(r.isPlayer),
     finished: r.finished,
     timeText: r.isPlayer && !r.finished && playerOutcome !== 'finished'

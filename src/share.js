@@ -5,6 +5,7 @@
 import { qrToCanvas } from './qr.js'; // the shared on-device encoder (ticket 0090)
 import { formatRaceTime, ordinal } from './raceflow.js';
 import { shareCopy } from './sharelink.js';
+import { carSprite, SPRITE_ASPECT, GROUND_Y } from './car-sprite.js';
 
 export const FORMATS = Object.freeze({
   post: { w: 1080, h: 1350 },
@@ -185,9 +186,27 @@ function qrTile(ctx, url, x, y, size) {
   ctx.imageSmoothingEnabled = true;
 }
 
+/** Your car (the garage model in your paint), parked on the card's horizon with a glow pool. */
+function carArt(ctx, look, x, groundY, w, color) {
+  if (!look || !look.shape) return;
+  const pool = ctx.createRadialGradient(x, groundY, 4, x, groundY, w * 0.6);
+  pool.addColorStop(0, color);
+  pool.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = pool;
+  ctx.beginPath();
+  ctx.ellipse(x, groundY, w * 0.6, w * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  const spr = carSprite(look, w, { view: 'three-quarter' });
+  const h = w * SPRITE_ASPECT;
+  ctx.drawImage(spr, x - w / 2, groundY - h * GROUND_Y, w, h);
+}
+
 /**
  * Draws the card. `d`: { place, total, startPos, beatBy, outcome, beat: [names], time,
- * bestLap, levelName, daily, initials, car, color, url, displayUrl, isRoom }
+ * bestLap, levelName, daily, initials, car, look, color, url, displayUrl, isRoom }
  */
 export async function drawShareCard(canvas, d, format = 'post') {
   await fontsReady();
@@ -211,6 +230,7 @@ export async function drawShareCard(canvas, d, format = 'post') {
     ctx.fillText(copy.kicker, 52, 150);
     fitFont(ctx, ord, 900, 'Orbitron, sans-serif', 210, 560, 'italic ');
     ordinalArt(ctx, ord, 44, 360, parseInt(ctx.font.match(/(\d+)px/)[1], 10), d.place, 'left');
+    carArt(ctx, d.look, w - 48 - 190, 336, 380, color);
     const p = pill(ctx, who, 52, 400, { bg: color, fg: '#05050d', size: 34 });
     ctx.fillStyle = '#e2e8f0';
     ctx.font = '700 26px Inter, sans-serif';
@@ -254,13 +274,15 @@ export async function drawShareCard(canvas, d, format = 'post') {
   ctx.shadowBlur = 24;
   ctx.stroke();
   ctx.shadowBlur = 0;
+  carArt(ctx, d.look, w - 210, plateY + 14, 340, color);
   pill(ctx, who, 100, plateY + 34, { bg: color, fg: '#05050d', size: 48, pad: 26 });
   ctx.textAlign = 'left';
   ctx.fillStyle = '#f8fafc';
-  fitFont(ctx, d.car || '', 800, 'Inter, sans-serif', 38, w - 128 - 330);
+  const room = d.look ? 250 : 0; // the parked car on the plate's right
+  fitFont(ctx, d.car || '', 800, 'Inter, sans-serif', 38, w - 128 - 330 - room);
   ctx.fillText(d.car || '', 330, plateY + 70);
   ctx.fillStyle = '#fde68a';
-  fitFont(ctx, meta, 800, 'Orbitron, sans-serif', 30, w - 128 - 290);
+  fitFont(ctx, meta, 800, 'Orbitron, sans-serif', 30, w - 128 - 330 - room);
   ctx.fillText(meta, 330, plateY + 116);
 
   // The brag

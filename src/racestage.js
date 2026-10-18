@@ -4,6 +4,7 @@ import { SoundEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { finishResults, resultHeadline, lineupCall } from './racecall.js';
+import { carPortrait } from './car-sprite.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -38,8 +39,21 @@ export function fanfare(place) {
   notes.forEach((hz, i) => setTimeout(() => beep(hz, i === notes.length - 1 ? 0.45 : 0.14, 0.14, 'square'), i * 120));
 }
 
-function portrait(color, accent) {
-  return `<span class="rc-portrait" style="--c1:${esc(color)};--c2:${esc(accent || color)}" aria-hidden="true"><span>🏎️</span></span>`;
+/** A racer's car look { shape, body, cabin, glow } (racers carry it; rigid bodies carry the parts). */
+export function lookOf(r) {
+  if (!r) return null;
+  if (r.look && r.look.shape) return r.look;
+  return r.shape ? { shape: r.shape, body: r.bodyColor || r.body, cabin: r.accentColor || r.cabin, glow: r.underglow || r.color } : null;
+}
+
+function carImg(look, w, cls) {
+  const url = look ? carPortrait(look, w) : '';
+  return url ? `<img class="${cls}" src="${url}" alt="" draggable="false">` : '';
+}
+
+function portrait(color, accent, look) {
+  const img = carImg(look, 160, 'rc-car-art');
+  return `<span class="rc-portrait${img ? ' has-car' : ''}" style="--c1:${esc(color)};--c2:${esc(accent || color)}" aria-hidden="true">${img || '<span>🏎️</span>'}</span>`;
 }
 
 export const stage = {
@@ -54,11 +68,12 @@ export const stage = {
     const el = $('rcCard');
     el.classList.remove('hidden', 'rc-pop');
     el.classList.toggle('rc-you', Boolean(racer.isPlayer));
-    el.innerHTML = `${portrait(racer.color, racer.accent)}
+    el.innerHTML = `${portrait(racer.color, racer.accent, lookOf(racer))}
       <span class="rc-text">
         <span class="rc-tag">${esc(call.tag)} <b>P${slot + 1}/${total}</b></span>
         <span class="rc-name">${esc(call.name)}</span>
         <span class="rc-car">${esc(racer.car || '')}${racer.crew ? ` · ${esc(racer.crew)}` : ''}</span>
+        ${racer.cls ? `<span class="rc-spec">${esc(racer.cls)}${racer.specLine ? ` · ${esc(racer.specLine)}` : ''}</span>` : ''}
       </span>`;
     void el.offsetWidth; // restart the pop-in animation (once per card, not per frame)
     el.classList.add('rc-pop');
@@ -69,7 +84,9 @@ export const stage = {
     $('rcCard').classList.add('hidden');
     $('rcSkip').classList.add('hidden');
     const el = $('rcGrid');
-    el.innerHTML = field.map((r, i) => `<span class="rc-chip${r.isPlayer ? ' rc-chip-you' : ''}" style="--c1:${esc(r.color)}"><b>P${i + 1}</b> ${esc(r.isPlayer ? 'YOU' : r.short)}</span>`).join('');
+    const me = field.find((r) => r.isPlayer);
+    el.innerHTML = field.map((r, i) => `<span class="rc-chip${r.isPlayer ? ' rc-chip-you' : ''}" style="--c1:${esc(r.color)}">${carImg(lookOf(r), 72, 'rc-chip-car')}<b>P${i + 1}</b> ${esc(r.isPlayer ? 'YOU' : r.short)}</span>`).join('')
+      + (me && me.cls ? `<span class="rc-mycar">${esc(me.car || '')} · <b>${esc(me.cls)}</b>${me.specLine ? ` · ${esc(me.specLine)}` : ''}</span>` : '');
     el.classList.remove('hidden');
   },
   /** 3, 2, 1 red lights, then GO. */
@@ -96,7 +113,7 @@ export const stage = {
     if (!list) return;
     list.innerHTML = rows.map((r) => `<li class="pod-row${r.isPlayer ? ' pod-you' : ''}${r.place <= 3 ? ` pod-p${r.place}` : ''}">
       <span class="pod-place">${r.place}</span>
-      <span class="pod-swatch" style="--c1:${esc(r.color || '#fff')}"></span>
+      <span class="pod-swatch" style="--c1:${esc(r.color || '#fff')}"></span><span class="pod-carbox">${carImg(lookOf(r), 72, 'pod-car')}</span>
       <span class="pod-name">${esc(r.name)}<small>${esc(r.car || '')}</small></span>
       <span class="pod-time">${esc(r.timeText)}</span></li>`).join('');
   },
@@ -109,16 +126,16 @@ export const reducedMotion = () => Boolean(GameState.reducedMotion);
  * GameState.lastResult (the run's story, used by the share card). Lives in this lazy chunk so
  * the main bundle stays small; main.js passes in what it owns.
  */
-export function renderResults({ badgeText, lvl, next, racers, speedToWorld, playerZ, me, color, unlockedLevel, fieldSize }) {
+export function renderResults({ badgeText, lvl, next, racers, speedToWorld, playerZ, me, myLook, color, unlockedLevel, fieldSize }) {
   stage.hide();
   GameState.racePhase = 'RACING';
   const infinite = GameState.mode === 'INFINITE' || !GameState.raceLength;
   const outcome = /WRECKED/.test(badgeText || '') ? 'wrecked' : GameState.finishTime != null ? 'finished' : 'timeup';
   const field = racers.map((r) => ({
-    id: r.id, driver: r.driver, short: r.short, car: r.car, color: r.color, mph: r.pace,
+    id: r.id, driver: r.driver, short: r.short, car: r.car, color: r.color, mph: r.pace, look: lookOf(r),
     progress: GameState.distance + (r.worldZ - playerZ) / speedToWorld, finishTime: r.finishTime,
   }));
-  field.push({ id: 'YOU', isPlayer: true, driver: 'YOU', short: 'YOU', car: me.car, color,
+  field.push({ id: 'YOU', isPlayer: true, driver: 'YOU', short: 'YOU', car: me.car, color, look: myLook || lookOf(me),
     mph: Math.max(30, GameState.speed), progress: GameState.distance, finishTime: GameState.finishTime });
   const rows = infinite ? [] : finishResults(field, { elapsed: GameState.raceTime, length: GameState.raceLength, playerOutcome: outcome });
   const mine = rows.find((r) => r.isPlayer);
@@ -142,7 +159,7 @@ export function renderResults({ badgeText, lvl, next, racers, speedToWorld, play
   nextBtn.classList.toggle('hidden', !nextOpen);
   nextBtn.dataset.level = nextOpen ? String(next.index) : '';
   GameState.lastResult = {
-    place, total: rows.length, outcome, rows, levelIndex: lvl.index, levelName: lvl.name,
+    place, total: rows.length, outcome, rows, levelIndex: lvl.index, levelName: lvl.name, look: myLook || lookOf(me),
     time: GameState.finishTime != null ? GameState.finishTime : GameState.raceTime,
     beat: rows.filter((r) => r.place > place).map((r) => r.name), daily: Boolean(GameState.daily), headline: head, beatBy,
   };

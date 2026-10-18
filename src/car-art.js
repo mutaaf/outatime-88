@@ -11,9 +11,12 @@ const SHAPES = {
   TUNER_WING: { L: 4.3, W: 1.8, hull: [0.3, 0.74], nose: 0.32, cab: [-0.5, 0.75, 0.74, 1.18, 0.3], extras: ['wing'] },
   SCANNER: { L: 4.5, W: 1.86, hull: [0.3, 0.7], nose: 0.5, cab: [-0.6, 0.6, 0.7, 1.1, 0.32], extras: ['scanner'] },
   ROCKET: { L: 4.4, W: 1.75, hull: [0.28, 0.66], nose: 0.62, cab: [-0.9, 0.35, 0.66, 1.04, 0.3], extras: ['fin'] },
-  HEAVY_VAN: { L: 4.9, W: 2.0, hull: [0.36, 1.0], nose: 0.08, cab: [-2.05, 1.35, 1.0, 1.95, 0.06], extras: [] },
+  HEAVY_VAN: { L: 4.9, W: 2.0, hull: [0.36, 1.0], nose: 0.08, cab: [-2.05, 1.35, 1.0, 1.95, 0.06], extras: [], van: true },
   LIGHTCYCLE: { L: 3.2, W: 0.62, hull: [0.38, 0.86], nose: 0.5, cab: [-0.6, 0.35, 0.86, 1.08, 0.12], extras: ['ribbon'], cycle: true },
 };
+
+/** A shape's dimensions (metres; the same numbers the turntable and race sprites draw). */
+export const shapeOf = (shape) => SHAPES[shape] || SHAPES.GULLWING;
 
 const LIGHT = norm([0.45, 0.85, 0.35]);
 
@@ -29,7 +32,7 @@ function shade(hex, k) {
 }
 
 /** A tapered box as 6 faces; the top is inset by `taper` metres on x and z. */
-function box(faces, x, y0, y1, z0, z1, taper, color, tag) {
+function box(faces, x, y0, y1, z0, z1, taper, color, tag, rearColor) {
   const tx = Math.min(x * 0.9, taper);
   const tz = Math.min((z1 - z0) * 0.45, taper);
   const b = [[-x, y0, z0], [x, y0, z0], [x, y0, z1], [-x, y0, z1]];
@@ -37,7 +40,8 @@ function box(faces, x, y0, y1, z0, z1, taper, color, tag) {
   faces.push(
     { p: [t[0], t[3], t[2], t[1]], color, tag: tag === 'cab' ? 'roof' : tag },
     { p: [b[3], b[2], t[2], t[3]], color, tag: tag === 'cab' ? 'glass' : tag },      // front (+z)
-    { p: [b[1], b[0], t[0], t[1]], color, tag: tag === 'cab' ? 'glass' : tag === 'hull' ? 'rear' : tag }, // rear (-z)
+    rearColor ? { p: [b[1], b[0], t[0], t[1]], color: rearColor, tag: 'trim' } // a van's back doors
+      : { p: [b[1], b[0], t[0], t[1]], color, tag: tag === 'cab' ? 'glass' : tag === 'hull' ? 'rear' : tag }, // rear (-z)
     { p: [b[0], b[3], t[3], t[0]], color, tag: tag === 'cab' ? 'glass' : tag },      // left
     { p: [b[2], b[1], t[1], t[2]], color, tag: tag === 'cab' ? 'glass' : tag },      // right
   );
@@ -50,7 +54,15 @@ export function buildCarModel(shape, body, cabin) {
   const hx = s.W / 2;
   const hz = s.L / 2;
   box(faces, hx, s.hull[0], s.hull[1], -hz, hz, s.nose * 0.6, body, 'hull');
-  box(faces, hx * (s.cycle ? 0.9 : 0.86), s.cab[2], s.cab[3], s.cab[0], s.cab[1], s.cab[4], cabin, 'cab');
+  box(faces, hx * (s.cycle ? 0.9 : 0.86), s.cab[2], s.cab[3], s.cab[0], s.cab[1], s.cab[4], cabin, 'cab', s.van ? body : null);
+  if (s.van) {
+    // Two small windows in the back doors (a sliver proud of the panel so they sort in front).
+    const z = s.cab[0] - 0.01, wx = hx * 0.36;
+    for (const [xa, xb] of [[0.08 + wx, 0.08], [-0.08, -0.08 - wx]]) {
+      // Same winding as the rear panel (+x to -x along the bottom), so it faces backwards.
+      faces.push({ p: [[xa, 1.3, z], [xb, 1.3, z], [xb, 1.75, z], [xa, 1.75, z]], color: cabin, tag: 'glass' });
+    }
+  }
   for (const e of s.extras) {
     if (e === 'wing') {
       box(faces, hx * 0.95, s.hull[1] + 0.32, s.hull[1] + 0.4, -hz + 0.05, -hz + 0.45, 0.02, body, 'trim');
@@ -126,10 +138,35 @@ export function drawTurntable(ctx, w, h, car, yaw, { locked = false, t = 0 } = {
   ctx.stroke();
   ctx.restore();
 
-  const pitch = 0.32;
+  drawModel(ctx, model, { cx, cy, scale, yaw, pitch: 0.32, locked, glow, pool: true });
+
+  if (locked) {
+    ctx.save();
+    ctx.font = `${Math.round(Math.min(w, h) * 0.16)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.9;
+    ctx.fillText('🔒', cx, cy - scale * 1.1);
+    ctx.restore();
+  }
+}
+
+/**
+ * Projects, culls, depth-sorts and shades a car model into `ctx` (shared by the garage
+ * turntable and the race sprites in src/car-sprite.js, so both draw the same car).
+ * @param o { cx, cy (ground point under the car's centre, px), scale (px per metre), yaw,
+ *   pitch (camera tilt down), camDist?, locked?, glow?, pool? (underglow pool),
+ *   wheels?: 'disc' | 'tyre' | 'none' (tyre = the dark rear-view block the chase cam sees) }
+ */
+export function drawModel(ctx, model, o) {
+  const { cx, cy, scale, yaw } = o;
+  const pitch = o.pitch == null ? 0.32 : o.pitch;
+  const locked = Boolean(o.locked);
+  const glow = o.glow || '#00f0ff';
+  const wheelMode = o.wheels || 'disc';
   const cyaw = Math.cos(yaw), syaw = Math.sin(yaw);
   const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  const camDist = 9;
+  const camDist = o.camDist || 9;
   const view = (p) => {
     // yaw around y, then pitch the camera down
     const x = p[0] * cyaw + p[2] * syaw;
@@ -137,23 +174,26 @@ export function drawTurntable(ctx, w, h, car, yaw, { locked = false, t = 0 } = {
     const y = p[1] * cp - z0 * sp;
     const z = p[1] * sp + z0 * cp;
     const d = camDist / (camDist - z);
-    return [cx + x * scale * d, cy - y * scale * d, z];
+    return [cx + x * scale * d, cy - y * scale * d, z, d];
   };
 
-  // Underglow pool.
-  ctx.save();
-  ctx.globalAlpha = locked ? 0.15 : 0.55;
-  const pool = ctx.createRadialGradient(cx, cy, 2, cx, cy, scale * 2.4);
-  pool.addColorStop(0, glow);
-  pool.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = pool;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, scale * 2.4, scale * 0.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  if (o.pool) {
+    // Underglow pool.
+    ctx.save();
+    ctx.globalAlpha = locked ? 0.15 : 0.55;
+    const pool = ctx.createRadialGradient(cx, cy, 2, cx, cy, scale * 2.4);
+    pool.addColorStop(0, glow);
+    pool.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, scale * 2.4, scale * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
   // Faces: rotate, cull, sort, shade.
   const drawn = [];
+  const toCam = [0, sp, cp];
   for (const f of model.faces) {
     const a = f.p[0], b = f.p[1], c = f.p[2];
     const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
@@ -163,7 +203,6 @@ export function drawTurntable(ctx, w, h, car, yaw, { locked = false, t = 0 } = {
     const nx = n[0] * cyaw + n[2] * syaw;
     const nz = -n[0] * syaw + n[2] * cyaw;
     n = [nx, n[1], nz];
-    const toCam = [0, sp, cp];
     const facing = n[0] * toCam[0] + n[1] * toCam[1] + n[2] * toCam[2];
     if (facing <= 0.001) continue;
     const pts = f.p.map(view);
@@ -171,10 +210,12 @@ export function drawTurntable(ctx, w, h, car, yaw, { locked = false, t = 0 } = {
     const lit = 0.38 + 0.75 * Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
     drawn.push({ pts, depth, lit, f });
   }
-  // wheels as dark discs, sorted with the faces
-  for (const wpos of model.wheels) {
-    const p = view(wpos);
-    drawn.push({ wheel: true, pts: [p], depth: p[2] - 0.2 });
+  // wheels as dark discs (or rear-view tyre blocks), sorted with the faces
+  if (wheelMode !== 'none') {
+    for (const wpos of model.wheels) {
+      const p = view(wpos);
+      drawn.push({ wheel: true, pts: [p], depth: p[2] - 0.2 });
+    }
   }
   drawn.sort((x, y) => x.depth - y.depth);
 
@@ -182,8 +223,13 @@ export function drawTurntable(ctx, w, h, car, yaw, { locked = false, t = 0 } = {
   ctx.lineJoin = 'round';
   for (const d of drawn) {
     if (d.wheel) {
-      const [x, y] = d.pts[0];
+      const [x, y, , dd] = d.pts[0];
       ctx.fillStyle = '#05060a';
+      if (wheelMode === 'tyre') {
+        const tw = 0.3 * scale * dd, th = model.r * 2 * scale * dd;
+        ctx.fillRect(x - tw / 2, y - th / 2, tw, th);
+        continue;
+      }
       ctx.strokeStyle = locked ? '#1f2937' : glow;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -223,16 +269,6 @@ export function drawTurntable(ctx, w, h, car, yaw, { locked = false, t = 0 } = {
     }
   }
   ctx.restore();
-
-  if (locked) {
-    ctx.save();
-    ctx.font = `${Math.round(Math.min(w, h) * 0.16)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.globalAlpha = 0.9;
-    ctx.fillText('🔒', cx, cy - scale * 1.1);
-    ctx.restore();
-  }
 }
 
 /**

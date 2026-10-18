@@ -48,6 +48,35 @@ describe('car roster (ticket 0071)', () => {
     expect(spread((p) => p.massKg)).toBeGreaterThanOrEqual(1000);
   });
 
+  it('every rating point is felt: a 9 and a 4 drive like different cars', () => {
+    const at = (stats) => {
+      CAR_SPECS.__T = { stats, unlock: { type: 'starter' } };
+      const p = carParams({ id: '__T' });
+      delete CAR_SPECS.__T;
+      return p;
+    };
+    const base = { speed: 5, accel: 5, grip: 5, flux: 5, armor: 5 };
+    const hi = at({ ...base, speed: 9, accel: 9, grip: 9, armor: 9 });
+    const lo = at({ ...base, speed: 4, accel: 4, grip: 4, armor: 4 });
+    expect(hi.topMphBonus - lo.topMphBonus).toBeGreaterThanOrEqual(18); // mph at the top end
+    expect(hi.accelMult / lo.accelMult).toBeGreaterThanOrEqual(1.4);    // launch
+    expect(hi.gripMult / lo.gripMult).toBeGreaterThanOrEqual(1.3);      // cornering
+    expect(lo.slipMult).toBeGreaterThan(hi.slipMult);                   // looser tail
+    expect(lo.damageMult / hi.damageMult).toBeGreaterThanOrEqual(1.5);  // hits hurt more
+  });
+
+  it('balance: every roster car stays inside the sane range the race and server allow', () => {
+    for (const id of Object.keys(CAR_SPECS)) {
+      const p = carParams(byId(id));
+      expect(92 + p.topMphBonus, id).toBeGreaterThanOrEqual(92);   // keeps up with the clean line
+      expect(128 + p.topMphBonus, id).toBeLessThanOrEqual(150);     // warp ceiling (worker: 300/s)
+      expect(p.accelMult, id).toBeGreaterThan(0.6);
+      expect(p.gripMult, id).toBeGreaterThan(0.8);
+      expect(p.slipMult, id).toBeGreaterThan(0.5);
+      expect(p.damageMult, id).toBeGreaterThan(0.5);
+    }
+  });
+
   it('a neutral rating of 5 is the old baseline', () => {
     const p = carParams({ id: 'X' }); // unknown car → starter, but check the formula at 5
     expect(p).toBeTruthy();

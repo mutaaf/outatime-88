@@ -514,6 +514,15 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 @keyframes rc-pop { from { transform: translateX(-40px) scale(0.92); opacity: 0; } to { transform: none; opacity: 1; } }
 .rc-portrait { flex-shrink: 0; display: grid; place-items: center; width: clamp(64px, 12vmin, 120px); height: clamp(64px, 12vmin, 120px); border-radius: 18px;
   background: radial-gradient(circle at 30% 25%, var(--c2), var(--c1) 55%, #05050d 100%); box-shadow: 0 0 24px var(--c1); font-size: clamp(30px, 6vmin, 60px); }
+.rc-portrait.has-car { background: radial-gradient(circle at 50% 70%, var(--c1), #0b0620 62%, #05050d 100%); }
+.rc-car-art { width: 100%; height: auto; image-rendering: auto; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); }
+.rc-spec { margin-top: 3px; font-size: clamp(10px, 1.6vmin, 14px); font-weight: 800; letter-spacing: 0.08em; color: #fde047; }
+.rc-chip-car { width: 36px; height: auto; flex-shrink: 0; }
+.rc-mycar { grid-column: 1 / -1; justify-self: center; margin-top: 4px; padding: 4px 12px; border-radius: 999px; font-size: clamp(10px, 1.6vmin, 14px); font-weight: 700;
+  color: #e2e8f0; background: rgba(2, 6, 23, 0.86); border: 1px solid #ff8800; }
+.rc-mycar b { color: #fde047; }
+.pod-carbox { display: grid; place-items: center; width: 40px; height: 28px; }
+.pod-car { width: 40px; height: 28px; object-fit: contain; }
 .rc-text { display: flex; flex-direction: column; min-width: 0; text-align: left; }
 .rc-tag { font-size: clamp(11px, 1.8vmin, 16px); font-weight: 800; letter-spacing: 0.18em; color: #67e8f9; }
 .rc-tag b { margin-left: 8px; color: #fde047; }
@@ -559,7 +568,7 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .end-podium-box { margin-top: 8px; }
 .end-podium-box.hidden { display: none; }
 .end-podium { display: flex; flex-direction: column; gap: 3px; text-align: left; }
-.pod-row { display: grid; grid-template-columns: 1.6rem 6px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 10px;
+.pod-row { display: grid; grid-template-columns: 1.6rem 6px 40px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 10px;
   background: rgba(2, 6, 23, 0.75); font-family: 'Orbitron', sans-serif; font-size: 12px; }
 .pod-place { font-weight: 900; color: #94a3b8; text-align: center; }
 .pod-p1 .pod-place { color: #fde047; } .pod-p2 .pod-place { color: #e2e8f0; } .pod-p3 .pod-place { color: #fdba74; }
@@ -592,8 +601,9 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
   .results-card { max-width: 52rem; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; padding: 10px 14px; text-align: left; }
   .end-title { font-size: 22px; margin-top: 2px; }
   .end-headline { font-size: 12px; }
-  .pod-row { padding: 1px 8px; font-size: 11px; }
+  .pod-row { padding: 1px 8px; font-size: 11px; grid-template-columns: 1.6rem 6px 26px minmax(0, 1fr) auto; }
   .pod-swatch { height: 16px; }
+  .pod-carbox, .pod-car { width: 26px; height: 16px; }
   .pod-name small, .pod-note { display: none; }
   .end-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 4px; }
   .end-stats .led-box { padding: 3px 8px; }
@@ -607,8 +617,9 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 @media (max-height: 700px) and (orientation: portrait) {
   .results-card { padding: 10px 12px; gap: 4px; }
   .end-title { font-size: 24px; }
-  .pod-row { padding: 2px 8px; }
+  .pod-row { padding: 2px 8px; grid-template-columns: 1.6rem 6px 26px minmax(0, 1fr) auto; }
   .pod-swatch { height: 16px; }
+  .pod-carbox, .pod-car { width: 26px; height: 16px; }
   .pod-name small, .pod-note { display: none; }
   .end-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   .end-stats .led-box { padding: 3px 5px; }

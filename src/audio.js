@@ -22,6 +22,12 @@ const SFX_LEVEL = 0.9;
 const hooks = { syncAudioUI() {}, triggerAnnouncement() {} };
 export function setAudioHooks(h) { Object.assign(hooks, h); }
 
+// Engine voice per roster shape: [pitch multiplier, growl (>1 deeper sub + darker, <1 brighter)].
+const ENGINE_VOICES = {
+  GULLWING: [1, 1], MUSCLE: [0.82, 1.3], TUNER_WING: [1.12, 0.9], SCANNER: [0.92, 1.15],
+  ROCKET: [1.22, 0.8], HEAVY_VAN: [0.7, 1.4], LIGHTCYCLE: [1.45, 0.7],
+};
+
 export const SoundEngine = {
   ctx: null,
   masterGain: null,
@@ -149,6 +155,14 @@ export const SoundEngine = {
     this.engineOsc.start(ctx.currentTime);
     this.engineSub.start(ctx.currentTime);
   },
+  enginePitch: 1,
+  engineGrowl: 1,
+  /** Each roster car sounds like itself: a van rumbles low, a light-cycle whines high. */
+  setEngineVoice(shape) {
+    const v = ENGINE_VOICES[shape] || ENGINE_VOICES.GULLWING;
+    this.enginePitch = v[0];
+    this.engineGrowl = v[1];
+  },
   /** Called every frame; cheap (three param targets, no allocation). */
   updateEngine(speedMph, playing) {
     if (!this.ctx || !this.engineOsc) return;
@@ -156,10 +170,10 @@ export const SoundEngine = {
     const s = Math.max(0, speedMph);
     // Gear-ish sawtooth on top of a smooth climb, so it revs, shifts and revs again.
     const gearPhase = (s % 26) / 26;
-    const hz = 42 + s * 0.9 + gearPhase * 38;
+    const hz = (42 + s * 0.9 + gearPhase * 38) * this.enginePitch;
     this.engineOsc.frequency.setTargetAtTime(hz, t, 0.05);
-    this.engineSub.frequency.setTargetAtTime(hz / 2, t, 0.05);
-    this.engineFilter.frequency.setTargetAtTime(300 + s * 18, t, 0.08);
+    this.engineSub.frequency.setTargetAtTime(hz / (this.engineGrowl > 1 ? 3 : 2), t, 0.05);
+    this.engineFilter.frequency.setTargetAtTime((300 + s * 18) * (this.engineGrowl > 1 ? 0.8 : this.engineGrowl < 1 ? 1.3 : 1), t, 0.08);
     this.engineBus.gain.setTargetAtTime(playing && this.sfxMix > 0 ? (0.05 + Math.min(1, s / 120) * 0.07) * this.sfxMix : 0.0001, t, 0.12);
   },
   playTone(freq, type, duration, vol = 0.12, slideTo = null) {
