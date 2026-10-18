@@ -50,7 +50,7 @@ test('phone HUD takes at most 18% of the screen height', async ({ page }) => {
 // covers the player car.
 const pinOnFork = (page, playerX) => page.evaluate((x) => {
   const { GameState, track } = window.__OT;
-  const seg = track().segments.find((s) => s.trackType === 'SPLIT_FORK');
+  const seg = track().liveSegments().find((s) => s.trackType === 'SPLIT_FORK');
   GameState.trackPos = seg.p1.world.z + (seg.p2.world.z - seg.p1.world.z) * 4 - 1250; // tyres on the fork
   GameState.playerX = x;
   GameState.playerVX = 0;
@@ -68,7 +68,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       const { GameState } = window.__OT;
       GameState.lessonsCleared.jump = 0;
       const t = window.__OT.traffic();
-      const seg = window.__OT.track().segments.find((s) => s.trackType === 'SPLIT_FORK');
+      const seg = window.__OT.track().liveSegments().find((s) => s.trackType === 'SPLIT_FORK');
       t.obstacles.push(t.createObstacleBody(t.obstacles.length, 'LOW_LASER_BAR', seg.p1.world.z + 2400, 0.5));
     });
     for (let i = 0; i < 10; i++) {

@@ -8,8 +8,16 @@
 // Sprint 4: every segment start also carries an orthonormal frame (forward, up, right), so the
 // road can bank, ride a half-pipe wall, roll through a corkscrew and go all the way round a
 // vertical loop (set pieces from src/setpieces.js via `segment.feature`). Pure: no three.js,
-// no DOM.
+// no DOM. Endless-track: the frames live in fixed rings, so the path forgets the road far
+// behind exactly as the track's segment ring does.
 import { ROAD_CFG } from '../data.js';
+
+/**
+ * Boundaries the path holds (a power of two, twice the track's segment ring): the frames are
+ * fixed typed-array rings indexed by `k & PATH_MASK`, so an endless road never grows them.
+ */
+export const PATH_RING = 2048;
+const PATH_MASK = PATH_RING - 1;
 
 /** Heading change (radians) per unit of segment `curve`, at unit scales. */
 export const TURN_PER_CURVE = 1 / ROAD_CFG.segLength;
@@ -28,66 +36,91 @@ export const WALL_ROLL = 0.75;
 export function createTrackPath({ zScale = 1, xScale = 1, yScale = 1 } = {}) {
   const turn = TURN_PER_CURVE * xScale / zScale;
   const halfW = ROAD_CFG.roadWidth * xScale;
+  const ring = () => new Float64Array(PATH_RING);
   const p = {
     zScale, xScale, yScale,
-    source: null, // the segments array this path was built from
-    count: 0,     // segments integrated so far
-    // Flat-road integration: start (x, z) and heading of every segment, plus the end of the last.
-    x: [0], z: [0], h: [0],
+    source: null, // what this path was built from: a segments array, or the track's `run` token
+    count: 0,     // segments integrated so far (absolute: boundaries first..count exist)
+    first: 0,     // the boundary the path started from
+    mask: PATH_MASK, // boundary k lives at [k & mask] in every array below (a fixed ring)
+    // Flat-road integration: start (x, z) and heading of every segment boundary.
+    x: ring(), z: ring(), h: ring(),
     // The full frame at every segment start: centre (cx, cy, cz), forward f, up u, right r.
-    cx: [0], cy: [0], cz: [0],
-    fx: [0], fy: [0], fz: [1], ux: [0], uy: [1], uz: [0], rx: [1], ry: [0], rz: [0],
+    cx: ring(), cy: ring(), cz: ring(),
+    fx: ring(), fy: ring(), fz: ring(), ux: ring(), uy: ring(), uz: ring(), rx: ring(), ry: ring(), rz: ring(),
     // The offset the set pieces add on top of the flat road (a loop's exit sits beside its entry).
     shiftX: 0, shiftZ: 0,
     loop: null, // { f, x0, y0, z0, h0 } while integrating through a loop
 
-    /** Extend (or rebuild, after a new race replaced the array) to cover `segments`. */
-    sync(segments) {
-      if (segments !== this.source || segments.length < this.count) {
-        this.source = segments;
-        this.count = 0;
-        for (const k of ['x', 'z', 'h', 'cx', 'cy', 'cz', 'fx', 'fy', 'fz', 'ux', 'uy', 'uz', 'rx', 'ry', 'rz']) this[k].length = 0;
-        this.x.push(0); this.z.push(0); this.h.push(0);
+    /** Oldest boundary still held (the ring forgets the road far behind). */
+    get base() { return Math.max(this.first, this.count - PATH_RING + 2); },
+
+    /**
+     * Extend (or rebuild, after a new race restarted the road) to cover `src`: either a plain
+     * array of segments or the track container (src/track.js: `seg(i)`, `end`, `run`).
+     * Incremental and allocation-free: only new segments are integrated.
+     */
+    sync(src) {
+      const isArr = Array.isArray(src);
+      const key = isArr ? src : src.run;
+      const end = isArr ? src.length : src.end;
+      const M = PATH_MASK;
+      // A fresh road, or one that moved on so far that its oldest held segment is past where
+      // this path stopped (a long pause, a debug jump): start again from the oldest held one.
+      if (key !== this.source || end < this.count || (!isArr && this.count < src.start)) {
+        // Start at the oldest segment the source still holds (0, unless a long-running road
+        // has already recycled its start): positions are relative, so any origin works.
+        const first = isArr ? 0 : src.start;
+        const a = first & M;
+        this.source = key;
+        this.first = first;
+        this.count = first;
+        this.x[a] = 0; this.z[a] = 0; this.h[a] = 0;
         this.shiftX = 0; this.shiftZ = 0; this.loop = null;
-        if (segments.length) frameAt(this, 0, segments[0], 0, 0, 0, 0, 0, false);
-      } else if (this.count > 0 && segments.length > this.count) {
+        const s0 = segOf(src, isArr, first);
+        if (end > first && s0) frameAt(this, first, s0, 0, first ? s0.p1.world.y * yScale : 0, 0, 0, first * ROAD_CFG.segLength, false);
+      } else if (this.count > 0 && end > this.count) {
         // The old end boundary was only a peek; now its segment exists, settle it for real.
         const k = this.count;
-        frameAt(this, k, segments[k], this.x[k], segments[k].p1.world.y * yScale, this.z[k], this.h[k], k * ROAD_CFG.segLength, false);
+        const sk = segOf(src, isArr, k);
+        frameAt(this, k, sk, this.x[k & M], sk.p1.world.y * yScale, this.z[k & M], this.h[k & M], k * ROAD_CFG.segLength, false);
       }
       const L = ROAD_CFG.segLength * zScale;
-      for (let i = this.count; i < segments.length; i++) {
-        const h = this.h[i];
-        this.x[i + 1] = this.x[i] + Math.sin(h) * L;
-        this.z[i + 1] = this.z[i] + Math.cos(h) * L;
-        this.h[i + 1] = h + segments[i].curve * turn;
-        const s = segments[i];
-        const next = segments[i + 1];
+      for (let i = this.count; i < end; i++) {
+        const a = i & M, b = (i + 1) & M;
+        const h = this.h[a];
+        const s = segOf(src, isArr, i);
+        this.x[b] = this.x[a] + Math.sin(h) * L;
+        this.z[b] = this.z[a] + Math.cos(h) * L;
+        this.h[b] = h + s.curve * turn;
+        const next = i + 1 < end ? segOf(src, isArr, i + 1) : null;
         // The far end of the road has no segment yet: peek with the last one (no state change).
-        frameAt(this, i + 1, next || s, this.x[i + 1], s.p2.world.y * yScale, this.z[i + 1], this.h[i + 1], (i + 1) * ROAD_CFG.segLength, !next);
+        frameAt(this, i + 1, next || s, this.x[b], s.p2.world.y * yScale, this.z[b], this.h[b], (i + 1) * ROAD_CFG.segLength, !next);
       }
-      this.count = segments.length;
+      this.count = end;
     },
 
     /**
      * World pose of the road at (simulation) track Z `trackZ`, `offset` road half-widths to
      * the right of the centreline, in scaled 3D units. Writes { x, y, z, heading } plus the
      * road frame (fx..fz forward, ux..uz up, rx..rz right) into `out` (no allocation).
+     * Past either end of what the ring holds it clamps to the nearest boundary.
      */
     at(trackZ, offset, out) {
       const Ls = ROAD_CFG.segLength;
       const n = this.count;
-      if (n === 0) {
+      if (n <= this.first) {
         out.x = offset * halfW; out.y = 0; out.z = trackZ * zScale; out.heading = 0;
         out.fx = 0; out.fy = 0; out.fz = 1; out.ux = 0; out.uy = 1; out.uz = 0; out.rx = 1; out.ry = 0; out.rz = 0;
         return out;
       }
       let i = Math.floor(trackZ / Ls);
       let t = trackZ / Ls - i;
-      if (i < 0) { i = 0; t = 0; }
+      const lo = this.base;
+      if (i < lo) { i = lo; t = 0; }
       if (i >= n) { i = n - 1; t = 1; }
-      const j = i + 1;
-      const lerp = (a) => a[i] + (a[j] - a[i]) * t;
+      const ia = i & PATH_MASK, ja = (i + 1) & PATH_MASK;
+      const lerp = (arr) => arr[ia] + (arr[ja] - arr[ia]) * t;
       out.heading = lerp(this.h);
       let ux = lerp(this.ux), uy = lerp(this.uy), uz = lerp(this.uz);
       let rx = lerp(this.rx), ry = lerp(this.ry), rz = lerp(this.rz);
@@ -163,11 +196,17 @@ export function createTrackPath({ zScale = 1, xScale = 1, yScale = 1 } = {}) {
       ux = nux; uy = nuy; uz = nuz; rx = nrx; ry = nry; rz = nrz;
     }
     if (!peek) { P.shiftX = shiftX; P.shiftZ = shiftZ; P.loop = loop; }
+    k &= PATH_MASK;
     P.cx[k] = cx; P.cy[k] = cy; P.cz[k] = cz;
     P.fx[k] = fx; P.fy[k] = fy; P.fz[k] = fz;
     P.ux[k] = ux; P.uy[k] = uy; P.uz[k] = uz;
     P.rx[k] = rx; P.ry[k] = ry; P.rz[k] = rz;
   }
+}
+
+/** Segment `i` of a plain array or of the track container (no closure per sync). */
+function segOf(src, isArr, i) {
+  return isArr ? src[i] : src.seg(i);
 }
 
 /** How far sideways a loop's exit sits from its entry (3D units): just over a road width. */

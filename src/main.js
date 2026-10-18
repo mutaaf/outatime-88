@@ -20,7 +20,7 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, applyRunResult } from './progress.js';
-import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, hasSetPieceBetween, featureAt } from './track.js';
+import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt } from './track.js';
 import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
 let setPieceArt = null; // src/setpieces-2d.js, lazy: the art waits for it, the sim never does
 setTimeout(() => { import('./setpieces-2d.js').then((m) => { setPieceArt = m; }, () => {}); }, 0);
@@ -691,6 +691,9 @@ function isDebris(b) {
 
 function initTrack() {
   setTrackLine(createLine(GameState.lineSeed || 1));
+  // Seeded races (live rooms, dailies) shuffle the road with their shared seed; a normal race
+  // gets its level's fixed layout so the level's leaderboard is one road for everyone.
+  setTrackSeed(GameState.daily || GameState.mode === 'LIVE' ? GameState.lineSeed : 0);
   buildInitialTrack();
   LiveTraffic.init();
 }
@@ -1047,7 +1050,7 @@ function activateMidnightSpecial(type) {
     const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
     let wreckedCount = 0;
     for (let n = 0; n < 18; n++) {
-      const seg = track.segments[currentSegIdx + n];
+      const seg = track.seg(currentSegIdx + n);
       if (!seg) continue;
       for (let c = 0; c < seg.cars.length; c++) {
         if (!seg.cars[c].takenDown) {
@@ -1191,11 +1194,11 @@ function updateGame(rawDt) {
 
   const cameraSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   const currentSegIdx = Math.floor((GameState.trackPos + ROAD_CFG.playerZOffset) / ROAD_CFG.segLength);
-  if (track.segments.length - currentSegIdx < ROAD_CFG.drawDistance + 85) {
+  if (track.end - currentSegIdx < ROAD_CFG.drawDistance + 85) {
     generateNextTrackBiome();
   }
 
-  const currentSeg = track.segments[currentSegIdx] || track.segments[0];
+  const currentSeg = track.seg(currentSegIdx) || track.seg(track.start);
   const upg = SaveStore.data.upgrades;
 
   // Handle Midnight Special hotkeys
@@ -1371,7 +1374,7 @@ function updateGame(rawDt) {
   let nearestThreat = null;
   let bestCollectible = null;
   for (let look = 1; look <= 26; look++) {
-    const lSeg = track.segments[currentSegIdx + look];
+    const lSeg = track.seg(currentSegIdx + look);
     if (!lSeg) break;
     if (look <= 15) curveAhead += lSeg.curve;
     for (let c = 0; c < lSeg.cars.length; c++) {
@@ -1724,7 +1727,7 @@ function updateGame(rawDt) {
 
   // 7. Update AI Cars, Checkpoints, Collectibles & Side-Slam Takedowns
   for (let offset = -1; offset <= 16; offset++) {
-    const seg = track.segments[currentSegIdx + offset];
+    const seg = track.seg(currentSegIdx + offset);
     if (!seg) continue;
 
     // Move AI Rival & Police Cars dynamically across lanes
@@ -2224,7 +2227,7 @@ function roadCanvasHeight() {
 /** Simulation-owned tyre contact Z; independent of which renderer draws the frame. */
 function syncContactZ() {
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
-  const z = contactZ(track.segments, GameState, camCfg, roadCanvasHeight());
+  const z = contactZ(track, GameState, camCfg, roadCanvasHeight());
   if (z !== null) GameState.visualPlayerZ = z;
 }
 
@@ -2270,7 +2273,7 @@ function renderScene() {
 
   // 1. The era's world: sky, parallax layers and live set pieces (src/backdrop.js, ticket 0100).
   const horizonY = Math.floor(rh * 0.46 - GameState.loopPitchOffset * (rh / 420));
-  const bgSeg = track.segments[Math.floor(GameState.trackPos / ROAD_CFG.segLength)];
+  const bgSeg = track.seg(Math.floor(GameState.trackPos / ROAD_CFG.segLength));
   backdropFrame.curve = bgSeg ? bgSeg.curve : 0;
   backdropFrame.trackPos = GameState.trackPos;
   backdropFrame.playerX = GameState.playerX;
@@ -2286,7 +2289,7 @@ function renderScene() {
   // 2. Project & Draw Seamless 3D Orange Toy-Track Segments (Zero Distracting Blue Bars!)
   const baseIndex = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   const basePercent = (GameState.trackPos % ROAD_CFG.segLength) / ROAD_CFG.segLength;
-  const baseSeg = track.segments[baseIndex] || track.segments[0];
+  const baseSeg = track.seg(baseIndex) || track.seg(track.start);
   if (!baseSeg) {
     if (rolled) ctx.restore();
     ctx.restore();
@@ -2298,7 +2301,7 @@ function renderScene() {
   let playerCurveX = 0;
   let playerCurveDX = -(baseSeg.curve * basePercent);
   for (let cStep = 0; cStep < 6; cStep++) {
-    const cSeg = track.segments[baseIndex + cStep];
+    const cSeg = track.seg(baseIndex + cStep);
     if (!cSeg) break;
     playerCurveX += playerCurveDX;
     playerCurveDX += cSeg.curve;
@@ -2316,7 +2319,7 @@ function renderScene() {
   let foundPlayerSeg = null;
 
   for (let n = 0; n < ROAD_CFG.drawDistance; n++) {
-    const seg = track.segments[baseIndex + n];
+    const seg = track.seg(baseIndex + n);
     if (!seg) break;
 
     seg.p1.world.x = x;
@@ -2837,7 +2840,7 @@ function renderScene() {
   }
 
   // 5. Lock Hero Car Screen X & Y to the Exact Track Segment Underneath the Tires (Zero Off-Track Drift!)
-  const playerSeg = foundPlayerSeg || track.segments[baseIndex + 6] || visibleSegments[0] || baseSeg;
+  const playerSeg = foundPlayerSeg || track.seg(baseIndex + 6) || visibleSegments[0] || baseSeg;
   if (playerSeg && playerSeg.p1 && playerSeg.p1.screen && playerSeg.p1.screen.w > 0) {
     const segRoadX = playerSeg.p1.screen.x;
     const segRoadW = playerSeg.p1.screen.w;
@@ -4577,7 +4580,7 @@ function mainLoop(timestamp) {
     if (GameState.status !== 'PAUSED' && GameState.status !== 'GRID') {
       GameState.trackPos += 1350 * dt;
       const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
-      if (track.segments.length - currentSegIdx < ROAD_CFG.drawDistance + 60) {
+      if (track.end - currentSegIdx < ROAD_CFG.drawDistance + 60) {
         generateNextTrackBiome();
       }
     }

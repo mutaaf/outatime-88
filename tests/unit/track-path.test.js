@@ -42,11 +42,11 @@ describe('3D track path', () => {
   it('extending as the track grows matches building it in one go', () => {
     buildInitialTrack();
     const inc = createTrackPath();
-    inc.sync(track.segments);
-    for (let k = 0; k < 5; k++) { generateNextTrackBiome(); inc.sync(track.segments); }
+    inc.sync(track);
+    for (let k = 0; k < 5; k++) { generateNextTrackBiome(); inc.sync(track); }
     const full = createTrackPath();
-    full.sync(track.segments.slice());
-    for (let z = 0; z < track.segments.length * L; z += 997) {
+    full.sync(track.liveSegments());
+    for (let z = 0; z < track.end * L; z += 997) {
       const a = inc.at(z, 0.4, {}), b = full.at(z, 0.4, {});
       expect(a.x).toBeCloseTo(b.x, 6); expect(a.z).toBeCloseTo(b.z, 6); expect(a.y).toBeCloseTo(b.y, 6);
     }

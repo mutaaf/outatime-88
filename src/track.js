@@ -1,20 +1,81 @@
-// Track generation: the endless road as a list of segments, built a biome at a time.
-// No rendering here. Module bindings are read-only, so the segment list lives on a
-// mutable container that main.js reads as `track.segments`.
+// Track generation: the endless road, built a biome at a time. No rendering here.
+//
+// The road is a fixed-size ring of pooled segment objects (endless-track ticket): segments keep
+// their absolute index and track Z forever, but only the newest RING of them exist. Building a
+// new segment reuses the object (and its points, items and item objects) of the one RING
+// indices behind it, so a race or a title screen left running for hours allocates nothing and
+// never grows. Read segments with `track.seg(i)` (null outside the live window) and the end of
+// the road with `track.end`; `track.start` is the oldest live index.
 import { ROAD_CFG } from './data.js';
 import { GameState } from './state.js';
 import { SETPIECE, loopLength, loopEntryMph, makeFeature } from './setpieces.js';
 
-export const track = { segments: [], generatedCount: 0, line: null };
+/**
+ * Ring capacity in segments (a power of two). The game builds at most ~330 segments ahead of
+ * the player (draw distance + lookahead + one biome) and looks back ~20, so a 1024 ring keeps
+ * hundreds of segments of margin behind the camera before any slot is reused.
+ */
+export const RING = 1024;
+const MASK = RING - 1;
+
+export const track = {
+  ring: new Array(RING).fill(null),
+  start: 0,          // oldest live absolute index
+  end: 0,            // one past the newest (the old `segments.length`)
+  generatedCount: 0,
+  line: null,
+  seed: 0,           // shuffle-bag seed (0: the level's own fixed layout)
+  run: {},           // replaced on every reset; renderers compare it to know the road restarted
+  bag: [], bagPos: 0, bagCount: 0, lastPiece: '',
+  allocated: 0,      // segment objects ever created (bounded by RING: proves the pool works)
+  /** The segment with absolute index `i`, or null if it is not (or no longer) built. */
+  seg(i) {
+    return i >= this.start && i < this.end ? this.ring[i & MASK] : null;
+  },
+  /** The live window as a fresh array, oldest first. Allocates: tests and ?debug only. */
+  liveSegments() {
+    const out = [];
+    for (let i = this.start; i < this.end; i++) out.push(this.ring[i & MASK]);
+    return out;
+  },
+  /**
+   * Debug/e2e helper: the first set piece of `kind` with road behind it to run up from,
+   * building up to `maxBiomes` more biomes to reach one.
+   */
+  findFeature(kind, maxBiomes = 14) {
+    for (let n = 0; ; n++) {
+      for (let i = this.start; i < this.end; i++) {
+        const f = this.ring[i & MASK].feature;
+        if (f && f.kind === kind && f.z0 >= (this.start + 48) * ROAD_CFG.segLength) return f;
+      }
+      if (n >= maxBiomes) return null;
+      generateNextTrackBiome();
+    }
+  },
+};
 
 /** The race's racing line (src/cleanline.js): hazards are never placed on it. */
 export function setTrackLine(line) {
   track.line = line;
 }
 
+/**
+ * Seed the layout shuffle (live rooms and dailies pass their shared seed so everyone races
+ * the same road; 0 gives every level one fixed layout, fair for its leaderboard).
+ */
+export function setTrackSeed(seed) {
+  track.seed = seed | 0;
+}
+
 export function resetTrack() {
-  track.segments = [];
+  // The pooled objects stay in the ring; they are simply reused from index 0 again.
+  track.start = 0;
+  track.end = 0;
   track.generatedCount = 0;
+  track.run = {};
+  track.bag.length = 0;
+  track.bagPos = 0;
+  track.bagCount = 0;
 }
 
 export function buildInitialTrack() {
@@ -24,27 +85,57 @@ export function buildInitialTrack() {
   }
 }
 
-
-export function addSegment(curve, y, bank, trackType, forkInfo = null) {
-  const idx = track.segments.length;
-  track.segments.push({
-    index: idx,
-    p1: { world: { x: 0, y: idx === 0 ? 0 : track.segments[idx - 1].p2.world.y, z: idx * ROAD_CFG.segLength }, camera: {}, screen: {} },
-    p2: { world: { x: 0, y: y, z: (idx + 1) * ROAD_CFG.segLength }, camera: {}, screen: {} },
-    curve: curve,
-    bank: bank,
-    trackType: trackType,
-    forkInfo: forkInfo,
+function newSegment() {
+  track.allocated++;
+  return {
+    index: 0,
+    p1: { world: { x: 0, y: 0, z: 0 }, camera: {}, screen: {} },
+    p2: { world: { x: 0, y: 0, z: 0 }, camera: {}, screen: {} },
+    curve: 0, bank: 0, trackType: 'STANDARD', forkInfo: null,
     feature: null, // a set piece covering this segment (see featureAt), shared by its segments
-    items: [],
-    cars: [],
-    flameLeft: false,
-    flameRight: false
-  });
+    items: [], itemPool: [], cars: [],
+    flameLeft: false, flameRight: false, flameOffset: 0, cpClaimed: false,
+  };
 }
 
+export function addSegment(curve, y, bank, trackType, forkInfo = null) {
+  const idx = track.end;
+  const slot = idx & MASK;
+  let seg = track.ring[slot];
+  if (!seg) track.ring[slot] = seg = newSegment();
+  const prev = idx === track.start ? null : track.ring[(idx - 1) & MASK];
+  seg.index = idx;
+  seg.p1.world.x = 0; seg.p1.world.y = prev ? prev.p2.world.y : 0; seg.p1.world.z = idx * ROAD_CFG.segLength;
+  seg.p2.world.x = 0; seg.p2.world.y = y; seg.p2.world.z = (idx + 1) * ROAD_CFG.segLength;
+  seg.curve = curve;
+  seg.bank = bank;
+  seg.trackType = trackType;
+  seg.forkInfo = forkInfo;
+  seg.feature = null;
+  seg.items.length = 0;
+  seg.cars.length = 0;
+  seg.flameLeft = false; seg.flameRight = false; seg.flameOffset = 0; seg.cpClaimed = false;
+  track.end = idx + 1;
+  if (track.end - track.start > RING) track.start = track.end - RING;
+}
+
+/** Put an item on a segment, reusing that segment slot's pooled item objects. */
+export function addItem(seg, offset, type, collectible = false, phase = 0) {
+  const n = seg.items.length;
+  let it = seg.itemPool[n];
+  if (!it) { it = { offset: 0, type: '', collected: undefined, phase: 0 }; seg.itemPool[n] = it; }
+  it.offset = offset;
+  it.type = type;
+  it.collected = collectible ? false : undefined;
+  it.phase = phase;
+  seg.items.push(it);
+  return it;
+}
+
+const lastY = () => (track.end > track.start ? track.ring[(track.end - 1) & MASK].p2.world.y : 0);
+
 export function addRoadSection(enter, hold, leave, curve, yDelta, bank, trackType = 'STANDARD', forkInfo = null) {
-  const startY = track.segments.length === 0 ? 0 : track.segments[track.segments.length - 1].p2.world.y;
+  const startY = lastY();
   const endY = startY + yDelta;
   const total = enter + hold + leave;
   for (let n = 0; n < enter; n++) {
@@ -64,80 +155,93 @@ export function addRoadSection(enter, hold, leave, curve, yDelta, bank, trackTyp
 
 export function populateChunkDecorations(startIdx, endIdx, patternType) {
   for (let i = startIdx; i < endIdx; i++) {
-    const seg = track.segments[i];
+    const seg = track.seg(i);
     if (!seg) continue;
     // Set pieces stay clean: no lamps on a loop, no coins over a gap (booster gates keep theirs).
     if ((seg.feature && seg.feature.kind !== 'BOOSTER') || seg.trackType === 'JUMP_RAMP') continue;
 
     // Night-Street Smoke Flares on Checkpoints & Forks
     if (seg.trackType === 'CHECKPOINT' && i === startIdx + 2) {
-      seg.items.push({ offset: -1.15, type: 'MC_FLARE_GREEN' });
-      seg.items.push({ offset: 1.15, type: 'MC_FLARE_GREEN' });
+      addItem(seg, -1.15, 'MC_FLARE_GREEN');
+      addItem(seg, 1.15, 'MC_FLARE_GREEN');
     }
 
     // Roadside Streetlamps, Billboards & Orange-Track Arches
     if (i % 6 === 0) {
       const propTypes = ['STREET_LAMP', 'SIGN_88', 'PALM_TREE', 'CLOCK_TOWER_BILLBOARD', 'ARCH_HW'];
       const pType = propTypes[(i / 6) % propTypes.length | 0];
-      seg.items.push({ offset: -1.42, type: pType });
-      seg.items.push({ offset: 1.42, type: pType });
+      addItem(seg, -1.42, pType);
+      addItem(seg, 1.42, pType);
     }
 
     // Overhead Loop & Tunnel Rings
     if ((seg.trackType === 'LOOP' || seg.trackType === 'BOOSTER') && i % 3 === 0) {
-      seg.items.push({ offset: 0, type: 'OVERHEAD_GATE' });
+      addItem(seg, 0, 'OVERHEAD_GATE');
     }
 
     // Animated 3D Power-Ups (Plutonium Cores, Orange-Track Flame Coins) & Destructible 2026 Obstacles
     if (i % 18 === 0 && seg.trackType !== 'CHECKPOINT') {
       const lane = ((i * 19) % 3) - 1;
       const isPlutonium = (i % 12 === 0) || (patternType === 'STUNT_LOOP');
-      seg.items.push({
-        offset: lane * 0.52,
-        type: isPlutonium ? 'PLUTONIUM' : 'HW_COIN',
-        collected: false,
-        phase: i * 0.8
-      });
+      addItem(seg, lane * 0.52, isPlutonium ? 'PLUTONIUM' : 'HW_COIN', true, i * 0.8);
     }
 
     // Spawn Nano-Wrench HP Repair Pickups every 22 segments
     if (i > 30 && i % 38 === 0 && seg.trackType !== 'CHECKPOINT') {
       const healLane = (((i * 7) % 3) - 1) * 0.52;
-      seg.items.push({
-        offset: healLane,
-        type: 'REPAIR_WRENCH',
-        collected: false,
-        phase: i * 0.4
-      });
+      addItem(seg, healLane, 'REPAIR_WRENCH', true, i * 0.4);
     }
   }
 }
 
 // ---------------------------------------------------------------------------------------
-// Orange-track layouts (sprint 4). Each level cycles its own book of pieces: sweepers, S-bends,
-// banked hairpins, blind crests and toy-track set pieces (loops, corkscrews, gap jumps,
-// wall-ride half-pipes), each set piece led in by a booster gate. Deterministic per level.
+// Orange-track layouts. The endless road cycles a shuffle bag of every piece: all six curve
+// shapes (sweeper, S-bends, hairpin, crest, chicane, double-apex banked 180) and all four
+// set pieces (loop, corkscrew, gap jump, wall-ride half-pipe), each set piece led in by a
+// booster gate. A bag is used up before the next is drawn, so every curve and every set piece
+// comes round again every ten pieces, forever. Shuffles are seeded: one fixed layout per level
+// (seed 0), or the shared seed of a live room or daily, so the same seed is the same road.
 
 const L = () => ROAD_CFG.segLength;
-const lastY = () => (track.segments.length ? track.segments[track.segments.length - 1].p2.world.y : 0);
 
 /** A run of `segs` segments sharing one set-piece feature. */
 function addFeatureRun(kind, segs, curve, bank, trackType, extra) {
-  const startIdx = track.segments.length;
+  const startIdx = track.end;
   const f = makeFeature(kind, startIdx * L(), segs * L(), extra);
   const y = lastY();
   for (let n = 0; n < segs; n++) {
     addSegment(curve, y, bank, trackType);
-    track.segments[startIdx + n].feature = f;
+    track.ring[(startIdx + n) & MASK].feature = f;
   }
   return f;
 }
 
+// Curve amplitude per level: level 1 is gentler, level 5 is the full playset (every level
+// still gets every shape).
+const AMP = [0.8, 0.88, 0.95, 1, 1.08];
+let amp = 1;
+
+export const CURVES = ['sweep', 'sBends', 'hairpin', 'crest', 'chicane', 'doubleApex'];
+export const SET_PIECES = ['loop', 'corkscrew', 'jump', 'wallride'];
+
 const PIECES = {
-  sweep: (d) => addRoadSection(12, 26, 12, 0.7 * d, 260, 0.12 * d),
-  sBends: (d) => { addRoadSection(10, 16, 10, 1.6 * d, 180, 0.32 * d); addRoadSection(10, 16, 10, -1.6 * d, -180, -0.32 * d); },
-  hairpin: (d) => { addRoadSection(8, 8, 6, 0, 0, 0); addRoadSection(12, 30, 12, 2.6 * d, 0, 0.55 * d); },
-  crest: () => { addRoadSection(10, 10, 12, 0, 900, 0); addRoadSection(12, 10, 10, 0.4, -900, 0.08); },
+  sweep: (d) => addRoadSection(12, 26, 12, 0.7 * d * amp, 260, 0.12 * d),
+  sBends: (d) => { addRoadSection(10, 16, 10, 1.6 * d * amp, 180, 0.32 * d); addRoadSection(10, 16, 10, -1.6 * d * amp, -180, -0.32 * d); },
+  hairpin: (d) => { addRoadSection(8, 8, 6, 0, 0, 0); addRoadSection(12, 30, 12, 2.6 * d * amp, 0, 0.55 * d); },
+  crest: (d) => { addRoadSection(10, 10, 12, 0, 900, 0); addRoadSection(12, 10, 10, 0.4 * d, -900, 0.08 * d); },
+  // A quick left-right-left flick between two short straights.
+  chicane: (d) => {
+    addRoadSection(4, 6, 4, 0, 0, 0);
+    addRoadSection(4, 6, 4, 1.9 * d * amp, 0, 0.25 * d);
+    addRoadSection(4, 8, 4, -2.0 * d * amp, 0, -0.28 * d);
+    addRoadSection(4, 6, 4, 1.4 * d * amp, 0, 0.2 * d);
+  },
+  // A long banked 180 with two apexes: turn in, ease off mid-corner, tighten into the second.
+  doubleApex: (d) => {
+    addRoadSection(10, 22, 6, 2.0 * d * amp, 140, 0.45 * d);
+    addRoadSection(4, 6, 4, 0.9 * d * amp, 0, 0.2 * d);
+    addRoadSection(6, 22, 10, 2.3 * d * amp, -140, 0.5 * d);
+  },
   gate: (boostTo) => addFeatureRun('BOOSTER', 12, 0, 0, 'BOOSTER', { boostTo }),
   loop: () => {
     PIECES.gate(loopEntryMph());
@@ -162,65 +266,114 @@ const PIECES = {
   },
 };
 
-// Per level: [piece, direction]. Level 1 is gentle; level 5 is the full orange-track playset.
-const BOOKS = [
-  [['sweep', 1], ['sBends', 1], ['crest', 1], ['loop', 1], ['sBends', -1], ['jump', 1]],
-  [['sweep', -1], ['crest', 1], ['jump', 1], ['hairpin', 1], ['sBends', -1], ['corkscrew', 1]],
-  [['sBends', 1], ['loop', 1], ['wallride', -1], ['crest', 1], ['corkscrew', -1], ['jump', 1]],
-  [['hairpin', 1], ['sBends', -1], ['hairpin', -1], ['corkscrew', 1], ['loop', 1], ['wallride', 1]],
-  [['loop', 1], ['jump', 1], ['corkscrew', -1], ['wallride', 1], ['hairpin', -1], ['loop', 1]],
-];
+/** Deterministic hash → [0, 1) for (seed, k). */
+function unit(seed, k) {
+  let t = (Math.imul(seed | 0, 0x9e3779b1) ^ Math.imul(k + 0x2545f491, 0x85ebca6b)) >>> 0;
+  t = Math.imul(t ^ (t >>> 16), 0x7feb352d) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), 0x846ca68b) >>> 0;
+  return ((t ^ (t >>> 16)) >>> 0) / 4294967296;
+}
+
+// Where the four set pieces sit in a bag of ten: never two in a row, never at either end
+// (so bags never butt two set pieces together either).
+const SLOTS = [[1, 3, 5, 8], [1, 4, 6, 8], [1, 3, 6, 8], [2, 4, 6, 8]];
+
+/**
+ * Bag number `n` for a level and seed, written into `out` as [piece, dir] pairs (reused).
+ * Bag 0 of every level opens with its signature set piece in the first slot (a loop on
+ * level 1, the gap jump on level 2…) so a short race always meets one early.
+ */
+export function fillBag(out, levelIndex, seed, n) {
+  const key = (seed ^ Math.imul(levelIndex + 1, 0x27d4eb2d) ^ Math.imul(n + 1, 0x165667b1)) | 0;
+  let r = 0;
+  const rnd = () => unit(key, r++);
+  const shuffle = (src) => {
+    const a = src.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  };
+  const curves = shuffle(CURVES);
+  const sets = shuffle(SET_PIECES);
+  if (n === 0) {
+    const lead = SET_PIECES[levelIndex % SET_PIECES.length];
+    sets.splice(sets.indexOf(lead), 1);
+    sets.unshift(lead);
+  }
+  const slots = SLOTS[Math.floor(rnd() * SLOTS.length)];
+  out.length = 0;
+  let c = 0, sp = 0;
+  for (let i = 0; i < CURVES.length + SET_PIECES.length; i++) {
+    const piece = slots.indexOf(i) >= 0 ? sets[sp++] : curves[c++];
+    out.push(piece, rnd() < 0.5 ? -1 : 1);
+  }
+  return out;
+}
+
+/** The next [piece, dir] from the level's endless bag. */
+function nextPiece() {
+  if (track.bagPos >= track.bag.length) {
+    fillBag(track.bag, Math.max(0, GameState.levelIndex | 0), track.seed, track.bagCount++);
+    track.bagPos = 0;
+  }
+  const piece = track.bag[track.bagPos], dir = track.bag[track.bagPos + 1];
+  track.bagPos += 2;
+  return [piece, dir];
+}
 
 export function generateNextTrackBiome(chosenBranch = null) {
-  const startIdx = track.segments.length;
+  const startIdx = track.end;
   track.generatedCount++;
+  amp = AMP[Math.max(0, Math.min(AMP.length - 1, GameState.levelIndex | 0))];
 
   if (track.generatedCount === 1) {
     addRoadSection(8, 18, 8, 0, 0, 0, 'STANDARD');
     addRoadSection(6, 14, 6, 0, 350, 0, 'BOOSTER');
     addRoadSection(10, 20, 10, 0.75, -350, 0.15, 'STANDARD');
-    populateChunkDecorations(startIdx, track.segments.length, 'OPENING');
+    populateChunkDecorations(startIdx, track.end, 'OPENING');
     return;
   }
 
   if (track.generatedCount % 4 === 2 && !chosenBranch) {
-    addRoadSection(8, 20, 8, 0, 280, 0, 'SPLIT_FORK', {
-      leftLabel: 'SKY-LOOP SHORTCUT (2X FLUX)',
-      rightLabel: 'CEDAR TURBO TUNNEL (+TIME)'
-    });
-    populateChunkDecorations(startIdx, track.segments.length, 'FORK');
+    addRoadSection(8, 20, 8, 0, 280, 0, 'SPLIT_FORK', FORK_INFO);
+    populateChunkDecorations(startIdx, track.end, 'FORK');
     return;
   }
 
   if (chosenBranch === 'LEFT') {
     // The risky short way: straight into a loop.
     PIECES.loop();
-    populateChunkDecorations(startIdx, track.segments.length, 'STUNT_LOOP');
+    populateChunkDecorations(startIdx, track.end, 'STUNT_LOOP');
   } else if (chosenBranch === 'RIGHT') {
     // The safe long way: a fast booster tunnel through two gentle sweepers.
     addRoadSection(10, 20, 10, -0.95, 280, -0.22, 'BOOSTER');
     addRoadSection(10, 20, 10, 0.95, -280, 0.22, 'BOOSTER');
-    populateChunkDecorations(startIdx, track.segments.length, 'SPEED_TUNNEL');
+    populateChunkDecorations(startIdx, track.end, 'SPEED_TUNNEL');
   } else {
-    const book = BOOKS[Math.max(0, Math.min(BOOKS.length - 1, GameState.levelIndex | 0))];
-    const [piece, dir] = book[(track.generatedCount - 2) % book.length];
+    const [piece, dir] = nextPiece();
+    track.lastPiece = piece;
     PIECES[piece](dir);
-    populateChunkDecorations(startIdx, track.segments.length, piece === 'loop' ? 'STUNT_LOOP' : piece.toUpperCase());
+    populateChunkDecorations(startIdx, track.end, piece === 'loop' ? 'STUNT_LOOP' : piece.toUpperCase());
   }
 
   if (track.generatedCount % 3 === 0) {
-    const cpStart = track.segments.length;
+    const cpStart = track.end;
     addRoadSection(4, 8, 4, 0, 0, 0, 'CHECKPOINT');
-    populateChunkDecorations(cpStart, track.segments.length, 'CHECKPOINT');
+    populateChunkDecorations(cpStart, track.end, 'CHECKPOINT');
   }
 }
+
+// One shared, frozen fork label object (every fork shows the same two choices).
+const FORK_INFO = Object.freeze({
+  leftLabel: 'SKY-LOOP SHORTCUT (2X FLUX)',
+  rightLabel: 'CEDAR TURBO TUNNEL (+TIME)'
+});
 
 /** True if any set piece (or a jump ramp/gap) covers track Z in [z0, z1]. */
 export function hasSetPieceBetween(z0, z1) {
   const a = Math.max(0, Math.floor(z0 / L()));
   const b = Math.floor(z1 / L());
-  for (let i = a; i <= b && i < track.segments.length; i++) {
-    const s = track.segments[i];
+  for (let i = Math.max(a, track.start); i <= b && i < track.end; i++) {
+    const s = track.ring[i & MASK];
     if (s.feature || s.trackType === 'JUMP_RAMP') return true;
   }
   return false;
@@ -234,7 +387,7 @@ export function hasSetPieceBetween(z0, z1) {
 
 /** The segment under track Z `z`, or null. */
 export function segmentAt(z) {
-  return track.segments[Math.floor(z / ROAD_CFG.segLength)] || null;
+  return track.seg(Math.floor(z / ROAD_CFG.segLength));
 }
 
 /** Signed curvature: heading change (radians) per sim unit of Z at unit scale; + bends right. */

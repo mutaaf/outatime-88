@@ -16,7 +16,7 @@ async function race(page, { level = 0, view = '' } = {}) {
 function jumpTo(page, kind, before = 6000, frac = 0) {
   return page.evaluate(({ kind, before, frac }) => {
     const OT = window.__OT;
-    const f = OT.track().segments.map((s) => s.feature).find((x) => x && x.kind === kind);
+    const f = OT.track().findFeature(kind);
     if (!f) return null;
     OT.GameState.trackPos = f.z0 + f.length * frac - before - 1250;
     OT.GameState.speed = 70;

@@ -23,7 +23,7 @@ function generate(biomes, levelIndex = 0) {
   GameState.levelIndex = levelIndex;
   resetTrack();
   for (let i = 0; i < biomes; i++) generateNextTrackBiome();
-  return track.segments;
+  return track.liveSegments();
 }
 
 describe('track generation (ticket 0004)', () => {
@@ -36,7 +36,7 @@ describe('track generation (ticket 0004)', () => {
       expect(track.generatedCount).toBe(20);
       for (let i = 0; i < segs.length; i++) {
         const s = segs[i];
-        expect(s.index).toBe(i);
+        expect(s.index).toBe(segs[0].index + i);
         expect(s.p2.world.z).toBeGreaterThan(s.p1.world.z);
         expect(s.p2.world.z - s.p1.world.z).toBe(ROAD_CFG.segLength);
         if (i > 0) {
@@ -81,19 +81,20 @@ describe('track generation (ticket 0004)', () => {
 
   it('a chosen fork branch produces its layout', () => {
     generate(1);
-    const before = track.segments.length;
+    const before = track.end;
     generateNextTrackBiome('LEFT');
-    expect(track.segments.slice(before).some(s => s.feature && s.feature.kind === 'LOOP')).toBe(true);
+    expect(track.liveSegments().filter(s => s.index >= before).some(s => s.feature && s.feature.kind === 'LOOP')).toBe(true);
   });
 
   it('buildInitialTrack starts fresh with six biomes and a fork in them', () => {
     generate(20);
-    const old = track.segments;
+    const old = track.run;
     buildInitialTrack();
-    expect(track.segments).not.toBe(old);
+    expect(track.run).not.toBe(old);
     expect(track.generatedCount).toBe(6);
-    expect(track.segments[0].p1.world.z).toBe(0);
-    expect(track.segments.some(s => s.trackType === 'SPLIT_FORK' && s.forkInfo)).toBe(true);
+    expect(track.start).toBe(0);
+    expect(track.seg(0).p1.world.z).toBe(0);
+    expect(track.liveSegments().some(s => s.trackType === 'SPLIT_FORK' && s.forkInfo)).toBe(true);
   });
 });
 
@@ -120,12 +121,11 @@ describe('orange-track layouts (sprint 4)', () => {
     return out;
   };
 
-  it('every level has real curves, hills and its set pieces within a lap of biomes', () => {
-    const want = [['LOOP', 'GAP'], ['GAP', 'CORKSCREW'], ['LOOP', 'WALLRIDE', 'CORKSCREW', 'GAP'], ['CORKSCREW', 'LOOP', 'WALLRIDE'], ['LOOP', 'GAP', 'CORKSCREW', 'WALLRIDE']];
+  it('every level has real curves, hills and every set piece within a lap of biomes', () => {
     for (let lvl = 0; lvl < 5; lvl++) {
       const segs = generate(14, lvl);
       const kinds = new Set(features(segs).map((f) => f.kind));
-      for (const k of want[lvl]) expect(kinds.has(k), `level ${lvl} has ${k}`).toBe(true);
+      for (const k of ['LOOP', 'GAP', 'CORKSCREW', 'WALLRIDE', 'BOOSTER']) expect(kinds.has(k), `level ${lvl} has ${k}`).toBe(true);
       expect(Math.max(...segs.map((s) => Math.abs(s.curve)))).toBeGreaterThanOrEqual(1.5);
       const ys = segs.map((s) => s.p2.world.y);
       expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(500);
@@ -141,14 +141,14 @@ describe('orange-track layouts (sprint 4)', () => {
         expect(run.length * ROAD_CFG.segLength).toBe(f.length);
         for (let i = 1; i < run.length; i++) expect(run[i].index).toBe(run[i - 1].index + 1);
         if (f.kind === 'LOOP' || f.kind === 'CORKSCREW' || f.kind === 'WALLRIDE') {
-          const before = segs[run[0].index - 1];
+          const before = track.seg(run[0].index - 1);
           expect(before.feature && before.feature.kind, `${f.kind} at ${f.z0} has a gate`).toBe('BOOSTER');
         }
-        if (f.kind === 'GAP') expect(segs[run[0].index - 1].trackType).toBe('JUMP_RAMP');
+        if (f.kind === 'GAP') expect(track.seg(run[0].index - 1).trackType).toBe('JUMP_RAMP');
         if (f.kind === 'LOOP') {
           expect(Math.abs(f.length - loopLength())).toBeLessThan(ROAD_CFG.segLength);
           expect(f.minMph).toBe(SETPIECE.LOOP.minMph);
-          expect(segs[run[0].index - 1].feature.boostTo).toBeGreaterThan(f.minMph);
+          expect(track.seg(run[0].index - 1).feature.boostTo).toBeGreaterThan(f.minMph);
         }
       }
     }

@@ -7,7 +7,7 @@ import {
   MeshBasicMaterial, MeshLambertMaterial, Object3D, PerspectiveCamera, PlaneGeometry,
   Points, PointsMaterial, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
   Float32BufferAttribute, MeshStandardMaterial, ACESFilmicToneMapping, PCFSoftShadowMap, PCFShadowMap,
-  CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace, Quaternion, Euler, DoubleSide,
+  CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace, Quaternion, Euler, DoubleSide, Sphere,
 } from 'three';
 import { asphaltTextures, bakeEnvironment, paletteFor } from './surfaces.js';
 import { ROAD_CFG } from '../data.js';
@@ -85,7 +85,7 @@ function gridMaterial() {
  * @param {object} o
  * @param {HTMLElement} o.container  element the canvas fills (the game's canvas container)
  * @param {object} o.state     GameState (read-only)
- * @param {object} o.track     the track module's container ({ segments })
+ * @param {object} o.track     the track module's container (ring: seg(i), start, end, run)
  * @param {() => object} o.era active era render config (colours)
  * @param {(out: object[]) => number} o.collectCars  fills `out` with car bodies, returns count
  * @param {() => object[]} o.obstacles  obstacle bodies
@@ -203,110 +203,196 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     return alt ? out : out.multiplyScalar(0.9);
   }
 
-  function buildChunk(c, e) {
-    const pos = [], col = [], uv = [], npos = [], ncol = [], gpos = [], gcol = [];
-    // Deck quads carry UVs: u across the road (six ~3.7 m asphalt tiles), v along it.
-    const quadUV = (a, b, cc, d, color, u0, u1, v0, v1) => {
-      quad(pos, col, a, b, cc, d, color);
-      uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
-    };
-    const quad = (P, C, a, b, cc, d, color) => {
-      P.push(a[0], a[1], a[2], b[0], b[1], b[2], cc[0], cc[1], cc[2], a[0], a[1], a[2], cc[0], cc[1], cc[2], d[0], d[1], d[2]);
-      for (let k = 0; k < 6; k++) C.push(color.r, color.g, color.b);
-    };
-    const quad2 = (P, C, a, b, cc, d, ca, cb) => { // a,d use ca; b,c use cb (gradient across)
-      P.push(a[0], a[1], a[2], b[0], b[1], b[2], cc[0], cc[1], cc[2], a[0], a[1], a[2], cc[0], cc[1], cc[2], d[0], d[1], d[2]);
-      C.push(ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, cb.r, cb.g, cb.b, ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, ca.r, ca.g, ca.b);
-    };
-    // A point on the road frame at segment boundary j: `off` half-widths right, `up` metres up
-    // the road's normal (so banks, half-pipes, corkscrews and loops all just work).
-    const pt = (j, off, up) => {
-      const lat = off * HALF_W;
-      return [
-        path.cx[j] + path.rx[j] * lat + path.ux[j] * up,
-        path.cy[j] + path.ry[j] * lat + path.uy[j] * up,
-        -(path.cz[j] + path.rz[j] * lat + path.uz[j] * up),
-      ];
-    };
-    const skirt = new Color('#2a0a12'), lane = new Color('#ece6d4'), rail = new Color(NEON_CYAN), pink = new Color(NEON_PINK), black = new Color(0, 0, 0);
-    const pinkGlow = new Color(NEON_PINK).multiplyScalar(0.85);
-    const kerbRed = new Color('#c8102e'), kerbWhite = new Color('#e8e8ea'), edgeLine = new Color('#f2f2f2');
-    const toyOrange = new Color('#ff6a13'), toyGlow = new Color('#ffd166');
+  // Road chunks are pooled (endless-track ticket): each chunk is three meshes over fixed-size
+  // typed buffers sized for the busiest CHUNK segments. A chunk that falls behind is refilled
+  // for the road ahead in place, so an endless road creates no geometry and frees none.
+  const DECK_V = CHUNK * 7 * 6, NEON_V = CHUNK * 13 * 6, GLOW_V = CHUNK * 2 * 6;
+  const freeChunks = [];
+  let chunkObjects = 0;
+  const A = [0, 0, 0], B = [0, 0, 0], Cc = [0, 0, 0], D = [0, 0, 0];
+  const C_SKIRT = new Color('#2a0a12'), C_LANE = new Color('#ece6d4'), C_RAIL = new Color(NEON_CYAN), C_PINK = new Color(NEON_PINK), C_BLACK = new Color(0, 0, 0);
+  const C_PINK_GLOW = new Color(NEON_PINK).multiplyScalar(0.85);
+  const C_KERB_RED = new Color('#c8102e'), C_KERB_WHITE = new Color('#e8e8ea'), C_EDGE = new Color('#f2f2f2');
+  const C_TOY = new Color('#ff6a13'), C_TOY_GLOW = new Color('#ffd166');
+  const LANES = [-0.34, 0.34], BOOST_STRIPES = [-0.22, 0.22], TOY_LINES = [-0.86, -0.3, 0.3, 0.86], SIDES = [-1, 1];
+
+  /** One pooled buffer set: positions, colours (and UVs for the deck), with a write cursor. */
+  function makeBuf(cap, withUV) {
+    const g = new BufferGeometry();
+    const P = new Float32BufferAttribute(new Float32Array(cap * 3), 3);
+    const C = new Float32BufferAttribute(new Float32Array(cap * 3), 3);
+    P.setUsage(DynamicDrawUsage); C.setUsage(DynamicDrawUsage);
+    g.setAttribute('position', P);
+    g.setAttribute('color', C);
+    let U = null;
+    if (withUV) { U = new Float32BufferAttribute(new Float32Array(cap * 2), 2); U.setUsage(DynamicDrawUsage); g.setAttribute('uv', U); }
+    g.boundingSphere = new Sphere();
+    return { g, P: P.array, C: C.array, U: U && U.array, n: 0, cap };
+  }
+
+  function makeChunk() {
+    chunkObjects++;
+    const grp = new Group();
+    const bufs = { deck: makeBuf(DECK_V, true), neon: makeBuf(NEON_V, false), glow: makeBuf(GLOW_V, false) };
+    const deck = new Mesh(bufs.deck.g, deckFor());
+    deck.receiveShadow = true;
+    grp.add(deck);
+    grp.add(new Mesh(bufs.neon.g, neonMat));
+    const glow = new Mesh(bufs.glow.g, glowMat);
+    glow.renderOrder = 1;
+    grp.add(glow);
+    grp.userData.deck = deck;
+    grp.userData.bufs = bufs;
+    return grp;
+  }
+
+  // Writers into a buffer set (no allocation): a quad is two triangles a-b-c, a-c-d.
+  function vtx(bf, p, r, g, b) {
+    const i = bf.n * 3;
+    bf.P[i] = p[0]; bf.P[i + 1] = p[1]; bf.P[i + 2] = p[2];
+    bf.C[i] = r; bf.C[i + 1] = g; bf.C[i + 2] = b;
+    bf.n++;
+  }
+  function quad(bf, a, b, cc, d, col) {
+    if (bf.n + 6 > bf.cap) return;
+    vtx(bf, a, col.r, col.g, col.b); vtx(bf, b, col.r, col.g, col.b); vtx(bf, cc, col.r, col.g, col.b);
+    vtx(bf, a, col.r, col.g, col.b); vtx(bf, cc, col.r, col.g, col.b); vtx(bf, d, col.r, col.g, col.b);
+  }
+  function quad2(bf, a, b, cc, d, ca, cb) { // a,d use ca; b,c use cb (gradient across)
+    if (bf.n + 6 > bf.cap) return;
+    vtx(bf, a, ca.r, ca.g, ca.b); vtx(bf, b, cb.r, cb.g, cb.b); vtx(bf, cc, cb.r, cb.g, cb.b);
+    vtx(bf, a, ca.r, ca.g, ca.b); vtx(bf, cc, cb.r, cb.g, cb.b); vtx(bf, d, ca.r, ca.g, ca.b);
+  }
+  // Deck quads carry UVs: u across the road (six ~3.7 m asphalt tiles), v along it.
+  function quadUV(bf, a, b, cc, d, col, u0, u1, v0, v1) {
+    if (bf.n + 6 > bf.cap) return;
+    const k = bf.n * 2, U = bf.U;
+    U[k] = u0; U[k + 1] = v0; U[k + 2] = u1; U[k + 3] = v0; U[k + 4] = u1; U[k + 5] = v1;
+    U[k + 6] = u0; U[k + 7] = v0; U[k + 8] = u1; U[k + 9] = v1; U[k + 10] = u0; U[k + 11] = v1;
+    quad(bf, a, b, cc, d, col);
+  }
+  // A point on the road frame at segment boundary j: `off` half-widths right, `up` metres up
+  // the road's normal (so banks, half-pipes, corkscrews and loops all just work).
+  function pt(j, off, up, out) {
+    const m = j & path.mask;
+    const lat = off * HALF_W;
+    out[0] = path.cx[m] + path.rx[m] * lat + path.ux[m] * up;
+    out[1] = path.cy[m] + path.ry[m] * lat + path.uy[m] * up;
+    out[2] = -(path.cz[m] + path.rz[m] * lat + path.uz[m] * up);
+    return out;
+  }
+  /** A strip across [o0, o1] half-widths, `up` above the deck, from boundary j to k. */
+  function strip(j, k, o0, o1, up) {
+    pt(j, o0, up, A); pt(j, o1, up, B); pt(k, o1, up, Cc); pt(k, o0, up, D);
+  }
+  /** A wall at `o` half-widths from `up0` to `up1` metres, from boundary j to k. */
+  function wall(j, k, o, up0, up1) {
+    pt(j, o, up0, A); pt(j, o, up1, B); pt(k, o, up1, Cc); pt(k, o, up0, D);
+  }
+
+  /** Upload what was written and fit the bounding sphere to it (the tail is stale data). */
+  function finishBuf(bf) {
+    const g = bf.g;
+    g.setDrawRange(0, bf.n);
+    for (const name of ['position', 'color', 'uv']) {
+      const at = g.getAttribute(name);
+      if (!at) continue;
+      at.clearUpdateRanges();
+      at.addUpdateRange(0, bf.n * at.itemSize);
+      at.needsUpdate = true;
+    }
+    let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+    const P = bf.P;
+    for (let i = 0; i < bf.n * 3; i += 3) {
+      const x = P[i], y = P[i + 1], z = P[i + 2];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (z < z0) z0 = z; if (z > z1) z1 = z;
+    }
+    const sp = g.boundingSphere;
+    if (bf.n === 0) { sp.center.set(0, 0, 0); sp.radius = 0; return; }
+    sp.center.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    sp.radius = Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2;
+  }
+
+  /** Fill pooled chunk `grp` with road chunk `c` (segments c*CHUNK … (c+1)*CHUNK-1). */
+  function fillChunk(grp, c, e) {
+    const { deck: dk, neon: nn, glow: gl } = grp.userData.bufs;
+    dk.n = 0; nn.n = 0; gl.n = 0;
+    grp.userData.deck.material = deckFor();
     for (let i = c * CHUNK; i < (c + 1) * CHUNK; i++) {
-      const seg = track.segments[i];
+      const seg = track.seg(i);
       if (!seg) break;
       if (seg.trackType === 'GAP') continue; // the jump's gap: no road, just air
       const j = i, k = i + 1;
       segColor(seg, e, tmpCol);
       // Deck (between the kerbs), red/white kerbs, solid edge lines, underside skirts.
       const v0 = i * 1.6, v1 = (i + 1) * 1.6;
-      quadUV(pt(j, -0.93, 0), pt(j, 0.93, 0), pt(k, 0.93, 0), pt(k, -0.93, 0), tmpCol, 0.1, 5.9, v0, v1);
-      const kerb = (Math.floor(i / 2) % 2) ? kerbRed : kerbWhite;
-      quadUV(pt(j, -1, 0.04), pt(j, -0.93, 0.04), pt(k, -0.93, 0.04), pt(k, -1, 0.04), kerb, 0, 0.1, v0, v1);
-      quadUV(pt(j, 0.93, 0.04), pt(j, 1, 0.04), pt(k, 1, 0.04), pt(k, 0.93, 0.04), kerb, 5.9, 6, v0, v1);
-      quadUV(pt(j, -0.905, 0.02), pt(j, -0.89, 0.02), pt(k, -0.89, 0.02), pt(k, -0.905, 0.02), edgeLine, 0.3, 0.33, v0, v1);
-      quadUV(pt(j, 0.89, 0.02), pt(j, 0.905, 0.02), pt(k, 0.905, 0.02), pt(k, 0.89, 0.02), edgeLine, 5.67, 5.7, v0, v1);
-      quad(npos, ncol, pt(j, -1.02, -2.2), pt(j, -1.02, 0), pt(k, -1.02, 0), pt(k, -1.02, -2.2), skirt);
-      quad(npos, ncol, pt(j, 1.02, 0), pt(j, 1.02, -2.2), pt(k, 1.02, -2.2), pt(k, 1.02, 0), skirt);
+      strip(j, k, -0.93, 0.93, 0); quadUV(dk, A, B, Cc, D, tmpCol, 0.1, 5.9, v0, v1);
+      const kerb = (Math.floor(i / 2) % 2) ? C_KERB_RED : C_KERB_WHITE;
+      strip(j, k, -1, -0.93, 0.04); quadUV(dk, A, B, Cc, D, kerb, 0, 0.1, v0, v1);
+      strip(j, k, 0.93, 1, 0.04); quadUV(dk, A, B, Cc, D, kerb, 5.9, 6, v0, v1);
+      strip(j, k, -0.905, -0.89, 0.02); quadUV(dk, A, B, Cc, D, C_EDGE, 0.3, 0.33, v0, v1);
+      strip(j, k, 0.89, 0.905, 0.02); quadUV(dk, A, B, Cc, D, C_EDGE, 5.67, 5.7, v0, v1);
+      wall(j, k, -1.02, -2.2, 0); quad(nn, A, B, Cc, D, C_SKIRT);
+      wall(j, k, 1.02, 0, -2.2); quad(nn, A, B, Cc, D, C_SKIRT);
       // Lane dashes and the boost flames.
       if (i % 4 < 2) {
-        for (const o of [-0.34, 0.34]) quadUV(pt(j, o - 0.012, 0.015), pt(j, o + 0.012, 0.015), pt(k, o + 0.012, 0.015), pt(k, o - 0.012, 0.015), lane, (o + 1) * 3 - 0.036, (o + 1) * 3 + 0.036, v0, v1);
+        for (let q = 0; q < LANES.length; q++) {
+          const o = LANES[q];
+          strip(j, k, o - 0.012, o + 0.012, 0.015);
+          quadUV(dk, A, B, Cc, D, C_LANE, (o + 1) * 3 - 0.036, (o + 1) * 3 + 0.036, v0, v1);
+        }
       }
       if (seg.trackType === 'BOOSTER') {
-        for (const o of [-0.22, 0.22]) quad(npos, ncol, pt(j, o - 0.012, 0.035), pt(j, o + 0.012, 0.035), pt(k, o + 0.012, 0.035), pt(k, o - 0.012, 0.035), rail);
+        for (let q = 0; q < BOOST_STRIPES.length; q++) {
+          const o = BOOST_STRIPES[q];
+          strip(j, k, o - 0.012, o + 0.012, 0.035); quad(nn, A, B, Cc, D, C_RAIL);
+        }
       }
       // Set pieces (0124) glow toy-track orange: lit or not (a loop's inside sits in its own
       // shade, a corkscrew is upside down), the lane grooves and edges always read.
       const fk = seg.feature && seg.feature.kind;
       if (fk === 'LOOP' || fk === 'CORKSCREW' || fk === 'WALLRIDE') {
-        for (const o of [-0.86, -0.3, 0.3, 0.86]) quad(npos, ncol, pt(j, o - 0.02, 0.03), pt(j, o + 0.02, 0.03), pt(k, o + 0.02, 0.03), pt(k, o - 0.02, 0.03), toyOrange);
-        if (i % 3 === 0) quad(npos, ncol, pt(j, -0.012, 0.03), pt(j, 0.012, 0.03), pt(k, 0.012, 0.03), pt(k, -0.012, 0.03), toyGlow);
+        for (let q = 0; q < TOY_LINES.length; q++) {
+          const o = TOY_LINES[q];
+          strip(j, k, o - 0.02, o + 0.02, 0.03); quad(nn, A, B, Cc, D, C_TOY);
+        }
+        if (i % 3 === 0) { strip(j, k, -0.012, 0.012, 0.03); quad(nn, A, B, Cc, D, C_TOY_GLOW); }
       }
       // Neon rails (inner face + top) and their glow on the ground outside.
-      for (const s of [-1, 1]) {
-        quad(npos, ncol, pt(j, s * 1.0, 0), pt(j, s * 1.0, 0.55), pt(k, s * 1.0, 0.55), pt(k, s * 1.0, 0), s < 0 ? rail : pink);
-        quad(npos, ncol, pt(j, s * 1.0, 0.55), pt(j, s * 1.025, 0.55), pt(k, s * 1.025, 0.55), pt(k, s * 1.0, 0.55), s < 0 ? rail : pink);
-        quad2(gpos, gcol, pt(j, s * 1.03, 0.02), pt(j, s * 1.32, -0.3), pt(k, s * 1.32, -0.3), pt(k, s * 1.03, 0.02), pinkGlow, black);
+      for (let q = 0; q < SIDES.length; q++) {
+        const sd = SIDES[q];
+        const col = sd < 0 ? C_RAIL : C_PINK;
+        wall(j, k, sd * 1.0, 0, 0.55); quad(nn, A, B, Cc, D, col);
+        strip(j, k, sd * 1.0, sd * 1.025, 0.55); quad(nn, A, B, Cc, D, col);
+        pt(j, sd * 1.03, 0.02, A); pt(j, sd * 1.32, -0.3, B); pt(k, sd * 1.32, -0.3, Cc); pt(k, sd * 1.03, 0.02, D);
+        quad2(gl, A, B, Cc, D, C_PINK_GLOW, C_BLACK);
       }
     }
-    const grp = new Group();
-    const mk = (P, C, mat) => {
-      const g = new BufferGeometry();
-      g.setAttribute('position', new Float32BufferAttribute(P, 3));
-      g.setAttribute('color', new Float32BufferAttribute(C, 3));
-      if (mat === deckMat || mat === deckLite) { g.setAttribute('uv', new Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); }
-      const m = new Mesh(g, mat);
-      grp.add(m);
-      return m;
-    };
-    const deck = mk(pos, col, deckFor());
-    deck.receiveShadow = true;
-    grp.userData.deck = deck;
-    mk(npos, ncol, neonMat);
-    mk(gpos, gcol, glowMat).renderOrder = 1;
+    finishBuf(dk); finishBuf(nn); finishBuf(gl);
+    dk.g.computeVertexNormals();
     return grp;
   }
 
-  function disposeChunk(grp) {
+  function releaseChunk(grp) {
     scene.remove(grp);
-    grp.children.forEach((m) => m.geometry.dispose());
+    freeChunks.push(grp);
   }
 
   function syncRoad(playerSeg, e, eraKey) {
-    if (path.source !== track.segments || eraKey !== lastEraKey) {
-      chunks.forEach(disposeChunk);
+    if (path.source !== track.run || eraKey !== lastEraKey) {
+      chunks.forEach(releaseChunk);
       chunks.clear();
       lastEraKey = eraKey;
     }
-    path.sync(track.segments);
-    const lo = Math.max(0, Math.floor((playerSeg - BEHIND) / CHUNK));
+    path.sync(track);
+    const lo = Math.max(0, Math.floor((Math.max(track.start, playerSeg - BEHIND)) / CHUNK));
     const hi = Math.floor((playerSeg + AHEAD) / CHUNK);
-    chunks.forEach((grp, c) => { if (c < lo || c > hi) { disposeChunk(grp); chunks.delete(c); } });
+    chunks.forEach((grp, c) => { if (c < lo || c > hi) { releaseChunk(grp); chunks.delete(c); } });
     let built = 0;
     for (let c = lo; c <= hi && built < 3; c++) {
       if (chunks.has(c)) continue;
       if ((c + 1) * CHUNK > path.count) break; // not generated yet
-      const grp = buildChunk(c, e);
+      const grp = fillChunk(freeChunks.pop() || makeChunk(), c, e);
       scene.add(grp);
       chunks.set(c, grp);
       built++;
@@ -342,10 +428,9 @@ export function createView3D({ container, state, track, era, collectCars, obstac
 
   function syncProps(playerSeg, t) {
     for (const k in props) props[k].n = 0;
-    const segs = track.segments;
-    const end = Math.min(segs.length, playerSeg + AHEAD, path.count);
-    for (let i = Math.max(0, playerSeg - BEHIND); i < end; i++) {
-      const items = segs[i].items;
+    const end = Math.min(track.end, playerSeg + AHEAD, path.count);
+    for (let i = Math.max(track.start, playerSeg - BEHIND); i < end; i++) {
+      const items = track.seg(i).items;
       if (!items || items.length === 0) continue;
       for (let q = 0; q < items.length; q++) {
         const it = items[q];
@@ -900,6 +985,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       stats.frames++;
       stats.dpr = dpr;
       stats.chunks = chunks.size;
+      stats.chunkObjects = chunkObjects; // pooled: stays flat on an endless road
       stats.cars = usedCars.length;
       stats.drawCalls = renderer.info.render.calls;
       stats.triangles = renderer.info.render.triangles;
@@ -934,8 +1020,10 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       window.removeEventListener('resize', markDirty);
       window.removeEventListener('orientationchange', markDirty);
       if (ro) ro.disconnect();
-      chunks.forEach(disposeChunk);
+      chunks.forEach(releaseChunk);
       chunks.clear();
+      freeChunks.forEach((grp) => grp.children.forEach((m) => m.geometry.dispose()));
+      freeChunks.length = 0;
       if (env) env.dispose();
       if (post) post.dispose();
       tagTex.forEach((t) => t.dispose());
