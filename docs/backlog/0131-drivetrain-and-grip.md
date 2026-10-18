@@ -1,11 +1,12 @@
 ---
 id: 0131
 title: Physics v3 — gearbox and traction, speed-sensitive brakes, friction circle, air and walls
-status: in-progress
+status: shipped
 priority: P0
 size: M
 lens: player-feel
 created: 2026-10-18
+pr: 77
 ---
 
 ## Why

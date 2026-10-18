@@ -1,11 +1,12 @@
 ---
 id: 0130
 title: Steering-mode shortcuts — switch keys/mouse/stick/D-pad/tilt and the co-pilot in one tap
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: accessibility
 created: 2026-10-18
+pr: 77
 ---
 
 ## Why
