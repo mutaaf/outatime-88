@@ -20,7 +20,7 @@ const DENYLIST = [
   'N.O.V.A', 'Toyota', 'Nissan', 'Plymouth', 'Cadillac', 'Ferrari', 'Testarossa', 'Pontiac',
   'Vandura', 'La Bomba',
   // ticket 0018: real places/routes and parody car names
-  'Mulholland', 'Wangan', 'Tokyo', 'Sentry-2000', 'Go-Rocket',
+  'Mulholland', 'Wangan', 'Tokyo', 'Sentry-2000', 'Sentry 2000', 'Sentry2000', 'Go-Rocket', 'Go Rocket',
 ];
 // Short terms that are substrings of ordinary words ("Orbitron"): matched only when not
 // flanked by letters.

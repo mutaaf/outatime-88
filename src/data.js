@@ -268,7 +268,7 @@ export const POP_CULTURE_ROSTER = [
   {
     id: 'NIGHT_SENTINEL',
     driver: 'Cal Steele',
-    car: 'Nightwatch Scanner',
+    car: 'Nightwatch Coupe',
     franchise: 'Night Sentinel Foundation',
     massKg: 1520,
     maxHp: 115,
