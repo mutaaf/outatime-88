@@ -14,7 +14,7 @@ import './live.css';
 import { GameState } from '../state.js';
 import { SaveStore } from '../save.js';
 import { ROAD_CFG, POP_CULTURE_ROSTER, WORLD_LEVELS, PACE_MODES } from '../data.js';
-import { LIVE, LENGTHS, cleanCode, cpuProfile, cpuZ, cpuX, cpuFinishMs } from '../worker/live-rules.js';
+import { LIVE, LENGTHS, LEVEL_COUNT, cleanCode, cpuProfile, cpuZ, cpuX, cpuFinishMs } from '../worker/live-rules.js';
 import { cleanInitials } from '../worker/initials.js';
 import { createRoomSocket } from './net.js';
 import { createGhostTrack } from './ghosts.js';
@@ -781,7 +781,7 @@ export function createLive(hooks) {
     const chips = (kind, items, cur) => items.map((label, i) =>
       host ? `<button class="live-chip ${i === cur ? 'on' : ''}" data-act="${kind}" data-v="${i}" aria-pressed="${i === cur}">${esc(label)}</button>`
         : (i === cur ? `<span class="live-chip on">${esc(label)}</span>` : '')).join('');
-    ui.cfg.innerHTML = `<p>TRACK${host ? '' : ' <small>host picks</small>'}</p><div class="live-chips">${chips('level', WORLD_LEVELS.map(trackName), cfg.level)}</div>
+    ui.cfg.innerHTML = `<p>TRACK${host ? '' : ' <small>host picks</small>'}</p><div class="live-chips">${chips('level', WORLD_LEVELS.slice(0, LEVEL_COUNT).map(trackName), cfg.level)}</div>
       <p>LENGTH</p><div class="live-chips">${chips('len', LENGTHS.filter((l) => !l.test).map((l) => l.label), cfg.len)}</div>
       ${wide ? '' : `<button class="live-small live-qr-btn" data-act="qr" aria-pressed="${qrBig}">${qrBig ? 'HIDE QR' : '▦ SHOW QR'}</button>`}`;
     const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;

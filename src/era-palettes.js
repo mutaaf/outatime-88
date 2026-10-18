@@ -48,4 +48,12 @@ export const ERA_PALETTES = {
     ground: ['#6fb8a3', '#3f8a78', '#24584d'],
     weather: null,
   },
+  2061: {
+    theme: 'glass highway in low orbit over the night side of Earth',
+    sky: ['#000003', '#01020a', '#030820', [0.88, '#0b1f4d'], '#5fb8ff'],
+    horizon: '#5fb8ff', fog: '#040b22', sun: '#fff7e6',
+    ground: ['#0b3a78', '#082a5a', '#041633'],
+    weather: null,
+    space: true,
+  },
 };

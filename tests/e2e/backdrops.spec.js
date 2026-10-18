@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';
 
-const ERAS = ['2026', '1985', '1885', '2015', '2088', '1955'];
+const ERAS = ['2026', '1985', '1885', '2015', '2088', '1955', '2061'];
 const VIEWPORTS = [[390, 844], [844, 390], [820, 1180], [1180, 820]];
 
 for (const [width, height] of VIEWPORTS) {

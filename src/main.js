@@ -1308,6 +1308,11 @@ function triggerTimeWarp() {
   SaveStore.save();
 }
 
+const TOY_DECK = {
+  slab: '#4a1202', sheen: 'rgba(255, 215, 150, 0.14)', groove: 'rgba(40, 10, 0, 0.36)', center: 'rgba(255, 195, 40, 0.72)',
+  wall: '#8a1c02', rimA: '#ffaa00', rimB: '#ff8800', lip: '#b22c04',
+};
+
 function getActiveEraRenderConfig() {
   if (GameState.visualOverride === '8BIT') return ERAS[0];
   if (GameState.visualOverride === '16BIT') return ERAS[1];
@@ -1830,7 +1835,7 @@ function updateGame(rawDt) {
   }
   if (GameState.playerY > 0 || GameState.playerVY !== 0) {
     GameState.playerY += GameState.playerVY * rawDt;
-    GameState.playerVY -= 1550 * rawDt; // Real Newtonian gravity (no floating!)
+    GameState.playerVY -= 1550 * (ERAS[GameState.eraIndex].gravity || 1) * rawDt; // Newtonian gravity (low-G in orbit, ticket 0155)
     if (GameState.playerY <= 0) {
       if (GameState.playerVY < -120) {
         GameState.suspVel = -Math.min(260, Math.abs(GameState.playerVY) * 0.45);
@@ -2539,6 +2544,7 @@ function renderScene() {
   let x = 0;
   let dx = -(baseSeg.curve * basePercent);
   let maxY = rh;
+  const DK = eraCfg.deck || TOY_DECK; // the track's colours (orange toy track; glass ribbon in orbit)
   const visibleSegments = [];
   const playerTireScreenY = Math.floor(rh * 0.87);
   let foundPlayerSeg = null;
@@ -2583,12 +2589,12 @@ function renderScene() {
     const slabH2 = Math.max(1.5, w2 * 0.055);
     const railW1 = w1 * 1.12;
     const railW2 = w2 * 1.12;
-    drawPolygon(ctx, x1 - railW1, y1 + slabH1, x1 + railW1, y1 + slabH1, x2 + railW2, y2 + slabH2, x2 - railW2, y2 + slabH2, '#4a1202');
+    drawPolygon(ctx, x1 - railW1, y1 + slabH1, x1 + railW1, y1 + slabH1, x2 + railW2, y2 + slabH2, x2 - railW2, y2 + slabH2, DK.slab);
 
     // 2. Seamless Anodized Tangerine-Orange Toy-Track Deck (Zero Blue Bars!)
-    let surfaceColor = isAlt ? eraCfg.trackA : eraCfg.trackB;
+    let surfaceColor = isAlt ? (DK.surfA || eraCfg.trackA) : (DK.surfB || eraCfg.trackB);
     if (seg.trackType === 'BOOSTER') {
-      surfaceColor = isAlt ? '#ea580c' : '#d9460f';
+      surfaceColor = DK.boostA ? (isAlt ? DK.boostA : DK.boostB) : (isAlt ? '#ea580c' : '#d9460f');
     } else if (seg.trackType === 'JUMP_RAMP') {
       surfaceColor = isAlt ? '#f59e0b' : '#d97706';
     }
@@ -2596,30 +2602,30 @@ function renderScene() {
     if (live.finishZ && seg.index === Math.floor(live.finishZ / ROAD_CFG.segLength)) drawFinishLine(ctx, x1, y1, w1, x2, y2, w2);
 
     // 3. Soft Satin Specular Sheen Along Left & Right Lanes
-    const sheenCol = 'rgba(255, 215, 150, 0.14)';
+    const sheenCol = DK.sheen;
     drawPolygon(ctx, x1 - w1 * 0.58, y1, x1 - w1 * 0.28, y1, x2 - w2 * 0.28, y2, x2 - w2 * 0.58, y2, sheenCol);
     drawPolygon(ctx, x1 + w1 * 0.28, y1, x1 + w1 * 0.58, y1, x2 + w2 * 0.58, y2, x2 + w2 * 0.28, y2, sheenCol);
 
     // 4. Subtle Carbon-Recessed Lane Grooves & Warm Gold Center Line
     const lineW1 = Math.max(1.2, w1 * 0.016);
     const lineW2 = Math.max(0.8, w2 * 0.016);
-    const grooveCol = 'rgba(40, 10, 0, 0.36)';
+    const grooveCol = DK.groove;
     drawPolygon(ctx, x1 - w1 * 0.46 - lineW1, y1, x1 - w1 * 0.46 + lineW1, y1, x2 - w2 * 0.46 + lineW2, y2, x2 - w2 * 0.46 - lineW2, y2, grooveCol);
     drawPolygon(ctx, x1 + w1 * 0.46 - lineW1, y1, x1 + w1 * 0.46 + lineW1, y1, x2 + w2 * 0.46 + lineW2, y2, x2 + w2 * 0.46 - lineW2, y2, grooveCol);
 
-    const centerCol = seg.trackType === 'BOOSTER' ? '#fde047' : 'rgba(255, 195, 40, 0.72)';
+    const centerCol = seg.trackType === 'BOOSTER' ? '#fde047' : DK.center;
     drawPolygon(ctx, x1 - lineW1, y1, x1 + lineW1, y1, x2 + lineW2, y2, x2 - lineW2, y2, centerCol);
 
     // 5. 3D Extruded Side Guide Walls (Inner Shaded Wall + Warm Gold Top Bevel + Outer Lip)
     const wallH1 = Math.max(2, w1 * 0.068);
     const wallH2 = Math.max(1, w2 * 0.068);
-    drawPolygon(ctx, x1 - w1, y1, x1 - w1, y1 - wallH1, x2 - w2, y2 - wallH2, x2 - w2, y2, '#8a1c02');
-    drawPolygon(ctx, x1 + w1, y1, x1 + w1, y1 - wallH1, x2 + w2, y2 - wallH2, x2 + w2, y2, '#8a1c02');
-    const topRimCol = isAlt ? '#ffaa00' : '#ff8800';
+    drawPolygon(ctx, x1 - w1, y1, x1 - w1, y1 - wallH1, x2 - w2, y2 - wallH2, x2 - w2, y2, DK.wall);
+    drawPolygon(ctx, x1 + w1, y1, x1 + w1, y1 - wallH1, x2 + w2, y2 - wallH2, x2 + w2, y2, DK.wall);
+    const topRimCol = isAlt ? DK.rimA : DK.rimB;
     drawPolygon(ctx, x1 - railW1, y1 - wallH1, x1 - w1, y1 - wallH1, x2 - w2, y2 - wallH2, x2 - railW2, y2 - wallH2, topRimCol);
     drawPolygon(ctx, x1 + w1, y1 - wallH1, x1 + railW1, y1 - wallH1, x2 + railW2, y2 - wallH2, x2 + w2, y2 - wallH2, topRimCol);
-    drawPolygon(ctx, x1 - railW1, y1 + slabH1, x1 - railW1, y1 - wallH1, x2 - railW2, y2 - wallH2, x2 - railW2, y2 + slabH2, '#b22c04');
-    drawPolygon(ctx, x1 + railW1, y1 + slabH1, x1 + railW1, y1 - wallH1, x2 + railW2, y2 - wallH2, x2 + railW2, y2 + slabH2, '#b22c04');
+    drawPolygon(ctx, x1 - railW1, y1 + slabH1, x1 - railW1, y1 - wallH1, x2 - railW2, y2 - wallH2, x2 - railW2, y2 + slabH2, DK.lip);
+    drawPolygon(ctx, x1 + railW1, y1 + slabH1, x1 + railW1, y1 - wallH1, x2 + railW2, y2 - wallH2, x2 + railW2, y2 + slabH2, DK.lip);
 
     // Steady Twin Tire Trails at 88 MPH (No per-segment blinking)
     if (seg.flameLeft) {
@@ -3701,7 +3707,7 @@ function updateOnboarding() {
 let trafficRand = Math.random;
 let currentRun = null; // { tokenPromise, t0, mode, level }
 
-function todaysDaily() { return dailySpec(utcDay(Date.now()), WORLD_LEVELS.length); }
+function todaysDaily() { return dailySpec(utcDay(Date.now())); }
 
 function applyDailyModifier(id) {
   if (id === 'HEAT_WAVE') GameState.heatLevel += 2;
@@ -4091,7 +4097,7 @@ function bindRaceStageSkip() {
 function startChallenge(c) {
   const today = todaysDaily();
   if (c.daily && c.daily === today.day) { startNewRace({ daily: true }); return; }
-  const idx = c.levelIndex != null ? c.levelIndex : dailySpec(c.daily, WORLD_LEVELS.length).levelIndex;
+  const idx = c.levelIndex != null ? c.levelIndex : dailySpec(c.daily).levelIndex;
   GameState.levelIndex = Math.max(0, Math.min(WORLD_LEVELS.length - 1, idx));
   GameState.mode = 'ARCADE';
   startNewRace();

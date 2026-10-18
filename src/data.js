@@ -61,6 +61,19 @@ export const WORLD_LEVELS = [
     goalDesc: 'Endless High-Score & Time-Warp Marathon',
     bossName: 'TWIN_TURBINE_APEX',
     bonusReward: 350
+  },
+  {
+    // Ticket 0155: the orbit highway. Appended so every saved level index stays put.
+    index: 5,
+    id: 'LVL6_LOW_ORBIT',
+    name: 'LVL 6: LOW ORBIT SKYWAY 2061',
+    subtitle: 'Glass Ribbon Over Earth • Low-G Jumps & Corkscrews',
+    startEra: 6,
+    startingHeat: 3,
+    rivalDensity: 1.35,
+    goalDesc: 'Float the Low-G Jumps & Race the Cherry-Red Roadster Home',
+    bossName: 'ORBITAL_DRIFTER',
+    bonusReward: 500
   }
 ];
 
@@ -161,7 +174,7 @@ export const ERAS = [
     id: '1955',
     name: '1955 • ATOMIC DINER STRIP',
     presentDate: 'JUN 18 1955',
-    destDate: 'OCT 16 2026',
+    destDate: 'MAR 06 2061',
     pixelScale: 1.0,
     scanlines: false,
     skyTop: '#3d7ea6',
@@ -175,6 +188,33 @@ export const ERAS = [
     wetReflection: false,
     sunStyle: 'atomic-sun',
     props: 'atomic'
+  },
+  {
+    // Ticket 0155: a glass highway in low orbit. `gravity` scales airborne gravity (low-G jumps
+    // float longer); `deck` recolours the 2D toy track as a see-through ribbon with neon edges.
+    id: '2061',
+    name: '2061 • LOW ORBIT SKYWAY',
+    presentDate: 'MAR 06 2061',
+    destDate: 'OCT 16 2026',
+    pixelScale: 1.0,
+    scanlines: false,
+    skyTop: '#000004',
+    skyBot: '#071233',
+    horizonGlow: '#5fb8ff',
+    groundA: '#0a2a5c',
+    groundB: '#08214a',
+    trackA: '#1a2f7a',
+    trackB: '#152769',
+    railColor: '#5ef2ff',
+    wetReflection: false,
+    sunStyle: 'space-sun',
+    gravity: 0.45,
+    deck: {
+      surfA: 'rgba(40, 92, 210, 0.42)', surfB: 'rgba(30, 74, 190, 0.36)', slab: 'rgba(94, 242, 255, 0.10)',
+      sheen: 'rgba(170, 225, 255, 0.16)', groove: 'rgba(120, 220, 255, 0.30)', center: 'rgba(190, 245, 255, 0.85)',
+      wall: 'rgba(30, 140, 220, 0.55)', rimA: '#5ef2ff', rimB: '#b06cff', lip: 'rgba(94, 242, 255, 0.55)',
+      boostA: 'rgba(176, 108, 255, 0.62)', boostB: 'rgba(150, 80, 240, 0.55)',
+    }
   }
 ];
 

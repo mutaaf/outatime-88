@@ -38,6 +38,9 @@ Triggers live in `src/scenes/eggs.js` (unit-tested in `tests/unit/eggs.test.js`)
 | 2088 | Arcology pyramids, refinery flare stacks, flying police cruisers, searchlights, NOODLE BAR, ENHANCE | Roofline + sky | Generic cyberpunk set dressing; invented signs |
 | 1955 Atomic Diner | **A cable strung from the brand-new clock tower to a lamppost — sparks race down it at 88 mph** | Courthouse square | A generic tower and wire; no names, no dialogue |
 | 1955 | **Lightning on the tower as you warp** | The warp moment | As 2026 |
+| 2061 Low Orbit | **A cherry-red roadster with a white-suited mannequin at the wheel drifts over Earth** | 12 s out of every 40 s of race time | An original drawing of a generic open-top sports car and an unnamed spacesuit figure; no brand, logo, name or quoted text |
+| 2061 | **A rocket climbs off the Earth's limb** | Final lap | A generic white rocket and flame |
+| 2061 | Launch tower and rocket at the start, NEXT EXIT: MARS · 140 MILLION MI, LOW-G ZONE, ORBITAL DINER "ZERO-G MILKSHAKES" | Mid layer + roadside boards | Generic launch gantry; invented signs and copy |
 | 1955 | Drive-in double feature: "GIANT ANTS ATE OHIO" (a big-ant silhouette over a tiny town) | Left of the square | Invented title, original silhouette |
 | 1955 | **A B-movie flying saucer wobbles across the sky** | Final lap | Generic saucer |
 | 1955 | ATOMIC DINER with a boomerang sign, SODA FOUNTAIN, NEW '55 MODELS lot, the BIJOU again | Square | Invented names; the same theatre exists in 2026, seventy years apart |

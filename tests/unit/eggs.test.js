@@ -69,6 +69,6 @@ describe('easter eggs', () => {
   });
 
   it('there is a scene for every egg era', () => {
-    for (const id of ['2026', '1985', '1885', '2015', '2088', '1955']) expect(SCENE_IDS).toContain(id);
+    for (const id of ['2026', '1985', '1885', '2015', '2088', '1955', '2061']) expect(SCENE_IDS).toContain(id);
   });
 });

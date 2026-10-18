@@ -109,7 +109,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
 
   // --- DAILY CHALLENGE & GLOBAL LEADERBOARD (tickets 0023, 0025) ---
   function renderDailyCard() {
-    const d = dailySpec(utcDay(Date.now()), WORLD_LEVELS.length);
+    const d = dailySpec(utcDay(Date.now()));
     const lvl = WORLD_LEVELS[d.levelIndex];
     const t = $('dailyTitle');
     const desc = $('dailyDesc');

@@ -10,6 +10,7 @@ const LOADERS = {
   2015: () => import('./s2015.js'),
   2088: () => import('./s2088.js'),
   1955: () => import('./s1955.js'),
+  2061: () => import('./s2061.js'),
 };
 export const SCENE_IDS = Object.keys(LOADERS);
 
