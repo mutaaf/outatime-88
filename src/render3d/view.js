@@ -621,7 +621,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     const lift = pp.y * JUMP_SCALE - (s.suspOffset || 0) * 0.01;
     const roll = -((s.chassisRoll || 0) * 0.6 + (s.stuntSpinAngle || 0)) * DEG;
     const pitch = ((s.chassisPitch || 0) * 0.4 - (s.trickPitchAngle || 0)) * DEG;
-    poseCar(playerCar, pz, pp.x, lift, -(s.driftAngle || 0) * 0.55 * DEG, roll, pitch);
+    poseCar(playerCar, pz, pp.x, lift, -(s.carYaw || 0), roll, pitch);
     const p = player();
     if (p.shape !== playerCar.userData.shape) { disposeCar(playerCar); playerCar = buildPlayer(p.shape); poseCar(playerCar, pz, pp.x, lift, 0, roll, pitch); }
     playerCar.userData.paint.color.set(p.body || '#c9ced6');
