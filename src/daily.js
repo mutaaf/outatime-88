@@ -32,7 +32,7 @@ export const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 /**
  * Levels the daily draws from. Pinned to the first five (not WORLD_LEVELS.length) so adding a
- * level never changes which track today's daily is mid-day (ticket 0150).
+ * level never changes which track today's daily is mid-day (ticket 0155).
  */
 export const DAILY_LEVELS = 5;
 

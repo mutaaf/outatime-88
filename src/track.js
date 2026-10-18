@@ -246,7 +246,7 @@ function addFeatureRun(kind, segs, curve, bank, trackType, extra) {
 // Curve amplitude per level: level 1 is gentler, level 5 is the full playset (every level
 // still gets every shape).
 const AMP = [0.8, 0.88, 0.95, 1, 1.08, 1.02];
-// How long the sweeping corners hold per level: the orbit skyway (level 6, ticket 0150) bends
+// How long the sweeping corners hold per level: the orbit skyway (level 6, ticket 0155) bends
 // in long orbital arcs.
 const HOLD = [1, 1, 1, 1, 1, 1.6];
 let amp = 1, hold = 1;

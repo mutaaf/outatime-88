@@ -64,7 +64,7 @@ function sunMaterial() {
       // Retro scan bands across the lower half, thicker toward the horizon.
       float y = (p.y + 0.1) * -1.0;
       float band = y > 0.0 ? step(0.5 + y * 0.9, fract(y * 9.0 - t * 0.25)) * (1.0 - space) : 0.0;
-      // In orbit (ticket 0150) the sun is a small white-hot disc with a wide glare, no bands.
+      // In orbit (ticket 0155) the sun is a small white-hot disc with a wide glare, no bands.
       disc = mix(disc, 1.0 - smoothstep(0.18, 0.2, r), space);
       float halo = mix(exp(-max(r - 0.6, 0.0) * 5.0) * 0.55, exp(-r * 4.0) * 0.9, space);
       float a = max(disc * (1.0 - band), halo * (1.0 - disc));
@@ -172,7 +172,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
   const grid = new Mesh(new PlaneGeometry(2400, 2400), gridMat);
   grid.rotation.x = -Math.PI / 2;
   scene.add(grid);
-  let earth = null; // the orbit era's planet (ticket 0150), built the first time it is needed
+  let earth = null; // the orbit era's planet (ticket 0155), built the first time it is needed
 
   // ── Road chunks ────────────────────────────────────────────────────────────
   const path = createTrackPath(PATH_SCALE);

@@ -1,4 +1,4 @@
-// The 2061 orbit era in 3D (ticket 0150): Earth far below the glass highway, generated in a
+// The 2061 orbit era in 3D (ticket 0155): Earth far below the glass highway, generated in a
 // shader (no textures, no downloads). Oceans, continents with night-side city lights, a slow
 // cloud layer and a Fresnel atmosphere rim. Built lazily the first time the orbit era shows,
 // so the other eras never pay for it; two draw calls while visible.

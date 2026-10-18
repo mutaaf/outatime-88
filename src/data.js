@@ -63,7 +63,7 @@ export const WORLD_LEVELS = [
     bonusReward: 350
   },
   {
-    // Ticket 0150: the orbit highway. Appended so every saved level index stays put.
+    // Ticket 0155: the orbit highway. Appended so every saved level index stays put.
     index: 5,
     id: 'LVL6_LOW_ORBIT',
     name: 'LVL 6: LOW ORBIT SKYWAY 2061',
@@ -190,7 +190,7 @@ export const ERAS = [
     props: 'atomic'
   },
   {
-    // Ticket 0150: a glass highway in low orbit. `gravity` scales airborne gravity (low-G jumps
+    // Ticket 0155: a glass highway in low orbit. `gravity` scales airborne gravity (low-G jumps
     // float longer); `deck` recolours the 2D toy track as a see-through ribbon with neon edges.
     id: '2061',
     name: '2061 • LOW ORBIT SKYWAY',

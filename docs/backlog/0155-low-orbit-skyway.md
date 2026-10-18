@@ -1,5 +1,5 @@
 ---
-id: 0150
+id: 0155
 title: Low Orbit Skyway — a glass highway over Earth (level 6, 2061 era)
 status: shipped
 priority: P1
@@ -18,7 +18,7 @@ roadster with a white-suited mannequin drifting over the planet.
 - **Level 6 "LOW ORBIT SKYWAY 2061":** appended so saved level indexes stay put; medals sit a
   step past level 5. It opens with `?level=orbit` (or `?level=6`), and named slugs now work for
   every level.
-- **2061 era:** appended to the era list, so warps can land on it. Its 2D scene
+- **2061 era:** appended to the era list, so warps can land on it, and Endless Highway (0150) rotates through it, since every tier steps to the next era. Its 2D scene
   (`src/scenes/s2061.js`) paints:
   - starfield, galaxy band, sun glare;
   - Earth's limb with an atmosphere glow, clouds and night-side city lights;

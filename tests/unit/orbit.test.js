@@ -1,4 +1,4 @@
-// The low-orbit skyway (ticket 0150): its level, era, track book, low-G jumps and egg triggers.
+// The low-orbit skyway (ticket 0155): its level, era, track book, low-G jumps and egg triggers.
 import { describe, it, expect } from 'vitest';
 import { WORLD_LEVELS, ERAS } from '../../src/data.js';
 import { ERA_PALETTES } from '../../src/era-palettes.js';

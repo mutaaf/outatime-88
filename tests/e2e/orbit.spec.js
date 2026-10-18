@@ -1,4 +1,4 @@
-// The low-orbit skyway (ticket 0150): ?level=orbit opens it, its 2D world and 3D planet render,
+// The low-orbit skyway (ticket 0155): ?level=orbit opens it, its 2D world and 3D planet render,
 // and jumps hang in low gravity.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';

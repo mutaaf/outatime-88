@@ -1,4 +1,4 @@
-// 2061 · LOW ORBIT SKYWAY (ticket 0150) — a glass highway in low orbit over the night side of
+// 2061 · LOW ORBIT SKYWAY (ticket 0155) — a glass highway in low orbit over the night side of
 // Earth. Nods (docs/EASTER_EGGS.md): a cherry-red roadster with a spacesuited mannequin at the
 // wheel drifting over the planet, a launch tower at the start line, a rocket climbing off the
 // limb on the final lap, and a NEXT EXIT: MARS sign. All original drawings and invented copy.

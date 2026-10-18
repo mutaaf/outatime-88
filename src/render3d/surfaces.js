@@ -99,7 +99,7 @@ export function paletteFor(era) {
     top: stops[0], mid: stops[2] || stops[1], horizon: p.horizon, fog: p.fog, sun: p.sun,
     ground: p.ground[1] || p.ground[0], wet: p.weather === 'rain', dusty: p.weather === 'dust',
     bright: era && era.id === '1955',
-    space: Boolean(p.space), // orbit (ticket 0150): Earth below, no ground or mountains
+    space: Boolean(p.space), // orbit (ticket 0155): Earth below, no ground or mountains
   };
 }
 

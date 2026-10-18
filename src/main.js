@@ -1835,7 +1835,7 @@ function updateGame(rawDt) {
   }
   if (GameState.playerY > 0 || GameState.playerVY !== 0) {
     GameState.playerY += GameState.playerVY * rawDt;
-    GameState.playerVY -= 1550 * (ERAS[GameState.eraIndex].gravity || 1) * rawDt; // Newtonian gravity (low-G in orbit, ticket 0150)
+    GameState.playerVY -= 1550 * (ERAS[GameState.eraIndex].gravity || 1) * rawDt; // Newtonian gravity (low-G in orbit, ticket 0155)
     if (GameState.playerY <= 0) {
       if (GameState.playerVY < -120) {
         GameState.suspVel = -Math.min(260, Math.abs(GameState.playerVY) * 0.45);
