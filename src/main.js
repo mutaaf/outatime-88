@@ -2940,68 +2940,12 @@ function renderScene() {
         continue;
       }
 
-      // 2. Tires
-      ctx.fillStyle = '#090a0f';
-      ctx.fillRect(cx - cw * 0.52, roadYifted - ch * 0.38, cw * 0.18, ch * 0.38);
-      ctx.fillRect(cx + cw * 0.34, roadYifted - ch * 0.38, cw * 0.18, ch * 0.38);
-
-      if (isTruck) {
-        // 18-Wheeler Semi-Truck Trailer with Metallic Ribs & Amber Clearance Lights
-        ctx.fillStyle = '#cbd5e1';
-        ctx.fillRect(cx - cw * 0.5, roadY - ch * 1.15, cw, ch * 0.92);
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillRect(cx - cw * 0.46, roadY - ch * 1.1, cw * 0.92, ch * 0.82);
-        ctx.fillStyle = '#f59e0b';
-        ctx.fillRect(cx - cw * 0.44, roadY - ch * 1.12, cw * 0.12, 3);
-        ctx.fillRect(cx + cw * 0.32, roadY - ch * 1.12, cw * 0.12, 3);
-      } else {
-        // 3D Shaded Car Lower Chassis & Tapered Roof Cabin
-        ctx.fillStyle = mv.bodyColor || '#334155';
-        ctx.fillRect(cx - cw * 0.5, roadYifted - ch * 0.68, cw, ch * 0.48);
-
-        // Tapered 3D Roof & Rear Windshield
-        ctx.fillStyle = mv.accentColor || '#64748b';
-        ctx.beginPath();
-        ctx.moveTo(cx - cw * 0.44, roadYifted - ch * 0.68);
-        ctx.lineTo(cx - cw * 0.32, roadYifted - ch * 1.08);
-        ctx.lineTo(cx + cw * 0.32, roadYifted - ch * 1.08);
-        ctx.lineTo(cx + cw * 0.44, roadYifted - ch * 0.68);
-        ctx.closePath();
-        ctx.fill();
-
-        // Dark Tinted Rear Window
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(cx - cw * 0.28, roadYifted - ch * 1.02, cw * 0.56, ch * 0.30);
-
-        // Dez's Brawler Chrome Blower OR Kai's Carbon GT Spoiler Wing!
-        if (mv.style === 'MUSCLE') {
-          ctx.fillStyle = '#e2e8f0';
-          ctx.fillRect(cx - cw * 0.12, roadY - ch * 1.20, cw * 0.24, ch * 0.15);
-        } else if (mv.style === 'TUNER_WING') {
-          ctx.fillStyle = '#090a0f';
-          ctx.fillRect(cx - cw * 0.48, roadY - ch * 0.86, cw * 0.96, Math.max(2, ch * 0.08));
-          ctx.fillRect(cx - cw * 0.32, roadY - ch * 0.86, 2, ch * 0.18);
-          ctx.fillRect(cx + cw * 0.30, roadY - ch * 0.86, 2, ch * 0.18);
-        }
-
-        // Twin NOS Purge Flames when Rival is Boosting!
-        if (mv.nosActive) {
-          ctx.fillStyle = '#00f0ff';
-          ctx.fillRect(cx - cw * 0.36, roadY - ch * 0.18, cw * 0.12, ch * 0.26);
-          ctx.fillRect(cx + cw * 0.24, roadY - ch * 0.18, cw * 0.12, ch * 0.26);
-        }
-      }
-
-      // Headlights (for Oncoming Traffic) OR Glowing Red Taillights
-      if (mv.oncoming) {
-        ctx.fillStyle = '#fef08a';
-        ctx.fillRect(cx - cw * 0.44, roadY - ch * 0.52, cw * 0.22, ch * 0.18);
-        ctx.fillRect(cx + cw * 0.22, roadY - ch * 0.52, cw * 0.22, ch * 0.18);
-      } else {
-        ctx.fillStyle = '#ff1e1e';
-        ctx.fillRect(cx - cw * 0.46, roadY - ch * 0.54, cw * 0.22, ch * 0.16);
-        ctx.fillRect(cx + cw * 0.24, roadY - ch * 0.54, cw * 0.22, ch * 0.16);
-      }
+      // Placeholder for the first frames before the car painter (src/car-sprite.js) loads.
+      ctx.fillStyle = isTruck ? '#cbd5e1' : (mv.bodyColor || '#334155');
+      ctx.fillRect(cx - cw * 0.5, roadYifted - ch * (isTruck ? 1.15 : 0.9), cw, ch * (isTruck ? 1.15 : 0.7));
+      ctx.fillStyle = '#ff1e1e';
+      ctx.fillRect(cx - cw * 0.46, roadYifted - ch * 0.54, cw * 0.22, ch * 0.16);
+      ctx.fillRect(cx + cw * 0.24, roadYifted - ch * 0.54, cw * 0.22, ch * 0.16);
 
       // Name tags (ticket 0101): queued here, laid out once after all cars so they never pile up.
       if (GameState.status !== 'TITLE' && (mv.ghostTag || mv.short)) {
