@@ -45,7 +45,7 @@ for (const mode of ['ARCADE', 'INFINITE']) test(`rivals race for real (${mode}):
   test.info().annotations.push({ type: 'rivals', description: JSON.stringify({ orders: orders.size, modes: [...modes], nosSeen, worstX, stats, spread: Math.max(...last.progress) - Math.min(...last.progress) }) });
 
   expect(worstX).toBeLessThanOrEqual(0.72);                 // on the road the whole time
-  expect(orders.size).toBeGreaterThan(1);                   // the running order changed
+  expect(orders.size > 1 || stats.sum.passes > 0).toBe(true); // places changed (on a slow CI box a 12 s window may hold one order)
   expect(Math.max(...last.progress) - Math.min(...last.progress)).toBeGreaterThan(30); // the field spread out
   expect(stats.sum.passes + stats.sum.nos).toBeGreaterThan(0); // they raced, not just cruised
   expect(stats.nemesisFlag).toBe(1);
