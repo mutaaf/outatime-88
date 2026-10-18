@@ -48,3 +48,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · sprint 4 · Under the hood: one road contract (curvature, bank, pitch, set pieces per distance) for the physics and both renderers
 2026-10-18 · 0018 · Invented places all the way down: level 4 is now CEDAR RIDGE 2088, the fork's time route is the CEDAR TURBO TUNNEL, and two parody cars became the Nightwatch Coupe and the Takamura Comet GT (saves and medals untouched)
 2026-10-17 · 0120 · Steering feels like driving: keys ease the wheel in (tap to nudge, hold for full lock) and out, less lock at speed, every car's grip and weight show in how it turns, and corners pull you wide if you're too fast
+2026-10-17 · 0123 · Loops and landings: carry speed over the top of a loop or fall off it, and land straight to keep your speed

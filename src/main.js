@@ -7,7 +7,7 @@ import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
-import { createSteer, stepSteer, createLateral, stepLateral, handlingFor } from './handling.js';
+import { createSteer, stepSteer, createLateral, stepLateral, handlingFor, loopStep, landingKeep } from './handling.js';
 import { materialFor, impactVelocities } from './materials.js';
 import { createWorld, createPropPool } from './world.js';
 import { projectPoint } from './projection.js';
@@ -19,7 +19,7 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult, medalFor } from './progress.js';
-import { track, generateNextTrackBiome, buildInitialTrack } from './track.js';
+import { track, generateNextTrackBiome, buildInitialTrack, featureAt } from './track.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
 import { createHud } from './hud.js';
@@ -1225,6 +1225,24 @@ function updateGame(rawDt) {
     GameState.speed = Math.max(0, GameState.speed - 18 * rawDt);
   }
 
+  // Loops (road contract set pieces): gravity along the loop, and too slow at the top means
+  // you fall off. That costs speed, not points (no new penalty kind for the server to check).
+  const feat = featureAt(GameState.trackPos + ROAD_CFG.playerZOffset);
+  if (feat && feat.kind === 'LOOP' && GameState.playerY <= 4) {
+    const lt = (GameState.trackPos + ROAD_CFG.playerZOffset - feat.z0) / feat.length;
+    const lp = loopStep(GameState.speed, feat, lt, rawDt);
+    if (lp.peel && GameState.peeledLoop !== feat) {
+      GameState.peeledLoop = feat;
+      GameState.loopPeels = (GameState.loopPeels || 0) + 1;
+      GameState.speed = Math.min(GameState.speed, 40);
+      GameState.playerVY = 0;
+      triggerAnnouncement('🌀 TOO SLOW FOR THE LOOP!', 'HIT IT FASTER — NOS HELPS', 1300);
+      if (touch) touch.controls.haptics.pulse('hit');
+    } else if (!lp.peel) {
+      GameState.speed = Math.max(18, GameState.speed + lp.dv);
+    }
+  }
+
   // 6-Speed Gearbox + RPM calculation
   const gearThresholds = [0, 24, 44, 64, 82, 102, 140];
   let newGear = 1;
@@ -1565,6 +1583,8 @@ function updateGame(rawDt) {
         const driftBox = document.getElementById('driftCounterBox');
         if (driftBox && !GameState.isDrifting) driftBox.classList.add('hidden');
       }
+      // Land straight to keep your speed (ticket 0120).
+      GameState.speed *= landingKeep(GameState.playerVX, GameState.steerInput);
       GameState.playerY = 0;
       GameState.playerVY = 0;
       GameState.stuntSpinAngle = 0;

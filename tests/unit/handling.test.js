@@ -1,6 +1,6 @@
 // Handling model (ticket 0120): organic steering and grip-limited lateral motion.
 import { describe, it, expect } from 'vitest';
-import { STEER, LATERAL, steerLock, createSteer, stepSteer, handlingFor, createLateral, stepLateral } from '../../src/handling.js';
+import { STEER, LATERAL, SETPIECE, steerLock, createSteer, stepSteer, handlingFor, createLateral, stepLateral, loopStep, landingKeep } from '../../src/handling.js';
 
 const DT = 1 / 120;
 const run = (st, digital, analog, seconds, mph = 60) => {
@@ -115,5 +115,26 @@ describe('lateral motion', () => {
     const drift = sim(-1, 1, { speedMph: 95, curve: 2.2, drifting: true });
     expect(grip.slip).toBe(0);
     expect(drift.slip).toBeGreaterThan(0);
+  });
+});
+
+describe('set pieces', () => {
+  it('a loop needs speed over the top; too slow peels you off', () => {
+    expect(loopStep(80, {}, 0.5, DT).peel).toBe(false);
+    expect(loopStep(50, {}, 0.5, DT).peel).toBe(true);
+    expect(loopStep(50, {}, 0.1, DT).peel).toBe(false); // only upside down
+    expect(loopStep(70, { minMph: 75 }, 0.5, DT).peel).toBe(true); // feature can demand more
+  });
+  it('gravity along a loop slows the climb and gives it back on the way down', () => {
+    let v = 90;
+    for (let i = 0; i < 120; i++) v += loopStep(v, {}, i / 120, DT).dv;
+    expect(v).toBeCloseTo(90, 6);
+    expect(loopStep(90, {}, 0.25, DT).dv).toBeLessThan(0);
+    expect(loopStep(90, {}, 0.75, DT).dv).toBeGreaterThan(0);
+  });
+  it('landing straight keeps your speed; landing sideways costs up to a quarter', () => {
+    expect(landingKeep(0, 0)).toBe(1);
+    expect(landingKeep(0.8, 0.5)).toBeLessThan(0.9);
+    expect(landingKeep(9, 1)).toBeCloseTo(1 - SETPIECE.landMax);
   });
 });
