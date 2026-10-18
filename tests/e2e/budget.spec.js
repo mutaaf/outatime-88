@@ -60,3 +60,18 @@ test('era backdrops are lazy chunks, each small (ticket 0100)', () => {
   const main = files.find((f) => /^index-.*\.js$/.test(f));
   expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toContain('GIANT ANTS ATE OHIO');
 });
+
+test('the results/leaderboard UI and the music score are lazy chunks (ticket 0115)', () => {
+  const files = readdirSync(DIR);
+  const main = readFileSync(`${DIR}/${files.find((f) => /^index-.*\.js$/.test(f))}`, 'utf8');
+  const results = files.filter((f) => /^results-ui-.*\.js$/.test(f));
+  expect(results.length).toBe(1);
+  expect(readFileSync(`${DIR}/${results[0]}`, 'utf8')).toContain('CLEAN RUN');
+  expect(main).not.toContain('CLEAN RUN');
+  expect(main).not.toContain('LEADERBOARD OFFLINE');
+  const music = files.filter((f) => /^music-.*\.js$/.test(f));
+  expect(music.length).toBe(1);
+  expect(readFileSync(`${DIR}/${music[0]}`, 'utf8')).toContain('sawtooth');
+  expect(main).not.toContain('kick:[1,0,0,0');
+  expect(gz(results[0])).toBeLessThan(6);
+});

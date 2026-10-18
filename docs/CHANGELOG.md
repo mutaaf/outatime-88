@@ -54,3 +54,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0124 · Real orange-track racing: curves, banked hairpins, crests, loops you drive all the way round, corkscrews, gap jumps and wall-ride half-pipes, each set up by a booster gate; in 3D they're real geometry, in 2D the world rolls and a loop cam shows you going round
 2026-10-18 · 0019 · Forks are two small arrows now (◀ SKY-LOOP ⚡ / TUNNEL ⏱️ ▶) instead of two long banners; the one you're lined up for leans forward, and coach tips wait until you've picked
 2026-10-18 · 0020 · The browser tab shows a neon 88 icon, and full Chrome no longer logs a missing-icon error on load
+2026-10-18 · #0115 · Faster first load: the results screen, leaderboard and music score now download just after the title appears instead of with the first frame

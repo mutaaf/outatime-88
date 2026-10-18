@@ -4,7 +4,7 @@ import { drawBackdrop, drawRoadsideAd, drawRoadsideProp, drawHazardArt, drawSoft
 import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, CONTRACT_TEMPLATES, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
-import { SoundEngine, setAudioHooks } from './audio.js';
+import { SoundEngine, setAudioHooks, loadMusic } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
 import { createSteer, stepSteer, createLateral, stepLateral, handlingFor, loopStep, landingKeep } from './handling.js';
@@ -19,7 +19,7 @@ import { loadView3D, loadCarPreview } from './render3d-loader.js';
 import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
-import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult, medalFor } from './progress.js';
+import { LEVEL_MEDALS, applyRunResult } from './progress.js';
 import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, hasSetPieceBetween, featureAt } from './track.js';
 import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
 let setPieceArt = null; // src/setpieces-2d.js, lazy: the art waits for it, the sim never does
@@ -33,9 +33,7 @@ let shareUi = null;
 const loadShareUi = () => (shareUi = shareUi || import('./share-ui.js').then((m) => { m.initShareUi({ startChallenge }); return m; }));
 import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
-import { beginRun, submitRun, fetchBoard, fetchStanding, fetchHall, fetchGhost, normalizeInitials, rankLine } from './leaderboard.js';
-// Leaderboard/rank UI loads after the first network answer, not at boot (main bundle budget).
-const competeUI = () => import('./compete-ui.js');
+import { beginRun, fetchGhost, normalizeInitials } from './leaderboard.js';
 import { createGhostRecorder, createGhostRace } from './ghost.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
@@ -3392,52 +3390,10 @@ function shortScore(n) {
   return n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`;
 }
 
-/** Results-screen medal line: what you earned, your best, and the next target. */
-function renderRunMedal(lvl, result) {
-  const el = document.getElementById('endMedalText');
-  if (!el) return;
-  const prog = SaveStore.data.progress[lvl.id] || { best: 0, medal: null };
-  const earned = result.medal ? `${MEDAL_ICON[result.medal]} ${result.medal.toUpperCase()}` : 'NO MEDAL';
-  const next = nextTarget(lvl.id, GameState.score);
-  const nextTxt = next ? ` • NEXT ${MEDAL_ICON[next.medal]} ${next.score.toLocaleString()}` : ' • TOP OF THE LADDER';
-  el.textContent = `${earned}${result.newBest ? ' • NEW BEST!' : ` • BEST ${prog.best.toLocaleString()}`}${nextTxt}`;
-  const unlockEl = document.getElementById('endUnlockText');
-  if (unlockEl) {
-    const opened = result.unlocked !== null ? WORLD_LEVELS[result.unlocked] : null;
-    unlockEl.textContent = opened ? `🔓 UNLOCKED: ${opened.name}` : '';
-    unlockEl.classList.toggle('hidden', !opened);
-  }
-}
-
-/** Results: what the run earned, what sloppy driving cost, and why (ticket 0073). */
-function renderScoreSheet(sheet) {
-  const el = document.getElementById('endPenaltyText');
-  if (!el) return;
-  if (!sheet.penalty) {
-    el.textContent = 'CLEAN RUN — NO PENALTIES ✨';
-    el.className = 'mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-emerald-300';
-    return;
-  }
-  const why = [];
-  if (sheet.obstacleHits) why.push(`${sheet.obstacleHits} HIT${sheet.obstacleHits > 1 ? 'S' : ''}`);
-  if (sheet.trafficHits) why.push(`${sheet.trafficHits} CRASH${sheet.trafficHits > 1 ? 'ES' : ''}`);
-  if (sheet.coneHits) why.push(`${sheet.coneHits} CONE${sheet.coneHits > 1 ? 'S' : ''}`);
-  if (sheet.wallSec) why.push(`${sheet.wallSec}s WALL`);
-  el.textContent = `${sheet.earned.toLocaleString()} − ${sheet.penalty.toLocaleString()} (${why.join(' · ')})`;
-  el.className = 'mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-rose-300';
-}
-
-/** Results line for cars a race just unlocked (the garage plays the full reveal). */
-function announceNewCars(ids) {
-  if (!ids.length) return;
-  // The full-screen reveal lands just after the results, so the score is seen first.
-  setTimeout(() => loadGarageUI().then((ui) => ui.queueReveals(ids)), 1100);
-  const el = document.getElementById('endUnlockText');
-  if (!el) return;
-  const names = ids.map((id) => (POP_CULTURE_ROSTER.find((c) => c.id === id) || {}).car).filter(Boolean);
-  const carLine = `🏎️ NEW CAR UNLOCKED: ${names.join(' + ').toUpperCase()}`;
-  el.textContent = el.classList.contains('hidden') || !el.textContent ? carLine : `${el.textContent} • ${carLine}`;
-  el.classList.remove('hidden');
+/** Cars a race just unlocked: the full-screen reveal lands just after the results, so the score is seen first. */
+function carNamesFor(ids) {
+  if (ids.length) setTimeout(() => loadGarageUI().then((ui) => ui.queueReveals(ids)), 1100);
+  return ids.map((id) => (POP_CULTURE_ROSTER.find((c) => c.id === id) || {}).car).filter(Boolean);
 }
 
 // The level grid lives in its own chunk (src/level-select.js): it only shows in the events
@@ -3524,7 +3480,6 @@ function updateOnboarding() {
 // same rivals. Visual FX keep Math.random (they don't change the race).
 let trafficRand = Math.random;
 let currentRun = null; // { tokenPromise, t0, mode, level }
-let boardView = { board: 'week', mode: 'ARCADE' }; // the weekly season leads (ticket 0091)
 
 function todaysDaily() { return dailySpec(utcDay(Date.now()), WORLD_LEVELS.length); }
 
@@ -3535,135 +3490,22 @@ function applyDailyModifier(id) {
   else if (id === 'RUSH_HOUR') GameState.trafficGapScale = 0.66;
 }
 
-function renderDailyCard() {
-  const d = todaysDaily();
-  const lvl = WORLD_LEVELS[d.levelIndex];
-  const t = document.getElementById('dailyTitle');
-  const desc = document.getElementById('dailyDesc');
-  if (t) t.textContent = `${lvl.name.replace(/^LVL \d+:\s*/, '')} · ${d.modifier.name}`;
-  if (desc) desc.textContent = `${d.modifier.desc}. Same road for everyone today.`;
+// Results card and leaderboard (ticket 0115): a lazy chunk, preloaded once the title is up.
+let resultsUi = null;
+let resultsLoading = null;
+function loadResultsUi() {
+  if (!resultsLoading) resultsLoading = import('./results-ui.js').then(({ createResultsUI }) => (resultsUi = createResultsUI({
+    run: { get: () => currentRun, set: (r) => { currentRun = r; } }, raceGhostOf, coarsePointer,
+  })));
+  return resultsLoading;
 }
-
-// Boards (ticket 0091): podium, medals on the track board, last week's champion crowned,
-// your row always shown and scrolled into view, and the season clock.
-let hallCache = null;
-
-const sameView = (a, b) => a.board === b.board && a.mode === b.mode && Boolean(a.track) === Boolean(b.track);
-
-function renderBoard(data, view) {
-  const list = document.getElementById('boardList');
-  const status = document.getElementById('boardStatus');
-  if (!list || !status) return;
-  list.textContent = '';
-  if (!data) { status.textContent = 'LEADERBOARD OFFLINE — YOUR BEST IS SAVED ON THIS DEVICE'; return; }
-  const lvl = view.track ? WORLD_LEVELS[data.level] : null;
-  if (data.entries.length) status.textContent = lvl ? `TRACK: ${lvl.name.replace(/^LVL \d+:\s*/, '')}` : '';
-  else status.textContent = view.board === 'friends'
-    ? 'NO FRIENDS HERE YET — SEND A CHALLENGE OR RACE IN A ROOM'
-    : 'NO SCORES YET — BE THE FIRST';
-  competeUI().then(({ renderBoardRows }) => renderBoardRows(list, data, {
-    me: SaveStore.data.initials,
-    champion: hallCache?.champions?.[0]?.initials || null,
-    medal: (e) => (lvl ? MEDAL_ICON[medalFor(lvl.id, e.score)] || '' : ''),
-    reduced: GameState.reducedMotion,
-  }));
+/** Runs fn with the results UI: now if it has loaded, else as soon as it lands. */
+function withResults(fn) {
+  if (resultsUi) fn(resultsUi);
+  else loadResultsUi().then(fn, () => {});
 }
-
-async function renderSeason() {
-  const el = document.getElementById('boardSeason');
-  if (!el) return;
-  const { timeLeft } = await competeUI();
-  const champ = hallCache?.champions?.[0];
-  const end = hallCache?.season?.endsAt;
-  el.textContent = [end ? `⏳ SEASON ENDS IN ${timeLeft(end, Date.now())}` : '', champ ? `LAST WEEK 👑 ${champ.initials}` : ''].filter(Boolean).join(' · ');
-}
-
-async function loadBoard() {
-  document.querySelectorAll('.board-tab').forEach((b) => {
-    b.setAttribute('aria-selected', String(sameView({ board: b.dataset.board, mode: b.dataset.mode, track: b.dataset.track }, boardView)));
-  });
-  const status = document.getElementById('boardStatus');
-  if (status) status.textContent = 'LOADING…';
-  const view = { ...boardView };
-  const level = view.track ? (SaveStore.data.selectedLevel || 0) : undefined;
-  const data = await fetchBoard(view.board, view.mode, 10, { level, around: SaveStore.data.initials || undefined });
-  if (sameView(view, boardView)) renderBoard(data, view);
-}
-
-function openLeaderboard(view) {
-  if (view) boardView = view;
-  renderDailyCard();
-  const best = document.getElementById('boardYourBest');
-  if (best) best.textContent = SaveStore.data.bestScore.toLocaleString();
-  document.getElementById('leaderboardModal').classList.remove('hidden');
-  loadBoard();
-  fetchHall('ARCADE').then((h) => { if (h) { hallCache = h; renderSeason(); } });
-}
-
-// Rival line on the title and the daily streak (ticket 0091): one pull at boot, no push.
-const COMPETE_KEY = 'outatime88_compete_v1';
-async function refreshRival() {
-  const initials = normalizeInitials(SaveStore.data.initials);
-  if (!initials) return;
-  let seen = 0;
-  try { seen = JSON.parse(localStorage.getItem(COMPETE_KEY) || '{}').seen || 0; } catch { seen = 0; }
-  const s = await fetchStanding({ initials, mode: 'ARCADE', level: SaveStore.data.selectedLevel || 0, since: seen || undefined });
-  if (!s) return;
-  try { localStorage.setItem(COMPETE_KEY, JSON.stringify({ seen: Date.now() })); } catch { /* blocked */ }
-  const line = document.getElementById('titleRival');
-  if (line) line.textContent = (await competeUI()).rivalLine(s);
-  const streak = document.getElementById('dailyStreak');
-  if (streak) streak.textContent = s.streak?.days ? `🔥 ${s.streak.days}-DAY STREAK${s.streak.today ? '' : ' — PLAY TODAY TO KEEP IT'}` : '';
-}
-
-function closeLeaderboard() {
-  document.getElementById('leaderboardModal').classList.add('hidden');
-}
-
-async function postScore(initials) {
-  const rankEl = document.getElementById('endRankText');
-  const form = document.getElementById('initialsForm');
-  const run = currentRun;
-  if (!run || !rankEl) return;
-  currentRun = null; // one submission per run
-  form.classList.add('hidden');
-  rankEl.textContent = 'POSTING…';
-  const token = await run.tokenPromise;
-  if (!token) { rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY'; return; }
-  const r = await submitRun({
-    token, initials, score: run.score, distance: run.distance, durationMs: run.durationMs,
-    warps: run.warps, level: run.level, mode: run.mode, car: run.car, earned: run.earned, pen: run.pen, trace: run.trace,
-  });
-  if (r.ok) {
-    const { renderRankCard } = await competeUI();
-    const card = document.getElementById('endRankCard');
-    const rich = card && renderRankCard(card, r.body, {
-      reduced: GameState.reducedMotion,
-      onGhost: run.mode === 'ARCADE' ? (who) => raceGhostOf(who, run.level) : null,
-    });
-    rankEl.textContent = rich ? '' : `🏆 ${initials} ${rankLine(r.body.rank)}`;
-    refreshRival();
-  }
-  else if (r.status === 400) { rankEl.textContent = 'PICK OTHER INITIALS'; SaveStore.data.initials = ''; SaveStore.save(); currentRun = run; form.classList.remove('hidden'); }
-  else if (r.status === 0 || r.status === 503) rankEl.textContent = 'LEADERBOARD OFFLINE — BEST SAVED LOCALLY';
-  else rankEl.textContent = 'SCORE NOT ACCEPTED';
-}
-
-function offerScoreSubmission() {
-  const form = document.getElementById('initialsForm');
-  const rankEl = document.getElementById('endRankText');
-  if (!form || !rankEl) return;
-  rankEl.textContent = '';
-  const card = document.getElementById('endRankCard');
-  if (card) card.textContent = '';
-  form.classList.add('hidden');
-  if (!currentRun || currentRun.score <= 0) { currentRun = null; return; }
-  const saved = normalizeInitials(SaveStore.data.initials);
-  if (saved) { postScore(saved); return; }
-  form.classList.remove('hidden');
-  const input = document.getElementById('initialsInput');
-  if (input) { input.value = ''; if (!coarsePointer) input.focus(); }
-}
+const openLeaderboard = (view) => withResults((ui) => ui.openLeaderboard(view));
+const refreshRival = () => withResults((ui) => ui.refreshRival());
 
 function restoreSoloSettings() {
   GameState.levelIndex = GameState.savedLevelIndex;
@@ -4069,12 +3911,7 @@ function endRaceRun(customBadgeText = null) {
     day: utcDay(Date.now()),
   });
   SaveStore.save();
-  if (result) renderRunMedal(lvl, result);
-  else {
-    document.getElementById('endMedalText').textContent = `📅 DAILY CHALLENGE · ${GameState.daily.modifier.name}`;
-    document.getElementById('endUnlockText').classList.add('hidden');
-  }
-  announceNewCars(newCars);
+  const newCarNames = carNamesFor(newCars);
   if (currentRun) {
     currentRun.score = scoreSheet.final;
     currentRun.earned = scoreSheet.earned;
@@ -4086,25 +3923,10 @@ function endRaceRun(customBadgeText = null) {
     // A ghost only makes sense for a finished three-lap race on a campaign track.
     currentRun.trace = currentRun.mode === 'ARCADE' && GameState.finishTime != null ? ghostRecorder.encode() : undefined;
   }
-  // The ghost verdict sits on the results card (the finish ceremony owns the announcer).
   const verdict = ghostRace.verdict(GameState.finishTime);
-  const ghostEl = document.getElementById('endGhostText');
-  if (ghostEl) {
-    const by = verdict && verdict.by != null ? ` BY ${verdict.by.toFixed(1)}s` : '';
-    ghostEl.textContent = !verdict ? '' : verdict.beat
-      ? `👻 YOU BEAT ${ghostRace.initials}'S GHOST${by}!`
-      : `👻 ${ghostRace.initials}'S GHOST WON${by} — RACE IT AGAIN`;
-    ghostEl.classList.toggle('hidden', !verdict);
-  }
-
   renderRaceResults(customBadgeText, lvl);
-  document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
-  renderScoreSheet(scoreSheet);
-  document.getElementById('endWarpsText').textContent = `${ordinal(GameState.racePosition)} • ${GameState.timeWarps} WARPS`;
-  document.getElementById('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
-  document.getElementById('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
-  document.getElementById('gameOverModal').classList.remove('hidden');
-  offerScoreSubmission();
+  const ghostInitials = ghostRace.initials;
+  withResults((ui) => ui.showResults({ lvl, result, newCarNames, verdict, ghostInitials, scoreSheet }));
 }
 
 // Tilt steering lives in src/settings-ui.js (ticket 0050).
@@ -4268,11 +4090,11 @@ function bindAllControls() {
   document.getElementById('btnOpenLeaderboardFromEnd').addEventListener('click', () => {
     openLeaderboard(GameState.daily ? { board: 'daily', mode: 'DAILY' } : { board: 'week', mode: 'ARCADE' });
   });
-  document.getElementById('btnCloseLeaderboard').addEventListener('click', closeLeaderboard);
+  document.getElementById('btnCloseLeaderboard').addEventListener('click', () => withResults((ui) => ui.closeLeaderboard()));
   document.getElementById('btnPlayDaily').addEventListener('click', () => startNewRace({ daily: true }));
   document.querySelectorAll('.board-tab').forEach((b) => b.addEventListener('click', () => {
-    boardView = { board: b.dataset.board, mode: b.dataset.mode, track: Boolean(b.dataset.track) };
-    loadBoard();
+    const view = { board: b.dataset.board, mode: b.dataset.mode, track: Boolean(b.dataset.track) };
+    withResults((ui) => ui.selectBoard(view));
   }));
   document.getElementById('initialsForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -4282,7 +4104,7 @@ function bindAllControls() {
     SaveStore.data.initials = ini;
     SaveStore.save();
     setProfile({ initials: ini });
-    postScore(ini);
+    withResults((ui) => ui.postScore(ini));
   });
   // Typing initials must not steer the car or trigger shortcuts.
   document.getElementById('initialsInput').addEventListener('keydown', (e) => e.stopPropagation());
@@ -4793,6 +4615,7 @@ window.onload = () => {
   };
   initSettings({ announce: triggerAnnouncement });
   setTimeout(loadGfx, 0);
+  setTimeout(() => { loadResultsUi().catch(() => {}); loadMusic().catch(() => {}); }, 0);
   bindRaceStageSkip();
   if (/[?&]track=/.test(location.search)) loadShareUi().catch(() => {});
   watchLayout();
