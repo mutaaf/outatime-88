@@ -151,8 +151,19 @@ test('after one visit the game boots, races in 2D and 3D, plays sounds and shows
   await page.evaluate(() => window.__OT.pause());
   await page.waitForLoadState('networkidle');
   await gotoSettled(page, net.url(`${APP}?debug&view=3d`));
-  await expect.poll(() => page.evaluate(() => window.__OT.view && window.__OT.view().mode), { timeout: 20_000 }).toBe('3d');
-  await expect(page.locator('#gameCanvas3d')).toHaveCount(1, { timeout: 20_000 });
+  // Every 3D file is served from the cache with no network…
+  const view3d = swList().filter((f) => /^assets\/(view|surfaces|post|path)-[\w-]+\.js$/.test(f));
+  expect(view3d.length).toBeGreaterThan(0);
+  expect(await page.evaluate((fs) => Promise.all(fs.map((f) => fetch(`/outatime/${f}`).then((r) => r.ok, () => false))), view3d)).toEqual(view3d.map(() => true));
+  // …and the 3D view comes up wherever the browser has WebGL (headless Firefox on CI has none,
+  // and the game then stays in 2D by design: src/render-mode.js).
+  const gl = await page.evaluate(() => { try { return Boolean(document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl')); } catch { return false; } });
+  if (gl) {
+    await expect.poll(() => page.evaluate(() => window.__OT.view && window.__OT.view().mode), { timeout: 20_000 }).toBe('3d');
+    await expect(page.locator('#gameCanvas3d')).toHaveCount(1, { timeout: 20_000 });
+  } else {
+    console.log(`[${browserName}] no WebGL here: 3D falls back to 2D, its files were checked offline above`);
+  }
 
   // Live friends say plainly they need the internet (no spinner). Last, from a fresh title:
   // in Playwright's Firefox (with its own server switched off) the next navigation after the
