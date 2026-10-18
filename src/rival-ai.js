@@ -151,7 +151,9 @@ export function createAiWorld() {
     bankAt: () => 0, featureAt: () => null, lineAt: () => 0,
     cars: [],       // every car on the road that drives (rivals + the player proxy), any order
     hazards: [],    // traffic, obstacles and props ahead (bodies with worldZ, offset, halfW)
-    player: null,   // the player proxy in `cars`: { worldZ, offset, mph, halfW, isPlayer: true }
+    // You, as the AI sees you (a proxy in `cars`), and the last rival that got past you.
+    player: { id: 'YOU', worldZ: 0, offset: 0, mph: 0, halfW: 0.14, halfL: 105, isPlayer: true, takenDown: false },
+    passedYou: null, passedYouAt: -1e9, nemesisCalled: false,
     loopEntry: loopEntryMph(),
   };
 }
@@ -373,6 +375,7 @@ export function stepRival(r, b, w, lead, dt) {
     b.lastPass = p;
     b.lastPassHow = b.nosOn ? 'NOS' : b.drafting ? 'SLIPSTREAM' : Math.abs(cNow) > 1 ? 'INSIDE LINE' : 'CLEAN PASS';
     b.lastPassAt = w.time;
+    if (p === w.player) { w.passedYou = r; w.passedYouAt = w.time; }
     b.passing = null; b.passTarget = null; b.passTimer = 0;
   }
   return b;
@@ -406,4 +409,64 @@ export function pickNemesis(brains, playerPace = 80) {
   }
   if (best >= 0) { brains[best].nemesis = true; brains[best].tier = -1; }
   return best;
+}
+
+// ---------------------------------------------------------------------------------------
+// Game glue (kept here so the main bundle only carries a few calls into this lazy chunk).
+
+/**
+ * Give every rival in `racers` a brain and pick the nemesis. `cls(r)` is a rival's car class,
+ * `carP(r)` its carParams. Returns the nemesis body (or null).
+ */
+export function setupField(w, racers, { seed = 1, pace = 1, cls, carP }) {
+  w.passedYou = null; w.passedYouAt = -1e9; w.nemesisCalled = false;
+  for (let i = 0; i < racers.length; i++) {
+    const r = racers[i];
+    r.ai = createBrain(driverProfile(cls(r), (seed | 0) + i * 7919), { seed: (seed | 0) ^ (i * 0x9e37), carP: carP(r), pace: r.pace });
+  }
+  const n = pickNemesis(racers.map((r) => r.ai), 80 * pace);
+  for (const r of racers) r.nemesis = r.ai.nemesis;
+  return n >= 0 ? racers[n] : null;
+}
+
+const zeroLine = () => 0;
+let lineRef, lineAt = zeroLine;
+
+/**
+ * Refill the AI's view of the road for this frame (no allocation): the rivals and you (`me`,
+ * a reused proxy), traffic and obstacles as hazards, the race's clean line and the tier.
+ * `road` = { curvatureAt, bankAt, featureAt, line }; `g` the GameState.
+ */
+export function fillWorld(w, field, playerZ, road, g, s2w) {
+  const me = w.player;
+  me.worldZ = playerZ; me.offset = g.playerX; me.mph = g.speed;
+  w.time = g.raceTime;
+  w.speedToWorld = s2w;
+  w.tier = aiTier({ difficulty: g.difficulty, level: g.levelIndex, wave: g.waveTier });
+  w.curvatureAt = road.curvatureAt; w.bankAt = road.bankAt; w.featureAt = road.featureAt;
+  if (lineRef !== road.line) { lineRef = road.line; lineAt = lineRef ? (z) => lineRef.centreAt(z) : zeroLine; }
+  w.lineAt = lineAt;
+  const c = w.cars;
+  c.length = 0;
+  for (let i = 0; i < field.racers.length; i++) c.push(field.racers[i]);
+  c.push(me);
+  const h = w.hazards;
+  h.length = 0;
+  for (let i = 0; i < field.traffic.length; i++) h.push(field.traffic[i]);
+  for (let i = 0; i < field.drawObstacles.length; i++) h.push(field.drawObstacles[i]);
+  return w;
+}
+
+/**
+ * Race-call extras for this frame. `c` is the position callout (or null): when a rival's pass
+ * just dropped you, its sub-line says who and how. Returns the nemesis intro [main, sub] once,
+ * about 7 s in, when nothing else is being called.
+ */
+export function raceCalls(w, field, c) {
+  const by = w.passedYou;
+  if (c && c.kind === 'down' && by && w.time - w.passedYouAt < 3) c.sub = `${by.nemesis ? '😈 ' : ''}${by.short} — ${by.ai.lastPassHow}`;
+  if (w.nemesisCalled || w.time < 7 || c) return null;
+  w.nemesisCalled = true;
+  const n = field.racers.find((r) => r.nemesis);
+  return n ? [`😈 NEMESIS: ${n.short}`, `${n.driver.toUpperCase()} IS GUNNING FOR YOU`] : null;
 }

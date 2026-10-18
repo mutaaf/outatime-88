@@ -145,12 +145,12 @@ const JarvisAI = {
 // --- 10X 6-DOF MULTI-BODY AUTOMOTIVE & RIGID-BODY PHYSICS ENGINE (240Hz SUB-STEPPED) ---
 
 const PROP_POOL_SIZE = 24;
-const zeroLine = () => 0;
 // The AI reads bends in segment `curve` units (what the track pieces are written in).
 const segCurveAt = (z) => curvatureAt(z) * ROAD_CFG.segLength;
 // Rival racing AI (ticket 0151) is a lazy chunk, fetched at boot long before the first grid;
 // until it lands (or if it fails) rivals use the simple pace-and-dodge driver below.
 let RAI = null;
+const aiRoad = { curvatureAt: segCurveAt, bankAt, featureAt, line: null };
 import('./rival-ai.js').then((m) => { RAI = m; LiveTraffic.aiWorld = m.createAiWorld(); }).catch(() => {});
 const LiveTraffic = {
   racers: [],
@@ -218,19 +218,16 @@ const LiveTraffic = {
       body.crew = rc.franchise;
       body.pace = RIVAL_PACES[idx] * pace;
       // A driver (ticket 0151): personality from the car's class, seeded by the race.
-      const spec = CAR_SPECS[rc.id];
-      body.ai = RAI ? RAI.createBrain(RAI.driverProfile(spec ? spec.cls : '', (GameState.lineSeed | 0) + idx * 7919), { seed: (GameState.lineSeed | 0) ^ (idx * 0x9e37), carP: carParams(rc), pace: body.pace }) : null;
+      body.ai = null;
+      body.rc = rc;
       body.progress = GameState.distance + slot.dz / this.speedToWorld();
       body.finishTime = null;
       body.targetOffset = slot.offset;
       return body;
     });
-    // One rival in the field is your nemesis: it hunts you all race.
-    const nem = RAI ? RAI.pickNemesis(this.racers.map((r) => r.ai), 80 * pace) : -1;
-    GameState.nemesisId = nem >= 0 ? this.racers[nem].id : null;
-    for (const r of this.racers) r.nemesis = Boolean(r.ai && r.ai.nemesis);
-    GameState.aiStats = { passes: 0, passedYou: 0, youPassed: 0, nos: 0, mistakes: 0 };
-    this.nemesisCalled = false;
+    // Drivers (src/rival-ai.js); one of them is your nemesis and hunts you all race.
+    const nem = RAI && RAI.setupField(this.aiWorld, this.racers, { seed: GameState.lineSeed, pace, cls: (r) => (CAR_SPECS[r.id] || {}).cls, carP: (r) => carParams(r.rc) });
+    GameState.nemesisId = nem ? nem.id : null;
     this.updateStandings(0, playerZ0, this.speedToWorld());
 
     // ONLY 4 Well-Spaced Highway Traffic Vehicles (Spaced 5,200 Z-units apart!)
@@ -294,34 +291,10 @@ const LiveTraffic = {
   },
   // The world the rival AI sees (ticket 0151), refilled each frame without allocating.
   aiWorld: null,
-  playerProxy: { id: 'YOU', worldZ: 0, offset: 0, mph: 0, halfW: 0.14, halfL: 105, isPlayer: true, takenDown: false },
-  lastPassedYou: null,
-  lastPassedYouAt: -1e9,
-  nemesisCalled: false,
-  aiLine: undefined,
-  aiLineAt: zeroLine,
   fillAiWorld(playerZ, speedToWorld) {
-    const w = this.aiWorld;
-    if (!w) return null;
-    w.time = GameState.raceTime;
-    w.speedToWorld = speedToWorld;
-    w.tier = RAI.aiTier({ difficulty: GameState.difficulty, level: GameState.levelIndex, wave: GameState.waveTier });
-    w.curvatureAt = segCurveAt; w.bankAt = bankAt; w.featureAt = featureAt;
-    const line = track.line;
-    if (this.aiLine !== line) { this.aiLine = line; this.aiLineAt = line ? (zz) => line.centreAt(zz) : zeroLine; }
-    w.lineAt = this.aiLineAt;
-    const pp = this.playerProxy;
-    pp.worldZ = playerZ; pp.offset = GameState.playerX; pp.mph = GameState.speed;
-    w.player = pp;
-    const c = w.cars;
-    c.length = 0;
-    for (let i = 0; i < this.racers.length; i++) c.push(this.racers[i]);
-    c.push(pp);
-    const h = w.hazards;
-    h.length = 0;
-    for (let i = 0; i < this.traffic.length; i++) h.push(this.traffic[i]);
-    for (let i = 0; i < this.drawObstacles.length; i++) h.push(this.drawObstacles[i]);
-    return w;
+    if (!this.aiWorld) return null;
+    aiRoad.line = track.line;
+    return RAI.fillWorld(this.aiWorld, this, playerZ, aiRoad, GameState, speedToWorld);
   },
   fieldEntries: [], // reused every frame: the standings, leader first
   playerEntry: { id: 'YOU', short: 'YOU', progress: 0, finishTime: null, isPlayer: true },
@@ -426,10 +399,6 @@ const LiveTraffic = {
         // Real racing AI (src/rival-ai.js): corners, apexes, passes, drafting, NOS, defending.
         RAI.stepRival(r, r.ai, aw, r.progress - GameState.distance, rawDt);
         r.vz = r.mph * speedToWorld;
-        if (r.ai.lastPass && r.ai.lastPassAt === aw.time) {
-          GameState.aiStats.passes++;
-          if (r.ai.lastPass === this.playerProxy) { GameState.aiStats.passedYou++; this.lastPassedYou = r; this.lastPassedYouAt = GameState.raceTime; }
-        }
         r.prevZ = r.worldZ;
         r.prevOffset = r.offset;
         continue;
@@ -4129,16 +4098,9 @@ function updateRaceCeremony(rawDt) {
     const lap = GameState.raceLength ? lapOf(GameState.distance, GameState.raceLength).lap : 1;
     if (lap > lapNow) { GameState.lapSplits.push(GameState.raceTime - lapStartedAt); lapStartedAt = GameState.raceTime; lapNow = lap; if (touch) touch.controls.haptics.pulse('lap'); }
     const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
-    // Say who got you and how (ticket 0151), when a rival's pass caused the drop.
-    const by = LiveTraffic.lastPassedYou;
-    if (c && c.kind === 'down' && by && by.ai && GameState.raceTime - LiveTraffic.lastPassedYouAt < 3) {
-      c.sub = `${by.nemesis ? '😈 ' : ''}${by.short} — ${by.ai.lastPassHow}`;
-    }
-    if (!LiveTraffic.nemesisCalled && GameState.raceTime > 7 && !c) {
-      const nem = LiveTraffic.racers.find((r) => r.nemesis);
-      LiveTraffic.nemesisCalled = true;
-      if (nem) triggerAnnouncement(`😈 NEMESIS: ${nem.short}`, `${nem.driver.toUpperCase()} IS GUNNING FOR YOU`, 1600, 2);
-    }
+    // Who got you and how, and the nemesis intro (ticket 0151, src/rival-ai.js).
+    const nc = RAI && LiveTraffic.aiWorld && RAI.raceCalls(LiveTraffic.aiWorld, LiveTraffic, c);
+    if (nc) triggerAnnouncement(nc[0], nc[1], 1600, 2);
     if (c) {
       triggerAnnouncement(c.main, c.sub, 1500, c.kind === 'final' ? 3 : 2);
       if (c.kind === 'final') { RC.say('Final lap!'); SoundEngine.playTone(784, 'square', 0.3, 0.14, 1046); }
