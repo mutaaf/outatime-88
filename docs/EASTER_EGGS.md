@@ -42,7 +42,7 @@ Triggers live in `src/scenes/eggs.js` (unit-tested in `tests/unit/eggs.test.js`)
 | 1955 | **A B-movie flying saucer wobbles across the sky** | Final lap | Generic saucer |
 | 1955 | ATOMIC DINER with a boomerang sign, SODA FOUNTAIN, NEW '55 MODELS lot, the BIJOU again | Square | Invented names; the same theatre exists in 2026, seventy years apart |
 
-## Track set pieces (ticket 0123)
+## Track set pieces (ticket 0124)
 
 | Era | Nod | Where | Why it's safe |
 |---|---|---|---|

@@ -3,7 +3,7 @@
 // mutable container that main.js reads as `track.segments`.
 import { ROAD_CFG } from './data.js';
 import { GameState } from './state.js';
-import { SETPIECE, loopLength, makeFeature } from './setpieces.js';
+import { SETPIECE, loopLength, loopEntryMph, makeFeature } from './setpieces.js';
 
 export const track = { segments: [], generatedCount: 0, line: null };
 
@@ -138,9 +138,9 @@ const PIECES = {
   sBends: (d) => { addRoadSection(10, 16, 10, 1.6 * d, 180, 0.32 * d); addRoadSection(10, 16, 10, -1.6 * d, -180, -0.32 * d); },
   hairpin: (d) => { addRoadSection(8, 8, 6, 0, 0, 0); addRoadSection(12, 30, 12, 2.6 * d, 0, 0.55 * d); },
   crest: () => { addRoadSection(10, 10, 12, 0, 900, 0); addRoadSection(12, 10, 10, 0.4, -900, 0.08); },
-  gate: (minMph) => addFeatureRun('BOOSTER', 12, 0, 0, 'BOOSTER', { minMph }),
+  gate: (boostTo) => addFeatureRun('BOOSTER', 12, 0, 0, 'BOOSTER', { boostTo }),
   loop: () => {
-    PIECES.gate(SETPIECE.LOOP.minMph);
+    PIECES.gate(loopEntryMph());
     addFeatureRun('LOOP', Math.round(loopLength() / L()), 0, 0, 'STANDARD', { radius: SETPIECE.LOOP.radius, minMph: SETPIECE.LOOP.minMph });
     addRoadSection(6, 10, 6, 0, 0, 0);
   },
@@ -150,7 +150,7 @@ const PIECES = {
     addRoadSection(6, 10, 6, 0, 0, 0);
   },
   jump: () => {
-    PIECES.gate(60);
+    PIECES.gate(SETPIECE.JUMP.launchMph);
     addRoadSection(2, 4, 2, 0, 160, 0, 'JUMP_RAMP');
     addFeatureRun('GAP', Math.round(SETPIECE.JUMP.gap / L()), 0, 0, 'GAP');
     addRoadSection(4, 10, 6, 0, -160, 0);

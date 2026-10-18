@@ -148,6 +148,7 @@ describe('orange-track layouts (sprint 4)', () => {
         if (f.kind === 'LOOP') {
           expect(Math.abs(f.length - loopLength())).toBeLessThan(ROAD_CFG.segLength);
           expect(f.minMph).toBe(SETPIECE.LOOP.minMph);
+          expect(segs[run[0].index - 1].feature.boostTo).toBeGreaterThan(f.minMph);
         }
       }
     }

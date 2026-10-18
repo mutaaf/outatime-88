@@ -1583,15 +1583,12 @@ function updateGame(rawDt) {
   }
 
   // 3b. Orange-track set pieces (sprint 4, src/setpieces.js): booster gates kick you up to loop
-  //     speed; stalling in a loop or missing a gap costs time, never points.
+  //     speed; missing a gap costs time, never points (loops: handling.js loopStep above).
   const spF = currentSeg ? currentSeg.feature : null;
   const spEv = stepSetPieces(GameState, spF, GameState.trackPos + ROAD_CFG.playerZOffset);
   if (spEv === 'BOOST') {
     SoundEngine.playBoosterHit();
-    if (spF.minMph) triggerAnnouncement('BOOSTER GATE!', `${spF.minMph}+ MPH FOR WHAT'S NEXT`, 900);
-  } else if (spEv === 'LOOP_FAIL') {
-    GameState.speed = Math.min(GameState.speed, 34);
-    triggerAnnouncement('TOO SLOW FOR THE LOOP!', 'HIT THE BOOSTER GATE ON THE GAS', 1400);
+    if (spF.boostTo) triggerAnnouncement('BOOSTER GATE!', `${spF.boostTo} MPH — HOLD IT`, 900);
   } else if (spEv === 'GAP_FALL') {
     GameState.speed = Math.max(28, GameState.speed * 0.6);
     GameState.playerVY = 420; // a scramble across the gap: slow, but you make it
@@ -3026,7 +3023,7 @@ function renderScene() {
     const pc = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
     setPieceArt.drawCutaway(mainCtx, mainCanvas.width, mainCanvas.height, {
       t: progressIn(rollF, GameState.trackPos + ROAD_CFG.playerZOffset), mph: GameState.speed,
-      color: pc.body, eraCfg, failed: Boolean(GameState.loopFailed), reduced: GameState.reducedMotion,
+      color: pc.body, eraCfg, failed: GameState.peeledLoop === rollF, reduced: GameState.reducedMotion,
     });
   }
   mainCtx.restore();

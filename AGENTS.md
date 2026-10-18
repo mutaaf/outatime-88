@@ -264,9 +264,9 @@ green. Car specs feed it through `handlingFor(carParams(car), tyreLevel)`.
 ### Set pieces (sprint 4)
 
 `segment.feature` marks a set piece; `featureAt(z)` reads it. Kinds (numbers in `src/setpieces.js`):
-`BOOSTER` (gate: speed kick up to the next piece's `minMph`), `LOOP` (length 2πR, `minMph`),
+`BOOSTER` (gate: tops speed up to `boostTo`, what the next piece needs), `LOOP` (length 2πR, `minMph` over the top, read by handling.js `loopStep`),
 `CORKSCREW` (`dir`), `GAP` (after a `JUMP_RAMP` segment, no road), `WALLRIDE` (`dir`, banked).
-`stepSetPieces` is the sim (time-only consequences, never points); `viewRoll` is the 2D roll;
+`stepSetPieces` is the track's sim (gates, gaps: time-only, never points; loop physics is handling's); `viewRoll` is the 2D roll;
 `src/setpieces-2d.js` (lazy) draws loops ahead, speed signs and the side-on loop cam;
 `src/render3d/path.js` gives every segment boundary a full frame so 3D loops/corkscrews/banks
 are real geometry. Hazards and traffic stay out of set pieces (`hasSetPieceBetween`). Each

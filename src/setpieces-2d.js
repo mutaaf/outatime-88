@@ -72,8 +72,8 @@ export function drawAhead(ctx, segs, eraCfg) {
       ctx.beginPath(); ctx.arc(cx, cy, R + band * 0.38, Math.PI * 0.62, Math.PI * 2.38); ctx.stroke();
       ctx.beginPath(); ctx.arc(cx, cy, R - band * 0.38, Math.PI * 0.62, Math.PI * 2.38); ctx.stroke();
       if (th.clock) clockFace(ctx, cx, cy - R - band * 0.9, Math.max(3, band * 0.75));
-    } else if (f.kind === 'BOOSTER' && f.minMph) {
-      // A roadside speed sign: the loop/jump ahead needs this much.
+    } else if (f.kind === 'BOOSTER' && f.boostTo) {
+      // A roadside speed sign: the gate tops you up to this for what's next.
       const sx = x + w * 1.32, sh = Math.max(6, w * 0.5);
       ctx.fillStyle = '#1d1d1d';
       ctx.fillRect(sx - 1, y - sh * 1.6, Math.max(1, w * 0.03), sh * 1.6);
@@ -86,7 +86,7 @@ export function drawAhead(ctx, segs, eraCfg) {
         ctx.font = `bold ${Math.round(sh * 0.42)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${f.minMph}+`, sx, y - sh * 1.6);
+        ctx.fillText(`${f.boostTo}`, sx, y - sh * 1.6);
       }
     }
   }

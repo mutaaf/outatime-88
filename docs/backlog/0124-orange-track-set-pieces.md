@@ -1,5 +1,5 @@
 ---
-id: 0123
+id: 0124
 title: Orange-track layouts — real curves, hills, loops, corkscrews, gap jumps and half-pipes
 status: shipped
 priority: P0
@@ -18,8 +18,9 @@ straight."
   hairpins, blind crests, and set pieces, each led in by a booster gate with a speed sign.
   The pieces are vertical loops, corkscrews, gap jumps and wall-ride half-pipes.
   Level 1 is gentle; level 5 is the full playset. The 5-track count is unchanged.
-- `src/setpieces.js`: set-piece numbers and the sim. A booster gate kicks you up to loop speed.
-  Stalling in a loop or missing a gap costs time, never points. All of it is deterministic.
+- `src/setpieces.js`: set-piece numbers and the sim. A booster gate tops you up to the speed
+  the next piece needs (for a loop: what clears the top under handling's loop gravity, on the
+  slowest pace). Missing a gap costs time, never points. All of it is deterministic.
 - 3D (`src/render3d/path.js`): the road carries a full frame (forward/up/right). Loops are real
   vertical circles that exit beside their entry. Corkscrews roll a full turn on a helix,
   half-pipes and banks tilt the road, and the car and chase cam follow the road's up (calm mode
@@ -33,7 +34,7 @@ straight."
 - [x] every level has real curves (|curve| ≥ 1.5), hills and its set pieces within a lap of biomes
 - [x] each loop, corkscrew and half-pipe is led in by a booster gate; each gap follows a ramp
 - [x] 3D frames stay orthonormal; a loop is upside down at its top and exits beside its entry
-- [x] stalling in a loop or missing a gap costs time, never points; the set-piece sim is deterministic
+- [x] a gate's speed clears every loop under the real loop physics (0123) on every pace; missing a gap costs time, never points; deterministic
 - [x] 2D and 3D drive through a loop, corkscrew, half-pipe and gap with no console errors
 - [x] works at 390x844 touch and 1280x720, plus 844x390, 820x1180 and 1180x820
 
@@ -45,4 +46,4 @@ e2e: `tests/e2e/setpieces.spec.js` (drive-throughs in 2D/3D, screenshots at five
 frame-time probe through curves).
 
 ## Out of scope
-Car physics in loops beyond the minimum-speed rule (handling owns it); new tracks (still 5).
+Car physics in loops (handling owns it: 0123 loop physics); new tracks (still 5).

@@ -1,31 +1,41 @@
 // Orange-track set pieces (sprint 4): the track's guarantees, deterministic.
 import { describe, it, expect } from 'vitest';
-import { stepSetPieces, viewRoll, progressIn, makeFeature, loopLength, SETPIECE } from '../../src/setpieces.js';
+import { stepSetPieces, viewRoll, progressIn, makeFeature, loopLength, loopEntryMph, SETPIECE } from '../../src/setpieces.js';
+import { loopStep } from '../../src/handling.js';
 
 const car = (o = {}) => ({ speed: 60, playerY: 0, setPieceId: 0, ...o });
 
 describe('set pieces', () => {
-  it('a booster gate kicks you up to loop speed, once', () => {
-    const gate = makeFeature('BOOSTER', 1000, 2400, { minMph: SETPIECE.LOOP.minMph });
+  it('a booster gate tops you up to its speed, once, and never slows you down', () => {
+    const gate = makeFeature('BOOSTER', 1000, 2400, { boostTo: 74 });
     const s = car({ speed: 40 });
     expect(stepSetPieces(s, gate, 1100)).toBe('BOOST');
-    expect(s.speed).toBeGreaterThanOrEqual(40 + SETPIECE.BOOSTER.kickMph);
-    const after = s.speed;
+    expect(s.speed).toBe(74);
+    s.speed = 70;
     expect(stepSetPieces(s, gate, 1300)).toBeNull();
-    expect(s.speed).toBe(after);
+    expect(s.speed).toBe(70);
     const fast = car({ speed: 120 });
     stepSetPieces(fast, gate, 1100);
-    expect(fast.speed).toBe(120); // never slows you down
+    expect(fast.speed).toBe(120);
   });
 
-  it('entering a loop too slow drops you off the top (once); fast enough goes round', () => {
-    const loop = makeFeature('LOOP', 0, loopLength(), { minMph: 55 });
-    const slow = car({ speed: 40 });
-    const events = [];
-    for (let z = 0; z <= loop.length; z += 200) events.push(stepSetPieces(slow, loop, z));
-    expect(events.filter((e) => e === 'LOOP_FAIL').length).toBe(1);
-    const fast = car({ speed: 80 });
-    for (let z = 0; z <= loop.length; z += 200) expect(stepSetPieces(fast, loop, z)).toBeNull();
+  it("a gate's speed clears the loop over the top under the real loop physics, even on the slowest pace", () => {
+    const loop = makeFeature('LOOP', 0, Math.round(loopLength() / 200) * 200, { minMph: SETPIECE.LOOP.minMph });
+    for (const k of [40, 57.5, 81.25]) { // SMOOTH, ARCADE, TURBO: sim Z per mph·s
+      let v = loopEntryMph(), z = 0, peeled = false;
+      const dt = 1 / 120;
+      while (z < loop.length) {
+        const r = loopStep(v, loop, z / loop.length, dt);
+        if (r.peel) { peeled = true; break; }
+        v += r.dv;
+        z += v * k * dt;
+      }
+      expect(peeled, `pace ${k}`).toBe(false);
+    }
+    // …and 10 mph less would not, on the slowest pace: the gate is doing real work.
+    let v = loopEntryMph() - 12, z = 0, peeled = false;
+    while (z < loop.length && !peeled) { const r = loopStep(v, loop, z / loop.length, 1 / 120); peeled = r.peel; v += r.dv; z += v * 40 / 120; }
+    expect(peeled).toBe(true);
   });
 
   it('touching down in a gap is a (time-only) fall; flying over it is not', () => {
@@ -47,7 +57,7 @@ describe('set pieces', () => {
 
   it('is deterministic: the same inputs give the same run, every time', () => {
     const run = () => {
-      const fs = [makeFeature('BOOSTER', 0, 2400, { minMph: 55 }), makeFeature('LOOP', 2400, loopLength(), { minMph: 55 }), makeFeature('GAP', 12000, 1000)];
+      const fs = [makeFeature('BOOSTER', 0, 2400, { boostTo: 74 }), makeFeature('LOOP', 2400, loopLength(), { minMph: 40 }), makeFeature('GAP', 12000, 1000)];
       const s = car({ speed: 44 });
       const log = [];
       for (let z = 0; z < 14000; z += 120) {

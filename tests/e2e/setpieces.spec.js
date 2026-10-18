@@ -34,7 +34,7 @@ async function driveThrough(page, f) {
     const t0 = performance.now();
     (function tick() {
       if (g.setPieceId === f.id) entered = true;
-      if (g.loopFailed) failed = true;
+      if (g.peeledLoop && g.peeledLoop.z0 === f.z0) failed = true;
       maxMph = Math.max(maxMph, g.speed);
       if (g.trackPos + 1250 > f.z0 + f.length + 300 || performance.now() - t0 > 25000) resolve({ entered, failed, maxMph, past: g.trackPos + 1250 > f.z0 + f.length });
       else requestAnimationFrame(tick);

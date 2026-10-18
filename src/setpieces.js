@@ -5,14 +5,41 @@
 // from the same objects. Nothing here costs points: a set piece only ever costs time.
 
 export const SETPIECE = {
-  LOOP: { radius: 1500, minMph: 55 },      // length = 2πR of track Z
+  // A loop: length 2πR of track Z. `minMph` is the speed needed over the top; the handling
+  // physics (src/handling.js loopStep) applies gravity round the loop and peels you off below it.
+  LOOP: { radius: 1500, minMph: 40 },
   CORKSCREW: { length: 7200 },             // one full roll while the road turns
-  JUMP: { gap: 1000 },                      // the hole after the ramp (sim Z)
+  JUMP: { gap: 1000, launchMph: 60 },      // the hole after the ramp; the ramp launches above 52
   WALLRIDE: { length: 9600, bank: 0.9 },   // a banked half-pipe bend
-  BOOSTER: { length: 2400, kickMph: 14 },  // a booster gate: speed kick up to loop speed
+  BOOSTER: { length: 2400 },               // a booster gate: tops you up to its `boostTo` speed
 };
 
 export const loopLength = (radius = SETPIECE.LOOP.radius) => Math.round(2 * Math.PI * radius);
+
+/**
+ * Entry speed that still clears the top of a loop at the slowest pace (40 sim Z per mph·s on
+ * SMOOTH), under the handling physics' gravity round the loop (30 mph/s · sin 2πt, top window
+ * t 0.38–0.62; src/handling.js loopStep). Found by stepping it, plus a small margin. Memoized.
+ */
+const entryMemo = new Map();
+export function loopEntryMph(minTop = SETPIECE.LOOP.minMph, length = loopLength(), k = 40, gravity = 30) {
+  const key = `${minTop}|${length}|${k}|${gravity}`;
+  if (entryMemo.has(key)) return entryMemo.get(key);
+  const dt = 1 / 120;
+  let entry = minTop;
+  for (; entry < 200; entry++) {
+    let v = entry, z = 0, ok = true;
+    while (z < length) {
+      const t = z / length;
+      if (v < 1 || (t >= 0.38 && t <= 0.62 && v < minTop)) { ok = false; break; }
+      v -= gravity * Math.sin(2 * Math.PI * t) * dt;
+      z += v * k * dt;
+    }
+    if (ok) break;
+  }
+  entryMemo.set(key, entry + 3);
+  return entry + 3;
+}
 
 /** Progress (0..1) through feature `f` at track Z `z`. */
 export function progressIn(f, z) {
@@ -23,37 +50,21 @@ export function progressIn(f, z) {
 /**
  * Per-frame set-piece simulation for the player. `s` is GameState-shaped; `f` the feature
  * under the car (or null); `z` the car's track Z. Returns an event string the caller can
- * announce ('BOOST' | 'LOOP_FAIL' | 'GAP_FALL' | null). Deterministic: no randomness.
+ * announce ('BOOST' | 'GAP_FALL' | null). Deterministic: no randomness.
  *
- * The handling physics (car model, NOS) may layer on top of this; these are the track's
- * guarantees: a booster gate always gets you to loop speed, and missing a jump or stalling in a
- * loop costs time, never points.
+ * Loops themselves are the handling physics' job (gravity, peeling off when too slow); the
+ * track's guarantees are here: a booster gate always tops you up to what the next piece
+ * needs, and missing a gap costs time, never points.
  */
 export function stepSetPieces(s, f, z) {
   if (!f) { s.setPieceId = 0; return null; }
-  const t = progressIn(f, z);
   const first = s.setPieceId !== f.id;
   s.setPieceId = f.id;
-  if (f.kind === 'BOOSTER') {
-    if (first) {
-      s.speed = Math.max(s.speed, Math.min((f.minMph || 0) + 12, s.speed + SETPIECE.BOOSTER.kickMph));
-      return 'BOOST';
-    }
-    return null;
+  if (f.kind === 'BOOSTER' && first) {
+    s.speed = Math.max(s.speed, f.boostTo || 0);
+    return 'BOOST';
   }
-  if (f.kind === 'LOOP') {
-    if (first) s.loopEntryMph = s.speed;
-    // Too slow over the top: you drop off the track and rejoin at the exit. Time, not points.
-    if (t > 0.45 && !s.loopFailed && (s.loopEntryMph || 0) < f.minMph) {
-      s.loopFailed = true;
-      return 'LOOP_FAIL';
-    }
-    if (first) s.loopFailed = false;
-    return null;
-  }
-  if (f.kind === 'GAP') {
-    if ((s.playerY || 0) <= 1 && t > 0.05) return 'GAP_FALL';
-  }
+  if (f.kind === 'GAP' && (s.playerY || 0) <= 1 && progressIn(f, z) > 0.05) return 'GAP_FALL';
   return null;
 }
 
