@@ -23,7 +23,8 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, applyRunResult } from './progress.js';
-import { setTrackIntensity } from './track.js';
+import { setTrackIntensity, addItem } from './track.js';
+import { createStorm, stepStorm, stormRespite, runnerMult, canContinue, continueCost, CONTINUE } from './runner.js';
 import { difficultyOf, endlessTuning, recordEndless, ENDLESS } from './endless.js';
 import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt } from './track.js';
 import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
@@ -751,6 +752,7 @@ function triggerAnnouncement(mainText, subText = '', duration = 950, priority) {
 // Run missions (ticket 0026): the run's three contracts; a completion pays out and goes
 // through the announcer (no HUD row). The results card lists all three.
 function advanceContractProgress(type, amount) {
+  if (type === 'NEAR_MISS') runStats.nearMisses += amount; // endless goals (ticket 0151)
   const m = advanceMission(GameState.missions, type, amount);
   if (!m) return;
   SaveStore.data.fluxCoins += m.reward;
@@ -801,6 +803,7 @@ function applyPlayerDamage(rawDmg, reasonText) {
   // Durability rating (ticket 0071) decides how much a hit costs.
   const finalDmg = Math.round(Math.max(6, rawDmg * activeCarParams().damageMult) * dmgScale);
   GameState.hp = Math.max(0, GameState.hp - finalDmg);
+  stormCrash = true; // the Time Storm gains on every crash (ticket 0151)
   GameState.invulnTimer = 1.1; // 1.1s invulnerability frames
   SoundEngine.playCrash();
   // Crash spectacle: a beat of slow-mo, a spark shower and a jolt (ticket 0009).
@@ -810,7 +813,7 @@ function applyPlayerDamage(rawDmg, reasonText) {
 
   if (GameState.hp <= 0) {
     if (GameState.mode === 'LIVE') live.wrecked(); // live races never end early: you respawn
-    else if (GameState.mode === 'INFINITE') endRaceRun(`💥 WRECKED — RUN OVER AT TIER ${GameState.tier}`);
+    else if (GameState.mode === 'INFINITE') endOrContinue(`💥 WRECKED — RUN OVER AT TIER ${GameState.tier}`);
     else patchUpWreck(); // a race with a finish line: limp on, the lost time is the cost
   }
 }
@@ -851,6 +854,119 @@ function updateDifficulty() {
   GameState.coinMult = tune.coinMult;
   if (up) levelUpEndless();
   return true;
+}
+
+// Endless runner loop (ticket 0151, src/runner.js): the Time Storm behind you, three run goals
+// that raise a permanent points multiplier, a "YOUR BEST" gate on the road, one coins-only
+// continue. Endless solo runs only.
+const storm = createStorm();
+const runStats = { coins: 0, driftSecs: 0, loops: 0, cleanBest: 0, cleanCur: 0, tier: 1, nearMisses: 0, nosSecs: 0 };
+let stormCrash = false, goalClock = 0, lastLoopF = null, lastDist = 0, bestGateSeg = -1, passedBest = false, runnerShown = '';
+// Goals and the continue offer live in the lazy runner UI chunk (fetched at boot, idle).
+let runnerUi = null, runnerMod = null;
+const loadRunnerUi = () => (runnerUi = runnerUi || import('./runner-ui.js').then((m) => (runnerMod = m)));
+const goalLevel = () => (SaveStore.data.endless && SaveStore.data.endless.goals ? SaveStore.data.endless.goals.level | 0 : 0);
+
+function resetRunner() {
+  Object.assign(storm, createStorm());
+  for (const k of Object.keys(runStats)) runStats[k] = 0;
+  runStats.tier = 1;
+  stormCrash = false; goalClock = 0; lastLoopF = null; lastDist = 0; passedBest = false;
+  GameState.continued = false;
+  GameState.stormGap = storm.gap; GameState.stormWarn = 0;
+  const endless = GameState.mode === 'INFINITE' && !GameState.daily;
+  GameState.runMult = endless ? runnerMult(goalLevel()) : 1;
+  // Your best run as a gate on the road: distance → track Z is fixed for the run's pace.
+  const best = endless && SaveStore.data.endless ? SaveStore.data.endless.bestDistance | 0 : 0;
+  const zPer = 11000 / 88 * (PACE_MODES[GameState.paceMode] || PACE_MODES[0]).mult;
+  bestGateSeg = best > 600 ? Math.floor((best * zPer + ROAD_CFG.playerZOffset) / ROAD_CFG.segLength) : -1;
+  syncRunnerUi(true);
+}
+
+function stepRunner(rawDt) {
+  if (GameState.mode !== 'INFINITE' || GameState.daily || GameState.racePhase !== 'RACING' || GameState.status !== 'PLAYING') return;
+  runStats.tier = GameState.tier;
+  const moved = GameState.distance - lastDist;
+  lastDist = GameState.distance;
+  if (GameState.wallGrind) runStats.cleanCur = 0;
+  else if (moved > 0) { runStats.cleanCur += moved; if (runStats.cleanCur > runStats.cleanBest) runStats.cleanBest = runStats.cleanCur; }
+  const f = featureAt(GameState.trackPos + ROAD_CFG.playerZOffset);
+  if (lastLoopF && f !== lastLoopF && GameState.peeledLoop !== lastLoopF) runStats.loops++;
+  lastLoopF = f && f.kind === 'LOOP' ? f : null;
+  if (bestGateSeg > 0 && track.end > bestGateSeg) {
+    const seg = track.seg(bestGateSeg);
+    if (seg) addItem(seg, 0, 'BEST_GATE');
+    bestGateSeg = -1;
+  }
+  const best = SaveStore.data.endless ? SaveStore.data.endless.bestDistance : 0;
+  if (!passedBest && best > 600 && GameState.distance > best) {
+    passedBest = true;
+    triggerAnnouncement('🏁 NEW BEST!', `PAST YOUR ${Math.round(best).toLocaleString()} m — KEEP GOING!`, 1800, 3);
+    if (touch) touch.controls.haptics.pulse('lap');
+  }
+  const caught = stepStorm(storm, GameState.speed, GameState.difficulty, rawDt, GameState.wallGrind, stormCrash);
+  stormCrash = false;
+  GameState.stormGap = storm.gap;
+  GameState.stormWarn = storm.warn;
+  if (caught) { endOrContinue('⛈️ CAUGHT BY THE TIME STORM!'); return; }
+  goalClock += rawDt;
+  if (goalClock < 0.25 || !runnerMod) return;
+  goalClock = 0;
+  const fresh = runnerMod.checkRun(SaveStore.data, runStats);
+  if (fresh.length) {
+    SaveStore.save();
+    SoundEngine.playCheckpoint();
+    if (fresh.levelUp) {
+      GameState.runMult = runnerMult(fresh.levelUp);
+      triggerAnnouncement(`⭐ ENDLESS LEVEL ${fresh.levelUp + 1}!`, `ALL 3 GOALS DONE · ×${GameState.runMult.toFixed(1)} POINTS FOREVER`, 2200, 3);
+    } else triggerAnnouncement('🎯 GOAL DONE!', runnerMod.goalLabel(fresh[0]), 1500);
+  }
+  syncRunnerUi(false);
+}
+
+/** Storm glow + meter (DOM writes only on change) and the goal lists (lazy chunk). */
+function syncRunnerUi(force) {
+  const endless = GameState.mode === 'INFINITE' && !GameState.daily && GameState.status !== 'TITLE';
+  const warn = endless ? Math.round((GameState.stormWarn || 0) * 20) / 20 : 0;
+  const key = `${warn}|${warn > 0 ? Math.max(0, Math.round(GameState.stormGap)) : ''}`;
+  if (force || key !== runnerShown) {
+    runnerShown = key;
+    const glow = document.getElementById('stormGlow');
+    if (glow) { glow.style.opacity = String(warn * 0.9); glow.classList.toggle('is-close', warn > 0.6); }
+    const chip = document.getElementById('hudStorm');
+    if (chip) {
+      chip.classList.toggle('hidden', warn <= 0);
+      if (warn > 0) document.getElementById('hudStormGap').textContent = String(Math.max(0, Math.round(GameState.stormGap)));
+    }
+  }
+  if (force || goalClock === 0) loadRunnerUi().then((ui) => ui.renderGoals(SaveStore.data, runStats, GameState.mode === 'INFINITE' && !GameState.daily)).catch(() => {});
+}
+
+/** HP 0 or caught in an endless run: offer the one continue if it's affordable, else end. */
+function endOrContinue(reason) {
+  if (GameState.mode !== 'INFINITE' || GameState.daily || !canContinue(GameState.continued, SaveStore.data.fluxCoins, GameState.tier)) { endRaceRun(reason); return; }
+  GameState.status = 'CONTINUE';
+  const cost = continueCost(GameState.tier);
+  loadRunnerUi().then((ui) => ui.offerContinue({
+    cost, coins: SaveStore.data.fluxCoins, secs: CONTINUE.offerSecs, reason,
+    onYes: () => continueRun(cost),
+    onNo: () => endRaceRun(reason),
+  })).catch(() => endRaceRun(reason));
+}
+
+function continueRun(cost) {
+  if (GameState.status !== 'CONTINUE') return;
+  SaveStore.data.fluxCoins = Math.max(0, SaveStore.data.fluxCoins - cost);
+  SaveStore.save();
+  GameState.continued = true;
+  GameState.hp = Math.max(GameState.hp, Math.round(GameState.maxHp * CONTINUE.hpFrac));
+  GameState.invulnTimer = CONTINUE.invuln;
+  GameState.speed = Math.max(GameState.speed, 45);
+  stormRespite(storm);
+  GameState.stormGap = storm.gap; GameState.stormWarn = 0;
+  GameState.status = 'PLAYING';
+  triggerAnnouncement('🔧 BACK IN THE RACE!', `−${cost} ⚡ · ${CONTINUE.invuln}s SHIELD · STORM PUSHED BACK`, 1800, 3);
+  syncRunnerUi(true);
 }
 
 function levelUpEndless() {
@@ -969,7 +1085,7 @@ function applyPickup(item, def) {
   if (def.flux) GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains[def.flux]);
   // Endless tiers multiply coin cash (ticket 0150); points are unchanged (the server re-checks them).
   const cash = def.coins ? Math.round(def.coins * (GameState.coinMult || 1)) : 0;
-  if (cash) { GameState.runCoins += cash; SaveStore.data.fluxCoins += cash; }
+  if (cash) { GameState.runCoins += cash; SaveStore.data.fluxCoins += cash; runStats.coins++; }
   const healed = def.heal ? Math.round(healPlayerHp(def.heal)) : 0;
   if (def.nos) { addNos(nos, def.nos); GameState.nosFill = nosFill(nos); }
   const pts = def.pts * GameState.combo;
@@ -1353,7 +1469,7 @@ function updateGame(rawDt) {
   const wasBurning = nos.burning;
   const burning = stepNos(nos, nosHeld && GameState.speed > 10, rawDt, { drifting: GameState.isDrifting, airborne: GameState.playerY > 10, penalised: penaltyThisStep });
   penaltyThisStep = false;
-  if (burning) GameState.speed = nosSpeed(GameState.speed, rawDt, baseMaxMph, warpMaxMph + 8);
+  if (burning) { GameState.speed = nosSpeed(GameState.speed, rawDt, baseMaxMph, warpMaxMph + 8); runStats.nosSecs += rawDt; }
   if (burning && !wasBurning) {
     SoundEngine.playBoosterHit();
     if (touch) touch.controls.haptics.pulse('boost');
@@ -1440,7 +1556,7 @@ function updateGame(rawDt) {
   GameState.distance += GameState.speed * dt;
   GameState.raceTime += rawDt;
   ghostRecorder.sample(GameState.raceTime, GameState.distance, GameState.playerX); // ticket 0092
-  GameState.score += Math.floor(GameState.speed * dt * 2.2 * GameState.combo);
+  GameState.score += Math.floor(GameState.speed * dt * 2.2 * GameState.combo * (GameState.runMult || 1)); // ×Endless level (0151)
   // The finish line (ticket 0051): three laps of the level's race length.
   if (GameState.raceLength && GameState.finishTime == null && GameState.distance >= GameState.raceLength) {
     GameState.finishTime = crossingTime(GameState.raceTime, rawDt, distBefore, GameState.distance, GameState.raceLength);
@@ -1549,6 +1665,7 @@ function updateGame(rawDt) {
   if (wantsDrift) {
     GameState.isDrifting = true;
     GameState.driftChargeTime += rawDt * (1 + (upg.tires - 1) * 0.18);
+    runStats.driftSecs += rawDt;
 
     const ptsAdded = Math.floor(680 * rawDt * GameState.combo);
     GameState.currentDriftScore += ptsAdded;
@@ -2013,6 +2130,7 @@ function updateGame(rawDt) {
       endRaceRun('⏱️ TIME UP!');
     }
   }
+  stepRunner(rawDt);
   if (GameState.mode === 'LIVE') live.update();
   if (GameState.racePhase === 'RACING' && GameState.status === 'PLAYING' && GameState.finishTime != null) finishRace();
   if (GameState.racePhase === 'FINISHED') GameState.score = finishScore; // the line is the line
@@ -2548,6 +2666,19 @@ function renderScene() {
         ctx.beginPath();
         ctx.arc(itemX, roadY - 4, Math.max(3, itemW * 0.35), 0, Math.PI * 2);
         ctx.fill();
+      } else if (item.type === 'BEST_GATE') {
+        // Your best Endless run (ticket 0151): a cyan arch with YOUR BEST across it.
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = Math.max(3, roadW * 0.06);
+        ctx.beginPath();
+        ctx.arc(roadX, roadY, roadW * 1.08, Math.PI, 0);
+        ctx.stroke();
+        if (roadW > 24) {
+          ctx.fillStyle = '#22d3ee';
+          ctx.font = `900 ${Math.round(roadW * 0.2)}px Orbitron, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText('YOUR BEST', roadX, roadY - roadW * 0.86);
+        }
       } else if (item.type === 'OVERHEAD_GATE') {
         ctx.strokeStyle = seg.trackType === 'BOOSTER' ? '#fde047' : '#ff8800';
         ctx.lineWidth = Math.max(2, roadW * 0.045);
@@ -3753,6 +3884,7 @@ function startNewRace(opts) {
   if (branchBadge) branchBadge.textContent = lvl.name;
 
   initTrack();
+  resetRunner();
   if (liveRace) {
     // Your rivals are the room (friends + CPU cars from src/live/), not local AI.
     LiveTraffic.racers = [];
@@ -3796,7 +3928,7 @@ function startNewRace(opts) {
 
   // Lineup + lights (ticket 0052). ?debug skips them unless asked (?debug&intro or
   // startRace({ intro: true })) so tests can race at once.
-  const ceremony = !DEBUG_MODE || (opts && opts.intro) || new URLSearchParams(location.search).has('intro');
+  const ceremony = !(opts && opts.quick) && (!DEBUG_MODE || (opts && opts.intro) || new URLSearchParams(location.search).has('intro'));
   if (ceremony && !RC) { // tapped PLAY before the ceremony chunk arrived: hold on the grid for it
     GameState.racePhase = 'START';
     GameState.speed = 0;
@@ -4021,6 +4153,7 @@ function endRaceRun(customBadgeText = null) {
     const rec = recordEndless(SaveStore.data, GameState.distance, GameState.tier);
     GameState.endlessResult = { distance: Math.round(GameState.distance), tier: GameState.tier, best: rec.best, bestTier: rec.bestTier, isBest: rec.isBest };
   } else GameState.endlessResult = null;
+  GameState.stormWarn = 0;
   SaveStore.data.onboarded = true;
   setSteerHint(false);
   // Daily runs count for the daily board, not the campaign ladder (their rules differ).
@@ -4048,6 +4181,7 @@ function endRaceRun(customBadgeText = null) {
     // A ghost only makes sense for a finished three-lap race on a campaign track.
     currentRun.trace = currentRun.mode === 'ARCADE' && GameState.finishTime != null ? ghostRecorder.encode() : undefined;
   }
+  syncRunnerUi(true); // the results' goal list and the title line (ticket 0151)
   const verdict = ghostRace.verdict(GameState.finishTime);
   renderRaceResults(customBadgeText, lvl);
   const ghostInitials = ghostRace.initials;
@@ -4324,7 +4458,9 @@ function bindAllControls() {
   // PLAY is Endless Highway (ticket 0150); a deep link (daily, ?level=) can point it elsewhere.
   document.getElementById('btnStartRace').addEventListener('click', () => startNewRace(titleStart || { mode: 'INFINITE' }));
   document.getElementById('btnOpenLive').addEventListener('click', () => loadLive().then((l) => l.openMenu()));
-  document.getElementById('btnPlayAgain').addEventListener('click', () => startNewRace(GameState.daily ? { daily: true } : undefined));
+  // One more run (ticket 0151): an Endless retry skips the lineup and lights — driving in < 2 s.
+  document.getElementById('btnPlayAgain').addEventListener('click', () => startNewRace(GameState.daily ? { daily: true }
+    : GameState.mode === 'INFINITE' ? { mode: 'INFINITE', quick: true } : undefined));
   document.getElementById('btnNextRace').addEventListener('click', (e) => {
     const idx = Number(e.currentTarget.dataset.level);
     if (!Number.isInteger(idx) || !WORLD_LEVELS[idx]) return;
@@ -4745,6 +4881,7 @@ window.onload = () => {
     pickupArt: () => pickupArt && pickupArt.stats,
     damage: (n, why = 'BARREL HIT') => applyPlayerDamage(n, why),
     heal: healPlayerHp,
+    runner: () => ({ storm, stats: runStats, goals: runnerMod ? runnerMod.goalsOf(SaveStore.data) : null }),
   };
   initSettings({ announce: triggerAnnouncement });
   // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.
@@ -4771,6 +4908,7 @@ window.onload = () => {
   const savedCar = POP_CULTURE_ROSTER.findIndex((c) => c.id === SaveStore.data.garage.selected);
   if (!selectCharacterByIndex(Math.max(0, savedCar))) selectCharacterByIndex(0);
   renderLevelSelectGrid();
+  setTimeout(() => syncRunnerUi(true), 0); // endless goals on the title (ticket 0151)
   document.getElementById('titleBestScore').textContent = SaveStore.data.bestScore.toLocaleString();
   document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
   const playHint = document.getElementById('playHint');
