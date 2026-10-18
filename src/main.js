@@ -26,7 +26,7 @@ import { LEVEL_MEDALS, applyRunResult } from './progress.js';
 import { setTrackIntensity, addItem } from './track.js';
 import { createStorm, stepStorm, stormRespite, runnerMult, canContinue, continueCost, CONTINUE } from './runner.js';
 import { difficultyOf, endlessTuning, recordEndless, ENDLESS } from './endless.js';
-import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt } from './track.js';
+import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt, curvatureAt, bankAt } from './track.js';
 import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
 let pickupArt = null; // src/pickup-art.js, lazy: crisp cached pickup icons (simple shapes until it lands)
 setTimeout(() => { import('./pickup-art.js').then((m) => { pickupArt = m; }, () => {}); }, 0);
@@ -145,6 +145,13 @@ const JarvisAI = {
 // --- 10X 6-DOF MULTI-BODY AUTOMOTIVE & RIGID-BODY PHYSICS ENGINE (240Hz SUB-STEPPED) ---
 
 const PROP_POOL_SIZE = 24;
+// The AI reads bends in segment `curve` units (what the track pieces are written in).
+const segCurveAt = (z) => curvatureAt(z) * ROAD_CFG.segLength;
+// Rival racing AI (ticket 0160) is a lazy chunk, fetched at boot long before the first grid;
+// until it lands (or if it fails) rivals use the simple pace-and-dodge driver below.
+let RAI = null;
+const aiRoad = { curvatureAt: segCurveAt, bankAt, featureAt, line: null };
+import('./rival-ai.js').then((m) => { RAI = m; LiveTraffic.aiWorld = m.createAiWorld(); }).catch(() => {});
 const LiveTraffic = {
   racers: [],
   traffic: [],
@@ -210,11 +217,17 @@ const LiveTraffic = {
       body.accent = rc.cabin;
       body.crew = rc.franchise;
       body.pace = RIVAL_PACES[idx] * pace;
+      // A driver (ticket 0160): personality from the car's class, seeded by the race.
+      body.ai = null;
+      body.rc = rc;
       body.progress = GameState.distance + slot.dz / this.speedToWorld();
       body.finishTime = null;
       body.targetOffset = slot.offset;
       return body;
     });
+    // Drivers (src/rival-ai.js); one of them is your nemesis and hunts you all race.
+    const nem = RAI && RAI.setupField(this.aiWorld, this.racers, { seed: GameState.lineSeed, pace, cls: (r) => (CAR_SPECS[r.id] || {}).cls, carP: (r) => carParams(r.rc) });
+    GameState.nemesisId = nem ? nem.id : null;
     this.updateStandings(0, playerZ0, this.speedToWorld());
 
     // ONLY 4 Well-Spaced Highway Traffic Vehicles (Spaced 5,200 Z-units apart!)
@@ -275,6 +288,13 @@ const LiveTraffic = {
     sortStandings(field);
     GameState.racePosition = field.indexOf(this.playerEntry) + 1;
     GameState.totalRacers = field.length;
+  },
+  // The world the rival AI sees (ticket 0160), refilled each frame without allocating.
+  aiWorld: null,
+  fillAiWorld(playerZ, speedToWorld) {
+    if (!this.aiWorld) return null;
+    aiRoad.line = track.line;
+    return RAI.fillWorld(this.aiWorld, this, playerZ, aiRoad, GameState, speedToWorld);
   },
   fieldEntries: [], // reused every frame: the standings, leader first
   playerEntry: { id: 'YOU', short: 'YOU', progress: 0, finishTime: null, isPlayer: true },
@@ -341,7 +361,9 @@ const LiveTraffic = {
 
   update(dt, rawDt, paceMult) {
     const playerZ = GameState.visualPlayerZ || (GameState.trackPos + ROAD_CFG.playerZOffset);
-    const prevPZ = this.prevPlayerZ || playerZ;
+    // A jump of the player's Z far beyond one step's travel (a respawn, a warp, a debug move)
+    // is a teleport, not motion: don't sweep it through every car in between.
+    const prevPZ = this.prevPlayerZ && Math.abs(playerZ - this.prevPlayerZ) < 2500 ? this.prevPlayerZ : playerZ;
     this.prevPlayerZ = playerZ;
     const minPZ = Math.min(prevPZ, playerZ);
     const maxPZ = Math.max(prevPZ, playerZ);
@@ -357,6 +379,7 @@ const LiveTraffic = {
     const playerBotY = GameState.playerY;
 
     // 1. Update AI Steering & Target Velocities for Rivals & Traffic
+    const aw = this.fillAiWorld(playerZ, speedToWorld);
     for (let i = 0; i < this.racers.length; i++) {
       const r = this.racers[i];
       if (r.takenDown) {
@@ -372,15 +395,20 @@ const LiveTraffic = {
         continue;
       }
 
-      // Race pace with a soft rubber band (src/raceflow.js); finished rivals cruise.
+      if (r.ai && aw) {
+        // Real racing AI (src/rival-ai.js): corners, apexes, passes, drafting, NOS, defending.
+        RAI.stepRival(r, r.ai, aw, r.progress - GameState.distance, rawDt);
+        r.vz = r.mph * speedToWorld;
+        r.prevZ = r.worldZ;
+        r.prevOffset = r.offset;
+        continue;
+      }
+      // Fallback driver: race pace with a soft rubber band (src/raceflow.js); finished rivals cruise.
       const lead = r.progress - GameState.distance;
       const targetMph = r.finishTime != null ? 60 : rivalTargetMph(r.pace, lead);
-      r.nosActive = targetMph > r.pace + 5 || (Math.sin(fxClock * 2.5 + i * 2) > 0.8);
-
+      r.nosActive = targetMph > r.pace + 5;
       r.mph += (targetMph - r.mph) * Math.min(1, rawDt * 2.5);
       r.vz = r.mph * speedToWorld;
-
-      // AI Rivals steer smoothly around obstacles & traffic
       const nT = this.traffic.length;
       for (let h = 0; h < nT + this.obstacles.length; h++) {
         const hz = h < nT ? this.traffic[h] : this.obstacles[h - nT];
@@ -4070,6 +4098,9 @@ function updateRaceCeremony(rawDt) {
     const lap = GameState.raceLength ? lapOf(GameState.distance, GameState.raceLength).lap : 1;
     if (lap > lapNow) { GameState.lapSplits.push(GameState.raceTime - lapStartedAt); lapStartedAt = GameState.raceTime; lapNow = lap; if (touch) touch.controls.haptics.pulse('lap'); }
     const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
+    // Who got you and how, and the nemesis intro (ticket 0160, src/rival-ai.js).
+    const nc = RAI && LiveTraffic.aiWorld && RAI.raceCalls(LiveTraffic.aiWorld, LiveTraffic, c);
+    if (nc) triggerAnnouncement(nc[0], nc[1], 1600, 2);
     if (c) {
       triggerAnnouncement(c.main, c.sub, 1500, c.kind === 'final' ? 3 : 2);
       if (c.kind === 'final') { RC.say('Final lap!'); SoundEngine.playTone(784, 'square', 0.3, 0.14, 1046); }

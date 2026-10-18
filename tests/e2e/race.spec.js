@@ -16,7 +16,7 @@ test('the HUD shows your place in a field of six, the lap, and the cars either s
   await page.waitForTimeout(1500);
   const pos = await gs(page, 'racePosition');
   await expect(page.locator('#hudPos')).toHaveText(new RegExp(`^${pos}(ST|ND|RD|TH)$`));
-  await expect(page.locator('#hudGapAhead')).toHaveText(/▲ [A-Z]+ \+\d+\.\ds|★ LEADING/);
+  await expect(page.locator('#hudGapAhead')).toHaveText(/▲ (😈)?[A-Z]+ \+\d+\.\ds|★ LEADING/);
   await expect(page.locator('#hudTime')).toHaveText(/^0:0[1-9]\.\d$/);
   expect(problems).toEqual([]);
 });
