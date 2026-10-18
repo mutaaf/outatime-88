@@ -1795,7 +1795,11 @@ function updateGame(rawDt) {
   if (GameState.playerX < -MAX_TRACK_X || GameState.playerX > MAX_TRACK_X) {
     const side = GameState.playerX < 0 ? -1 : 1;
     GameState.playerX = side * MAX_TRACK_X;
-    chargePenalty(logWall(GameState.penaltyLog, rawDt * 1000, GameState.speed), 'WALL SCRAPE');
+    chargePenalty(logWall(GameState.penaltyLog, rawDt * 1000, GameState.speed, Math.round(GameState.raceTime * 1000)), 'WALL SCRAPE');
+    // Points barely move for a scrape now (ticket 0165); grinding wears HP instead, never to 0.
+    if (GameState.speed >= 30 && GameState.invulnTimer <= 0) {
+      GameState.hp = Math.max(Math.min(GameState.hp, 1), GameState.hp - 5 * activeCarParams().damageMult * currentDifficulty().damage * rawDt);
+    }
     const hit = GameState.playerVX * side > 0;
     lateral.vx = GameState.playerVX;
     const lost = wallContact(lateral, side, GameState.speed, rawDt);
