@@ -2281,6 +2281,8 @@ function renderScene() {
     pixelCanvas.height = bh;
   }
   if (carArt && carArt.setSpriteScale) carArt.setSpriteScale(pk);
+  if (pickupArt && pickupArt.setPixelScale) pickupArt.setPixelScale(pk);
+  GameState.pixelScale = pk; // for lazy 2D art (billboards…): cache at pixelScale × drawn size
 
   const ctx = pixelCtx;
   ctx.setTransform(bw / rw, 0, 0, bh / rh, 0, 0);

@@ -183,4 +183,17 @@ describe('crisp icon cache', () => {
     expect(art.iconFor('NOPE', 10)).toBeNull();
     vi.unstubAllGlobals();
   });
+  it('on a high-DPI canvas the icon is cached at device pixels, still drawn at its CSS size', async () => {
+    vi.stubGlobal('OffscreenCanvas', FakeCanvas);
+    const art = await import('../../src/pickup-art.js');
+    const drawn = [];
+    const ctx = { drawImage: (cv, x, y, w, h) => drawn.push({ cv, w, h }), save() {}, restore() {}, translate() {}, rotate() {} };
+    art.drawPickup(ctx, 'PLUTONIUM', 50, 50, 30, 0, 0, true);
+    art.setPixelScale(2);
+    art.drawPickup(ctx, 'PLUTONIUM', 50, 50, 30, 0, 0, true);
+    art.setPixelScale(1);
+    expect(drawn[1].cv.iconSize).toBeGreaterThanOrEqual(60);   // twice the pixels…
+    expect(Math.abs(drawn[1].w - drawn[0].w)).toBeLessThanOrEqual(1); // …in the same CSS box
+    vi.unstubAllGlobals();
+  });
 });

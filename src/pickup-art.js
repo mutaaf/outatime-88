@@ -133,6 +133,11 @@ export function paintIcon(c, kind, S, W) {
   c.beginPath(); c.arc(m, m, S * 0.28, Math.PI * 1.08, Math.PI * 1.42); c.stroke();
 }
 
+// Device pixels per drawing unit on the canvas the race draws into (the 2D renderer's backing
+// scale, 0145), so icons are cached at the size they really land on screen and stay crisp.
+let pxScale = 1;
+export function setPixelScale(k) { pxScale = k > 0 ? k : 1; }
+
 /** The cached icon canvas for `kind` drawn at least `px` big (its side is bucketSize × PAD). */
 export function iconFor(kind, px) {
   if (!ART[kind]) return null;
@@ -159,7 +164,7 @@ export function iconFor(kind, px) {
  * rock gently; calm mode holds them still. Positions snap to whole pixels to stay sharp.
  */
 export function drawPickup(ctx, kind, x, y, size, t, phase, still) {
-  const cv = iconFor(kind, size);
+  const cv = iconFor(kind, size * pxScale);
   if (!cv) return;
   const k = size / cv.iconSize;
   const W = cv.width * k;
