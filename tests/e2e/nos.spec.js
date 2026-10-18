@@ -33,3 +33,17 @@ test('holding Shift burns NOS: speed goes past top speed and the gauge drains', 
   await page.keyboard.up('ArrowUp');
   expect(problems).toEqual([]);
 });
+
+for (const [w, h] of [[1440, 900], [390, 844], [844, 390]]) {
+  test(`the NOS gauge label sits inside the speed card at ${w}x${h}`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace());
+    const inside = await page.evaluate(() => {
+      const c = document.getElementById('hudSpeedCard').getBoundingClientRect();
+      const l = document.querySelector('.nos-meter b').getBoundingClientRect();
+      return l.right <= c.right + 0.5 && l.left >= c.left;
+    });
+    expect(inside).toBe(true);
+  });
+}
