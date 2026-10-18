@@ -138,6 +138,8 @@ src/scenes/         Lazy: stage.js (layer cache, parallax, per-frame set pieces)
 src/era-palettes.js ERA_PALETTES: sky/horizon/fog/sun/ground + weather per era — the one palette table
                       both renderers read (lazy chunks only; never import it from main.js)
 src/garage-ui.js    Garage showroom + NEW CAR reveal (lazy chunk with car-art.js turntable and garage.css)
+src/missions.js     Run missions (0026): three distinct contracts per run (seeded on dailies), today's tally in the save
+                      (solo/daily finishes; live rooms pay completions but have their own results)
 src/scoring.js      Penalty rules (hits, wall scrapes) + the run log the Worker recomputes
 src/cars.js         Car ratings (same 30-point budget each), unlock rules, carParams() → the physics
                       numbers a car drives with; career counters. Balance is unit-tested.

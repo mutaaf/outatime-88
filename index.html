@@ -228,12 +228,6 @@
         </button>
       </div>
 
-      <div id="contractsHudBar" class="pointer-events-auto flex items-center gap-2 bg-slate-950/85 border border-slate-800 rounded-lg px-2.5 py-1 text-[9px] sm:text-[10px] font-arcade text-slate-200 shadow">
-        <span class="text-orange-400 font-black">🎯 STREET CONTRACT:</span>
-        <span id="activeContractText" class="text-cyan-200 font-bold">Slam 1 Rival Takedown or Hit 88 MPH (0/1)</span>
-        <span id="activeContractReward" class="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 font-bold">+150 ⚡</span>
-      </div>
-
       <!-- Accelerometer Live Tilt Bar -->
       <div id="tiltHudBar" class="hidden pointer-events-auto flex items-center gap-2 bg-slate-950/90 border border-amber-500/50 rounded-full px-3 py-1 text-[10px] font-arcade text-amber-200 shadow-lg">
         <span>📱 TILT STEER</span>
@@ -378,7 +372,10 @@
         <button id="btnTitleTilt" type="button" class="title-tilt hidden" aria-pressed="false" aria-label="Tilt steering"><span aria-hidden="true">📱</span> TILT STEERING <b>OFF</b></button>
         <button id="btnViewMode" type="button" class="title-view" aria-pressed="false" aria-label="3D view"><span aria-hidden="true">🧊</span> VIEW <b class="v2">2D</b><b class="v3">3D</b></button>
       </div>
-      <div id="titleEventChip" class="font-arcade text-[10px] sm:text-xs text-orange-200/90 tracking-wider"></div>
+      <div class="title-lines">
+        <div id="titleEventChip" class="font-arcade text-[10px] sm:text-xs text-orange-200/90 tracking-wider"></div>
+        <div id="titleMissions" class="title-missions font-arcade"></div>
+      </div>
       <div id="titleRival" class="title-rival font-arcade" role="status" aria-live="polite"></div>
     </div>
 
@@ -764,6 +761,8 @@
           <div class="led-box"><small>PEAK · TAKEDOWNS</small><b id="endPeakSpeedText" class="led-red">0 MPH</b></div>
           <div class="led-box"><small>FLUX CASH</small><b id="endCoinsText" class="led-green">+0 ⚡</b></div>
         </div>
+        <!-- Run missions (ticket 0026): this run's three, ✓ and the reward once done. -->
+        <ul id="endMissions" class="end-missions" aria-label="Missions"></ul>
 
         <!-- Leaderboard submission (ticket 0025): initials once, then every run posts itself. -->
         <div id="endBoardBox" class="end-board">

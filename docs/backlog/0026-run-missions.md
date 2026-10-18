@@ -1,12 +1,12 @@
 ---
 id: 0026
 title: Three missions per run — surface the hidden street contracts as goals you can see
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: content
 created: 2026-10-17
-pr:
+pr: 71
 ---
 
 ## Why
@@ -25,11 +25,11 @@ quests) keep runs varied with three small visible objectives and a reward for fi
 - Persist completed-today count in `SaveStore.data` (new default field, invariant 3.6).
 
 ## Acceptance criteria
-- [ ] Unit: three distinct missions per run; progress and completion; daily runs get the same
+- [x] Unit: three distinct missions per run; progress and completion; daily runs get the same
       three for everyone
-- [ ] e2e: results show three missions; a completed one shows ✓ and its reward
-- [ ] Zero-overlap layout e2e still green at all viewports (no new HUD element in-race)
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse
+- [x] e2e: results show three missions; a completed one shows ✓ and its reward
+- [x] Zero-overlap layout e2e still green at all viewports (no new HUD element in-race)
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse
 
 ## Test plan
 `tests/unit/missions.test.js`; extend `tests/e2e/ladder.spec.js` or a new `missions.spec.js`

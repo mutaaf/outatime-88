@@ -55,3 +55,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-18 · 0019 · Forks are two small arrows now (◀ SKY-LOOP ⚡ / TUNNEL ⏱️ ▶) instead of two long banners; the one you're lined up for leans forward, and coach tips wait until you've picked
 2026-10-18 · 0020 · The browser tab shows a neon 88 icon, and full Chrome no longer logs a missing-icon error on load
 2026-10-18 · 0115 · Faster first load: the results screen, leaderboard and music score now download just after the title appears instead of with the first frame
+2026-10-18 · 0026 · Every run has three missions you can see: today's tally sits under PLAY, a finished one pays flux and an extra special charge through the announcer, and the results card ticks off all three

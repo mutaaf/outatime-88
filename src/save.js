@@ -49,7 +49,9 @@ export const SaveStore = {
     career: null,
     // Touch controls (ticket 0061): preset, movement mode, feel sliders, HUD layout edits.
     // Defaults and repair live in src/touch/settings.js, applied when the touch kit loads.
-    controls: {}
+    controls: {},
+    // Run missions (ticket 0026): { day, done, best } for today; another day reads as zero.
+    missions: null
   },
   load() {
     try {

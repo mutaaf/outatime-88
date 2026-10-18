@@ -431,14 +431,6 @@ export const UPGRADE_DEFS = [
 
 // --- SYNTHESIZED AUDIO ENGINE (Engine RPM + Drift Screech + Siren + Synthwave) ---
 
-export const CONTRACT_TEMPLATES = [
-  { type: 'TAKEDOWN', target: 2, reward: 150, label: (c, t) => `Slam ${t} Rival Takedowns (${c}/${t})` },
-  { type: 'DRIFT_PTS', target: 1500, reward: 180, label: (c, t) => `Bank ${t} Drift Points (${Math.floor(c)}/${t})` },
-  { type: 'WARP_88', target: 1, reward: 200, label: (c, t) => `Trigger an 88 MPH Time Warp (${c}/${t})` },
-  { type: 'NEAR_MISS', target: 3, reward: 160, label: (c, t) => `Chain ${t} High-Speed Near Misses (${c}/${t})` },
-  { type: 'SLIPSTREAM', target: 100, reward: 175, label: (c, t) => `Fill 100% Slipstream Wake (${Math.floor(c)}%)` }
-];
-
 export const JARVIS_MODES = [
   { id: 'ASSIST', label: '🤖 AI: ASSIST (I)', desc: 'LUMEN Smart Trajectory & Cornering Assist engaged.' },
   { id: 'AUTOPILOT', label: '🤖 AI: AUTOPILOT (I)', desc: 'Full LUMEN Autonomous Driving Protocol engaged. Sit back.' },
