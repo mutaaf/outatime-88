@@ -314,6 +314,7 @@ export function propKinds() {
     HW_COIN: { geo: new CylinderGeometry(0.75, 0.75, 0.16, 14).rotateX(Math.PI / 2), mat: new MeshStandardMaterial({ color: '#ffd23f', emissive: '#a66b00', metalness: 0.7, roughness: 0.3 }), cap: 32, spin: true },
     PLUTONIUM: { geo: new OctahedronGeometry(0.85), mat: new MeshBasicMaterial({ color: '#4ff7ff' }), cap: 24, spin: true },
     REPAIR_WRENCH: { geo: merged([colored(new BoxGeometry(1.6, 0.4, 0.4), '#34d399'), colored(new BoxGeometry(0.4, 1.6, 0.4), '#34d399')]), mat: new MeshBasicMaterial({ vertexColors: true }), cap: 16, spin: true },
+    NOS_CAN: { geo: merged([colored(new CylinderGeometry(0.45, 0.45, 1.3, 12), '#3b82f6'), colored(new CylinderGeometry(0.47, 0.47, 0.32, 12), '#e0f2fe'), colored(new CylinderGeometry(0.16, 0.2, 0.3, 8).translate(0, 0.8, 0), '#1f2937')]), mat: new MeshBasicMaterial({ vertexColors: true }), cap: 12, spin: true },
     PICKUP_GLOW: { geo: new PlaneGeometry(3, 3), mat: glowMaterial('#ffe27a', 0.55), cap: 64, billboard: true },
   };
 }

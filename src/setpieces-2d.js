@@ -9,6 +9,7 @@
 // No allocation per frame beyond canvas paths; no external assets; calm mode drops the motion
 // trails (the cutaway itself never rolls the screen).
 import { ERA_PALETTES } from './era-palettes.js';
+import { drawPickup } from './pickup-art.js';
 import { ROAD_CFG } from './data.js';
 import { shapeOf } from './car-art.js';
 import { LOOP_CAM, NEAR, loopPoint, loopCamera, carPose, peelFall, projectLoop, horizonRow, approachScale } from './loopcam.js';
@@ -188,7 +189,7 @@ const WALL_M = 1.3;         // toy-track side wall height (m)
 const MAX_POLYS = 1400;
 
 const polys = [];
-for (let i = 0; i < MAX_POLYS; i++) polys.push({ n: 0, x: new Float32Array(10), y: new Float32Array(10), depth: 0, fill: '', stroke: '', width: 0 });
+for (let i = 0; i < MAX_POLYS; i++) polys.push({ n: 0, x: new Float32Array(10), y: new Float32Array(10), depth: 0, fill: '', stroke: '', width: 0, img: '', sx: 0, sy: 0, sz: 0, ph: 0 });
 const order = new Int16Array(MAX_POLYS);
 let polyCount = 0;
 let depthBias = 0; // metres nearer than its average depth a polygon sorts (decals on a face)
@@ -238,7 +239,7 @@ function emit(n, W, H, fill, stroke, width, closed) {
     p.y[i] = H / 2 - fy * outY[i] / outZ[i];
     d += outZ[i];
   }
-  p.n = m; p.depth = d / m - depthBias; p.fill = fill; p.stroke = stroke; p.width = width;
+  p.n = m; p.depth = d / m - depthBias; p.fill = fill; p.stroke = stroke; p.width = width; p.img = '';
 }
 
 /** True if the road's top surface at (s) faces the camera. */
@@ -388,9 +389,7 @@ function buildMovers(f, movers, from, to, W, H) {
 }
 
 const PICKUP = {
-  PLUTONIUM: ['#16a34a', '#86efac', 1.3],
-  HW_COIN: ['#f59e0b', '#fde68a', 1.1],
-  REPAIR_WRENCH: ['#94a3b8', '#f1f5f9', 1.2],
+  PLUTONIUM: 1.3, HW_COIN: 1.1, REPAIR_WRENCH: 1.2, NOS_CAN: 1.2, // icon radius (m)
 };
 
 /** Pickups on the drawn stretch: glowing billboards hovering over the road (`road`: the track ring). */
@@ -409,20 +408,13 @@ function buildPickups(f, road, from, to, W, H, t) {
       const dx = pt.x - cam.ex, dy = pt.y + pt.uy * hover - cam.ey, dz = pt.z + pt.uz * hover - cam.ez;
       const cx = dx, cy = dy * cam.uy + dz * cam.uz, cz = dy * cam.fy + dz * cam.fz;
       if (cz <= 4) continue; // (one right in front of the lens would fill the screen)
-      const r = look[2];
-      for (let layer = 0; layer < 2; layer++) {
-        const rr = layer ? r * 0.5 : r;
-        depthBias = layer ? 0.4 : 0.3;
-        // A spinning diamond (the coin is an octagon), facing the camera.
-        const n = it.type === 'HW_COIN' ? 8 : 4;
-        const spin = Math.cos(t * 3 + (it.phase || 0));
-        for (let v = 0; v < n; v++) {
-          const ang = (v / n) * Math.PI * 2;
-          inX[v] = cx + Math.sin(ang) * rr * (0.35 + 0.65 * Math.abs(spin)); inY[v] = cy + Math.cos(ang) * rr; inZ[v] = cz;
-        }
-        emit(n, W, H, look[layer], '', 0, true);
-      }
-      depthBias = 0;
+      // The same crisp cached icon as on the open road (src/pickup-art.js), depth-sorted.
+      if (polyCount >= MAX_POLYS) break;
+      const p = polys[polyCount++];
+      const fx = LOOP_CAM.depth * W / 2, fy = LOOP_CAM.depth * H / 2;
+      p.n = 0; p.img = it.type; p.ph = it.phase || 0;
+      p.sx = W / 2 + fx * cx / cz; p.sy = H / 2 - fy * cy / cz; p.sz = fx * look * 2 / cz;
+      p.depth = cz - 0.4; p.fill = ''; p.stroke = ''; p.width = t;
     }
   }
 }
@@ -475,6 +467,7 @@ function drawPolys(ctx, kx, ky, mapX, mapY, bx, by) {
   ctx.lineJoin = 'round';
   for (let k = 0; k < polyCount; k++) {
     const p = polys[sub[k]];
+    if (p.img) { drawPickup(ctx, p.img, mapX + (p.sx - bx) * kx, mapY + (p.sy - by) * ky, p.sz * Math.sqrt(kx * ky), p.width, p.ph, false); continue; }
     ctx.beginPath();
     for (let i = 0; i < p.n; i++) {
       const x = mapX + (p.x[i] - bx) * kx, y = mapY + (p.y[i] - by) * ky;
