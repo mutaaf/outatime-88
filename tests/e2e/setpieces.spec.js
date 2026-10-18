@@ -85,6 +85,26 @@ test('3D: the loop and the corkscrew are real geometry the car and camera follow
   expect(problems).toEqual([]);
 });
 
+test('2D: you ride round the loop itself (camera on the loop, not a cutaway), and calm mode keeps the side view', async ({ page }) => {
+  test.setTimeout(90000);
+  const problems = watchPage(page);
+  await race(page, { level: 0 });
+  await page.waitForFunction(() => typeof window.__OT.GameState.loopRide === 'number');
+  await jumpTo(page, 'LOOP', 4000);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.__OT.GameState.loopRide)).toBe(0);
+  for (const frac of [0.25, 0.5, 0.75]) {
+    await jumpTo(page, 'LOOP', 0, frac);
+    await page.waitForFunction(() => window.__OT.GameState.loopRide === 1, null, { timeout: 5000 });
+  }
+  // Calm mode: no screen turning over.
+  await page.evaluate(() => { window.__OT.GameState.reducedMotion = true; });
+  await jumpTo(page, 'LOOP', 0, 0.5);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.__OT.GameState.loopRide)).toBe(0);
+  expect(problems).toEqual([]);
+});
+
 const SIZES = [[390, 844], [844, 390], [820, 1180], [1180, 820], [1280, 720]];
 for (const [w, h] of SIZES) {
   test(`screenshots: loop cam and corkscrew roll at ${w}x${h}`, async ({ page }, info) => {
@@ -99,9 +119,12 @@ for (const [w, h] of SIZES) {
       await info.attach(`${kind}-${w}x${h}`, { body: await page.screenshot(), contentType: 'image/png' });
     }
     await race(page, { level: 0 });
-    await jumpTo(page, 'LOOP', 0, 0.3);
-    await page.waitForTimeout(300);
-    await info.attach(`LOOP-${w}x${h}`, { body: await page.screenshot(), contentType: 'image/png' });
+    for (const frac of [0.25, 0.5, 0.75]) {
+      await jumpTo(page, 'LOOP', 0, frac);
+      await page.waitForTimeout(300);
+      expect(await canvasLitFraction(page), `loop ${frac}`).toBeGreaterThan(0.2);
+      await info.attach(`LOOP-${frac}-${w}x${h}`, { body: await page.screenshot(), contentType: 'image/png' });
+    }
     expect(problems).toEqual([]);
   });
 }

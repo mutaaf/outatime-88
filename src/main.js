@@ -1266,6 +1266,7 @@ function updateGame(rawDt) {
     const lp = loopStep(GameState.speed, feat, lt, rawDt);
     if (lp.peel && GameState.peeledLoop !== feat) {
       GameState.peeledLoop = feat;
+      GameState.peelT = lt; // where you came off: the 2D loop view drops you from here
       GameState.loopPeels = (GameState.loopPeels || 0) + 1;
       GameState.speed = Math.min(GameState.speed, 40);
       GameState.playerVY = 0;
@@ -2838,6 +2839,19 @@ function renderScene() {
   }
 
   if (rolled) { ctx.restore(); rolled = false; }
+  // The real loop: drive round it with the camera riding the loop (src/loopcam.js). Calm mode
+  // keeps the side-on loop cam instead (it never turns the screen over).
+  const rideF = setPieceArt && !GameState.reducedMotion ? loopNear(GameState.trackPos + ROAD_CFG.playerZOffset) : null;
+  if (rideF) {
+    const z = GameState.trackPos + ROAD_CFG.playerZOffset;
+    const blend = setPieceArt.rideBlend(rideF, z - rideF.z0);
+    setPieceArt.drawLoopRide(ctx, rw, rh, {
+      f: rideF, z, lat: GameState.playerX, peelT: GameState.peeledLoop === rideF ? GameState.peelT : null,
+      blend, eraCfg, t: fxClock, reduced: GameState.reducedMotion,
+    });
+    GameState.playerScreenX = Math.floor(rw * 0.5);
+    GameState.loopRide = blend;
+  } else GameState.loopRide = 0;
   if (GameState.cameraMode !== 2) {
     drawPlayerCar(ctx, rw, rh, eraCfg);
   }
@@ -2891,8 +2905,8 @@ function renderScene() {
   }
   drawSpeedLines(mainCtx, feel.lines);
   drawSparks(mainCtx, rw, rh);
-  // The side-on loop cam (sprint 4) while you're going round a loop.
-  if (setPieceArt && rollF && rollF.kind === 'LOOP') {
+  // Calm mode's side-on loop cam (sprint 4) while you're going round a loop.
+  if (setPieceArt && GameState.reducedMotion && rollF && rollF.kind === 'LOOP') {
     const pc = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
     setPieceArt.drawCutaway(mainCtx, mainCanvas.width, mainCanvas.height, {
       t: progressIn(rollF, GameState.trackPos + ROAD_CFG.playerZOffset), mph: GameState.speed,
@@ -2900,6 +2914,16 @@ function renderScene() {
     });
   }
   mainCtx.restore();
+}
+
+/** A loop under the car, or one it is just entering or leaving (the ride view's blend). */
+function loopNear(z) {
+  const k = setPieceArt.LOOP_CAM.fade;
+  for (const d of [0, k, -k]) {
+    const f = featureAt(z + d);
+    if (f && f.kind === 'LOOP') return f;
+  }
+  return null;
 }
 
 /** Pickups flying into the car, hit shockwaves and debris (screen space; both renderers). */
