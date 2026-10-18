@@ -184,17 +184,35 @@ test('touching never scrolls or zooms the page', async ({ page }) => {
   expect(s).toEqual({ y: 0, x: 0, scale: 1 });
 });
 
-test('first race on a touch screen shows the thumb guide once, then never again', async ({ page }) => {
+test('first race on a touch screen: the thumb guide plays without pausing, goes once you steer, never again', async ({ page }) => {
   await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.startRace());
-  await expect(page.locator('#tcCoach')).toBeVisible();
-  expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PAUSED');
-  await page.locator('#btnCoachGo').tap();
-  await expect(page.locator('#tcCoach')).toHaveCount(0);
+  await expect(page.locator('#tcGuide')).toBeVisible();
+  // It never stops the race and never takes a tap: the race runs underneath.
   expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
+  expect(await page.locator('#tcGuide').evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
+  await expect(page.locator('#tcCoach')).toHaveCount(0);
+  await page.waitForTimeout(1600);
+  const cdp = await page.context().newCDPSession(page);
+  await touch(cdp, 'touchStart', [{ x: 90, y: 700 }]);
+  for (let x = 100; x <= 170; x += 10) await touch(cdp, 'touchMove', [{ x, y: 700 }]);
+  await expect(page.locator('#tcGuide')).toHaveCount(0, { timeout: 3000 });
+  await touch(cdp, 'touchEnd', []);
+  expect(await page.evaluate(() => window.__OT.controls().coachSeen)).toBe(true);
   await page.reload();
   await page.evaluate(() => window.__OT.startRace());
   await page.waitForTimeout(500);
+  await expect(page.locator('#tcGuide')).toHaveCount(0);
+});
+
+test('the full thumb guide can still be replayed from the controls panel', async ({ page }) => {
+  await page.addInitScript((key) => localStorage.setItem(key, JSON.stringify({ controls: { coachSeen: true } })), SAVE_KEY);
+  await page.goto(`${APP}?debug`);
+  await page.locator('#btnOpenSettings').tap();
+  await page.locator('#btnOpenControls').tap();
+  await page.locator('[data-act="coach"]').tap();
+  await expect(page.locator('#tcCoach')).toBeVisible();
+  await page.locator('#btnCoachGo').tap();
   await expect(page.locator('#tcCoach')).toHaveCount(0);
 });
 

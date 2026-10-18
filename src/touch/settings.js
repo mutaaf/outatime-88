@@ -18,6 +18,7 @@ export const CONTROL_DEFAULTS = Object.freeze({
   haptics: true,
   hapticStrength: 1,     // 0.3–1; low skips the crash/lap rumbles
   coachSeen: false,      // first-run "where do my thumbs go" overlay
+  fullscreen: true,      // phones: go fullscreen when a race starts (Android; iPhone can't)
   special: 'ROAR',       // what SPECIAL fires (long-press it to switch)
   layouts: {},           // { 'phone-portrait': { items: {...} }, ... } from the layout editor
 });
@@ -36,7 +37,7 @@ export function normalizeControls(saved) {
     const n = Number(c[k]);
     c[k] = Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : CONTROL_DEFAULTS[k];
   }
-  for (const k of ['autoAccel', 'stickThrottle', 'steerAssist', 'haptics', 'coachSeen']) c[k] = !!c[k];
+  for (const k of ['autoAccel', 'stickThrottle', 'steerAssist', 'haptics', 'coachSeen', 'fullscreen']) c[k] = !!c[k];
   if (!['ZONE', 'AGRO', 'ROAR'].includes(c.special)) c.special = 'ROAR';
   if (!c.layouts || typeof c.layouts !== 'object' || Array.isArray(c.layouts)) c.layouts = {};
   return c;

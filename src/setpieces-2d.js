@@ -45,7 +45,7 @@ function clockFace(ctx, x, y, r) {
  * Loops ahead and the speed signs at their gates. `segs` are this frame's visible segments
  * (projected, near → far); each set piece is drawn once, at its first segment.
  */
-export function drawAhead(ctx, segs, eraCfg) {
+export function drawAhead(ctx, segs, eraCfg, W, H) {
   const year = eraYearOf(eraCfg);
   const th = themeFor(year);
   for (let i = segs.length - 1; i >= 0; i--) {
@@ -57,7 +57,7 @@ export function drawAhead(ctx, segs, eraCfg) {
     if (f.kind === 'LOOP') {
       // The real loop (src/loopcam.js), seen from here: the one you are about to drive round.
       const sCar = ROAD_CFG.playerZOffset - seg.p1.camera.z;
-      if (sCar < 0) drawLoopAhead(ctx, ctx.canvas.width, ctx.canvas.height, f, sCar, x, y, w, eraCfg);
+      if (sCar < 0) drawLoopAhead(ctx, W || ctx.canvas.width, H || ctx.canvas.height, f, sCar, x, y, w, eraCfg);
     } else if (f.kind === 'BOOSTER' && f.boostTo) {
       // A roadside speed sign: the gate tops you up to this for what's next.
       const sx = x + w * 1.32, sh = Math.max(6, w * 0.5);
@@ -558,7 +558,12 @@ export function drawLoopRide(ctx, W, H, s) {
   RIDE.dx = 0; RIDE.dy = 0; RIDE.k = 1; RIDE.flip = 1; RIDE.roll = 0;
   if (s.blend <= 0) { wasAir = false; return RIDE; }
   if (!rideCanvas) { rideCanvas = document.createElement('canvas'); rideCtx = rideCanvas.getContext('2d'); }
-  if (rideCanvas.width !== W || rideCanvas.height !== H) { rideCanvas.width = W; rideCanvas.height = H; }
+  // Drawn in W × H units on a backing store at the caller's pixel scale (s.px), so it is as
+  // crisp as the road it blends into.
+  const px = s.px > 0 ? s.px : 1;
+  const bw = Math.round(W * px), bh = Math.round(H * px);
+  if (rideCanvas.width !== bw || rideCanvas.height !== bh) { rideCanvas.width = bw; rideCanvas.height = bh; }
+  rideCtx.setTransform(bw / W, 0, 0, bh / H, 0, 0);
   const f = s.f;
   const year = eraYearOf(s.eraCfg);
   const pal = ERA_PALETTES[year] || ERA_PALETTES[2026];
@@ -576,7 +581,7 @@ export function drawLoopRide(ctx, W, H, s) {
   if (cam.fall > 0) { placePlayer(f, sRel, s, W, H); RIDE.ownCar = RIDE.k > 0; }
   ctx.save();
   ctx.globalAlpha = s.blend;
-  ctx.drawImage(rideCanvas, 0, 0);
+  ctx.drawImage(rideCanvas, 0, 0, W, H);
   ctx.restore();
   RIDE.fall = cam.fall; RIDE.air = cam.air;
   RIDE.landed = wasAir && !cam.air && cam.fall > 0;

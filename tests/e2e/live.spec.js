@@ -81,6 +81,7 @@ test('share link → lobby → racing in ≤3 taps, synced start, matching resul
   await guest.page.waitForFunction(() => window.__OT.live.ghosts.some((g) => !g.cpu && g.progress > 20), null, { timeout: 10_000 });
   // The first-run thumb guide never covers a live race (live races can't pause).
   await expect(guest.page.locator('#tcCoach')).toHaveCount(0);
+  await expect(guest.page.locator('#tcGuide')).toHaveCount(0);
   // Quick chat: the guest's emote pops over their car on the host's screen, mid-race.
   expect(await guest.page.evaluate(() => window.__OT.live.emote(2))).toBe(true);
   await host.page.waitForFunction(() => window.__OT.live.ghosts.some((g) => !g.cpu && g.ghostTag.includes('🔥')), null, { timeout: 5_000 });

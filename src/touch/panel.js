@@ -29,6 +29,7 @@ const TOGGLES = [
   { key: 'stickThrottle', label: 'Stick up/down = gas/brake', hint: 'Push up to speed up, down to brake.' },
   { key: 'steerAssist', label: 'Steer assist', hint: 'Keeps you in lane when you let go.' },
   { key: 'haptics', label: 'Haptics', hint: 'Feel every press, boost and crash (vibration on Android, taps on iPhone with iOS 18+).' },
+  { key: 'fullscreen', label: 'Fullscreen races', hint: 'Phones hide the browser bars when a race starts (Android). Add to Home Screen does it everywhere.' },
 ];
 
 function h(tag, attrs, html) {
@@ -163,8 +164,51 @@ export function closeControlsPanel() {
 /** First race on a touch screen: where each thumb goes. Shown once; replay from the panel. */
 export function maybeShowCoach(ctx) {
   if (ctx.settings.coachSeen) return false;
-  showCoach(ctx);
+  showThumbGuide(ctx);
   return true;
+}
+
+/**
+ * The first-race thumb guide, played over the start lights instead of stopping the race: a
+ * ghost thumb swipes the steering zone, WARP and NOS pulse with a two-word label each, and it
+ * all fades out once you steer or a few seconds after GO. Nothing to read, nothing to tap
+ * (pointer-events: none), so the race and the countdown carry on underneath.
+ * ctx: { settings, save, controls, done() → true when the guide has done its job }
+ */
+export function showThumbGuide({ settings, save, controls, done }) {
+  const { env, items } = controls.layoutNow();
+  if (!env || !items || !items.stick) return;
+  const old = document.getElementById('tcGuide');
+  if (old) old.remove();
+  const mv = movementFor(settings);
+  const s = items.stick, b = items.boost, n = items.horn;
+  const swipe = mv === 'dynamic' || mv === 'floating' || mv === 'fixed';
+  const stickLabel = mv === 'dpad' ? 'TAP ◀ ▶ TO STEER' : mv === 'tilt' ? 'TILT TO STEER' : 'DRAG TO STEER';
+  const g = h('div', { id: 'tcGuide', class: 'tc-guide', 'aria-hidden': 'true' });
+  const tag = (it, text, cls) => `<div class="tc-guide-ring ${cls}" style="left:${it.x}px;top:${it.y}px;width:${it.d + 18}px;height:${it.d + 18}px"><i>${text}</i></div>`;
+  g.innerHTML = `
+    <div class="tc-guide-thumb${swipe ? ' tc-guide-swipe' : ''}" style="left:${s.x}px;top:${s.y}px">${ICONS.recenter}</div>
+    <div class="tc-guide-label" style="left:${s.x}px;top:${s.y - s.d / 2 - 20}px">${stickLabel}</div>
+    ${b && !b.hidden ? tag(b, 'WARP', 'tc-guide-warp') : ''}
+    ${n && !n.hidden ? tag(n, 'HOLD = NOS', 'tc-guide-nos') : ''}`;
+  document.body.appendChild(g);
+  const t0 = performance.now();
+  let closing = false;
+  const close = () => {
+    if (closing) return;
+    closing = true;
+    settings.coachSeen = true;
+    save();
+    g.classList.add('tc-guide-out');
+    setTimeout(() => g.remove(), 400);
+  };
+  const tick = () => {
+    if (closing || !g.isConnected) return;
+    const age = performance.now() - t0;
+    if ((age > 1500 && done && done()) || age > 14000) close();
+    else setTimeout(tick, 150);
+  };
+  setTimeout(tick, 150);
 }
 
 export function showCoach({ settings, save, controls, pause, resume }) {

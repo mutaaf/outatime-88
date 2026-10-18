@@ -155,7 +155,9 @@ function build(presetId, env, u, variant) {
     out.accel.hidden = !!env.autoAccel;
     const sSpare = bottomCy(S) - S / 2 - (out.drift.y + out.drift.d / 2) - GAP;
     stickHome(out, env, 'left', bottomCy(S), S, sSpare < 0 ? topD + GAP : 0);
-    shortcuts(out, env, ['pause', 'horn', 'rear', 'camera', 'respawn'], 'right', u);
+    const extra = [];
+    if (!out.accel.hidden && coversCar(out.accel, carZone(vw, vh))) { delete out.accel; extra.push('accel'); }
+    shortcuts(out, env, [...extra, 'pause', 'horn', 'rear', 'camera', 'respawn'], 'right', u);
     return out;
   }
 
@@ -167,6 +169,48 @@ function build(presetId, env, u, variant) {
   const sc = SHORTCUT_IDS;
   const pref = ARCS[kind][landscape ? 'landscape' : 'portrait'];
   const sats = ids.map((id, i) => ({ id, a: variant === 1 ? pref[i] * 0.6 : pref[i], d: id === 'horn' ? sd * 0.9 : sd }));
+
+  if (variant === 3) {
+    // Tall, narrow phones: the arc would sit on your own car, so each satellite (most-used
+    // first) takes the free spot nearest the primary — up the screen edge, then beside it.
+    let cy3 = bottomCy(p);
+    const cx3 = cluster(out, env, side, cy3, 'boost', p, []);
+    stickHome(out, env, stickSide, bottomCy(S), S);
+    const car = carZone(vw, vh);
+    const order = ['horn', 'drift', 'jump', 'special'];
+    const inward = side === 'right' ? -1 : 1;
+    for (const id of order) {
+      const d = id === 'horn' ? sd * 0.9 : sd;
+      let best = null, bestD = Infinity;
+      const probe = item(0, 0, d);
+      for (let a = -10; a <= 100; a += 5) {
+        for (let r = p / 2 + d / 2 + GAP; r <= p / 2 + d / 2 + GAP + 4 * d; r += 6) {
+          probe.x = Math.round(cx3 + inward * r * Math.cos(rad(a)));
+          probe.y = Math.round(cy3 - r * Math.sin(rad(a)));
+          if (r >= bestD) break;
+          if (probe.x - d / 2 < safe.l + MARGIN - 0.5 || probe.x + d / 2 > vw - safe.r - MARGIN + 0.5) continue;
+          if (probe.y + d / 2 > vh - safe.b - MARGIN + 0.5 || probe.y - d / 2 < env.top + GAP) continue;
+          if (hitsLane(probe, env.lane, GAP) || coversCar(probe, car)) continue;
+          let clash = false;
+          for (const k of Object.keys(out)) if (!out[k].hidden && overlaps(out[k], probe, GAP)) { clash = true; break; }
+          if (clash) continue;
+          best = { x: probe.x, y: probe.y }; bestD = r;
+        }
+      }
+      out[id] = best ? item(best.x, best.y, d) : item(cx3, env.top + d, d, { hidden: true });
+    }
+    out.accel = item(cx3, env.top + 32 * u, 64 * u, { hidden: true });
+    if (!env.autoAccel) {
+      // Gas sits beside the stick's home, toward the centre (never over the car).
+      const st = out.stick;
+      const gx = st.x - inward * (S / 2 + GAP + 32 * u);
+      const ga = item(gx, st.y, 64 * u);
+      if (!coversCar(ga, car)) out.accel = ga;
+      else out.accel = item(st.x, st.y - S / 2 - GAP - 32 * u, 64 * u);
+    }
+    shortcuts(out, env, sc, side, u);
+    return out;
+  }
 
   if (variant === 2) {
     // A row toward the centre: primary, then each satellite beside the last.
@@ -216,21 +260,44 @@ export function baseScale(env, presetId) {
 export function presetLayout(presetId, env) {
   const id = PRESETS[presetId] ? presetId : 'default';
   const u0 = baseScale(env, id) * (env.size || 1);
-  let first = null;
+  let first = null, loose = null;
+  // Claw is a finger grip with its own shape; every other preset can fall back to the
+  // nearest-free-spot arc (variant 3) before it has to shrink.
+  const variants = id === 'claw' ? 3 : 4;
   for (let u = u0, i = 0; i < 12; i++, u *= 0.94) {
-    for (let v = 0; v < 3; v++) {
+    for (let v = 0; v < variants; v++) {
       const out = build(id, env, u, v);
       if (!first) first = out;
-      if (fits(out, env)) return out;
+      if (fits(out, env)) {
+        if (!carProblems(out, env).length) return out;
+        if (!loose) loose = out;
+      }
     }
   }
-  return first;
+  return loose || first;
 }
 
 function fits(out, env) {
   if (layoutProblems(out, env).length) return false;
   for (const id of SHORTCUT_IDS) if (out[id].hidden) return false;
+  for (const id of ['boost', 'drift', 'jump', 'special', 'horn']) if (out[id] && out[id].hidden) return false;
   return true;
+}
+
+function coversCar(it, car) {
+  const r = it.d / 2;
+  return it.x + r > car.x0 && it.x - r < car.x1 && it.y + r > car.y0 && it.y - r < car.y1;
+}
+
+/** Buttons drawn over the player's own car (the stick is an invisible zone until touched). */
+export function carProblems(items, env) {
+  const car = carZone(env.vw, env.vh);
+  const out = [];
+  for (const id of Object.keys(items)) {
+    if (id === 'stick' || items[id].hidden) continue;
+    if (coversCar(items[id], car)) out.push(`${id} covers the car`);
+  }
+  return out;
 }
 
 /** Applies the player's saved edits (fractions of the viewport, size scale, opacity, hidden). */

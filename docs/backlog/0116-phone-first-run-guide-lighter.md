@@ -1,12 +1,12 @@
 ---
 id: 0116
 title: Phone first run — the thumb guide shouldn't blank the road before the first race
-status: proposed
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-18
-pr:
+pr: 84
 ---
 
 ## Why
@@ -21,12 +21,17 @@ that fades when the first touch lands, instead of a modal that needs GOT IT. Tou
 `src/touch/` guide code only.
 
 ## Acceptance criteria
-- [ ] At 390x844 the road and HUD stay visible (dim ≤ 25%) while the guide shows
-- [ ] First touch dismisses it; it never shows again after that
-- [ ] The race does not start its clock until the lights, as today
+- [x] At 390x844 the road and HUD stay visible (dim ≤ 25%) while the guide shows
+- [x] First touch dismisses it; it never shows again after that
+- [x] The race does not start its clock until the lights, as today
 
 ## Test plan
 Extend the touch e2e: first-run guide visible, no GOT IT tap required, dismissed by a touch.
 
 ## Out of scope
 Controls panel and layout editor.
+
+## Shipped
+With 0145: the guide now plays over the start lights with no dim and no tap target
+(`pointer-events: none`), a ghost thumb swiping the steering zone plus WARP / HOLD = NOS rings,
+and fades once you steer (or 3 s into the race). The race is never paused for it.
