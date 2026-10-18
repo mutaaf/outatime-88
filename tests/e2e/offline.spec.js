@@ -138,15 +138,6 @@ test('after one visit the game boots, races in 2D and 3D, plays sounds and shows
   await expect(page.locator('#boardList .board-row')).toHaveCount(1);
   await page.locator('#btnCloseLeaderboard').click();
 
-  // Live friends say plainly they need the internet (no spinner).
-  await page.locator('#btnOpenLive').click();
-  await page.locator('#liveCreate').click();
-  // (Firefox here: Wi-Fi that's down but not "offline" — the room request fails fast instead.)
-  await expect(page.locator('#liveMsgTitle')).toHaveText(browserName === 'firefox' ? /NEEDS INTERNET|OFFLINE/ : /NEEDS INTERNET/, { timeout: 12_000 });
-  await page.keyboard.press('Escape');
-  await page.waitForLoadState('networkidle');
-  await gotoSettled(page, net.url(`${APP}?debug`));
-
   // A solo race in 2D…
   await page.locator('#btnStartRace').click();
   await expect(page.locator('#titleScreen')).toBeHidden();
@@ -162,6 +153,18 @@ test('after one visit the game boots, races in 2D and 3D, plays sounds and shows
   await gotoSettled(page, net.url(`${APP}?debug&view=3d`));
   await expect.poll(() => page.evaluate(() => window.__OT.view && window.__OT.view().mode), { timeout: 20_000 }).toBe('3d');
   await expect(page.locator('#gameCanvas3d')).toHaveCount(1, { timeout: 20_000 });
+
+  // Live friends say plainly they need the internet (no spinner). Last, from a fresh title:
+  // in Playwright's Firefox (with its own server switched off) the next navigation after the
+  // failed room request errors with NS_BINDING_ABORTED / <unknown error> — a harness quirk we
+  // can't reproduce outside it (the offline reload + race test below passes in Firefox), so
+  // nothing navigates after this check.
+  await gotoSettled(page, net.url(`${APP}?debug`));
+  await page.locator('#btnOpenLive').click();
+  await page.locator('#liveCreate').click();
+  // (Firefox here: Wi-Fi that's down but not "offline" — the room request fails fast instead.)
+  await expect(page.locator('#liveMsgTitle')).toHaveText(browserName === 'firefox' ? /NEEDS INTERNET|OFFLINE/ : /NEEDS INTERNET/, { timeout: 12_000 });
+  await page.keyboard.press('Escape');
 
   await net.up();
   await net.close();
