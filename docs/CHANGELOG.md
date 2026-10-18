@@ -55,3 +55,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-18 · 0019 · Forks are two small arrows now (◀ SKY-LOOP ⚡ / TUNNEL ⏱️ ▶) instead of two long banners; the one you're lined up for leans forward, and coach tips wait until you've picked
 2026-10-18 · 0020 · The browser tab shows a neon 88 icon, and full Chrome no longer logs a missing-icon error on load
 2026-10-18 · 0115 · Faster first load: the results screen, leaderboard and music score now download just after the title appears instead of with the first frame
+2026-10-18 · 0120 · Turning feels like a car: steering yaws the car and it travels where it points, bends turn the road away under you (run wide unless you steer in), too much lock at speed understeers, a power drift kicks the tail out (counter-steer catches it), and letting go straightens up smoothly; the car visibly points into turns in 2D and 3D

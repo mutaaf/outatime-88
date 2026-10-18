@@ -14,12 +14,26 @@
 //     through the same speed-sensitive lock, so every input feels like the same car.
 //   - Lock shrinks with speed: twitchy at a crawl would be fine, at 120 mph it is not.
 //
-// Lateral model (road frame, x in half-road widths, ±0.72 is the wall):
-//   - Steering asks for a lateral velocity. The tyres supply the acceleration to reach it,
-//     limited by grip, which grows with downforce and shifts with braking/throttle.
-//   - Corners pull the car outward with a force ∝ curvature · v², and banking cancels part
-//     of it. Holding the line takes steering into the corner; if that asks the tyres for
-//     more than their grip they saturate, the car slides wide, and `slip` says by how much.
+// Lateral model (ticket 0120, v2, road frame, x in half-road widths, ±0.72 is the wall). A
+// bicycle model in angles rather than a cursor sliding sideways:
+//   - The car travels along a heading θ relative to the road's tangent, so dx/dt = U·tan θ,
+//     where U is its forward speed in the road's lateral units (FWD at 88 mph).
+//   - The front wheels' angle sets a yaw rate r = U·δ / (L·(1 + (U/Uch)²)): the steady-state
+//     yaw response of a real car, with the understeer gradient flattening it at speed.
+//   - The tyres can only supply a lateral acceleration U·r up to their grip (more with
+//     downforce, less in a power drift). Ask for more and the car understeers: r saturates,
+//     the car runs wide and `slip` says by how much.
+//   - The road bends under the car: its tangent turns at κ·U, so dθ/dt = r − κ·U. An
+//     unsteered car runs wide in a bend; holding the line takes steering into it. A bank
+//     cancels part of the turn the tyres must make.
+//   - Self-aligning (caster plus the driver's hands): with the wheel centred the heading
+//     relaxes back along the road, overdamped, so a tap is a small, smooth lane drift and a
+//     release never zig-zags.
+//   - The body yaws on a spring toward the travel heading plus a sideslip angle β: a few
+//     degrees nose-in with cornering load, more when the tyres saturate, a lot when a power drift breaks the rear loose (and
+//     counter-steering swings it back). `yaw` is what the renderers draw.
+//   - Anything that shoves the car (contacts, walls, slams) changes `vx` directly; the next
+//     step reads the travel heading back from it, so the body lags the shove like a real one.
 //   - Heavier cars respond more slowly; grippier cars respond faster and hold more.
 
 export const STEER = {
@@ -35,17 +49,26 @@ export const STEER = {
 };
 
 export const LATERAL = {
-  latSpeed: 1.35,     // half-widths/s asked for at full lock at 88 mph
-  lowSpeedFloor: 0.5, // fraction of latSpeed still available at a crawl
-  tau: 0.09,          // s; response time of a 1300 kg car with grip rating 5
-  grip: 9.5,          // half-widths/s² the tyres can supply (grip rating 5, no downforce)
+  fwd: 8,             // forward speed in lateral units/s at 88 mph (sets how far a heading moves you)
+  minFwd: 5,          // …never less, so the car still steers at a crawl (a parked car doesn't)
+  latSpeed: 1.35,     // sideways speed full lock settles at on a straight at 88 mph (calibration)
+  yawGain: 0.154,     // yaw rate per unit steer per unit forward speed (δ/L)
+  understeerU: 10,    // forward speed where the understeer gradient halves the yaw response
+  align: 4.5,         // 1/s; the heading relaxes back along the road (caster + hands)
+  tau: 0.09,          // s; yaw response of a 1300 kg car with grip rating 5
+  grip: 7,            // lateral units/s² the tyres can supply (grip rating 5, no downforce)
   downforce: 0.22,    // extra grip fraction at 88 mph (∝ v²)
   brakeGrip: 1.08,    // weight forward: more front bite while braking
   throttleGrip: 0.97, // weight back: slightly less turn-in on throttle
   driftGrip: 0.62,    // a power drift breaks the rear loose
-  driftLat: 1.15,     // …and lets the car swing across the road a little faster
-  corner: 3.0,        // outward pull per unit of road curve at 88 mph (half-widths/s²)
-  bankRelief: 2.2,    // fraction of the pull a bank cancels, per unit of bank (capped)
+  driftLat: 1.15,     // …and the car swings across the road a little faster
+  driftBeta: 0.3,     // rad; how far the tail steps out in a full power drift
+  loadBeta: 0.12,     // rad the nose points into a turn at the grip limit
+  slipBeta: 0.08,     // rad of sideslip per unit of understeer slip (capped at 1)
+  bodyHz: 2.4,        // the body's yaw spring (Hz) …
+  bodyDamp: 0.85,     // … and its damping ratio (under 1: a hint of weight, never a wobble)
+  corner: 0.152,      // road turn rate (rad/s) per unit of segment curve at 88 mph
+  bankRelief: 2.2,    // fraction of the turn a bank cancels, per unit of bank (capped)
   bankMax: 0.6,
 };
 
@@ -112,20 +135,20 @@ export function handlingFor(carP, tireLevel = 1) {
 }
 
 export function createLateral(x = 0) {
-  return { x, vx: 0, slip: 0, ay: 0 };
+  return { x, vx: 0, slip: 0, ay: 0, heading: 0, r: 0, yaw: 0, yawVel: 0, beta: 0 };
 }
 
 /**
  * Advance the car's lateral motion one step (mutates and returns `lt`).
- * @param {{x:number,vx:number,slip:number,ay:number}} lt
+ * @param {{x:number,vx:number,slip:number,ay:number,heading:number,r:number,yaw:number,yawVel:number,beta:number}} lt
  * @param {number} steer -1.25..1.25 (from stepSteer)
  * @param {number} dt step in seconds (player time)
  * @param {object} p
  * @param {number} p.speedMph
  * @param {number} [p.curve] road curvature under the car (track units, + = right-hander)
  * @param {number} [p.bank] road bank (+ leans into a right-hander)
- * @param {number} [p.worldScale=1] slow-motion factor applied to the road's pull
- * @param {{grip:number,tau:number}} p.h from handlingFor()
+ * @param {number} [p.worldScale=1] slow-motion factor applied to the road's turn
+ * @param {{grip:number,tau:number,slipMult?:number}} p.h from handlingFor()
  * @param {boolean} [p.braking]
  * @param {boolean} [p.throttle]
  * @param {boolean} [p.drifting] power drift held
@@ -134,28 +157,52 @@ export function createLateral(x = 0) {
 export function stepLateral(lt, steer, dt, p) {
   const v = Math.max(0, p.speedMph) / 88;
   const h = p.h;
-  let latMax = LATERAL.latSpeed * (LATERAL.lowSpeedFloor + (1 - LATERAL.lowSpeedFloor) * Math.min(1.35, v));
+  const U = Math.max(LATERAL.minFwd, LATERAL.fwd * v);
   let grip = LATERAL.grip * h.grip * (p.gripBonus || 1) * (1 + LATERAL.downforce * v * v);
   if (p.braking) grip *= LATERAL.brakeGrip;
   else if (p.throttle) grip *= LATERAL.throttleGrip;
-  if (p.drifting) { grip *= LATERAL.driftGrip; latMax *= LATERAL.driftLat; }
+  let gain = LATERAL.yawGain;
+  if (p.drifting) { grip *= LATERAL.driftGrip; gain *= LATERAL.driftLat; }
 
   const curve = p.curve || 0;
   const bank = p.bank || 0;
   const relief = curve !== 0 && Math.sign(bank) === Math.sign(curve) ? Math.min(LATERAL.bankMax, Math.abs(bank) * LATERAL.bankRelief) : 0;
-  // Outward pull (a right-hander, curve > 0, pushes the car toward -x).
-  const pull = LATERAL.corner * curve * v * v * (1 - relief) * (p.worldScale == null ? 1 : p.worldScale);
+  // The road's tangent turns under the car (a right-hander, curve > 0, turns it right, so
+  // relative to the road the car's heading swings left, toward -x).
+  const roadTurn = LATERAL.corner * curve * v * (1 - relief) * (p.worldScale == null ? 1 : p.worldScale);
 
-  // The tyres chase the lateral velocity the wheel asks for; the road's pull acts on top.
-  // With the wheel straight in a corner the car runs wide (it keeps going where it points
-  // while the road turns away); holding the line means steering into the corner.
-  const target = steer * latMax;
-  const want = (target - lt.vx) / Math.max(0.02, h.tau);
-  const tyre = clamp(want, -grip, grip);
-  lt.slip = Math.abs(want) > grip ? (Math.abs(want) - grip) / grip : 0;
-  lt.ay = tyre - pull;                      // net lateral acceleration
-  lt.vx += lt.ay * dt;
-  lt.x += lt.vx * dt;
+  // Travel heading from the sideways speed (contacts and walls may have shoved it).
+  let heading = Math.atan2(lt.vx, U);
+
+  // Yaw rate the wheel asks for, then what the tyres can actually give (understeer past grip).
+  const ask = steer * U * gain * Math.min(1, p.speedMph / 8) / (1 + (U / LATERAL.understeerU) ** 2);
+  const rMax = grip / U;
+  const r = clamp(ask, -rMax, rMax);
+  lt.slip = Math.abs(ask) > rMax ? (Math.abs(ask) - rMax) / rMax : 0;
+  // The car's yaw rate lags the ask by the car's response time.
+  lt.r += (r - lt.r) * (1 - Math.exp(-dt / Math.max(0.02, h.tau)));
+
+  // Heading relative to the road: the car's yaw, minus the road turning away, relaxing back.
+  heading += (lt.r - roadTurn - LATERAL.align * heading) * dt;
+  heading = clamp(heading, -1.2, 1.2);
+  const vx = U * Math.tan(heading);
+  lt.ay = (vx - lt.vx) / dt;
+  lt.vx = vx;
+  lt.x += vx * dt;
+  lt.heading = heading;
+
+  // Body yaw: the travel heading plus a sideslip angle, on a damped spring.
+  const dir = Math.sign(steer || lt.r || 0);
+  const slipMult = h.slipMult || 1;
+  // Cornering load points the nose a little into the turn (rear sideslip); past the grip
+  // limit it slides more; a power drift kicks the tail right out.
+  const load = clamp(U * lt.r / grip, -1, 1);
+  lt.beta = load * LATERAL.loadBeta + dir * LATERAL.slipBeta * Math.min(1, lt.slip) * slipMult +
+    (p.drifting ? dir * LATERAL.driftBeta * Math.min(1, Math.abs(steer) / 0.6) * slipMult : 0);
+  const w = 2 * Math.PI * LATERAL.bodyHz;
+  const acc = w * w * (heading + lt.beta - lt.yaw) - 2 * LATERAL.bodyDamp * w * lt.yawVel;
+  lt.yawVel += acc * dt;
+  lt.yaw += lt.yawVel * dt;
   return lt;
 }
 
