@@ -191,6 +191,19 @@ export class RoomCore {
     return [{ to: 'all', except: id, msg: { t: 'p', s: p.slot, d: clean } }];
   }
 
+  /**
+   * Quick chat (friends 10x): a preset emote 1–7 from a connected player, relayed to everyone
+   * else. Never free text, never persisted; at most one a second per player. Mid-race emotes
+   * ride the state frame's flags instead (src/live/emotes.js), so this is for lobby / results.
+   */
+  emote(id, e, now) {
+    const p = this.find(id);
+    if (!p || !p.conn || !Number.isInteger(e) || e < 1 || e > LIVE.emotes) return [];
+    if (now - (p.emoAt || 0) < LIVE.emoteGapMs) return [];
+    p.emoAt = now;
+    return [{ to: 'all', except: id, msg: { t: 'emo', id, e } }];
+  }
+
   finish(id, ms, race, now) {
     if (this.state !== 'RACING' || race !== this.race) return [];
     const p = this.find(id);
