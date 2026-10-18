@@ -100,9 +100,14 @@ export function carSprite(look, w, o = {}) {
  * Draws a car standing on the road at (x, groundY), sized so a typical 1.9 m wide car spans
  * `carW` px (a van comes out wider, a light-cycle narrower). Returns the sprite height drawn.
  */
+// Device pixels per drawing unit on the canvas the race draws into (the 2D renderer's backing
+// scale), so a sprite is cached at the size it really lands on screen and stays crisp.
+let pxScale = 1;
+export function setSpriteScale(k) { pxScale = k > 0 ? k : 1; }
+
 export function drawCarAt(ctx, look, x, groundY, carW, o) {
   const dw = carW * (METRES_ACROSS / CAR_METRES), dh = dw * SPRITE_ASPECT;
-  const spr = carSprite(look, dw, o);
+  const spr = carSprite(look, dw * pxScale, o);
   ctx.drawImage(spr, x - dw / 2, groundY - dh * GROUND_Y, dw, dh);
   return dh;
 }

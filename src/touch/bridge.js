@@ -10,6 +10,7 @@ import { boostOutcome } from '../flux.js';
 import { createTouchControls } from './touch-ui.js';
 import { drawRearMirror } from './mirror.js';
 import { normalizeControls } from './settings.js';
+import { createWakeKeeper, maybeFullscreen } from './device.js';
 
 const RESPAWN_COOLDOWN_S = 5;
 const loadPanel = () => import('./panel.js');
@@ -104,8 +105,12 @@ export function connectTouch(game) {
     controls.applySettings();
   }
 
+  const wake = createWakeKeeper();
+
   function raceStart(lateLoad) {
     if (!lateLoad) { respawnCooldown = 0; InputState.lookZoom = 1; }
+    // Inside the tap that started the race: browser bars away on Android phones.
+    if (!lateLoad && controls.isActive()) maybeFullscreen(cfg().fullscreen !== false);
     if (!history.state || !history.state.otRace) {
       try { history.pushState({ otRace: 1 }, ''); } catch (e) { /* sandboxed */ }
     }
@@ -114,12 +119,12 @@ export function connectTouch(game) {
     // Live races can't pause (everyone shares one clock), so the guide waits for your first
     // solo race instead of covering the countdown; the lobby shows a one-line tip meanwhile.
     if (controls.isActive() && !cfg().coachSeen && GameState.status === 'PLAYING' && GameState.mode !== 'LIVE') {
-      // Hold the race while the guide loads, so the first second isn't spent unguided.
-      GameState.status = 'PAUSED';
+      // The guide plays over the start lights and never pauses the race: it's done once you
+      // steer, or a few seconds into the race (the steering hint takes over from there).
       loadPanel().then(({ maybeShowCoach }) => maybeShowCoach({
         settings: cfg(), save, controls,
-        pause: () => { if (GameState.status === 'PLAYING') GameState.status = 'PAUSED'; },
-        resume: () => { if (GameState.status === 'PAUSED') GameState.status = 'PLAYING'; },
+        done: () => Math.abs(InputState.touchSteerVal) > 0.25 || InputState.tiltSteerVal * InputState.tiltSteerVal > 0.06
+          || (GameState.racePhase === 'RACING' && GameState.raceTime > 3) || GameState.status !== 'PLAYING',
       }));
     }
   }
@@ -135,11 +140,13 @@ export function connectTouch(game) {
   apply();
   return {
     sample(dt) {
+      wake.set(GameState.status === 'PLAYING');
       if (respawnCooldown > 0 && GameState.status === 'PLAYING') respawnCooldown = Math.max(0, respawnCooldown - dt);
       controls.sample(dt);
     },
     render: controls.render,
     controls,
+    wake,
     raceStart,
     show() {
       if (controls.isActive()) return;

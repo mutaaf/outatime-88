@@ -2214,12 +2214,26 @@ function loadGfx() {
   }).catch(() => {});
 }
 
+// The display canvas is sized in CSS px (viewW × viewH, what all 2D drawing code works in)
+// and backed by viewK device pixels per CSS px, so phones and tablets get crisp lines instead
+// of a 1× image stretched 2–3×. viewK follows the graphics tier and the governor (gfxQ.dpr:
+// LOW stays at 1×, ULTRA reaches 2×), so slow devices pay nothing.
+let viewW = 320, viewH = 240, viewK = 1;
+const backingScale = () => Math.max(1, Math.min(window.devicePixelRatio || 1, gfxQ.dpr || 1, 2));
 function resizeCanvases() {
   const container = document.getElementById('canvasContainer');
   const w = container ? container.clientWidth : window.innerWidth;
   const h = container ? container.clientHeight : window.innerHeight;
-  mainCanvas.width = Math.max(320, w);
-  mainCanvas.height = Math.max(240, h);
+  viewW = Math.max(320, w);
+  viewH = Math.max(240, h);
+  viewK = backingScale();
+  mainCanvas.width = Math.round(viewW * viewK);
+  mainCanvas.height = Math.round(viewH * viewK);
+}
+/** Start a frame on the display canvas: CSS-px coordinates at the current backing scale. */
+function beginMainFrame() {
+  if (backingScale() !== viewK) resizeCanvases();
+  mainCtx.setTransform(viewK, 0, 0, viewK, 0, 0);
 }
 
 
@@ -2237,7 +2251,7 @@ function drawPolygon(ctx, x1, y1, x2, y2, x3, y3, x4, y4, color) {
 /** Logical height of the 2D road canvas (era pixel scale applied). */
 function roadCanvasHeight() {
   const scale = getActiveEraRenderConfig().pixelScale || 1.0;
-  return Math.max(160, Math.floor(mainCanvas.height / scale));
+  return Math.max(160, Math.floor(viewH / scale));
 }
 
 /** Simulation-owned tyre contact Z; independent of which renderer draws the frame. */
@@ -2253,16 +2267,23 @@ const backdropFrame = { curve: 0, trackPos: 0, playerX: 0, t: 0, raceTime: 0, sp
 function renderScene() {
   const eraCfg = getActiveEraRenderConfig();
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
-  const scale = (eraCfg.pixelScale || 1.0) / gfxQ.res; // the governor trades resolution for frame time
-  const rw = Math.max(240, Math.floor(mainCanvas.width / scale));
-  const rh = Math.max(160, Math.floor(mainCanvas.height / scale));
-
-  if (pixelCanvas.width !== rw || pixelCanvas.height !== rh) {
-    pixelCanvas.width = rw;
-    pixelCanvas.height = rh;
+  // The road is drawn in logical px (rw × rh, the same height the simulation's tyre contact
+  // uses) onto a backing store of rw·pk × rh·pk: the governor trades resolution (res) for frame
+  // time, and the backing scale adds device pixels where the tier can afford them.
+  const scale = eraCfg.pixelScale || 1.0;
+  const rw = Math.max(240, Math.floor(viewW / scale));
+  const rh = Math.max(160, Math.floor(viewH / scale));
+  beginMainFrame();
+  const pk = Math.max(0.5, gfxQ.res * viewK);
+  const bw = Math.round(rw * pk), bh = Math.round(rh * pk);
+  if (pixelCanvas.width !== bw || pixelCanvas.height !== bh) {
+    pixelCanvas.width = bw;
+    pixelCanvas.height = bh;
   }
+  if (carArt && carArt.setSpriteScale) carArt.setSpriteScale(pk);
 
   const ctx = pixelCtx;
+  ctx.setTransform(bw / rw, 0, 0, bh / rh, 0, 0);
   ctx.save();
 
   // Screen Shake on Takedown / Roar / Boost
@@ -2428,7 +2449,7 @@ function renderScene() {
     maxY = y2;
   }
 
-  if (setPieceArt) setPieceArt.drawAhead(ctx, visibleSegments, eraCfg);
+  if (setPieceArt) setPieceArt.drawAhead(ctx, visibleSegments, eraCfg, rw, rh);
 
   // 3. Draw Scenery, Night-Street Smoke Flares, Collectibles & Rival/Police Cars
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
@@ -2846,7 +2867,7 @@ function renderScene() {
     const ride = setPieceArt.drawLoopRide(ctx, rw, rh, {
       f: rideF, z, lat: GameState.playerX, peelT: GameState.peeledLoop === rideF ? GameState.peelT : null,
       ups: GameState.peelUps || 1600, blend, eraCfg, t: fxClock, reduced: GameState.reducedMotion,
-      road: track, movers: rideMovers, color: paint.body, cabin: paint.cabin,
+      road: track, movers: rideMovers, color: paint.body, cabin: paint.cabin, px: pk,
     });
     if (ride.ownCar && GameState.cameraMode !== 2) {
       // Fell off the top: the same car, flying the ballistic arc the ride view worked out.
@@ -2901,7 +2922,7 @@ function renderScene() {
   // 6. Blit onto Main Display Canvas
   mainCtx.save();
   mainCtx.imageSmoothingEnabled = (eraCfg.pixelScale === 1.0);
-  mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+  mainCtx.clearRect(0, 0, viewW, viewH);
   const playing = GameState.status === 'PLAYING';
   const feel = nosFeel(speedFeel(playing ? GameState.speed : 0, GameState.reducedMotion));
   // FOV push-in toward the vanishing point as you approach 88 (crop the source a touch).
@@ -2909,17 +2930,17 @@ function renderScene() {
   const cropH = pixelCanvas.height / feel.fov;
   const cropX = (pixelCanvas.width - cropW) * 0.5;
   const cropY = (pixelCanvas.height - cropH) * 0.46;
-  const shakeX = feel.shake * Math.sin(fxClock * 61.0) * (mainCanvas.width / 1280);
-  const shakeY = feel.shake * Math.sin(fxClock * 47.0 + 1.3) * (mainCanvas.width / 1280);
-  mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX, shakeY, mainCanvas.width, mainCanvas.height);
+  const shakeX = feel.shake * Math.sin(fxClock * 61.0) * (viewW / 1280);
+  const shakeY = feel.shake * Math.sin(fxClock * 47.0 + 1.3) * (viewW / 1280);
+  mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX, shakeY, viewW, viewH);
   // Time-warp chromatic split: two offset additive ghosts for ~0.9 s after a warp.
   if (GameState.warpFxTimer > 0 && !GameState.reducedMotion) {
     const k = GameState.warpFxTimer / 0.9;
-    const off = 10 * k * (mainCanvas.width / 1280);
+    const off = 10 * k * (viewW / 1280);
     mainCtx.globalCompositeOperation = 'lighter';
     mainCtx.globalAlpha = 0.22 * k;
-    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, mainCanvas.width, mainCanvas.height);
-    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, mainCanvas.width, mainCanvas.height);
+    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, viewW, viewH);
+    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, viewW, viewH);
     mainCtx.globalAlpha = 1;
     mainCtx.globalCompositeOperation = 'source-over';
     drawWarpTunnel(mainCtx, k);
@@ -2929,7 +2950,7 @@ function renderScene() {
   // Calm mode's side-on loop cam (sprint 4) while you're going round a loop.
   if (setPieceArt && GameState.reducedMotion && rollF && rollF.kind === 'LOOP') {
     const pc = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
-    setPieceArt.drawCutaway(mainCtx, mainCanvas.width, mainCanvas.height, {
+    setPieceArt.drawCutaway(mainCtx, viewW, viewH, {
       t: progressIn(rollF, GameState.trackPos + ROAD_CFG.playerZOffset), mph: GameState.speed,
       color: pc.body, eraCfg, failed: GameState.peeledLoop === rollF, reduced: GameState.reducedMotion,
     });
@@ -3065,7 +3086,7 @@ function drawFinishLine(ctx, x1, y1, w1, x2, y2, w2) {
 function drawSpeedLines(c, intensity) {
   GameState.fxLinesDrawn = 0;
   if (intensity <= 0) return;
-  const W = mainCanvas.width, H = mainCanvas.height;
+  const W = viewW, H = viewH;
   const cx = W * 0.5, cy = H * 0.44;
   const count = Math.round(10 + 34 * intensity);
   const maxR = Math.hypot(W, H) * 0.62;
@@ -3092,7 +3113,7 @@ function drawSpeedLines(c, intensity) {
 
 /** Concentric cyan/magenta rings collapsing into the horizon right after a warp. */
 function drawWarpTunnel(c, k) {
-  const W = mainCanvas.width, H = mainCanvas.height;
+  const W = viewW, H = viewH;
   const cx = W * 0.5, cy = H * 0.44;
   c.lineWidth = 3 * (W / 1280);
   for (let i = 0; i < 6; i++) {
@@ -3105,7 +3126,7 @@ function drawWarpTunnel(c, k) {
 }
 
 function drawSparks(c, rw, rh) {
-  const sx = mainCanvas.width / rw, sy = mainCanvas.height / rh;
+  const sx = viewW / rw, sy = viewH / rh;
   const ox = rw * 0.5 * sx, oy = rh * 0.86 * sy;
   for (let i = 0; i < sparks.items.length; i++) {
     const p = sparks.items[i];
@@ -3749,8 +3770,12 @@ function beginRaceStart(lvl, { ceremony }) {
   if (callouts) callouts.reset(GameState.racePosition);
   if (!ceremony || !RC) { GameState.racePhase = 'RACING'; startSeq = null; if (RC) RC.stage.hide(); onboarding.start(performance.now()); return; }
   const key = `${GameState.mode}:${lvl.index}:${GameState.daily ? 'd' : ''}`;
-  const lineup = !lineupSeen.has(key);
+  // The lineup plays once per track, ever (remembered on this device), so coming back for
+  // another go is lights-and-race in under 3 s instead of a 9 s ceremony every visit.
+  const saved = Array.isArray(SaveStore.data.lineupsSeen) ? SaveStore.data.lineupsSeen : [];
+  const lineup = !lineupSeen.has(key) && !saved.includes(key);
   lineupSeen.add(key);
+  if (lineup) { SaveStore.data.lineupsSeen = saved.concat(key).slice(-24); SaveStore.save(); }
   GameState.racePhase = 'START';
   GameState.speed = 0;
   startSeq = RC.createStartSequence({ racers: FIELD_SIZE, lineup });
@@ -4440,14 +4465,15 @@ function syncViewModeUI() {
 /** Screen-space FX over the 3D view (the 2D canvas, cleared to transparent each frame). */
 function renderOverlayFx(feel) {
   const scale = getActiveEraRenderConfig().pixelScale || 1.0;
-  const rw = Math.max(240, Math.floor(mainCanvas.width / scale));
+  const rw = Math.max(240, Math.floor(viewW / scale));
   const rh = roadCanvasHeight();
-  mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+  beginMainFrame();
+  mainCtx.clearRect(0, 0, viewW, viewH);
   mainCtx.save();
   if (GameState.warpFxTimer > 0 && !GameState.reducedMotion) drawWarpTunnel(mainCtx, GameState.warpFxTimer / 0.9);
   drawSpeedLines(mainCtx, feel.lines);
   drawSparks(mainCtx, rw, rh);
-  mainCtx.scale(mainCanvas.width / rw, mainCanvas.height / rh);
+  mainCtx.scale(viewW / rw, viewH / rh);
   drawCarFx(mainCtx, rw, rh);
   mainCtx.restore();
 }

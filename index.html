@@ -2,12 +2,19 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>OUTATIME 88: Neon Time-Warp Street Racer</title>
   <meta name="description" content="OUTATIME 88 — a neon time-travel arcade racer. Hit 88 mph to jump eras." />
   <meta name="theme-color" content="#05050d" />
   <!-- Tab icon (ticket 0020): bundled, so it resolves under /outatime/ and full Chrome never asks for /favicon.ico. -->
   <link rel="icon" type="image/svg+xml" href="./src/favicon.svg" />
+  <!-- Install to the home screen (mobile pass): fullscreen, no browser bars, our own icon. -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="OUTATIME" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <!-- Link previews (ticket 0053): a bundled card, served from our own origin. -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="OUTATIME 88" />

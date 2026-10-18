@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { stickVector, followThumb, clampToRing, dpadDirection, dpadAxes, smoothSteer } from '../../src/touch/stick.js';
 import { hitButton, slideTransition } from '../../src/touch/buttons.js';
 import {
-  presetLayout, layoutProblems, applyCustom, toCustomItem, layoutKey, deviceClass, PRESET_IDS, SHORTCUT_IDS, ACTION_IDS,
+  presetLayout, layoutProblems, carProblems, applyCustom, toCustomItem, layoutKey, deviceClass, PRESET_IDS, SHORTCUT_IDS, ACTION_IDS,
 } from '../../src/touch/layouts.js';
 import { normalizeControls, movementFor, CONTROL_DEFAULTS } from '../../src/touch/settings.js';
 
@@ -157,6 +157,16 @@ describe('presets', () => {
         const probs = layoutProblems(L, env);
         for (const id of [...SHORTCUT_IDS, 'boost', 'drift', 'jump', 'special', 'stick']) if (!L[id] || L[id].hidden) probs.push(`${id} missing`);
         if (!env.autoAccel && L.accel.hidden) probs.push('accel missing');
+        if (probs.length) failures.push(`${p} @ ${name}: ${probs.join('; ')}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+  it('no preset puts a button over your own car (tall phones use the nearest-free-spot arc)', () => {
+    const failures = [];
+    for (const { name, env } of envs()) {
+      for (const p of PRESET_IDS) {
+        const probs = carProblems(presetLayout(p, env), env);
         if (probs.length) failures.push(`${p} @ ${name}: ${probs.join('; ')}`);
       }
     }
