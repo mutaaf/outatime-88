@@ -4,9 +4,9 @@ title: Low Orbit Skyway — a glass highway over Earth (level 6, 2061 era)
 status: shipped
 priority: P1
 size: M
-lens: world
+lens: content
 created: 2026-10-18
-pr: TBD
+pr: 87
 ---
 
 ## Why
@@ -38,6 +38,19 @@ roadster with a white-suited mannequin drifting over the planet.
   and the sweepers and double-apex 180s hold about 1.6× longer, like orbital arcs.
 - **Easter eggs:** the roadster drifts past for 12 s of every 40 s, and a rocket climbs off the
   limb on the final lap.
+
+## Acceptance criteria
+- [x] Level 6 is appended (saved level indexes unchanged); `?level=orbit` / `?level=6` pick it when it's unlocked.
+- [x] 2D shows space above and Earth below with no flat fallback; the deck reads as a see-through ribbon.
+- [x] 3D shows the planet below the highway without it ever cutting through the road; other eras are unchanged.
+- [x] Jumps in the orbit era stay in the air about twice as long.
+- [x] Every bag still contains every curve kind and set piece.
+- [x] Today's daily level never changes; live lobbies never offer a level the room server rejects.
+- [x] Nothing trademarked (IP denylist test); every scene chunk stays in budget.
+
+## Test plan
+- Unit: `tests/unit/orbit.test.js` covers the level, era, deck, low-G airtime, bags, deep links, daily pinning and egg triggers. `eggs.test.js` and `live-room.test.js` are updated.
+- E2E: `tests/e2e/orbit.spec.js` covers ?level=orbit with 2D sky and planet tones, measured low-G airtime and 3D frames. 2061 joins `backdrops.spec.js` (four viewports plus roadside), and the budget spec counts seven scenes.
 
 ## Compatibility
 - The daily challenge still draws from the first five levels (`DAILY_LEVELS`), so today's daily

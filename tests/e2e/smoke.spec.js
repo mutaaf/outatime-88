@@ -54,13 +54,13 @@ test('level selection persists across reload under the same save key', async ({ 
   // A returning player with every level open (new players start with level 1 only, ticket 0011).
   await page.addInitScript(() => {
     if (!localStorage.getItem('outatime_cruisn_88_save_v2')) {
-      localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ unlockedLevel: 5 }));
+      localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ unlockedLevel: 6 }));
     }
   });
   await page.goto(APP);
   await page.locator('#btnOpenEvents').click();
   const cards = page.locator('#levelSelectGrid > button');
-  await expect(cards).toHaveCount(5);
+  await expect(cards).toHaveCount(6); // five levels + the orbit skyway (ticket 0150)
   await cards.nth(2).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('outatime_cruisn_88_save_v2')));
   expect(saved.selectedLevel).toBe(2);
