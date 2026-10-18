@@ -75,3 +75,12 @@ test('the results/leaderboard UI and the music score are lazy chunks (ticket 011
   expect(main).not.toContain('kick:[1,0,0,0');
   expect(gz(results[0])).toBeLessThan(6);
 });
+
+test('recorded sound effects stay small and out of the main bundle (ticket 0132)', () => {
+  const files = readdirSync(DIR).filter((f) => /\.(mp3|wav)$/.test(f));
+  const total = files.reduce((t, f) => t + readFileSync(`${DIR}/${f}`).length, 0) / 1024;
+  expect(files.length).toBeGreaterThan(10);
+  expect(total).toBeLessThan(600);
+  const main = readdirSync(DIR).find((f) => /^index-.*\.js$/.test(f));
+  expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toMatch(/audio\/[\w-]+\.(mp3|wav)|data:audio/);
+});

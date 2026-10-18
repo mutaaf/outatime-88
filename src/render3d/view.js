@@ -14,6 +14,7 @@ import { ROAD_CFG } from '../data.js';
 import { InputState } from '../input.js';
 import { createTrackPath } from './path.js';
 import { featureAt } from '../track.js';
+import { tyreSmokeLevel, smokeRate, createSmokePool } from '../smoke.js';
 import { bodyPose, playerPose } from '../render-pose.js';
 import { buildCar, buildObstacle, propKinds, mountainRing, turnWheels, bodyStyle, NEON_CYAN, NEON_PINK } from './meshes.js';
 
@@ -686,6 +687,76 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     }
   }
 
+  // ── Tyre smoke (ticket 0132): one Points draw over a fixed pool of world-space puffs ──
+  // Spawned at the rear wheels from the same tyreSmokeLevel() the 2D view and the squeal use;
+  // the car drives out of them, they rise, spread and fade. Buffers are filled in place.
+  const SMOKE_N = 140;
+  const smoke = createSmokePool(SMOKE_N);
+  const sPos = new Float32Array(SMOKE_N * 3), sSize = new Float32Array(SMOKE_N), sAlpha = new Float32Array(SMOKE_N);
+  const sGeo = new BufferGeometry();
+  sGeo.setAttribute('position', new BufferAttribute(sPos, 3).setUsage(DynamicDrawUsage));
+  sGeo.setAttribute('size', new BufferAttribute(sSize, 1).setUsage(DynamicDrawUsage));
+  sGeo.setAttribute('alpha', new BufferAttribute(sAlpha, 1).setUsage(DynamicDrawUsage));
+  const sMat = new ShaderMaterial({
+    transparent: true, depthWrite: false, fog: true,
+    uniforms: { color: { value: new Color('#d9dbe2') }, scale: { value: 600 }, fogColor: { value: new Color() }, fogNear: { value: 1 }, fogFar: { value: 1000 } },
+    vertexShader: `attribute float size; attribute float alpha; uniform float scale; varying float vA;
+      #include <fog_pars_vertex>
+      void main(){
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = size * scale / max(0.5, -mvPosition.z);
+        vA = alpha * smoothstep(0.6, 2.5, -mvPosition.z); // no smoke smeared over the lens
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `uniform vec3 color; varying float vA;
+      #include <fog_pars_fragment>
+      void main(){
+        vec2 c = gl_PointCoord - 0.5;
+        float d = length(c);
+        float a = (1.0 - smoothstep(0.12, 0.5, d)) * (0.85 + 0.15 * sin(gl_PointCoord.x * 9.0 + gl_PointCoord.y * 7.0));
+        if (a * vA < 0.01) discard;
+        gl_FragColor = vec4(color, a * vA);
+        #include <fog_fragment>
+      }`,
+  });
+  const smokePts = new Points(sGeo, sMat);
+  smokePts.frustumCulled = false;
+  smokePts.renderOrder = 5;
+  scene.add(smokePts);
+  let smokeEmit = 0;
+  function syncSmoke(dt) {
+    const lv = state.status === 'PLAYING' ? tyreSmokeLevel(state) : 0;
+    smoke.update(dt, 1.2, 1.4);
+    smokeEmit += dt * smokeRate(lv, q.particles == null ? 1 : q.particles, state.reducedMotion);
+    while (smokeEmit >= 1) {
+      smokeEmit -= 1;
+      wheelLocal.set((Math.random() < 0.5 ? -1 : 1) * 1.1, 0.25, 2.1);
+      playerCar.localToWorld(wheelLocal);
+      const sp = 0.6 + Math.random() * 1.4;
+      smoke.spawn(wheelLocal.x, wheelLocal.y, wheelLocal.z, (Math.random() - 0.5) * sp * 2, 0.4 + Math.random() * 0.8, (Math.random() - 0.5) * sp * 2,
+        0.8 + Math.random() * 0.5, 1.8 + lv * 2, 0.8 + Math.random() * 0.9, 0.36 + lv * 0.34);
+    }
+    let n = 0;
+    for (let i = 0; i < SMOKE_N; i++) {
+      const p = smoke.items[i];
+      if (p.life <= 0) continue;
+      sPos[n * 3] = p.x; sPos[n * 3 + 1] = p.y; sPos[n * 3 + 2] = p.z;
+      sSize[n] = p.size;
+      sAlpha[n] = p.a * (p.life / p.maxLife) * Math.min(1, (p.maxLife - p.life) * 10);
+      n++;
+    }
+    stats.smoke = n;
+    smokePts.visible = n > 0;
+    if (!n) return;
+    sGeo.setDrawRange(0, n);
+    sGeo.attributes.position.needsUpdate = true;
+    sGeo.attributes.size.needsUpdate = true;
+    sGeo.attributes.alpha.needsUpdate = true;
+    sMat.uniforms.color.value.set(pal.bright ? '#e6e3dc' : '#c9ccd6');
+    sMat.uniforms.scale.value = Math.max(1, container.clientHeight) * 0.9;
+  }
+
   // ── Player, camera, sky ────────────────────────────────────────────────────
   function playerZ() {
     return playerPose(state, pp).z;
@@ -957,7 +1028,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     camera.updateProjectionMatrix();
   }
 
-  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0, env: false, shadows: 0, post: false, weather: 0, wheelSpin: 0, playerShape: '' };
+  const stats = { frames: 0, dpr, chunks: 0, cars: 0, drawCalls: 0, triangles: 0, step: q.step || 0, env: false, shadows: 0, post: false, weather: 0, wheelSpin: 0, playerShape: '', smoke: 0 };
 
   let clock = 0;
   return {
@@ -978,6 +1049,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       syncCars(clock, dt);
       syncObstacles();
       syncTrails(dt);
+      syncSmoke(dt);
       syncSky(e, clock);
       syncWeather(clock);
       syncPost();
