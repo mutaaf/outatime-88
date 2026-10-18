@@ -1,7 +1,8 @@
 ---
 id: 0157
 title: Painted cars everywhere, thrusters on each car's own pipes, and the Volt Roadster
-status: in-progress
+status: shipped
+pr: 86
 priority: P1
 size: L
 lens: player-feel
