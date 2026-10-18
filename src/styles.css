@@ -346,7 +346,7 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 .speed-meter .m88 { position: absolute; top: 0; bottom: 0; left: 55%; width: 2px; background: #fff; }
 .flux-meter i { background: linear-gradient(90deg, #0284c7, #00f0ff, #fde047); }
 /* NOS tank (ticket 0122): blue→violet, glows while burning. */
-.nos-meter { overflow: visible; }
+.nos-meter { overflow: visible; margin-right: clamp(26px, 3.6vmin, 36px); }
 .nos-meter i { background: linear-gradient(90deg, #2563eb, #60a5fa, #a855f7); }
 .nos-meter b { position: absolute; right: 0; top: 50%; transform: translate(calc(100% + 4px), -50%); font: 700 clamp(7px, 1.1vmin, 10px)/1 Orbitron, sans-serif; color: #93c5fd; letter-spacing: 0.08em; }
 .hud-speed.is-nos .nos-meter i { box-shadow: 0 0 8px #a855f7, 0 0 2px #fff; }
