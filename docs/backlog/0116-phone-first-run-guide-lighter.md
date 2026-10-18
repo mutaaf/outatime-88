@@ -32,6 +32,6 @@ Extend the touch e2e: first-run guide visible, no GOT IT tap required, dismissed
 Controls panel and layout editor.
 
 ## Shipped
-With 0140: the guide now plays over the start lights with no dim and no tap target
+With 0145: the guide now plays over the start lights with no dim and no tap target
 (`pointer-events: none`), a ghost thumb swiping the steering zone plus WARP / HOLD = NOS rings,
 and fades once you steer (or 3 s into the race). The race is never paused for it.

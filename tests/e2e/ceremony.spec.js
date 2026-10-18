@@ -24,7 +24,7 @@ test('the lineup calls out all six racers, you last, and a tap skips to the ligh
   expect(await gs(page, 'speed')).toBe(0); // nobody moves before green
   expect(await gs(page, 'raceTime')).toBe(0);
 
-  // Coming back to the same track (0140): the lineup is remembered, so it's straight to the lights.
+  // Coming back to the same track (0145): the lineup is remembered, so it's straight to the lights.
   await page.reload();
   await ready(page);
   await page.evaluate(() => window.__OT.startRace());
