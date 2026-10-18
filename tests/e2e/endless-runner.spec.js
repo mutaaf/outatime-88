@@ -46,6 +46,7 @@ test('no cash, no continue: HP 0 ends the run', async ({ page }) => {
 test('meeting a goal marks it done; all three raise the Endless level and the multiplier', async ({ page }) => {
   const problems = watchPage(page);
   await endless(page, { onboarded: true });
+  await page.waitForFunction(() => window.__OT.runner().goals); // the goals chunk is lazy
   const first = await G(page, () => window.__OT.runner().goals.active.map((g) => ({ ...g })));
   expect(first).toHaveLength(3);
   const statOf = { COINS: 'coins', DRIFT: 'driftSecs', LOOPS: 'loops', CLEAN: 'cleanBest', TIER: 'tier', NEAR: 'nearMisses', NOS: 'nosSecs' };
