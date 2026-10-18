@@ -1,6 +1,7 @@
 import './fonts.js';
 import './styles.css';
-import { drawBackdrop, drawRoadsideAd, drawRoadsideProp, drawHazardArt, drawSoftShadow, queueTag, flushTags, drawWeather, preloadBackdrops, resetBackdrop, backdropDebug, setBackdropQuality } from './backdrop.js';
+import { drawBoard, boardsDebug } from './billboards.js';
+import { drawBackdrop, drawRoadsideProp, drawHazardArt, drawSoftShadow, queueTag, flushTags, drawWeather, preloadBackdrops, resetBackdrop, backdropDebug, setBackdropQuality } from './backdrop.js';
 import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
@@ -2521,17 +2522,9 @@ function renderScene() {
         const postH = itemH * 2.5;
         ctx.fillStyle = '#64748b';
         ctx.fillRect(itemX - 1.5, roadY - postH, 3, postH);
-      } else if (item.type === 'SIGN_88' || item.type === 'CLOCK_TOWER_BILLBOARD') {
-        const postH = itemH * 1.7;
-        ctx.fillStyle = '#475569';
-        ctx.fillRect(itemX - 2, roadY - postH, 4, postH);
-        ctx.fillStyle = item.type === 'SIGN_88' ? '#ea580c' : '#1e1b4b';
-        ctx.fillRect(itemX - itemW * 0.7, roadY - postH, itemW * 1.4, itemH * 0.8);
-        // the era's own ads on the boards (ticket 0100); plain white until its scene loads
-        if (!drawRoadsideAd(ctx, itemX - itemW * 0.62, roadY - postH + itemH * 0.08, itemW * 1.24, itemH * 0.64, seg.index)) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(itemX - itemW * 0.5, roadY - postH + itemH * 0.2, itemW, itemH * 0.35);
-        }
+      } else if (item.type === 'BILLBOARD' || item.type === 'CLOCK_TOWER_BILLBOARD') {
+        // Ad slots and the era's own boards: crisp cached faces (src/billboards.js, docs/ADS.md)
+        drawBoard(ctx, item, seg.index, itemX, roadY, roadW, rw, rh, eraCfg.id);
       }
     }
 
@@ -4645,6 +4638,7 @@ window.onload = () => {
     traffic: () => LiveTraffic,
     track: () => track,
     backdrop: backdropDebug,
+    ads: boardsDebug,
     gfx: () => gfx,
     view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
     setView: (m) => setRenderMode(m, { persist: false }),

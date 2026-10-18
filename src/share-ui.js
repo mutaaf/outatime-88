@@ -92,9 +92,11 @@ export async function onResults(levelIndex) {
   btn.querySelector('small').textContent = current.isRoom ? 'invite friends to the rematch' : `challenge a friend to beat ${formatRaceTime(current.time)}`;
   const img = $('sharePreview');
   img.removeAttribute('src');
+  const set = rendered;
   try {
     const r = await render('post');
-    if (current) img.src = r.url;
+    // A newer result may have replaced (and revoked) this card while it rendered.
+    if (current && rendered === set) img.src = r.url;
     // Warm the wide card in the background so switching formats in the sheet is instant.
     render('wide').catch(() => {});
   } catch (e) { /* the button still works; the sheet retries */ }

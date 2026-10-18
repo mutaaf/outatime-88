@@ -71,7 +71,9 @@ Depth over breadth: polish one moment until it sings before adding three.
    leaderboard, identity and the live-race WebSocket `/outatime/api/room/<CODE>`, all
    src/worker/). No third-party host, ever. QR codes are drawn locally (`src/qr.js`). The e2e smoke test fails on any non-localhost request. No accounts and no
    personal data: see § Privacy model.
-   No analytics, ads, trackers, fonts or scripts from CDNs. Everything else is bundled.
+   No analytics, ad networks, trackers, fonts or scripts from CDNs. Everything else is bundled.
+   The only ads are first-party sponsor boards bundled under `/outatime/ads/`, chosen by
+   context only, reporting aggregate per-campaign counts (docs/ADS.md).
 4. **Frame budget.** The render loop must hold 60fps on a mid-range laptop and stay
    playable on a recent phone. No per-frame allocations in hot paths (reuse vectors and
    arrays), no layout thrash from the HUD.
