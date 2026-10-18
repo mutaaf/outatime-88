@@ -3,8 +3,11 @@ import { existsSync } from 'node:fs';
 
 // Offline play must work in every major engine (ticket 0158): the offline specs also run in
 // Firefox and WebKit (Safari's engine) wherever those browsers are installed
-// (`npx playwright install firefox webkit`; CI installs them).
-const has = (b) => { try { return existsSync(b.executablePath()); } catch { return false; } };
+// (`npx playwright install firefox webkit`).
+// In CI they run as their own step after the Chromium suite (E2E_ENGINES=1), so they never
+// add load to the timing-sensitive Chromium tests; locally they run whenever installed.
+const wantEngines = process.env.E2E_ENGINES === '1' || !process.env.CI;
+const has = (b) => { try { return wantEngines && existsSync(b.executablePath()); } catch { return false; } };
 const OFFLINE_SPECS = /offline\.spec\.js/;
 const engines = [
   has(firefox) && { name: 'firefox', testMatch: OFFLINE_SPECS, use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 720 }, launchOptions: {} } },

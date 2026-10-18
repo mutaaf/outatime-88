@@ -68,6 +68,19 @@ async function network(browserName, context) {
   };
 }
 
+/**
+ * Navigate and let the page settle. Firefox sometimes reports NS_BINDING_ABORTED for a
+ * navigation that lands anyway (the old page's in-flight requests are cancelled); try once more.
+ */
+async function gotoSettled(page, url) {
+  try { await page.goto(url); } catch (e) {
+    if (!/NS_BINDING_ABORTED/.test(String(e))) throw e;
+    await page.waitForTimeout(500);
+    await page.goto(url);
+  }
+  await page.waitForLoadState('networkidle');
+}
+
 /** Load online once and wait until the title pill says everything is saved. */
 async function goOnlineThenWaitReady(page, url = `${APP}?debug`) {
   await page.goto(url);
@@ -132,8 +145,7 @@ test('after one visit the game boots, races in 2D and 3D, plays sounds and shows
   await expect(page.locator('#liveMsgTitle')).toHaveText(browserName === 'firefox' ? /NEEDS INTERNET|OFFLINE/ : /NEEDS INTERNET/, { timeout: 12_000 });
   await page.keyboard.press('Escape');
   await page.waitForLoadState('networkidle');
-  await page.goto(net.url(`${APP}?debug`)); // (a fresh load: Firefox aborts a reload racing the room's history update)
-  await page.waitForLoadState('networkidle');
+  await gotoSettled(page, net.url(`${APP}?debug`));
 
   // A solo race in 2D…
   await page.locator('#btnStartRace').click();
@@ -147,7 +159,7 @@ test('after one visit the game boots, races in 2D and 3D, plays sounds and shows
   // …and the 3D view (three.js, lazy) comes up from the cache too.
   await page.evaluate(() => window.__OT.pause());
   await page.waitForLoadState('networkidle');
-  await page.goto(net.url(`${APP}?debug&view=3d`));
+  await gotoSettled(page, net.url(`${APP}?debug&view=3d`));
   await expect.poll(() => page.evaluate(() => window.__OT.view && window.__OT.view().mode), { timeout: 20_000 }).toBe('3d');
   await expect(page.locator('#gameCanvas3d')).toHaveCount(1, { timeout: 20_000 });
 
