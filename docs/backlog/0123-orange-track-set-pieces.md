@@ -29,10 +29,20 @@ straight."
   the orange loop; the clock-face loop in 1955/2026 is listed in docs/EASTER_EGGS.md.
 - Hazards and traffic never sit in set pieces (the clean-line planner skips them).
 
-## Done when
-- [x] unit: layouts per level, contiguous features, gates before set pieces, 3D frames
-  orthonormal, a loop climbs to its top upside down and exits beside its entry, set-piece
-  sim deterministic
-- [x] e2e (`tests/e2e/setpieces.spec.js`): loop, corkscrew, half-pipe and gap in 2D and 3D,
-  no console errors, with screenshots at 390×844, 844×390, 820×1180, 1180×820 and 1280×720,
-  and a frame-time probe through curves
+## Acceptance criteria
+- [x] every level has real curves (|curve| ≥ 1.5), hills and its set pieces within a lap of biomes
+- [x] each loop, corkscrew and half-pipe is led in by a booster gate; each gap follows a ramp
+- [x] 3D frames stay orthonormal; a loop is upside down at its top and exits beside its entry
+- [x] stalling in a loop or missing a gap costs time, never points; the set-piece sim is deterministic
+- [x] 2D and 3D drive through a loop, corkscrew, half-pipe and gap with no console errors
+- [x] works at 390x844 touch and 1280x720, plus 844x390, 820x1180 and 1180x820
+
+## Test plan
+Unit: `tests/unit/track.test.js` (layouts, contiguous features, gates, `hasSetPieceBetween`),
+`tests/unit/track-path.test.js` (3D frames, loop geometry, corkscrew roll, banks),
+`tests/unit/setpieces.test.js` (booster kick, loop fail, gap, view roll, determinism).
+e2e: `tests/e2e/setpieces.spec.js` (drive-throughs in 2D/3D, screenshots at five sizes,
+frame-time probe through curves).
+
+## Out of scope
+Car physics in loops beyond the minimum-speed rule (handling owns it); new tracks (still 5).
