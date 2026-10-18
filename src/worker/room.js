@@ -71,6 +71,11 @@ export class RaceRoom extends DurableObject {
       if (id) this.send(core.frame(id, m.d, now));
       return;
     }
+    if (m.t === 'emo') {
+      // Quick chat is relayed from memory like frames: no storage write, no alarm change.
+      if (id) this.send(core.emote(id, Number(m.e), now));
+      return;
+    }
 
     let out = [];
     if (m.t === 'hello') {

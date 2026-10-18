@@ -16,6 +16,8 @@ export const LIVE = {
   dropMs: 20000,          // a disconnected player keeps their seat this long between races
   idleMs: 10 * 60e3,      // a room nobody is connected to is wiped after this
   pace: 0,                // every live racer drives the same world speed (PACE_MODES index)
+  emotes: 7,              // quick-chat presets (src/live/emotes.js EMOTES, ids 1–7)
+  emoteGapMs: 1000,       // one emote a second per player, server-side
 };
 
 /**

@@ -334,3 +334,20 @@ describe('limits', () => {
     expect(pickRoom({}, now)).toBeNull();
   });
 });
+
+describe('quick chat', () => {
+  it('relays a preset emote to everyone else, one a second, never junk', () => {
+    const r = room();
+    const a = r.join({ name: 'ACE' }, 1, mint).player;
+    const b = r.join({ name: 'ZAP' }, 2, mint).player;
+    const out = r.emote(a.id, 2, 1000);
+    expect(msgsTo(out, b.id)).toEqual([{ t: 'emo', id: a.id, e: 2 }]);
+    expect(msgsTo(out, a.id)).toEqual([]);
+    expect(r.emote(a.id, 3, 1500)).toEqual([]);          // too soon
+    expect(r.emote(a.id, 3, 2000)).toHaveLength(1);
+    for (const bad of [0, 8, 2.5, NaN, -1]) expect(r.emote(b.id, bad, 9000)).toEqual([]);
+    expect(r.emote('nobody', 1, 9000)).toEqual([]);
+    r.drop(b.id, 9000);
+    expect(r.emote(b.id, 1, 20000)).toEqual([]);         // disconnected seats can't chat
+  });
+});
