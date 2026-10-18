@@ -1,7 +1,7 @@
 ---
 id: 0111
 title: Grid screen speaks keyboard — no "TAP ⚡" wording for keyboard players, and a slimmer line-up card
-status: proposed
+status: ready
 priority: P1
 size: S
 lens: player-feel
