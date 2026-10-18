@@ -57,6 +57,11 @@ const sparks = createParticlePool(160);
 const hitStop = createHitStop();
 const nearMisses = nearMissChain();
 let fxClock = 0;
+// Tyre smoke (ticket 0133): src/smoke2d.js, lazy; until it loads there is simply no smoke.
+// The 3D view keeps its own world-space puffs (src/render3d/view.js).
+let smoke2d = null;
+setTimeout(() => { import('./smoke2d.js').then((m) => { smoke2d = m.createTyreSmoke2D(); }, () => {}); }, 0);
+let smokeRoadX = 0, smokeRoadW = 1;
 // Reduced motion = the OS setting or the settings panel's choice (src/settings-ui.js).
 
 /** Shower of sparks from the player car (pixel-canvas coords are mapped at draw time). */
@@ -442,7 +447,7 @@ const LiveTraffic = {
               r.applyImpulseAndTorque(leverX * 1800, 120000, jMph * 400, leverX);
               GameState.suspVel -= 160;
               GameState.chassisPitchVel += 12; // Nose dive on front impact!
-              SoundEngine.playTone(120, 'sawtooth', 0.1, 0.1);
+              SoundEngine.playImpact('crash2', 120, 0.1, 0.1);
             } else {
               // Door-to-door side collision with body roll & lateral impulse!
               const dir = GameState.playerX < r.offset ? -1 : 1;
@@ -454,7 +459,7 @@ const LiveTraffic = {
               GameState.playerVX += (jx * playerInvMass) + dir * 0.38;
               r.applyImpulseAndTorque(-jx - dir * 800, 80000, 0, leverX);
               GameState.chassisRollVel += dir * 18;
-              SoundEngine.playTone(140, 'sawtooth', 0.08, 0.08);
+              SoundEngine.playImpact('bump', 140, 0.08, 0.08);
             }
           }
         }
@@ -677,12 +682,12 @@ const LiveTraffic = {
       pr.vYaw = sideDir * 5;
       burstSparks(mat.massKg < 20 ? 6 : 12, mat.massKg < 20 ? 30 : 18, 0.7);
       if (debris) {
-        SoundEngine.playTone(420, 'square', 0.05, 0.04);
+        SoundEngine.playImpact('debris', 420, 0.05, 0.04);
       } else if (mat.damage > 0) {
         applyPlayerDamage(mat.damage, 'BARREL HIT');
       } else {
         chargePenalty(logHit(GameState.penaltyLog, 'cone', mph), 'CONE HIT');
-        SoundEngine.playTone(420, 'square', 0.05, 0.06);
+        SoundEngine.playImpact('cone', 420, 0.05, 0.06);
       }
       GameState.dodgeStreak = 0;
     }
@@ -1269,6 +1274,7 @@ function updateGame(rawDt) {
   // Loops (road contract set pieces): gravity along the loop, and too slow at the top means
   // you fall off. That costs speed, not points (no new penalty kind for the server to check).
   const feat = featureAt(GameState.trackPos + ROAD_CFG.playerZOffset);
+  if (feat && feat.kind === 'LOOP' && GameState.whooshLoop !== feat) { GameState.whooshLoop = feat; SoundEngine.playWhoosh(); }
   if (feat && feat.kind === 'LOOP' && GameState.playerY <= 4) {
     const lt = (GameState.trackPos + ROAD_CFG.playerZOffset - feat.z0) / feat.length;
     const lp = loopStep(GameState.speed, feat, lt, rawDt);
@@ -1437,6 +1443,7 @@ function updateGame(rawDt) {
   steerInput = stepSteer(steerWheel, autopilot ? 0 : digitalSteer, analogSteer, rawDt, GameState.speed, GameState.isDrifting);
   GameState.steerInput = steerInput; // published for the renderers (3D front wheels)
   GameState.braking = Boolean(braking);
+  GameState.throttle = Boolean(accelerating);
 
   // A power drift is asked for (brake + steer) or happens (the tyres are sliding past grip).
   const wantsDrift = GameState.speed > 45 && GameState.playerY < 10 &&
@@ -1536,6 +1543,8 @@ function updateGame(rawDt) {
   const MAX_TRACK_X = 0.72;
   // Walls (ticket 0131, src/handling.js wallContact): a bounce with friction that scrubs
   // speed by how hard you hit, a yaw kick away from the barrier, and grinding costs speed.
+  // Touching the wall (pressed against it, or bouncing off this step) grinds: smoke and scrub.
+  GameState.wallGrind = Math.abs(GameState.playerX) >= MAX_TRACK_X - 0.004;
   if (GameState.playerX < -MAX_TRACK_X || GameState.playerX > MAX_TRACK_X) {
     const side = GameState.playerX < 0 ? -1 : 1;
     GameState.playerX = side * MAX_TRACK_X;
@@ -1547,6 +1556,7 @@ function updateGame(rawDt) {
     GameState.speed = Math.max(Math.min(GameState.speed, 25), GameState.speed - lost);
     if (hit) GameState.particles.push({ x: side * 38, y: -5, vx: -side * 90, vy: -60, color: '#ffea00', life: 0.25 });
   }
+  if (smoke2d) smoke2d.step(rawDt, GameState, gfxQ.particles == null ? 1 : gfxQ.particles, !view3d);
 
   // 3. Split-Track Crossroads Choice: a compact two-arrow cue (src/fork.js, ticket 0019),
   //    written only when it changes (this runs every sim step).
@@ -2855,6 +2865,7 @@ function renderScene() {
     const segRoadX = playerSeg.p1.screen.x;
     const segRoadW = playerSeg.p1.screen.w;
     GameState.playerScreenX = Math.round(segRoadX + GameState.playerX * segRoadW);
+    smokeRoadX = segRoadX; smokeRoadW = segRoadW;
   } else {
     GameState.playerScreenX = Math.floor(rw * 0.5);
   }
@@ -2891,7 +2902,7 @@ function renderScene() {
       // Touchdown after falling off the top: a bounce, sparks and a thump.
       burstSparks(26, 28, 1.2);
       GameState.screenShake = Math.max(GameState.screenShake || 0, 0.35);
-      SoundEngine.playCrash();
+      SoundEngine.playLand();
       if (touch) touch.controls.haptics.pulse('hit');
     }
     GameState.playerScreenX = Math.floor(rw * 0.5);
@@ -2900,6 +2911,7 @@ function renderScene() {
   } else { GameState.loopRide = 0; GameState.loopFall = 0; }
   if (GameState.cameraMode !== 2 && !rideOwnsCar) {
     drawPlayerCar(ctx, rw, rh, eraCfg);
+    if (smoke2d) smoke2d.draw(ctx, rw, rh, smokeRoadX, smokeRoadW, SaveStore.data.underglow);
   }
 
   drawCarFx(ctx, rw, rh);
@@ -3540,8 +3552,8 @@ const liveHooks = {
   selectCar: (idx) => selectCharacterByIndex(idx),
   unlockAudio: () => { SoundEngine.init(); },
   beep: (n) => {
-    if (n > 0) SoundEngine.playTone(440, 'square', 0.16, 0.12);
-    else if (n === 0) SoundEngine.playTone(880, 'square', 0.4, 0.14);
+    if (n > 0) SoundEngine.playBeep(false);
+    else if (n === 0) SoundEngine.playBeep(true);
     else SoundEngine.playCheckpoint();
   },
   hideTitle: () => {
@@ -3645,6 +3657,7 @@ function startNewRace(opts) {
   GameState.sinceWarp = FLUX.warpCooldown;
   GameState.warpFxTimer = 0;
   sparks.clear();
+  if (smoke2d) smoke2d.clear();
   nearMisses.reset();
   GameState.draftCharge = 0;
   GameState.specialCharges = 3;
@@ -3773,6 +3786,7 @@ function beginRaceStart(lvl, { ceremony }) {
   GameState.racePhase = 'START';
   GameState.speed = 0;
   startSeq = RC.createStartSequence({ racers: FIELD_SIZE, lineup });
+  SoundEngine.playStartUp(); // engines fire up on the grid (a recorded start-up, when loaded)
   RC.stage.show();
   if (!lineup) RC.stage.grid(gridOrder());
 }
@@ -4644,6 +4658,8 @@ window.onload = () => {
     steer: () => steerModes,
     drive: () => drive,
     lateral: () => lateral,
+    audio: () => SoundEngine,
+    smoke: () => smoke2d && smoke2d.pool,
   };
   initSettings({ announce: triggerAnnouncement });
   // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.

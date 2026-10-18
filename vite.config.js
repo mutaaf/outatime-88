@@ -20,6 +20,8 @@ const offlineServiceWorker = {
     const files = Object.keys(bundle)
       .filter((f) => f.startsWith('assets/'))
       .filter((f) => !/\.(woff|ttf|map)$/.test(f))
+      // audio (src/sfx, ticket 0133) loads after the first tap and is cached on first use
+      .filter((f) => !/\.(mp3|wav|ogg|m4a)$/.test(f))
       // fonts: precache only the latin subsets; others are cached the first time they're used
       .filter((f) => !f.endsWith('.woff2') || /-latin-\d/.test(f))
       // …and so is the rest of the 3D view (src/render3d: view, garage preview, post-processing)

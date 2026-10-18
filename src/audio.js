@@ -1,4 +1,6 @@
-// Synthesized audio engine (Web Audio): engine voice, SFX, procedural synthwave score.
+// Audio engine (Web Audio): engine voice, SFX, procedural synthwave score. Recorded CC0 samples,
+// the sampled engine and the tyre squeal live in a lazy chunk (src/sfx/bank.js, ticket 0133);
+// every sound keeps its synth voice as the fallback until (or unless) its sample decodes.
 // Graph (ticket 0006): musicBus / sfxBus / engineBus → compressor → masterGain → destination,
 // so stacked crashes and warps duck under a limiter instead of clipping over the music.
 import { SaveStore } from './save.js';
@@ -69,6 +71,7 @@ export const SoundEngine = {
         this.compressor.connect(this.masterGain);
         this.masterGain.connect(ctx.destination);
         this.buildEngineVoice();
+        this.loadBank();
       }
     }
     if (this.ctx) {
@@ -137,6 +140,32 @@ export const SoundEngine = {
       this.sfxBus.gain.setTargetAtTime(SFX_LEVEL * this.sfxMix, t, 0.03);
     }
   },
+  bank: null,
+  /** Fetch the recorded samples in the background once there's an AudioContext. */
+  loadBank() {
+    if (this.bankLoading || !this.ctx) return;
+    this.bankLoading = import('./sfx/bank.js').then((m) => {
+      this.bank = m.createBank(this.ctx, { sfx: this.sfxBus, engine: this.engineBus });
+      m.bindUiClicks(document, () => { if (GameState.status !== 'PLAYING') this.sample('click', 0.95 + Math.random() * 0.1); });
+      return this.bank.load();
+    }).catch(() => { this.bankLoading = null; });
+  },
+  /** Play a recorded sample if it's decoded; false means the caller should use its synth voice. */
+  sample(name, rate = 1, gain = 1) {
+    if (this.muted || this.volume <= 0 || !this.bank) return false;
+    return this.bank.play(name, rate, gain);
+  },
+  /** An impact: a recorded hit, or the old synth thud. */
+  playImpact(name, freq, dur, vol) {
+    if (!this.sample(name, 0.9 + Math.random() * 0.2)) this.playTone(freq, name === 'cone' || name === 'debris' ? 'square' : 'sawtooth', dur, vol);
+  },
+  /** Start lights (go = the green light). */
+  playBeep(go) {
+    if (!this.sample('beep', go ? 2 : 1, go ? 1.1 : 0.9)) this.playTone(go ? 880 : 440, 'square', go ? 0.5 : 0.22, go ? 0.2 : 0.17);
+  },
+  playLand() { if (!this.sample('land')) this.playCrash(); },
+  playWhoosh() { this.sample('whoosh'); },
+  playStartUp() { this.sample('start'); },
   // Two detuned saws through a lowpass: a growl whose pitch and brightness track speed.
   buildEngineVoice() {
     const ctx = this.ctx;
@@ -167,6 +196,17 @@ export const SoundEngine = {
   updateEngine(speedMph, playing) {
     if (!this.ctx || !this.engineOsc) return;
     const t = this.ctx.currentTime;
+    const b = this.bank;
+    if (b) {
+      b.tyres(playing ? GameState : null, playing && GameState.wallGrind && speedMph > 20 ? Math.min(1, speedMph / 100) : 0);
+      b.nos(Boolean(playing && GameState.nosBurning));
+      if (b.engine({ rpm: GameState.rpm, gear: GameState.gear, throttle: Boolean(GameState.throttle), playing, pitch: this.enginePitch, growl: this.engineGrowl })) {
+        // The recorded engine has taken over: the synth growl goes quiet, the bus envelope stays.
+        if (!this.synthEngineOff) { this.synthEngineOff = true; try { this.engineFilter.disconnect(); } catch (e) { /* not connected */ } }
+        this.engineBus.gain.setTargetAtTime(playing && this.sfxMix > 0 ? (0.09 + Math.min(1, Math.max(0, speedMph) / 120) * 0.08) * this.sfxMix : 0.0001, t, 0.12);
+        return;
+      }
+    }
     const s = Math.max(0, speedMph);
     // Gear-ish sawtooth on top of a smooth climb, so it revs, shifts and revs again.
     const gearPhase = (s % 26) / 26;
@@ -197,27 +237,33 @@ export const SoundEngine = {
     } catch (e) {}
   },
   playBoosterHit() {
+    if (this.sample('booster')) return;
     this.playTone(260, 'sawtooth', 0.24, 0.15, 920);
     setTimeout(() => this.playTone(540, 'square', 0.2, 0.12, 1320), 55);
   },
   playCoinPickup() {
+    if (this.sample('coin', 0.96 + Math.random() * 0.08)) return;
     this.playTone(587.33, 'square', 0.08, 0.12);
     setTimeout(() => this.playTone(880, 'square', 0.15, 0.13), 65);
   },
   playTakedown() {
+    if (this.sample('takedown')) { this.sample('crash2', 0.85); return; }
     // Visceral takedown crunch + rising power chord!
     this.playTone(95, 'sawtooth', 0.35, 0.24, 42);
     setTimeout(() => this.playTone(392, 'sawtooth', 0.28, 0.18, 784), 80);
     setTimeout(() => this.playTone(587.33, 'square', 0.35, 0.16, 1174), 160);
   },
   playAbilityRoar() {
+    if (this.sample('roar')) return;
     this.playTone(180, 'sawtooth', 0.5, 0.24, 45);
     setTimeout(() => this.playTone(440, 'triangle', 0.4, 0.18, 880), 60);
   },
   playAbilityZone() {
+    if (this.sample('zone')) return;
     this.playTone(660, 'sine', 0.35, 0.18, 220);
   },
   playTimeWarp88() {
+    if (this.sample('warp', 0.8)) { this.sample('whoosh', 1.3, 0.7); return; }
     this.playTone(140, 'sawtooth', 0.55, 0.22, 1600);
     setTimeout(() => this.playTone(300, 'triangle', 0.65, 0.2, 60), 150);
     setTimeout(() => {
@@ -227,21 +273,25 @@ export const SoundEngine = {
     }, 320);
   },
   playCheckpoint() {
+    if (this.sample('checkpoint')) return;
     const notes = [440, 554.37, 659.25, 880];
     notes.forEach((n, idx) => {
       setTimeout(() => this.playTone(n, 'square', 0.14, 0.14), idx * 60);
     });
   },
   playStunt() {
+    if (this.sample('stunt')) return;
     this.playTone(330, 'triangle', 0.2, 0.15, 990);
     setTimeout(() => this.playTone(660, 'square', 0.25, 0.14, 1320), 85);
   },
   /** Two-tone car horn (touch HONK button, ticket 0061). */
   playHorn() {
+    if (this.sample('horn')) return;
     this.playTone(392, 'square', 0.32, 0.09);
     this.playTone(494, 'square', 0.32, 0.07);
   },
   playCrash() {
+    if (this.sample(Math.random() < 0.5 ? 'crash' : 'crash2', 0.9 + Math.random() * 0.2)) return;
     this.playTone(130, 'sawtooth', 0.32, 0.2, 32);
   },
   // Procedural score (ticket 0010): src/music.js schedules notes ~120 ms ahead on the

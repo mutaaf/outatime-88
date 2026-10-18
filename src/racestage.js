@@ -28,8 +28,8 @@ const beep = (hz, len = 0.16, vol = 0.16, type = 'square') => { try { SoundEngin
 
 /** One rising note per card, so the lineup has a pulse even with the voice off. */
 export function cardSting(index) { beep(330 + index * 55, 0.12, 0.1, 'triangle'); }
-export function lightBeep() { beep(440, 0.22, 0.17); }
-export function goBeep() { beep(880, 0.5, 0.2); }
+export function lightBeep() { try { SoundEngine.playBeep(false); } catch (e) {} }
+export function goBeep() { try { SoundEngine.playBeep(true); } catch (e) {} }
 
 /** A short fanfare: bright for a win, a podium chord, a cheeky shrug otherwise. */
 export function fanfare(place) {
