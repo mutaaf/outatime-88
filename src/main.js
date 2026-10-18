@@ -8,6 +8,7 @@ import { SoundEngine, setAudioHooks } from './audio.js';
 import { InputState, pollGamepad } from './input.js';
 import { RigidBody3D } from './physics.js';
 import { createSteer, stepSteer, createLateral, stepLateral, handlingFor, loopStep, landingKeep } from './handling.js';
+import { nosFor, createNos, stepNos, addNos, nosSpeed, nosFill } from './nos.js';
 import { materialFor, impactVelocities } from './materials.js';
 import { createWorld, createPropPool } from './world.js';
 import { projectPoint } from './projection.js';
@@ -35,7 +36,7 @@ import { createGhostRecorder, createGhostRace } from './ghost.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
 import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
-import { carParams, isOwned, unlockProgress, recordRace, ensureGarage } from './cars.js';
+import { carParams, isOwned, unlockProgress, recordRace, ensureGarage, CAR_SPECS } from './cars.js';
 import { initRacer } from './racer-ui.js';
 import { setProfile } from './identity.js';
 import { LIVE } from './worker/live-rules.js';
@@ -561,6 +562,7 @@ const LiveTraffic = {
             GameState.magnetTimer = Math.max(GameState.magnetTimer, 4.0);
             SoundEngine.playCoinPickup();
             addEndlessRunStreak(2, ob.type === 'PINE_TREE_HAZARD' ? '🌲 TREE-GRAZE BOOST!' : '⚡ CLOSE SHAVE!', ob.offset - GameState.playerX);
+            addNos(nos, 'nearMiss');
           } else {
             // Clean Endless-Run Dodge Streak +1
             addEndlessRunStreak(1, null, 0);
@@ -745,6 +747,7 @@ function updateContractHud() {
 const penaltyPopup = { pts: 0, label: '', until: 0, drawn: 0 };
 function chargePenalty(pts, label) {
   if (!pts) return;
+  penaltyThisStep = true;
   GameState.score -= pts;
   if (touch) touch.controls.haptics.pulse('hit');
   const now = performance.now();
@@ -1130,6 +1133,16 @@ function updateEraHud() {
 const steerWheel = createSteer();
 const lateral = createLateral();
 let latCarP = null, latTires = 0;
+// NOS (ticket 0122): the tank is per race and sized by the car's FLUX/BOOST rating.
+let nos = createNos(nosFor(5));
+let penaltyThisStep = false;
+function resetNos() {
+  const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const spec = CAR_SPECS[c.id];
+  nos = createNos(nosFor(spec ? spec.stats.flux : 5));
+  GameState.nosBurning = false;
+  GameState.nosFill = nosFill(nos);
+}
 const latParams = { speedMph: 0, curve: 0, bank: 0, worldScale: 1, h: null, braking: false, throttle: false, drifting: false, gripBonus: 1 };
 
 function updateGame(rawDt) {
@@ -1224,6 +1237,20 @@ function updateGame(rawDt) {
   } else {
     GameState.speed = Math.max(0, GameState.speed - 18 * rawDt);
   }
+
+  // NOS (ticket 0122): hold to burn the tank for extra thrust past top speed, capped at the
+  // warp ceiling that live rooms and the leaderboard already allow.
+  const nosHeld = InputState.nosHeld || InputState.touchNos || gp.nos;
+  const wasBurning = nos.burning;
+  const burning = stepNos(nos, nosHeld && GameState.speed > 10, rawDt, { drifting: GameState.isDrifting, airborne: GameState.playerY > 10, penalised: penaltyThisStep });
+  penaltyThisStep = false;
+  if (burning) GameState.speed = nosSpeed(GameState.speed, rawDt, baseMaxMph, warpMaxMph + 8);
+  if (burning && !wasBurning) {
+    SoundEngine.playBoosterHit();
+    if (touch) touch.controls.haptics.pulse('boost');
+  }
+  GameState.nosBurning = burning;
+  GameState.nosFill = nosFill(nos);
 
   // Loops (road contract set pieces): gravity along the loop, and too slow at the top means
   // you fall off. That costs speed, not points (no new penalty kind for the server to check).
@@ -2035,7 +2062,7 @@ let raceHud = null;
 let hudNextAt = 0;
 const hudView = {
   position: 1, total: 1, progress: 0, length: 0, raceTime: 0, timeLeft: 0, clockUrgent: false,
-  infinite: false, mph: 0, flux: 0, hpFrac: 1, score: 0, field: LiveTraffic.fieldEntries,
+  infinite: false, mph: 0, flux: 0, nos: 0, nosOn: false, hpFrac: 1, score: 0, field: LiveTraffic.fieldEntries,
 };
 function updateRaceHud(force) {
   const now = performance.now();
@@ -2052,6 +2079,8 @@ function updateRaceHud(force) {
   hudView.infinite = GameState.mode === 'INFINITE';
   hudView.mph = GameState.speed;
   hudView.flux = GameState.fluxCharge;
+  hudView.nos = GameState.nosFill || 0;
+  hudView.nosOn = Boolean(GameState.nosBurning);
   hudView.hpFrac = GameState.maxHp ? GameState.hp / GameState.maxHp : 1;
   hudView.score = GameState.score;
   raceHud.update(hudView);
@@ -2916,7 +2945,7 @@ function renderScene() {
   mainCtx.imageSmoothingEnabled = (eraCfg.pixelScale === 1.0);
   mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
   const playing = GameState.status === 'PLAYING';
-  const feel = speedFeel(playing ? GameState.speed : 0, GameState.reducedMotion);
+  const feel = nosFeel(speedFeel(playing ? GameState.speed : 0, GameState.reducedMotion));
   // FOV push-in toward the vanishing point as you approach 88 (crop the source a touch).
   const cropW = pixelCanvas.width / feel.fov;
   const cropH = pixelCanvas.height / feel.fov;
@@ -2943,7 +2972,40 @@ function renderScene() {
 }
 
 /** Pickups flying into the car, hit shockwaves and debris (screen space; both renderers). */
+/** NOS adds a push-in and speed lines on top of the speed feel (calm mode: none). */
+function nosFeel(feel) {
+  if (GameState.nosBurning && GameState.status === 'PLAYING' && !GameState.reducedMotion) {
+    feel.fov += 0.045;
+    feel.lines = Math.max(feel.lines, 0.85);
+  }
+  return feel;
+}
+
+/** Twin blue-violet nitrous flames from the exhausts while NOS burns. */
+function drawNosFlames(ctx, rw, rh) {
+  if (!GameState.nosBurning || GameState.status !== 'PLAYING') return;
+  const calm = GameState.reducedMotion;
+  const y = rh * 0.885;
+  const len = rh * (calm ? 0.05 : 0.07 + 0.025 * Math.sin(fxClock * 47));
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const side of [-1, 1]) {
+    const x = rw * 0.5 + side * rw * 0.045;
+    const g = ctx.createLinearGradient(x, y, x, y + len);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)');
+    g.addColorStop(0.25, 'rgba(96,165,250,0.9)');
+    g.addColorStop(0.7, 'rgba(168,85,247,0.6)');
+    g.addColorStop(1, 'rgba(168,85,247,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(x, y + len * 0.5, rw * 0.012, len * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawCarFx(ctx, rw, rh) {
+  drawNosFlames(ctx, rw, rh);
   // 5.2 Render Animated Power-Ups Magnetically Arcing into the player car's Fusion Core!
   const carCenterX = rw * 0.5;
   const carCenterY = rh * 0.81;
@@ -3774,6 +3836,7 @@ function startNewRace(opts) {
   GameState.playerVX = 0;
   steerWheel.value = 0;
   lateral.slip = 0;
+  resetNos();
   GameState.playerY = 0;
   GameState.playerVY = 0;
   GameState.speed = 26;
@@ -4140,8 +4203,10 @@ function bindAllControls() {
       if (GameState.playerY > 10) performHumanTrick('UP');
       InputState.up = true;
     }
-    if (e.code === 'KeyN') selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
-    if (['ArrowDown', 'KeyS', 'ShiftLeft', 'ShiftRight'].includes(e.code)) { if (GameState.playerY > 12) performHumanTrick('DOWN'); InputState.down = true; }
+    const racing = GameState.status === 'PLAYING';
+    if (e.code === 'KeyN' && !racing) selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
+    if (['ShiftLeft', 'ShiftRight'].includes(e.code) || (e.code === 'KeyN' && racing)) InputState.nosHeld = true;
+    if (['ArrowDown', 'KeyS'].includes(e.code)) { if (GameState.playerY > 12) performHumanTrick('DOWN'); InputState.down = true; }
     if (e.code === 'Space') { e.preventDefault(); InputState.boostPressed = true; }
     if (['KeyH', 'KeyE'].includes(e.code)) { if (GameState.playerY > 12) performHumanTrick('UP'); else InputState.hoverPressed = true; }
     if (e.code === 'KeyZ') InputState.zonePressed = true;
@@ -4164,7 +4229,8 @@ function bindAllControls() {
     if (['ArrowLeft', 'KeyA'].includes(e.code)) InputState.left = false;
     if (['ArrowRight', 'KeyD'].includes(e.code)) InputState.right = false;
     if (['ArrowUp', 'KeyW'].includes(e.code)) InputState.up = false;
-    if (['ArrowDown', 'KeyS', 'ShiftLeft', 'ShiftRight'].includes(e.code)) InputState.down = false;
+    if (['ArrowDown', 'KeyS'].includes(e.code)) InputState.down = false;
+    if (['ShiftLeft', 'ShiftRight', 'KeyN'].includes(e.code)) InputState.nosHeld = false;
   });
 
   const wheel = document.getElementById('virtualWheel');
@@ -4611,7 +4677,7 @@ function renderOverlayFx(feel) {
 
 function renderFrame(dt) {
   if (!view3d) { renderScene(); return; }
-  const feel = speedFeel(GameState.status === 'PLAYING' ? GameState.speed : 0, GameState.reducedMotion);
+  const feel = nosFeel(speedFeel(GameState.status === 'PLAYING' ? GameState.speed : 0, GameState.reducedMotion));
   view3d.render(dt, feel);
   renderOverlayFx(feel);
 }

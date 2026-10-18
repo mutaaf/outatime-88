@@ -6,6 +6,8 @@ export const InputState = {
   up: false,
   down: false,
   boostPressed: false,
+  nosHeld: false,      // NOS (ticket 0122): Shift / N while racing, gamepad LB, touch NOS
+  touchNos: false,
   hoverPressed: false,
   zonePressed: false,
   agroPressed: false,
@@ -32,7 +34,7 @@ export const InputState = {
 };
 
 export function pollGamepad() {
-  if (!navigator.getGamepads) return { steer: 0, gas: false, brake: false, boost: false, hover: false };
+  if (!navigator.getGamepads) return { steer: 0, gas: false, brake: false, boost: false, hover: false, nos: false };
   try {
     const pads = navigator.getGamepads();
     for (let i = 0; i < pads.length; i++) {
@@ -47,10 +49,11 @@ export function pollGamepad() {
           gas: (p.buttons[0] && p.buttons[0].pressed) || (p.buttons[7] && p.buttons[7].pressed),
           brake: (p.buttons[1] && p.buttons[1].pressed) || (p.buttons[6] && p.buttons[6].pressed),
           boost: (p.buttons[2] && p.buttons[2].pressed) || (p.buttons[5] && p.buttons[5].pressed),
-          hover: (p.buttons[3] && p.buttons[3].pressed)
+          hover: (p.buttons[3] && p.buttons[3].pressed),
+          nos: Boolean(p.buttons[4] && p.buttons[4].pressed)
         };
       }
     }
   } catch (e) {}
-  return { steer: 0, gas: false, brake: false, boost: false, hover: false };
+  return { steer: 0, gas: false, brake: false, boost: false, hover: false, nos: false };
 }

@@ -10,7 +10,7 @@ export const ICONS = {
   jump: svg('<path d="m6 14 6-6 6 6"/><path d="m6 20 6-6 6 6" opacity=".55"/><path d="M5 4h14"/>'),
   special: svg('<path d="m12 2.8 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 16.8l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" fill="currentColor" stroke-width="1.4"/>'),
   accel: svg('<path d="M12 3v14"/><path d="m6 9 6-6 6 6"/><path d="M7 21h10"/>'),
-  horn: svg('<path d="M3 10v4h3l7 5V5L6 10H3Z" fill="currentColor" stroke-width="1.6"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>'),
+  horn: svg('<rect x="8" y="7" width="8" height="14" rx="3" fill="currentColor" stroke-width="1.6"/><path d="M10 7V4h4v3M12 2v2"/><path d="M10.5 12h3M10.5 15h3" stroke="#0b1020"/>'), // NOS bottle (ticket 0122)
   pause: svg('<path d="M8 5v14M16 5v14" stroke-width="3.4"/>'),
   rear: svg('<rect x="3" y="6" width="18" height="10" rx="5"/><path d="M12 16v4M8 20h8"/><path d="m10 9-2 2 2 2M8 11h7"/>'),
   camera: svg('<path d="M4 8h3l2-2.5h6L17 8h3v11H4Z"/><circle cx="12" cy="13" r="3.4"/>'),
@@ -23,6 +23,6 @@ export const ICONS = {
 };
 
 export const LABELS = {
-  boost: 'WARP', drift: 'DRIFT', jump: 'JUMP', special: 'SPECIAL', accel: 'GAS', horn: 'HONK',
+  boost: 'WARP', drift: 'DRIFT', jump: 'JUMP', special: 'SPECIAL', accel: 'GAS', horn: 'NOS',
   pause: 'PAUSE', rear: 'LOOK BACK', camera: 'CAMERA', respawn: 'RESET',
 };

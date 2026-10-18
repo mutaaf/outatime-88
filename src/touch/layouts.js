@@ -117,9 +117,9 @@ function freeTop(env, x, r) {
 
 // Satellite arcs per preset (degrees; 0 = toward the screen centre, 90 = straight up).
 const ARCS = {
-  roblox: { portrait: [8, 50, 92], landscape: [0, 40, 80] },
+  roblox: { portrait: [8, 38, 68, 98], landscape: [0, 28, 56, 84] },
   fortnite: { portrait: [0, 32, 64, 96], landscape: [0, 26, 52, 78] },
-  default: { portrait: [0, 45, 90], landscape: [0, 40, 80] },
+  default: { portrait: [0, 32, 64, 96], landscape: [0, 26, 52, 78] },
 };
 
 /**
@@ -162,8 +162,9 @@ function build(presetId, env, u, variant) {
   const kind = ARCS[presetId] ? presetId : 'default';
   const p = (kind === 'roblox' ? 108 : kind === 'fortnite' ? 80 : 90) * u;
   const sd = (kind === 'default' ? 60 : 58) * u;
-  const ids = kind === 'fortnite' ? ['drift', 'jump', 'special', 'horn'] : ['drift', 'jump', 'special'];
-  const sc = kind === 'fortnite' ? SHORTCUT_IDS : ['pause', 'horn', 'rear', 'camera', 'respawn'];
+  // `horn` is the NOS button (ticket 0122; the id stays so saved layouts keep working).
+  const ids = ['drift', 'horn', 'jump', 'special'];
+  const sc = SHORTCUT_IDS;
   const pref = ARCS[kind][landscape ? 'landscape' : 'portrait'];
   const sats = ids.map((id, i) => ({ id, a: variant === 1 ? pref[i] * 0.6 : pref[i], d: id === 'horn' ? sd * 0.9 : sd }));
 
