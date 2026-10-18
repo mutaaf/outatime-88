@@ -1,11 +1,12 @@
 ---
 id: 0140
 title: Sponsor boards — crisp ad-slot objects with kid-safe, first-party reporting
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: content
 created: 2026-10-18
+pr: 82
 ---
 
 ## Why
