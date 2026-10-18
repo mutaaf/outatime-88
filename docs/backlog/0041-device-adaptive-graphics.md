@@ -1,12 +1,12 @@
 ---
 id: 0041
 title: Device-adaptive graphics tiers, a quality governor, and a realistic 3D view
-status: in-progress
+status: shipped
 priority: P1
 size: L
 lens: performance
 created: 2026-10-17
-pr:
+pr: 54
 ---
 
 ## Why
