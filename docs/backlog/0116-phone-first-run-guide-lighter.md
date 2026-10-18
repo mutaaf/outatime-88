@@ -1,12 +1,12 @@
 ---
 id: 0116
 title: Phone first run — the thumb guide shouldn't blank the road before the first race
-status: in-progress
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-18
-pr:
+pr: 84
 ---
 
 ## Why

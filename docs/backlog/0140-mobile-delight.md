@@ -1,12 +1,12 @@
 ---
 id: 0140
 title: Mobile pass — crisp phones, controls off your car, installable, awake, straight to the race
-status: in-progress
+status: shipped
 priority: P0
 size: M
 lens: player-feel
 created: 2026-10-18
-pr:
+pr: 84
 ---
 
 ## Why
