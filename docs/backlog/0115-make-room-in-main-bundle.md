@@ -1,12 +1,12 @@
 ---
 id: 0115
 title: Make room in the main bundle — move non-first-frame code out of main.js
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: tech-health
 created: 2026-10-18
-pr:
+pr: 70
 ---
 
 ## Why

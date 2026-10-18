@@ -4,8 +4,16 @@
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { ERAS } from './data.js';
-import { createScheduler } from './music.js';
 import { normalizeSettings } from './settings.js';
+
+// The score is its own chunk (ticket 0115): main.js preloads it right after boot, long before
+// the first race starts the loop, so the music is never late; the engine and SFX never wait.
+let music = null;
+let musicLoading = null;
+export function loadMusic() {
+  if (!musicLoading) musicLoading = import('./music.js').then((m) => (music = m), (e) => { musicLoading = null; throw e; });
+  return musicLoading;
+}
 
 const MUSIC_LEVEL = 0.55;
 const SFX_LEVEL = 0.9;
@@ -226,8 +234,9 @@ export const SoundEngine = {
   // audio clock; this interval only wakes the scheduler, so main-thread jank can't smear timing.
   startMusicLoop() {
     if (!this.ctx || !this.musicBus) return;
+    if (!music) { loadMusic().then(() => this.startMusicLoop(), () => {}); return; }
     if (!this.scheduler) {
-      this.scheduler = createScheduler(this.ctx, this.musicBus, () => ({
+      this.scheduler = music.createScheduler(this.ctx, this.musicBus, () => ({
         playing: GameState.status === 'PLAYING' && !this.muted,
         speed: GameState.speed,
         eraId: (ERAS[GameState.eraIndex] || ERAS[0]).id,

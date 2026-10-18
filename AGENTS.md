@@ -153,9 +153,12 @@ src/worker/compete.js   Seasons, track/class/friends boards, rank movement, riva
                         hall of fame, ghost storage, pruning (0091); payload.js = versioned
                         run payloads (v1 plain, v2 penalty-recomputed) + car class
 src/compete-ui.js   Rank card after a run, rival line on the title, podium board rows
+src/results-ui.js   Results card text, initials/score posting, leaderboard modal, rival line — lazy chunk (0115),
+                      preloaded after boot; main.js keeps the run rules and calls it via withResults()
 src/ghost-codec.js  Compact ghost traces (distance + lane at 5 Hz), shared with the Worker
 src/ghost.js        Ghost recorder (every race) and ghost racing on the HUD strip (0092)
-src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks
+src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks;
+                      the score (src/music.js) is a lazy chunk, loadMusic() preloads it after boot
 src/input.js        InputState + pollGamepad()
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound, static/sleep, reset() for pools)
 src/materials.js    Per-object materials (mass, bounce, friction, static/knockable, damage) + impulse maths
@@ -348,7 +351,7 @@ every device running the same simulation.
 | `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
 | `npm run check:fast` | Everything but e2e, for sandboxes that can't install Playwright browsers. CI still runs the full gate. |
 
-Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 64 kB gzipped (raised from 60 on 2026-10-17 for the handling model, NOS the clean-line hazard planner `src/cleanline.js`, the per-level track books and the set-piece sim `src/setpieces.js`, tickets 0120–0123 (set-piece art is lazy in `setpieces-2d-*.js`): they run every sim step, so they can't be lazy; today ~61 kB; keep anything not needed on the first frame lazy — the touch kit (`bridge-*.js`, ~11 kB) loads only on touch devices and its Controls panel/editor (`panel-*.js`) on first open; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), era backdrops + roadside (`stage-*.js` incl. roadside art and name tags < 10 kB, six `s<era>-*.js` < 5 kB each, shared kit chunk) ≤ 25 kB gzipped in total (today ~23 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
+Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 64 kB gzipped (raised from 60 on 2026-10-17 for the handling model, NOS the clean-line hazard planner `src/cleanline.js`, the per-level track books and the set-piece sim `src/setpieces.js`, tickets 0120–0123 (set-piece art is lazy in `setpieces-2d-*.js`): they run every sim step, so they can't be lazy; today ~60.8 kB after 0115; keep anything not needed on the first frame lazy — the touch kit (`bridge-*.js`, ~11 kB) loads only on touch devices and its Controls panel/editor (`panel-*.js`) on first open; it must never import three statically or src/live/ statically), live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js`: three.js + src/render3d, downloaded only when 3D is on) ≤ 170 kB gzipped (today ~154 kB), era backdrops + roadside (`stage-*.js` incl. roadside art and name tags < 10 kB, six `s<era>-*.js` < 5 kB each, shared kit chunk) ≤ 25 kB gzipped in total (today ~23 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
 
 ## 6 · The agents
 
