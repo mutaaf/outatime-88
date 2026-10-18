@@ -4,7 +4,12 @@
 import { ROAD_CFG } from './data.js';
 import { GameState } from './state.js';
 
-export const track = { segments: [], generatedCount: 0 };
+export const track = { segments: [], generatedCount: 0, line: null };
+
+/** The race's racing line (src/cleanline.js): hazards are never placed on it. */
+export function setTrackLine(line) {
+  track.line = line;
+}
 
 export function resetTrack() {
   track.segments = [];
