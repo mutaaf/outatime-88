@@ -52,3 +52,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0122 · NOS: hold Shift (or the NOS button) to burn a nitrous tank for a blue-flame boost past top speed; refill it by drifting, near misses, airtime and clean driving; bigger tanks on high-BOOST cars
 2026-10-17 · 0121 · Fewer obstacles, with rhythm (busy stretches, then a breather), and there is always one way through every race that never costs a point: hazards and traffic keep off the racing line
 2026-10-17 · 0124 · Real orange-track racing: curves, banked hairpins, crests, loops you drive all the way round, corkscrews, gap jumps and wall-ride half-pipes, each set up by a booster gate; in 3D they're real geometry, in 2D the world rolls and a loop cam shows you going round
+2026-10-18 · 0019 · Forks are two small arrows now (◀ SKY-LOOP ⚡ / TUNNEL ⏱️ ▶) instead of two long banners; the one you're lined up for leans forward, and coach tips wait until you've picked

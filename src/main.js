@@ -44,6 +44,7 @@ import { carParams, isOwned, unlockProgress, recordRace, ensureGarage, CAR_SPECS
 import { initRacer } from './racer-ui.js';
 import { setProfile } from './identity.js';
 import { LIVE } from './worker/live-rules.js';
+import { forkLean, forkCueState } from './fork.js';
 
 setAudioHooks({ syncAudioUI, triggerAnnouncement });
 
@@ -1551,22 +1552,16 @@ function updateGame(rawDt) {
     }
   }
 
-  // 3. Split-Track Crossroads Choice
-  const forkBanner = document.getElementById('forkChoiceBanner');
-  if (currentSeg && currentSeg.trackType === 'SPLIT_FORK') {
-    if (forkBanner) forkBanner.classList.remove('hidden');
+  // 3. Split-Track Crossroads Choice: a compact two-arrow cue (src/fork.js, ticket 0019),
+  //    written only when it changes (this runs every sim step).
+  const onFork = !!(currentSeg && currentSeg.trackType === 'SPLIT_FORK');
+  showForkCue(forkCueState(onFork, GameState.playerX));
+  if (onFork) {
     GameState.forkPending = true;
-    const leftCard = document.getElementById('forkLeftCard');
-    const rightCard = document.getElementById('forkRightCard');
-    if (leftCard && rightCard) {
-      leftCard.style.transform = GameState.playerX < 0 ? 'scale(1.08)' : 'scale(0.95)';
-      rightCard.style.transform = GameState.playerX >= 0 ? 'scale(1.08)' : 'scale(0.95)';
-    }
   } else {
-    if (forkBanner) forkBanner.classList.add('hidden');
     if (GameState.forkPending) {
       GameState.forkPending = false;
-      const chosen = GameState.playerX < 0 ? 'LEFT' : 'RIGHT';
+      const chosen = forkLean(GameState.playerX);
       GameState.branchName = chosen === 'LEFT' ? 'SKY-LOOP SHORTCUT' : 'CEDAR TURBO TUNNEL';
       const branchBadge = document.getElementById('trackBranchBadge');
       if (branchBadge) branchBadge.textContent = `ROUTE: ${GameState.branchName}`;
@@ -1941,6 +1936,19 @@ function updateGame(rawDt) {
   if (GameState.racePhase === 'FINISHED') GameState.score = finishScore; // the line is the line
 }
 
+// The fork cue's DOM, touched only when its state changes ('OFF' | 'LEFT' | 'RIGHT').
+let forkCueShown = 'OFF';
+function showForkCue(state) {
+  if (state === forkCueShown) return;
+  forkCueShown = state;
+  const banner = document.getElementById('forkChoiceBanner');
+  if (!banner) return;
+  banner.classList.toggle('hidden', state === 'OFF');
+  if (state === 'OFF') return;
+  document.getElementById('forkLeftCard')?.classList.toggle('fork-lean', state === 'LEFT');
+  document.getElementById('forkRightCard')?.classList.toggle('fork-lean', state === 'RIGHT');
+}
+
 // Coach (ticket 0002): teaches only what you haven't learned yet, in one short line, and
 // always yields to the announcer so two messages never stack.
 const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', HIGH_LIGHT_GATE: 'slide', FLUX_CRATE: 'smash' };
@@ -1956,6 +1964,8 @@ function updateInteractiveCoach(currentSegIdx) {
   const banner = document.getElementById('interactiveCoachBanner');
   if (!banner) return;
   if (GameState.coachDismissed) { hideCoach(banner); return; }
+  // A pending fork is the decision on screen; the coach waits until it's made (ticket 0019).
+  if (GameState.forkPending) { coachYieldUntil = performance.now() + 350; hideCoach(banner); return; }
   // Yield to the announcer, and wait for its fade-out so the two never cross-fade on top of
   // each other in the shared message lane (ticket 0021).
   const nowMs = performance.now();
@@ -3789,6 +3799,8 @@ function startNewRace(opts) {
   GameState.hoverActiveTimer = 0;
   GameState.flyingWrecks = [];
   GameState.branchName = lvl.name;
+  GameState.forkPending = false; // a fork left mid-race must not pay out (or mute the coach) next race
+  showForkCue('OFF');
 
   const branchBadge = document.getElementById('trackBranchBadge');
   if (branchBadge) branchBadge.textContent = lvl.name;
