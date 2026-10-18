@@ -352,6 +352,7 @@ body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-ti
 .hud-speed.is-nos .nos-meter i { box-shadow: 0 0 8px #a855f7, 0 0 2px #fff; }
 .spd-foot { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; font-size: clamp(9px, 1.5vmin, 15px); font-weight: 800; color: #94a3b8; }
 .hud-score { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+.hud-score.is-neg { color: #fca5a5; }
 .hud-speed.is-ready { border-color: #fde047; }
 .hud-speed.is-ready #hudFluxLabel { color: #fde047; }
 .hud-gear { grid-area: gear; width: clamp(44px, 6.4vmin, 64px); height: clamp(44px, 6.4vmin, 64px); border-radius: 9999px;

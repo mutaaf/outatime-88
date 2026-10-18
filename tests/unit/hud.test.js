@@ -80,3 +80,17 @@ describe('race HUD (ticket 0051)', () => {
     expect(doc.writes.n).toBeGreaterThan(after);
   });
 });
+
+describe('score readout', () => {
+  it('labels the score as points and marks a negative one, so it never reads as flux', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    hud.update(view({ score: -4877 }));
+    const el = doc.getElementById('hudScore');
+    expect(el.textContent).toBe(`${(-4877).toLocaleString()} PTS`);
+    expect(el.classList.contains('is-neg')).toBe(true);
+    hud.update(view({ score: 12345 }));
+    expect(el.textContent).toBe(`${(12345).toLocaleString()} PTS`);
+    expect(el.classList.contains('is-neg')).toBe(false);
+  });
+});

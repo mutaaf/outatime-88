@@ -36,14 +36,27 @@ function cardData() {
   };
 }
 
-async function render(fmt) {
-  if (rendered[fmt]) return rendered[fmt];
-  const m = await loadShare();
-  const canvas = document.createElement('canvas');
-  await m.drawShareCard(canvas, current, fmt);
-  const blob = await m.toBlob(canvas);
-  rendered[fmt] = { blob, url: URL.createObjectURL(blob) };
+// One render per format per result: callers share the in-flight promise, so the preview, the
+// sheet and a format tap never draw (and PNG-encode) the same card twice at once.
+function render(fmt) {
+  if (!rendered[fmt]) {
+    const set = rendered;
+    set[fmt] = (async () => {
+      const m = await loadShare();
+      const canvas = document.createElement('canvas');
+      await m.drawShareCard(canvas, current, fmt);
+      const blob = await m.toBlob(canvas);
+      return { blob, url: URL.createObjectURL(blob) };
+    })();
+    set[fmt].catch(() => { if (set[fmt]) set[fmt] = null; }); // a failed draw can be retried
+  }
   return rendered[fmt];
+}
+
+function revokeAll() {
+  for (const k of Object.keys(rendered)) {
+    if (rendered[k]) rendered[k].then((r) => URL.revokeObjectURL(r.url), () => {});
+  }
 }
 
 function filename() {
@@ -71,7 +84,7 @@ export async function onResults(levelIndex) {
   }
   const btn = $('btnShare');
   if (!btn) return;
-  for (const k of Object.keys(rendered)) if (rendered[k]) URL.revokeObjectURL(rendered[k].url);
+  revokeAll();
   rendered = { post: null, wide: null };
   current = cardData();
   btn.classList.toggle('hidden', !current);
@@ -82,6 +95,8 @@ export async function onResults(levelIndex) {
   try {
     const r = await render('post');
     if (current) img.src = r.url;
+    // Warm the wide card in the background so switching formats in the sheet is instant.
+    render('wide').catch(() => {});
   } catch (e) { /* the button still works; the sheet retries */ }
 }
 
