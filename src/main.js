@@ -20,7 +20,8 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, MEDAL_ICON, nextTarget, applyRunResult, medalFor } from './progress.js';
-import { track, generateNextTrackBiome, buildInitialTrack, featureAt } from './track.js';
+import { track, generateNextTrackBiome, buildInitialTrack, featureAt, setTrackLine } from './track.js';
+import { createLine, createHazardPlanner, TRAFFIC_LATERAL } from './cleanline.js';
 import { watchLayout } from './layout.js';
 import { createRaceClock } from './race.js';
 import { createHud } from './hud.js';
@@ -138,6 +139,9 @@ const LiveTraffic = {
   drawObstacles: [],   // obstacles + live props (what the renderers draw)
   nextPropZ: 0,
   prevPlayerZ: 0,
+  // Sprint 4: every hazard is placed by the clean-line planner (src/cleanline.js), so the
+  // race's racing line is never blocked by anything that costs points.
+  planner: null,
   rebuildBodyLists() {
     const b = this.bodies;
     b.length = 0;
@@ -153,6 +157,7 @@ const LiveTraffic = {
     this.prevPlayerZ = (GameState.trackPos || 0) + ROAD_CFG.playerZOffset;
     this.props.clear();
     this.nextPropZ = this.prevPlayerZ + 9000;
+    this.planner = createHazardPlanner({ line: track.line || createLine(1), rand: () => trafficRand(), level: GameState.levelIndex });
 
     // The field (ticket 0051): five named rivals from the roster (never your own driver) on a
     // two-wide grid, you at the back. Each keeps its name for the whole race.
@@ -196,11 +201,11 @@ const LiveTraffic = {
 
     // ONLY 4 Well-Spaced Highway Traffic Vehicles (Spaced 5,200 Z-units apart!)
     this.traffic = [];
-    const lanes = [-0.48, 0.48, -0.20, 0.20];
     const styles = ['SEMI_TRUCK', 'SEDAN', 'TAXI', 'SUV'];
     for (let i = 0; i < 4; i++) {
       const st = styles[i % styles.length];
       const isTruck = (st === 'SEMI_TRUCK');
+      const tz = 4800 + i * 5200;
       this.traffic.push(new RigidBody3D({
         id: 'TRF_' + i,
         kind: 'TRAFFIC',
@@ -211,21 +216,21 @@ const LiveTraffic = {
         halfW: isTruck ? 0.16 : 0.13,
         height: isTruck ? 54 : 34,
         halfL: isTruck ? 160 : 105,
-        worldZ: 4800 + i * 5200,
-        offset: lanes[i % 4],
+        worldZ: tz,
+        offset: this.planner.trafficLane(i, tz, GameState.waveTier || 1, isTruck ? 0.16 : 0.13, isTruck ? 160 : 105),
         oncoming: false,
         mph: 38 + i * 4,
         bodyColor: ['#334155', '#eab308', '#e2e8f0', '#1e3a8a'][i % 4]
       }));
     }
 
-    // ONLY 4 Well-Spaced Physical Obstacles (Spaced 3,800 Z-units apart so the track is open and readable!)
+    // Four recycled obstacles, placed off the racing line with rhythm (sprint 4).
     this.obstacles = [];
-    const obsTypes = ['PINE_TREE_HAZARD', 'LOW_LASER_BAR', 'PINE_TREE_HAZARD', 'HIGH_LIGHT_GATE', 'HOLO_BARRIER'];
+    let fromZ = 3200;
     for (let i = 0; i < 4; i++) {
-      const oType = obsTypes[i % obsTypes.length];
-      const lane = (i % 3 - 1) * 0.44;
-      this.obstacles.push(this.createObstacleBody(i, oType, 3200 + i * 3800, lane));
+      const spot = this.planner.placeObstacle(i, fromZ, 1) || { type: 'PINE_TREE_HAZARD', z: fromZ + 60000, offset: 0.62 };
+      this.obstacles.push(this.createObstacleBody(i, spot.type, spot.z, spot.offset));
+      fromZ = spot.z + this.planner.obstacleSpacing(spot.z, 1);
     }
     this.rebuildBodyLists();
   },
@@ -291,26 +296,13 @@ const LiveTraffic = {
   /** Cone chicanes and barrel clusters ahead of the player (pooled; deterministic on dailies). */
   spawnProps(playerZ) {
     if (playerZ + 9000 < this.nextPropZ) return;
-    const z = this.nextPropZ;
-    const pattern = Math.floor(trafficRand() * 3);
-    const side = trafficRand() < 0.5 ? -1 : 1;
-    if (pattern === 0) {
-      // a diagonal cone line closing one lane
-      for (let k = 0; k < 5; k++) this.props.spawn(this.obstacleOpts(100 + k, 'TRAFFIC_CONE', z + k * 140, side * (0.62 - k * 0.09)));
-    } else if (pattern === 1) {
-      // a cone gate: two rows, thread the middle
-      for (let k = 0; k < 3; k++) {
-        this.props.spawn(this.obstacleOpts(110 + k, 'TRAFFIC_CONE', z + k * 220, -0.3));
-        this.props.spawn(this.obstacleOpts(120 + k, 'TRAFFIC_CONE', z + k * 220, 0.3));
-      }
-    } else {
-      // three oil barrels huddled in a lane
-      const lane = side * 0.42;
-      this.props.spawn(this.obstacleOpts(130, 'OIL_BARREL', z, lane - 0.08));
-      this.props.spawn(this.obstacleOpts(131, 'OIL_BARREL', z, lane + 0.08));
-      this.props.spawn(this.obstacleOpts(132, 'OIL_BARREL', z + 110, lane));
+    // Cone walls, cone gates and barrel huddles built around the racing line (sprint 4).
+    const plan = this.planner.planProps(this.nextPropZ, GameState.waveTier || 1);
+    for (let k = 0; k < plan.items.length; k++) {
+      const it = plan.items[k];
+      const body = this.props.spawn(this.obstacleOpts(100 + k, it.type, it.z, it.offset));
     }
-    this.nextPropZ = z + 7000 + trafficRand() * 5000;
+    this.nextPropZ = plan.nextZ;
     this.rebuildBodyLists();
   },
 
@@ -389,6 +381,12 @@ const LiveTraffic = {
     for (let i = 0; i < this.traffic.length; i++) {
       const tr = this.traffic[i];
       tr.vz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
+      // Keep the racing line clear: drift to a clear lane (or the shoulder) on this side of it.
+      if (!tr.takenDown) {
+        const tgt = this.planner.trafficTarget(tr.worldZ, tr.offset, tr.halfW, tr.halfL);
+        const maxStep = TRAFFIC_LATERAL * rawDt;
+        tr.offset += Math.max(-maxStep, Math.min(maxStep, tgt - tr.offset));
+      }
       tr.prevZ = tr.worldZ;
       tr.prevOffset = tr.offset;
     }
@@ -463,13 +461,12 @@ const LiveTraffic = {
       const tr = this.traffic[i];
       const relZ = tr.worldZ - playerZ;
       if (relZ < -800 || tr.takenDown) {
-        const lanes = [-0.48, 0.48, -0.20, 0.20];
         tr.takenDown = false;
         tr.y = 0; tr.vy = 0; tr.vx = 0; tr.rot = 0; tr.vRot = 0; tr.yaw = 0; tr.vYaw = 0;
         const maxT = Math.max(playerZ + 12000, ...this.traffic.map(t => t.worldZ));
         tr.worldZ = maxT + (4800 + trafficRand() * 2200) * GameState.trafficGapScale;
         tr.prevZ = tr.worldZ;
-        tr.offset = lanes[(i + GameState.waveTier) % 4];
+        tr.offset = this.planner.trafficLane(i, tr.worldZ, GameState.waveTier || 1, tr.halfW, tr.halfL);
         tr.nearMissed = false;
         continue;
       }
@@ -531,14 +528,13 @@ const LiveTraffic = {
 
       // Recycle obstacles that fall behind the player (Spaced 3,400–4,200 Z-units apart so the road is never crowded!)
       if (ob.worldZ - playerZ < -600) {
-        const obsTypes = ['PINE_TREE_HAZARD', 'LOW_LASER_BAR', 'PINE_TREE_HAZARD', 'HIGH_LIGHT_GATE', 'HOLO_BARRIER'];
-        const nextType = obsTypes[(i + GameState.waveTier) % obsTypes.length];
-        const lanes = [-0.46, 0, 0.46];
-        const nextLane = lanes[(i * 7 + GameState.waveTier) % 3];
-        const spacing = Math.max(2400, 3800 - GameState.waveTier * 140);
+        // Placed off the racing line, spaced by the section's density (sprint 4).
+        const wave = GameState.waveTier || 1;
         let maxAheadZ = playerZ + 4200;
         for (let k = 0; k < this.obstacles.length; k++) if (this.obstacles[k].worldZ > maxAheadZ) maxAheadZ = this.obstacles[k].worldZ;
-        ob.reset(this.obstacleOpts(i, nextType, maxAheadZ + spacing, nextLane));
+        const spot = this.planner.placeObstacle(i, maxAheadZ + this.planner.obstacleSpacing(maxAheadZ, wave), wave)
+          || { type: 'PINE_TREE_HAZARD', z: maxAheadZ + 60000, offset: 0.62 };
+        ob.reset(this.obstacleOpts(i, spot.type, spot.z, spot.offset));
         continue;
       }
 
@@ -598,7 +594,11 @@ const LiveTraffic = {
             const pushDir = (GameState.playerX <= ob.offset) ? -1 : 1;
 
             // 1. Physically block & recoil the player's bumper + shove player laterally out of penetration!
-            if (!isBoostSmash) {
+            //    Debris someone else knocked out of place (sprint 4) bounces you but costs no points.
+            if (isDebris(ob)) {
+              GameState.speed = Math.max(30, GameState.speed * 0.8);
+              GameState.playerX += pushDir * 0.12;
+            } else if (!isBoostSmash) {
               GameState.trackPos = Math.max(0, GameState.trackPos - 135);
               GameState.speed = Math.max(20, GameState.speed * 0.48);
               GameState.playerX += pushDir * 0.18;
@@ -649,6 +649,8 @@ const LiveTraffic = {
       if (Math.abs(lever) >= playerHalfW + pr.halfW) continue;
       if (!(playerBotY < pr.y + pr.height && playerTopY > pr.y)) continue;
       const mat = materialFor(pr.type);
+      // Debris knocked out of place by someone else is just debris: it never costs points.
+      const debris = isDebris(pr);
       const e = Math.min(mat.restitution + 0.25, 0.8);
       const mph = GameState.speed;
       const v = impactVelocities(playerMass, playerWorldVZ, mat.massKg, pr.vz, e);
@@ -665,7 +667,9 @@ const LiveTraffic = {
       pr.vRot = sideDir * (mat.massKg < 20 ? 16 : 7);
       pr.vYaw = sideDir * 5;
       burstSparks(mat.massKg < 20 ? 6 : 12, mat.massKg < 20 ? 30 : 18, 0.7);
-      if (mat.damage > 0) {
+      if (debris) {
+        SoundEngine.playTone(420, 'square', 0.05, 0.04);
+      } else if (mat.damage > 0) {
         applyPlayerDamage(mat.damage, 'BARREL HIT');
       } else {
         chargePenalty(logHit(GameState.penaltyLog, 'cone', mph), 'CONE HIT');
@@ -675,7 +679,13 @@ const LiveTraffic = {
     }
   }
 };
+/** An obstacle or prop knocked out of the spot the planner put it in (by rivals, traffic, chains). */
+function isDebris(b) {
+  return Math.abs(b.offset - b.homeOffset) > 0.06 || Math.abs(b.worldZ - b.homeZ) > 160;
+}
+
 function initTrack() {
+  setTrackLine(createLine(GameState.lineSeed || 1));
   buildInitialTrack();
   LiveTraffic.init();
 }
@@ -3801,6 +3811,8 @@ function startNewRace(opts) {
     restoreSoloSettings();
   }
   trafficRand = liveRace ? mulberry32(liveRace.seed) : daily ? mulberry32(daily.seed) : Math.random;
+  // The racing line (sprint 4) is shared by everyone on a seeded race (live rooms, dailies).
+  GameState.lineSeed = liveRace ? liveRace.seed : daily ? daily.seed : (1 + Math.random() * 2147483646) | 0;
   GameState.trafficGapScale = 1;
 
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];

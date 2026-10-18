@@ -18,6 +18,8 @@ export class RigidBody3D {
     this.y = opts.y || 0;                    // Vertical CG height above track
     this.worldZ = opts.worldZ || 1000;       // Longitudinal Z position along track
     this.prevZ = this.worldZ;
+    this.homeOffset = this.offset;            // where it was placed (sprint 4: debris never costs points)
+    this.homeZ = this.worldZ;
     this.vx = opts.vx || 0;                  // Lateral velocity (lane units/s)
     this.vy = opts.vy || 0;                  // Vertical velocity (units/s)
     this.vz = opts.vz || 0;                  // Longitudinal velocity (worldZ units/s)

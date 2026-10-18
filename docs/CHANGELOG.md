@@ -50,3 +50,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-17 · 0120 · Steering feels like driving: keys ease the wheel in (tap to nudge, hold for full lock) and out, less lock at speed, every car's grip and weight show in how it turns, and corners pull you wide if you're too fast
 2026-10-17 · 0123 · Loops and landings: carry speed over the top of a loop or fall off it, and land straight to keep your speed
 2026-10-17 · 0122 · NOS: hold Shift (or the NOS button) to burn a nitrous tank for a blue-flame boost past top speed; refill it by drifting, near misses, airtime and clean driving; bigger tanks on high-BOOST cars
+2026-10-17 · 0121 · Fewer obstacles, with rhythm (busy stretches, then a breather), and there is always one way through every race that never costs a point: hazards and traffic keep off the racing line
