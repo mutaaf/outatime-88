@@ -61,6 +61,8 @@ test('HP at zero ends the endless run with distance, tier and best', async ({ pa
   await G(page, () => { const g = window.__OT.GameState; g.distance = 3200; });
   await page.waitForFunction(() => window.__OT.GameState.tier === 2);
   await G(page, () => { const g = window.__OT.GameState; g.invulnTimer = 0; g.hp = 5; window.__OT.damage(50); });
+  // With enough cash the one continue is offered first (ticket 0151): decline it.
+  await page.locator('#btnContinueNo').click();
   await expect(page.locator('#gameOverModal')).toBeVisible();
   await expect(page.locator('#endModalBadge')).toContainText('RUN OVER AT TIER 2');
   await expect(page.locator('#endModalTitle')).toContainText(/NEW BEST RUN|TIER 2/);

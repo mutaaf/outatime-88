@@ -280,6 +280,21 @@
     </div>
   </div>
 
+  <!-- Time Storm (ticket 0151): the pursuer's glow builds at the bottom as it closes in. -->
+  <div id="stormGlow" class="storm-glow pointer-events-none" aria-hidden="true"></div>
+  <div id="hudStorm" class="hud-storm hidden pointer-events-none" role="status">⛈️ <b id="hudStormGap">0</b> m</div>
+  <!-- CONTINUE (ticket 0151): once per run, paid in earned FLUX cash only. No money, no ads. -->
+  <div id="continueOffer" class="continue-offer hidden" role="dialog" aria-modal="true" aria-labelledby="continueTitle">
+    <div class="continue-card">
+      <p id="continueReason" class="continue-reason"></p>
+      <h2 id="continueTitle" class="continue-title">KEEP GOING?</h2>
+      <div id="continueClock" class="continue-clock">6</div>
+      <button id="btnContinueYes" type="button" class="continue-yes">🔧 CONTINUE · <b id="continueCost">150 ⚡</b></button>
+      <p id="continueWallet" class="continue-wallet"></p>
+      <button id="btnContinueNo" type="button" class="continue-no">END RUN</button>
+    </div>
+  </div>
+
   <!-- LEVEL UP (ticket 0150): a big, friendly celebration when an Endless tier is reached. -->
   <div id="levelUpBanner" class="levelup pointer-events-none" aria-hidden="true"><b>LEVEL UP!</b><span id="levelUpTier">TIER 2</span></div>
 
@@ -390,6 +405,8 @@
       <div class="title-lines">
         <div id="titleEventChip" class="font-arcade text-[10px] sm:text-xs text-orange-200/90 tracking-wider"></div>
         <div id="titleMissions" class="title-missions font-arcade"></div>
+        <!-- Endless goals (ticket 0151): your level, multiplier and the next goal, one line. -->
+        <div id="titleGoals" class="title-goals font-arcade"></div>
       </div>
       <div id="titleRival" class="title-rival font-arcade" role="status" aria-live="polite"></div>
     </div>
@@ -669,6 +686,7 @@
         <h2 id="settingsTitle" class="font-arcade text-lg sm:text-2xl font-black text-white tracking-wider">⚙️ SETTINGS</h2>
         <button id="btnSettingsDone" type="button" class="min-h-[44px] px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs sm:text-sm font-black">✓ DONE</button>
       </div>
+      <ul id="pauseGoals" class="end-goals pause-goals hidden" aria-label="Endless goals"></ul>
 
       <section class="set-section" aria-labelledby="setHeadSteer">
         <h3 id="setHeadSteer">🎮 STEERING</h3>
@@ -796,6 +814,8 @@
         </div>
         <!-- Run missions (ticket 0026): this run's three, ✓ and the reward once done. -->
         <ul id="endMissions" class="end-missions" aria-label="Missions"></ul>
+        <!-- Endless goals (ticket 0151): all three done = a permanent points multiplier. -->
+        <ul id="endGoals" class="end-goals hidden" aria-label="Endless goals"></ul>
 
         <!-- Leaderboard submission (ticket 0025): initials once, then every run posts itself. -->
         <div id="endBoardBox" class="end-board">

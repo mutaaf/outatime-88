@@ -766,3 +766,37 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 @media (prefers-reduced-motion: reduce) { .levelup[data-fx] { animation-name: levelUpCalm; } }
 [data-motion="reduce"] .levelup[data-fx] { animation-name: levelUpCalm !important; }
 @keyframes levelUpCalm { 0%, 100% { opacity: 0; transform: translate(-50%, -50%); } 15%, 80% { opacity: 1; transform: translate(-50%, -50%); } }
+
+/* Endless runner (ticket 0151): goals, the Time Storm and the CONTINUE offer. */
+.title-goals { margin-top: 2px; font-size: clamp(9px, 1.5vmin, 12px); color: #fde68a; letter-spacing: 0.06em; max-width: 92vw;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title-goals:empty { display: none; }
+@media (max-height: 460px) { .title-goals { display: none; } } /* short landscape phones: the icons need the room */
+.end-goals { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font: 700 clamp(9px, 1.4vmin, 12px)/1.3 'Orbitron', sans-serif; text-align: left; }
+.end-goals li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 8px; background: rgba(15, 23, 42, 0.8); color: #e2e8f0; }
+.end-goals li.done { color: #86efac; background: rgba(20, 83, 45, 0.55); }
+.end-goals li b { color: #fde047; }
+.end-goals .goals-head { background: none; padding: 0 2px; color: #fde68a; font-weight: 900; }
+.pause-goals { margin: 10px 0 4px; }
+.storm-glow { position: absolute; inset: auto 0 0 0; height: 34vh; z-index: 19; opacity: 0;
+  background: radial-gradient(120% 90% at 50% 120%, rgba(168, 85, 247, 0.85), rgba(56, 189, 248, 0.35) 45%, transparent 75%);
+  transition: opacity 0.25s linear; }
+.storm-glow.is-close { animation: stormFlicker 0.9s steps(2) infinite; }
+@keyframes stormFlicker { 50% { filter: brightness(1.6); } }
+[data-motion="reduce"] .storm-glow.is-close { animation: none; }
+.hud-storm { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 22vh); transform: translateX(-50%); z-index: 20;
+  padding: 4px 12px; border-radius: 9999px; background: rgba(46, 16, 101, 0.85); border: 1.5px solid #c084fc; color: #f5d0fe;
+  font: 900 clamp(11px, 1.8vmin, 16px)/1.2 'Orbitron', sans-serif; box-shadow: 0 0 16px rgba(192, 132, 252, 0.6); }
+.continue-offer { position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(2, 6, 23, 0.72); backdrop-filter: blur(4px); }
+.continue-offer.hidden { display: none; }
+.continue-card { width: min(380px, 100%); padding: 18px 18px 14px; border-radius: 24px; text-align: center; background: #0f172a;
+  border: 2px solid #22d3ee; box-shadow: 0 0 40px rgba(34, 211, 238, 0.35); font-family: 'Orbitron', sans-serif; }
+.continue-reason { color: #fca5a5; font-weight: 800; font-size: 12px; letter-spacing: 0.06em; }
+.continue-title { margin: 4px 0 8px; color: #fff; font-weight: 900; font-size: clamp(22px, 5vmin, 34px); font-style: italic; }
+.continue-clock { --left: 1; width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 900; font-size: 28px; color: #fde047; background: conic-gradient(#fde047 calc(var(--left) * 360deg), #1e293b 0); box-shadow: inset 0 0 0 6px #0f172a; }
+.continue-yes { width: 100%; min-height: 52px; border-radius: 16px; background: linear-gradient(180deg, #4ade80, #16a34a); color: #052e16;
+  font: 900 16px/1 'Orbitron', sans-serif; box-shadow: 0 4px 0 #14532d; }
+.continue-wallet { margin: 6px 0 10px; color: #94a3b8; font-size: 11px; font-weight: 700; }
+.continue-no { min-height: 44px; padding: 0 16px; border-radius: 12px; background: #1e293b; color: #cbd5e1; font: 800 12px/1 'Orbitron', sans-serif; }
