@@ -25,3 +25,17 @@ M1 Max (real GPU), 3D mid-race, 60 Hz headless (vsync-capped, so fps reads 60 wh
 SwiftShader (software, what CI runs; auto picks LOW): 1280x720 settles at governor step 2
 (DPR 0.85), ~35 fps, p95 33 ms — the governor is doing its job on a device that can't hold 60.
 Draw-call ceilings per tier (`maxDraws`, enforced by `tests/e2e/gfx.spec.js`): 125 / 175 / 210 / 250 (rolling wheels add two draws per car on MEDIUM+).
+
+### Steady frames (ticket 0182), measured 2026-10-19
+
+Headless Chromium on Apple Silicon with SwiftShader, mid-race, driving with weaving and drifts.
+"JS" is the game's own work per frame. `node frames.mjs` methodology: 8 s windows, two runs each.
+
+| Config | Before: JS p95 / p99 | After: JS p95 / p99 | Frames > 33 ms | Garbage |
+|---|---|---|---|---|
+| 2D 1280×720, 1× CPU | 15.3–18.3 / 16.2–22.3 ms | 15.9–16.3 / 16.7–17.9 ms | 5–11 → 8–9 | ~8 MB/s → ~7–8 MB/s |
+| 2D Pixel 7, 4× CPU | 27.4–28.8 / 32.9–34.0 ms | 24.0–26.1 / 30.0–30.3 ms | 37–57 → 19–46 | ~7 MB/s (similar) |
+
+A CPU profile shows `drawImage` (the software-rastered upscale blit) at ~53% and GC at 0.3%. On
+CI the frame interval is raster-bound, so `frames.spec.js` gates the game's JS time and garbage,
+not the interval.
