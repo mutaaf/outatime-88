@@ -51,7 +51,7 @@ test('Enter starts a race from the title; the icons open their panels instead', 
   await page.locator('#btnCloseEvents').click();
   await expect(page.locator('#startModal')).toBeHidden();
   await page.keyboard.press('Enter');
-  expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
+  await expect.poll(() => page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING'); // once the race step is in (0170)
 });
 
 test('a new player gets a steer prompt that leaves once they steer', async ({ page }) => {

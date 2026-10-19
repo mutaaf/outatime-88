@@ -9,6 +9,8 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
     await page.goto(`${APP}?debug`);
     await expect(page.locator('#titleMissions')).toHaveText('🎯 3 MISSIONS · 0/3 DONE TODAY');
     await page.keyboard.press('Enter');
+    // The race starts as soon as the lazy race step is in (0170): wait for it, not a fixed beat.
+    await page.waitForFunction(() => window.__OT.GameState.missions);
     const first = await page.evaluate(() => {
       const ms = window.__OT.GameState.missions;
       const m = ms[0];
@@ -40,7 +42,8 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
 
 test('a daily run gets the same three missions every time', async ({ page }) => {
   await page.goto(`${APP}?debug`);
-  const pick = () => page.evaluate(() => { window.__OT.startRace({ daily: true }); return window.__OT.GameState.missions.map((m) => m.type); });
+  // startRace resolves once the race is set up (the race step is a lazy chunk, 0170).
+  const pick = () => page.evaluate(async () => { await window.__OT.startRace({ daily: true }); return window.__OT.GameState.missions.map((m) => m.type); });
   const a = await pick();
   await page.evaluate(() => window.__OT.finishRun());
   expect(await pick()).toEqual(a);

@@ -6,12 +6,38 @@ import { gzipSync } from 'node:zlib';
 const DIR = 'dist/outatime/assets';
 const gz = (f) => gzipSync(readFileSync(`${DIR}/${f}`), { level: 9 }).length / 1024;
 
+/** The entry chunk plus every chunk it statically imports: what a first visit downloads before
+ *  the title runs. The bundler can split shared modules (data, state, cars…) off the entry into
+ *  small common chunks, so the entry file alone under-counts; this is the honest number. */
+function startup() {
+  const entry = readdirSync(DIR).filter((f) => /^index-.*\.js$/.test(f));
+  expect(entry.length).toBe(1);
+  const seen = new Set();
+  const walk = (f) => {
+    if (seen.has(f)) return;
+    seen.add(f);
+    for (const m of readFileSync(`${DIR}/${f}`, 'utf8').matchAll(/(?:from|import)\s*"\.\/([\w.-]+\.js)"/g)) walk(m[1]);
+  };
+  walk(entry[0]);
+  return [...seen];
+}
+
 test('main bundle stays in budget and does not contain three.js', () => {
+  const files = startup();
+  const total = files.reduce((t, f) => t + gz(f), 0);
+  // ≤ 58 kB (0170): main was 73.2 kB at startup after crawling up from 60, so the race step
+  // moved to a lazy chunk and the budget came down to just above the result (today ~56.5).
+  // Rule: new features ship as lazy chunks; main only gets the hooks that load them.
+  expect(total).toBeLessThan(58);
+  for (const f of files) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('WebGLRenderer');
+});
+
+test('the race step is a lazy chunk in its own budget (0170)', () => {
   const files = readdirSync(DIR);
-  const main = files.filter((f) => /^index-.*\.js$/.test(f));
-  expect(main.length).toBe(1);
-  expect(gz(main[0])).toBeLessThan(72); // → 72 for the orbit level and the rival AI glue (0155, 0160);  60 → 64 for handling, NOS, the clean-line planner and set pieces (0120–0123); → 66 for the drivetrain (0131); → 68 after smoke/audio, pickups and the high-DPI 2D canvas (0132, 0133, 0145); → 70 for the Endless Highway tiers and runner loop (0150, 0151)
-  expect(readFileSync(`${DIR}/${main[0]}`, 'utf8')).not.toContain('WebGLRenderer');
+  const step = files.filter((f) => /^race-step-.*\.js$/.test(f));
+  expect(step.length).toBe(1);
+  expect(gz(step[0])).toBeLessThan(23); // today ~20.3 kB: updateGame, traffic stepping, race start/finish, race HUD
+  for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('TOO SLOW FOR THE LOOP');
 });
 
 /** A chunk plus every chunk it statically imports (not the main bundle): what loading it downloads. */
