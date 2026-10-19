@@ -1,11 +1,12 @@
 ---
 id: 0175
 title: Runner power-ups — magnet, shield and 2X coins, upgraded with FLUX cash
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-18
+pr: 97
 ---
 
 ## Why
