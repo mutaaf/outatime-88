@@ -39,8 +39,17 @@ test('the race step is a lazy chunk in its own budget (0170)', () => {
   const files = readdirSync(DIR);
   const step = files.filter((f) => /^race-step-.*\.js$/.test(f));
   expect(step.length).toBe(1);
-  expect(gz(step[0])).toBeLessThan(23); // today ~20.3 kB: updateGame, traffic stepping, race start/finish, race HUD
+  console.log(`[budget] race-step ${gz(step[0]).toFixed(2)} kB gzipped (limit 23)`); // the CI number, in the CI log
+  expect(gz(step[0])).toBeLessThan(23); // today ~17 kB on CI (0176: race start/finish, coach and HUD moved to race-flow): updateGame, traffic stepping
   for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('TOO SLOW FOR THE LOOP');
+});
+
+test('race start/finish, the coach and the race HUD are their own lazy chunk (0176)', () => {
+  const files = readdirSync(DIR);
+  const flow = files.filter((f) => /^race-flow-.*\.js$/.test(f));
+  expect(flow.length).toBe(1);
+  expect(gz(flow[0])).toBeLessThan(9); // today ~7.1 kB
+  expect(startup()).not.toContain(flow[0]); // never part of what a first visit downloads
 });
 
 test('the rigid-body world is its own small lazy chunk (0176)', () => {
