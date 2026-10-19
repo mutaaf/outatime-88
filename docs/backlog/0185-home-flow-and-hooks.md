@@ -1,12 +1,12 @@
 ---
 id: 0185
 title: Every run comes home; the home screen says why to play
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-19
-pr:
+pr: 106
 ---
 
 ## Why
