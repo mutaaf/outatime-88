@@ -143,6 +143,7 @@ export function addItem(seg, offset, type, collectible = false, phase = 0) {
   it.type = type;
   it.collected = collectible ? false : undefined;
   it.phase = phase;
+  it.vOff = 0; // a magnet's pull speed (src/pickups.js), cleared for the pooled item's next use
   seg.items.push(it);
   return it;
 }

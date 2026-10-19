@@ -162,6 +162,15 @@ describe('reach and magnet', () => {
     const wrench = { offset: 0.5, collected: false };
     expect(magnetPull(wrench, PICKUPS.REPAIR_WRENCH, 0.2, 1, 0.5, 1 / 120)).toBe(false);
   });
+
+  it('the pull is a force: the coin gathers speed as it comes in, and closer pulls harder (0176)', () => {
+    const run = (ahead) => { const c = { offset: 0.5, collected: false }; const xs = []; for (let k = 0; k < 24; k++) { magnetPull(c, PICKUPS.HW_COIN, 0, ahead, 0.5, 1 / 120); xs.push(c.offset); } return xs; };
+    const xs = run(1);
+    const early = xs[1] - xs[0], later = xs[12] - xs[11];
+    expect(Math.abs(later)).toBeGreaterThan(Math.abs(early)); // accelerates toward you
+    expect(run(1)[23]).toBeLessThan(run(5)[23]);                 // a nearer pickup moves further
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(0);           // never past your line
+  });
 });
 
 describe('crisp icon cache', () => {
