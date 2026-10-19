@@ -588,6 +588,40 @@ export function lookAhead(car, obstacles) {
   }
 }
 
+/**
+ * You're on the wall and `car` is on your inside, touching you: you're pinned. The car yields
+ * (a line clear of you, held for a while). If it's only clipping your lane, the wall holds you,
+ * so the car takes all the separation and you slide past at speed.
+ * Returns 0 (not pinned), 1 (pinned, the car yields) or 2 (pinned and pushed clear: slide past).
+ */
+export function unpin(car, playerX, latDist, minLatSep) {
+  const side = Math.sign(playerX);
+  if (Math.abs(playerX) < 0.70 || (car.offset - playerX) * side >= 0) return 0;
+  car.avoidX = clamp(playerX - side * (minLatSep + 0.06), -0.66, 0.66);
+  car.avoidZ = car.worldZ + 2500;
+  if (latDist <= minLatSep - 0.09) return 1;
+  car.offset -= side * (minLatSep - latDist + 0.02);
+  car.vx = -side * Math.max(0.3, -side * car.vx);
+  return 2;
+}
+
+/**
+ * Your bumper hits an obstacle: it takes the momentum exchange's speed along the road
+ * (heavier = slower off the bumper), is kicked aside and up off your sloped nose, at the point
+ * your bumper met it, so a corner hit sends it spinning.
+ */
+export function bumpObstacle(ob, vBody, playerX, pushDir, leverX) {
+  const jz = ob.massKg * (vBody - ob.vz + 1450);
+  const jx = -pushDir * (1.0 + Math.abs(leverX) * 2.5) * ob.massKg * LAT * 0.6;
+  const hx = clamp(playerX, ob.offset - ob.halfW, ob.offset + ob.halfW) * LAT;
+  applyImpulseAt(ob, jx, jz, hx, ob.worldZ - ob.halfL, (420 + hitJitter(ob) * 160) * ob.massKg);
+}
+
+/** A shockwave stomp: blasts an obstacle forward, up and out to its side of the road. */
+export function stompObstacle(ob, side) {
+  applyImpulseAt(ob, side * ob.massKg * LAT * 0.9, ob.massKg * 1000, ob.offset * LAT - side * 20, ob.worldZ - ob.halfL, ob.massKg * 1500);
+}
+
 /** A position/velocity hash of the world, for replay tests and desync checks. */
 export function worldHash(bodies) {
   let h = 2166136261 >>> 0;

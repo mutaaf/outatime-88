@@ -37,9 +37,9 @@ RS.fair = createFair();
 
 // The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
 // and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
-let createRigidWorld, applyImpulseAt, RIGID, playerBody, carHit, launchCar, hitJitter, lookAhead;
+let createRigidWorld, playerBody, carHit, launchCar, lookAhead, unpin, bumpObstacle, stompObstacle;
 export function useRigid(m) {
-  ({ createRigidWorld, applyImpulseAt, RIGID, playerBody, carHit, launchCar, hitJitter, lookAhead } = m);
+  ({ createRigidWorld, playerBody, carHit, launchCar, lookAhead, unpin, bumpObstacle, stompObstacle } = m);
 }
 
 export const hitStop = createHitStop();
@@ -356,7 +356,7 @@ export function performHumanTrick(direction) {
         if (dz > -200 && dz < 1800) {
           ob.hitCount++;
           const side = ob.offset >= 0 ? 1 : -1;
-          applyImpulseAt(ob, side * ob.massKg * RIGID.LAT * 0.9, ob.massKg * 1000, ob.offset * RIGID.LAT - side * 20, ob.worldZ - ob.halfL, ob.massKg * 1500);
+          stompObstacle(ob, side);
         }
       }
     }
@@ -1114,6 +1114,7 @@ export function updateGame(rawDt) {
   // speed by how hard you hit, a yaw kick away from the barrier, and grinding costs speed.
   // Touching the wall (pressed against it, or bouncing off this step) grinds: smoke and scrub.
   GameState.wallGrind = Math.abs(GameState.playerX) >= MAX_TRACK_X - 0.004;
+  if (RS.pinnedT > 0) RS.pinnedT -= rawDt;
   if (GameState.playerX < -MAX_TRACK_X || GameState.playerX > MAX_TRACK_X) {
     const side = GameState.playerX < 0 ? -1 : 1;
     GameState.playerX = side * MAX_TRACK_X;
@@ -1121,7 +1122,8 @@ export function updateGame(rawDt) {
     // Points barely move for a scrape now (ticket 0165); grinding wears HP instead, never to 0.
     // A shield (0177) takes a hard hit into the wall and buys a second of grinding for free.
     if (GameState.playerVX * side > 0.35 && GameState.speed >= 30 && GameState.invulnTimer <= 0) shieldBreak(side * 0.6);
-    if (GameState.speed >= 30 && GameState.invulnTimer <= 0) {
+    // Pinned against the wall by a car (0176): that's the car's doing, not a grind you chose.
+    if (GameState.speed >= 30 && GameState.invulnTimer <= 0 && !(RS.pinnedT > 0)) {
       GameState.hp = Math.max(Math.min(GameState.hp, 1), GameState.hp - 5 * activeCarParams().damageMult * currentDifficulty().damage * rawDt);
     }
     const hit = GameState.playerVX * side > 0;
@@ -2356,12 +2358,22 @@ export const LiveTrafficMethods = {
           } else {
             const totalInvMass = playerInvMass + tr.invMass;
             const e = 0.42;
-            GameState.dodgeStreak = 0; GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0; applyPlayerDamage(14, 'TRAFFIC COLLISION');
-            spawnObstacleShatter(tr.offset - GameState.playerX, '#ef4444', '#fde047', '💥 SOLID TRAFFIC IMPACT!');
-            GameState.suspVel -= 210;
-            GameState.chassisPitchVel += 16;
+            // Pinned against the wall (src/rigid.js unpin): the car yields, and you slide past it.
+            const slid = unpin(tr, GameState.playerX, latDist, minLatSep);
+            if (slid) RS.pinnedT = 0.5;
+            // One crash per contact: staying in touch with the same car isn't a new hit every step.
+            const fresh = !(tr.touchT > GameState.raceTime - 0.3);
+            tr.touchT = GameState.raceTime;
+            if (fresh) {
+              GameState.dodgeStreak = 0; GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0; applyPlayerDamage(14, 'TRAFFIC COLLISION');
+              spawnObstacleShatter(tr.offset - GameState.playerX, '#ef4444', '#fde047', '💥 SOLID TRAFFIC IMPACT!');
+              GameState.suspVel -= 210;
+              GameState.chassisPitchVel += 16;
+            }
 
-            if (prevPZ < tr.prevZ - tr.halfL * 0.5) {
+            if (slid === 2) {
+              // Only clipping your lane: it took the separation (the wall holds you).
+            } else if (prevPZ < tr.prevZ - tr.halfL * 0.5) {
               // Into its back: a semi barely moves and stops you; a sedan gets shoved and,
               // hit off-centre, spins.
               GameState.trackPos = tr.worldZ - ROAD_CFG.playerZOffset - (playerHalfL + tr.halfL + 8);
@@ -2490,14 +2502,8 @@ export const LiveTrafficMethods = {
             if (!ob.isStatic) {
               ob.worldZ = Math.max(ob.worldZ, playerZ + playerHalfL + ob.halfL + 40);
               ob.prevZ = ob.worldZ;
-              // Momentum exchange along the road (heavier = slower off the bumper), kicked
-              // aside and up off your sloped nose, at the point your bumper met it, so a
-              // corner hit sends it spinning (src/rigid.js).
-              const v = impactVelocities(playerMass, playerWorldVZ, ob.massKg, ob.vz, Math.max(0.5, ob.restitution));
-              const jz = ob.massKg * (v.body - ob.vz + 1450);
-              const jx = -pushDir * (1.0 + Math.abs(leverX) * 2.5) * ob.massKg * RIGID.LAT * 0.6;
-              const hx = Math.max(ob.offset - ob.halfW, Math.min(ob.offset + ob.halfW, GameState.playerX)) * RIGID.LAT;
-              applyImpulseAt(ob, jx, jz, hx, ob.worldZ - ob.halfL, (420 + hitJitter(ob) * 160) * ob.massKg);
+              // A real momentum exchange at the point your bumper met it (src/rigid.js).
+              bumpObstacle(ob, impactVelocities(playerMass, playerWorldVZ, ob.massKg, ob.vz, Math.max(0.5, ob.restitution)).body, GameState.playerX, pushDir, leverX);
             }
 
             // 3. Compress 4-wheel suspension & pitch nose forward on impact!
