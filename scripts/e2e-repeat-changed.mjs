@@ -19,9 +19,17 @@ function changedSpecs() {
     git('rev-parse', '--verify', `origin/${base}`);
     range = [`origin/${base}...HEAD`];
   } catch {
-    // CI checks out one commit: fetch the base tip and compare against it.
-    try { git('fetch', '--no-tags', '--depth=1', 'origin', base); } catch { return null; }
-    range = ['FETCH_HEAD', 'HEAD'];
+    // CI checks out one commit: the PR merged into its base. Its first parent is that base, so
+    // compare against it (not the base's current tip, which may have moved on since and would
+    // drag other PRs' spec changes in).
+    try {
+      git('fetch', '--no-tags', '--deepen=1', 'origin');
+      git('rev-parse', '--verify', 'HEAD^2');
+      range = ['HEAD^1', 'HEAD'];
+    } catch {
+      try { git('fetch', '--no-tags', '--depth=1', 'origin', base); } catch { return null; }
+      range = ['FETCH_HEAD', 'HEAD'];
+    }
   }
   return git('diff', '--name-only', '--diff-filter=AMR', ...range, '--', 'tests/e2e')
     .split('\n')
