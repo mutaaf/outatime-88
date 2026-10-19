@@ -1,11 +1,12 @@
 ---
 id: 0186
 title: More ways to lose in Endless — telegraphed run-ending hazards, fuel, NOS heat, the Patrol, checkpoints
-status: in-progress
+status: shipped
 priority: P1
 size: L
 lens: player-feel
 created: 2026-10-19
+pr: 108
 ---
 
 ## Why
