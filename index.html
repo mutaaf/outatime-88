@@ -404,6 +404,9 @@
         <button id="btnTitleTilt" type="button" class="title-tilt hidden" aria-pressed="false" aria-label="Tilt steering"><span aria-hidden="true">📱</span> TILT STEERING <b>OFF</b></button>
         <button id="btnViewMode" type="button" class="title-view" aria-pressed="false" aria-label="3D view"><span aria-hidden="true">🧊</span> VIEW <b class="v2">2D</b><b class="v3">3D</b></button>
       </div>
+      <!-- Why play right now (ticket 0185): your best, today's daily, the next car, a rival,
+           what's new — or a 3-beat pitch on a first visit. Filled by the lazy src/home.js. -->
+      <div id="homeHooks" class="home-hooks" aria-label="Why play"></div>
       <div class="title-lines">
         <div id="titleEventChip" class="font-arcade text-[10px] sm:text-xs text-orange-200/90 tracking-wider"></div>
         <div id="titleMissions" class="title-missions font-arcade"></div>
@@ -602,6 +605,7 @@
         <button id="btnSettingsFromGarage" type="button" class="min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-cyan-400/60 text-cyan-200 font-arcade text-xs font-bold">
           ⚙️ SETTINGS
         </button>
+        <button type="button" data-home class="quit-home hidden min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-rose-400/60 text-rose-200 font-arcade text-xs font-bold">🏠 QUIT TO HOME</button>
         <button id="btnResumeFromGarage" class="min-h-[44px] px-6 py-2.5 rounded-xl hw-badge text-slate-950 font-arcade text-xs sm:text-sm font-black uppercase">
           BACK TO THE TRACK ➔
         </button>
@@ -688,7 +692,10 @@
     <div class="settings-card m-auto w-full max-w-lg rounded-3xl bg-slate-900 border-2 border-cyan-400/80 p-4 sm:p-6">
       <div class="flex items-center justify-between gap-2">
         <h2 id="settingsTitle" class="font-arcade text-lg sm:text-2xl font-black text-white tracking-wider">⚙️ SETTINGS</h2>
-        <button id="btnSettingsDone" type="button" class="min-h-[44px] px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs sm:text-sm font-black">✓ DONE</button>
+        <div class="flex items-center gap-2">
+          <button type="button" data-home class="quit-home hidden min-h-[44px] px-3 rounded-xl bg-slate-800 border border-rose-400/60 text-rose-200 font-arcade text-[10px] sm:text-xs font-bold">🏠 QUIT</button>
+          <button id="btnSettingsDone" type="button" class="min-h-[44px] px-4 rounded-xl hw-badge text-slate-950 font-arcade text-xs sm:text-sm font-black">✓ DONE</button>
+        </div>
       </div>
       <ul id="pauseGoals" class="end-goals pause-goals hidden" aria-label="Endless goals"></ul>
       <div id="pauseShop" class="power-shop hidden" role="group" aria-label="Power-up upgrades"></div>
@@ -844,9 +851,12 @@
           <span class="end-share-go" aria-hidden="true">▶</span>
         </button>
 
+        <!-- Every run ends with one clear way on and one way home (ticket 0185): PLAY AGAIN,
+             HOME (also Escape / Back / pad B, and by itself after 20 s untouched). -->
         <div class="end-actions">
-          <button id="btnOpenLeaderboardFromEnd" type="button" class="end-btn end-btn-ghost">🏆 RANKS</button>
-          <button id="btnPlayAgain" type="button" class="end-btn end-btn-main hw-badge text-slate-950">🔁 RETRY</button>
+          <button id="btnHomeFromEnd" type="button" class="end-btn end-btn-ghost end-btn-home" aria-label="Home">🏠<span class="end-lbl"> HOME</span></button>
+          <button id="btnOpenLeaderboardFromEnd" type="button" class="end-btn end-btn-ghost end-btn-side" aria-label="Ranks">🏆<span class="end-lbl"> RANKS</span></button>
+          <button id="btnPlayAgain" type="button" class="end-btn end-btn-main hw-badge text-slate-950">🔁 PLAY AGAIN</button>
           <button id="btnNextRace" type="button" class="end-btn end-btn-next hidden">NEXT ▶</button>
         </div>
         <div class="end-actions end-actions-2">

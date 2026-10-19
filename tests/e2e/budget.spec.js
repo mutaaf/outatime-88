@@ -115,3 +115,12 @@ test('recorded sound effects stay small and out of the main bundle (ticket 0133)
   const main = readdirSync(DIR).find((f) => /^index-.*\.js$/.test(f));
   expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toMatch(/audio\/[\w-]+\.(mp3|wav)|data:audio/);
 });
+
+test('the home flow (hooks, pitch, results → home, history) is a lazy chunk (ticket 0185)', () => {
+  const files = readdirSync(DIR);
+  const home = files.filter((f) => /^home-.*\.js$/.test(f));
+  expect(home.length).toBe(1);
+  expect(readFileSync(`${DIR}/${home[0]}`, 'utf8')).toContain('LEVEL UP FOREVER.');
+  for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('LEVEL UP FOREVER.');
+  expect(gz(home[0])).toBeLessThan(6);
+});

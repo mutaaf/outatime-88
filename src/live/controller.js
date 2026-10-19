@@ -547,6 +547,7 @@ export function createLive(hooks) {
           <div class="live-actions">
             <button class="live-big live-hot" data-act="rematch" id="liveRematch">🔁 REMATCH</button>
             <button class="live-small" data-act="invite">📨 INVITE</button>
+            <button class="live-small" data-act="leave" id="liveHome">🏠 HOME</button>
           </div>
         </div>
       </section>
