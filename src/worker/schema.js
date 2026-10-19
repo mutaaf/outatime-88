@@ -87,4 +87,10 @@ export const MIGRATIONS = [
       )`,
     ],
   },
+  {
+    // Fair play (ticket 0180): why a run is unranked ('' = ranked). Flagged runs stay in the
+    // table and on their own device's boards, hidden from everyone else's.
+    v: 4,
+    sql: ["ALTER TABLE scores ADD COLUMN flag TEXT NOT NULL DEFAULT ''"],
+  },
 ];
