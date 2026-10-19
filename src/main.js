@@ -62,10 +62,12 @@ export const RS = {};
 // title, and awaited by every race start, so a race never runs without it (0170).
 let raceStep = null, raceStepLoad = null;
 function loadRaceStep() {
-  raceStepLoad = raceStepLoad || import('./race-step.js').then((m) => (m.ready || Promise.resolve()).then(() => {
+  // The rigid-body world (0176) is its own chunk, fetched in parallel and handed to the race step.
+  raceStepLoad = raceStepLoad || Promise.all([import('./race-step.js'), import('./rigid.js')]).then(([m, rigid]) => {
+    m.useRigid(rigid);
     if (m.LiveTrafficMethods) Object.assign(LiveTraffic, m.LiveTrafficMethods);
     return (raceStep = m);
-  })).catch((e) => { raceStepLoad = null; throw e; });
+  }, (e) => { raceStepLoad = null; throw e; });
   return raceStepLoad;
 }
 loadRaceStep().catch(() => {});

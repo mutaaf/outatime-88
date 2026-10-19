@@ -35,12 +35,12 @@ import {
 
 RS.fair = createFair();
 
-// The rigid-body world (ticket 0176) is its own small chunk, fetched as soon as the race step
-// lands; main waits for `ready` before it calls the race step "loaded", so no race runs without it.
+// The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
+// and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
 let createRigidWorld, contactAlong, resolve, applyImpulseAt, RIGID;
-export const ready = import('./rigid.js').then((m) => {
+export function useRigid(m) {
   ({ createRigidWorld, contactAlong, resolve, applyImpulseAt, RIGID } = m);
-});
+}
 
 export const hitStop = createHitStop();
 
@@ -79,10 +79,16 @@ function playerBody(z, halfW, halfL, massKg, stw) {
   P.massKg = massKg; P.invMass = 1 / massKg; P.vRot = 0; P.suspVY = 0;
   return P;
 }
-/** Car-on-car hit along a normal (a → b): rear-enders are (0, 1), door-to-door (±1, 0). */
-function carHit(P, b, nx, nz, e) {
-  const c = contactAlong(P, b, nx, nz);
-  return resolve(P, b, c, e);
+/**
+ * Car-on-car hit along a normal (a → b): rear-enders are (0, 1), door-to-door (±1, 0). Your
+ * everyday bumps push and spin the other car but don't take it out of its driver's hands
+ * (racing AI that froze after every nudge would be no race); takedowns do (launchCar).
+ */
+function carHit(P, b, nx, nz, e, stuns = false) {
+  const stun = b.stun;
+  const j = resolve(P, b, contactAlong(P, b, nx, nz), e);
+  if (!stuns) b.stun = stun;
+  return j;
 }
 /** What the hit did to you: speed, sideways speed, and a yaw kick handling.js catches. */
 function playerAfterHit(P, stw, minMph) {
@@ -94,7 +100,7 @@ function playerAfterHit(P, stw, minMph) {
 function launchCar(P, b, dir, popVy) {
   const m = P.massKg; const v = P.vz;
   P.massKg = m * 3; P.invMass = 1 / P.massKg;
-  carHit(P, b, dir * 0.55, 0.835, 0.9);
+  carHit(P, b, dir * 0.55, 0.835, 0.9, true);
   applyImpulseAt(b, 0, 0, b.offset * RIGID.LAT, b.worldZ, b.massKg * popVy);
   b.vRot += dir * 7;
   b.stun = RIGID.stunMax;
@@ -2250,8 +2256,24 @@ export const LiveTrafficMethods = {
       // Cruise control: traffic pulls back up to its speed gently after a knock (src/rigid.js).
       tr.driveVz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
       tr.driveAccel = 900;
+      // Drivers look ahead (0176): a fixed or heavy obstacle in this car's path gets a line just
+      // clear of it (src/rigid.js steers it), toward the open road, held until it's past.
+      if (!tr.takenDown && !(tr.avoidZ > tr.worldZ)) {
+        for (let k = 0; k < this.drawObstacles.length; k++) {
+          const ob = this.drawObstacles[k];
+          const ahead = ob.worldZ - tr.worldZ;
+          if (ahead < 0 || ahead > 1400 || (!ob.isStatic && ob.massKg < tr.massKg * 0.3)) continue;
+          const d = tr.offset - ob.offset;
+          const room = ob.halfW + tr.halfW + 0.04;
+          if (Math.abs(d) >= room) continue;
+          const side = Math.abs(d) > 0.5 * room ? Math.sign(d) : (tr.offset > 0 ? -1 : 1);
+          tr.avoidX = Math.max(-0.66, Math.min(0.66, ob.offset + side * room));
+          tr.avoidZ = ob.worldZ + ob.halfL + tr.halfL;
+          break;
+        }
+      }
       // Keep the racing line clear: drift to a clear lane (or the shoulder) on this side of it.
-      if (!tr.takenDown && !(tr.stun > 0) && !(tr.blockedT > 0) && Math.abs(tr.yaw) < 0.5) {
+      if (!tr.takenDown && !(tr.stun > 0) && !(tr.blockedT > 0) && !(tr.avoidZ > tr.worldZ) && Math.abs(tr.yaw) < 0.5) {
         const tgt = this.planner.trafficTarget(tr.worldZ, tr.offset, tr.halfW, tr.halfL);
         const maxStep = TRAFFIC_LATERAL * rawDt;
         tr.offset += Math.max(-maxStep, Math.min(maxStep, tgt - tr.offset));
@@ -2385,7 +2407,7 @@ export const LiveTrafficMethods = {
               // hit off-centre, spins.
               GameState.trackPos = tr.worldZ - ROAD_CFG.playerZOffset - (playerHalfL + tr.halfL + 8);
               P.worldZ = GameState.trackPos + ROAD_CFG.playerZOffset;
-              P.vz = Math.max(P.vz, tr.vz + 10 * speedToWorld); // a hit is always a hit
+              P.vz = Math.max(P.vz, tr.vz + 5 * speedToWorld); // a hit is always a hit
               carHit(P, tr, 0, 1, e);
               playerAfterHit(P, speedToWorld, 22);
             } else {

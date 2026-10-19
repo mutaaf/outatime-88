@@ -74,6 +74,8 @@ export class RigidBody3D {
     this.blockedT = 0;        // s left braking for something in front of the nose
     this.blockVz = 0;
     this.blockSide = 0;
+    this.avoidX = 0;          // a line just clear of a fixed obstacle…
+    this.avoidZ = 0;          // …held until the car is past this Z
     this._mpKey = -1;
     this.chained = false;
     this.active = true;

@@ -22,17 +22,19 @@ export const RIGID = {
   LAT: 300,          // world Z units per lane unit
   G: 1580,           // gravity, Z units/s² (the vertical integrator's)
   GRIP: 2600,        // μ·g for tyres on tarmac, Z/s² (game speeds run hot, so grip does too)
+  DRIVE: 6000,       // most a driver can speed up or brake, Z/s² (~48 mph/s: NOS, boosters)
   ROLL_DECEL: 1500,  // a wreck on its tyres/roof scrubbing speed, Z/s²
   iterations: 4,     // contact solver passes per sub-step
   slop: 1.5,         // penetration left alone (Z units), so resting contacts don't jitter
   push: 0.8,         // share of the remaining penetration removed per pass
   mu: 0.45,          // body-to-body sliding friction
+  carE: 0.2,         // car-to-car restitution: crumple zones make crashes mostly plastic
   wallX: 0.72,       // wall line, lane units
   wallE: 0.2,        // walls absorb most of a hit
   wallMu: 0.5,       // and drag along you as you scrape
   maxSpin: 9,        // rad/s
-  yawInertia: 2.5,   // tyres resist turning during the instant of a hit: effective yaw inertia ×
-  stunFrom: 600,     // Z/s of velocity change (~5 mph) before a driver loses the car…
+  yawInertia: 4,   // tyres resist turning during the instant of a hit: effective yaw inertia ×
+  stunFrom: 2200,    // Z/s of velocity change (~50 mph at normal pace) before a driver loses the car…
   stunPerDv: 1 / 900, // …and then seconds lost per Z/s beyond it
   stunMax: 1.6,
   recoverYaw: 3.2,   // a driver's countersteer: yaw spring toward the road (1/s²·rad)
@@ -228,16 +230,25 @@ export function resolve(a, b, c, e, mu = RIGID.mu) {
 
 /** A driver whose nose is in the contact (the normal points along its heading) is blocked. */
 function noteBlocked(car, other, nx, nz, sign) {
-  if (!isCar(car) || car.takenDown) return;
+  // Traffic only: racing AI (src/rival-ai.js) already brakes, drafts and passes on its own, and
+  // braking it here too would string the field out into a conga line.
+  if (car.kind !== 'TRAFFIC' || car.takenDown) return;
   // Cones and barrels get driven through; only something a fair share of its weight stops it.
   if (!other.isStatic && other.massKg < car.massKg * 0.3) return;
   const fwd = sign * (nx * Math.sin(car.yaw || 0) + nz * Math.cos(car.yaw || 0));
   if (fwd < 0.7) return;
-  car.blockedT = 0.6;
-  car.blockVz = other.isStatic ? -1 : other.vz;
+  // Only when it's closing on the thing (a car pulling away from you isn't in your way).
+  if (!other.isStatic && car.vz <= other.vz) return;
+  car.blockedT = 0.4;
+  car.blockVz = other.isStatic ? -1 : Math.max(0, other.vz);
   // …and steers round it: away from its centre, or toward the open road when it's dead ahead.
   const d = car.offset - other.offset;
   car.blockSide = Math.abs(d) > 0.5 * (car.halfW + other.halfW) ? Math.sign(d) : (car.offset > 0 ? -1 : 1);
+  // A fixed obstacle: pick a line just clear of it and hold it until the car is past.
+  if (other.isStatic || other.sleeping) {
+    car.avoidX = clamp(other.offset + car.blockSide * (other.halfW + car.halfW + 0.04), -0.66, 0.66);
+    car.avoidZ = other.worldZ + other.halfL + car.halfL;
+  }
 }
 
 function applyPair(a, b, jx, jz, px, pz) {
@@ -304,7 +315,7 @@ export function integrate(b, dt, rawDt) {
     if (b.yaw > Math.PI || b.yaw < -Math.PI) b.yaw = Math.atan2(Math.sin(b.yaw), Math.cos(b.yaw));
     const driver = !(b.stun > 0) && !b.takenDown;
     // Facing the wrong way the driver can only steer the nose back round, not drive.
-    const control = driver && Math.abs(b.yaw) < 1.0;
+    const control = driver && Math.abs(b.yaw) < 0.6;
     const c = Math.cos(b.yaw), s = Math.sin(b.yaw);
     let VX = b.vx * LAT, VZ = b.vz;
     if (ground) {
@@ -320,14 +331,20 @@ export function integrate(b, dt, rawDt) {
         if (b.blockedT > 0) {
           b.blockedT -= rawDt;
           // A car ahead: match its speed. Something fixed: slow right down and steer round it.
-          want = b.blockVz >= 0 ? Math.min(want, b.blockVz - 40) : Math.min(want, want * 0.35);
-          VX += b.blockSide * LAT * (b.blockVz >= 0 ? 0.6 : 3.0) * dt;
+          // Never below a crawl and never in reverse: a jam creeps, it doesn't back up.
+          want = b.blockVz >= 0 ? Math.min(want, Math.max(want * 0.25, b.blockVz - 40)) : Math.min(want, want * 0.35);
+          if (b.blockVz >= 0) VX += b.blockSide * LAT * 0.6 * dt;
+        }
+        // Steering round something fixed: a line just clear of it, held until it's behind.
+        if (b.avoidZ > b.worldZ) {
+          const wantVX = clamp((b.avoidX - b.offset) * 5, -1.1, 1.1) * LAT;
+          VX += clamp(wantVX - VX, -LAT * 6 * dt, LAT * 6 * dt);
         }
         // Braking is tyre-limited and speeding up is the driver's call (the rival AI already
         // limits it); traffic's cruise control eases both ways (driveAccel), so a car you shunt
         // keeps the push for a while instead of braking straight back into you.
-        const up = b.driveAccel != null ? b.driveAccel * dt : Infinity;
-        const down = b.blockedT > 0 || b.driveAccel == null ? grip * 1.6 : b.driveAccel * dt;
+        const up = (b.driveAccel != null ? b.driveAccel : RIGID.DRIVE) * dt;
+        const down = b.blockedT > 0 || b.driveAccel == null ? RIGID.DRIVE * dt : b.driveAccel * dt;
         const dLong = clamp(want - vLong, -down, up);
         VX += dLong * s; VZ += dLong * c;
         const path = Math.atan2(VX, Math.max(600, Math.abs(VZ)));
@@ -336,7 +353,7 @@ export function integrate(b, dt, rawDt) {
         // Self-aligning lateral damping (the old grip model, so the AI's lane changes feel
         // the same): sideways speed bleeds off as the tyres bite.
         const damp = Math.abs(b.yaw - target) > 0.35 ? 2.2 : 5.2;
-        VX *= Math.max(0, 1 - damp * rawDt);
+        if (!(b.avoidZ > b.worldZ)) VX *= Math.max(0, 1 - damp * rawDt);
       } else {
         // Tyres only: kill sideways slip up to grip, scrub speed along the nose.
         const dLat = clamp(-vLat, -grip, grip);
@@ -346,7 +363,12 @@ export function integrate(b, dt, rawDt) {
         VZ += -dLat * s + dLong * c;
         // Spinning tyres scrub yaw rate; once the stun wears off the driver steers it round.
         b.vYaw *= Math.max(0, 1 - 3.0 * rawDt);
-        if (driver) b.vYaw += (-b.yaw * RIGID.recoverYaw * 6 - b.vYaw * 4) * rawDt;
+        if (driver) {
+          b.vYaw += (-b.yaw * RIGID.recoverYaw * 6 - b.vYaw * 4) * rawDt;
+          // A driver swings a spun car round even when it's wedged against something.
+          const swing = Math.min(Math.abs(b.yaw), 2.5 * rawDt);
+          b.yaw -= Math.sign(b.yaw) * swing;
+        }
       }
       b.vx = VX / LAT; b.vz = VZ;
     }
@@ -480,7 +502,7 @@ export function createRigidWorld({ subSteps = 2, iterations = RIGID.iterations, 
             const a = bodies[pairA[p]], b = bodies[pairB[p]];
             const c = collide(a, b);
             if (!c) continue;
-            const e = it === 0 ? Math.min(a.restitution, b.restitution) : 0;
+            const e = it === 0 ? (isCar(a) && isCar(b) ? RIGID.carE : Math.min(a.restitution, b.restitution)) : 0;
             const j = resolve(a, b, c, e);
             if (it === 0 && j > 0) {
               stats.contacts++;

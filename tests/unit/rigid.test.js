@@ -114,14 +114,14 @@ describe('drivers and tyres', () => {
   it('a big hit takes the car out of its driver hands; the skid stops and the driver straightens up', () => {
     const b = sedan(0, 0, 5000, { driveAccel: 900 });
     b.driveVz = 5000;
-    applyImpulseAt(b, 1420 * LAT * 3, 0, 0, b.worldZ - 100);
+    applyImpulseAt(b, 1420 * LAT * 9, 0, 0, b.worldZ - 100);
     expect(b.stun).toBeGreaterThan(0.3);
     expect(Math.abs(b.vYaw)).toBeGreaterThan(0.5);
     for (let t = 0; t < 4; t += STEP) integrate(b, STEP, STEP);
     expect(b.stun).toBe(0);
     expect(Math.abs(b.vx)).toBeLessThan(0.1);
     expect(Math.abs(b.yaw)).toBeLessThan(0.2);
-    expect(b.vz).toBeGreaterThan(3000); // driving again
+    expect(b.vz).toBeGreaterThan(2500); // driving again
   });
 
   it('a car in its driver hands keeps its lane-change speed and points where it goes', () => {
