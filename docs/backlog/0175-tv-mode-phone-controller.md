@@ -1,12 +1,12 @@
 ---
 id: 0175
 title: TV mode — the game on the big screen, a phone as the tilt controller
-status: in-progress
+status: shipped
 priority: P1
 size: L
 lens: player-feel
 created: 2026-10-18
-pr:
+pr: 100
 ---
 
 ## Why
