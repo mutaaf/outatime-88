@@ -89,7 +89,13 @@ test('share link → lobby → racing in ≤3 taps, synced start, matching resul
   // The shared race HUD ranks the whole room: you + 1 friend + 4 CPU cars.
   await expect.poll(() => guest.page.evaluate(() => window.__OT.GameState.totalRacers)).toBe(6);
 
-  // Both drive to the flag; results land on both screens in the same order.
+  // Both cross the line; results land on both screens in the same order. Put each car just
+  // short of the flag rather than leaving it to drive there: on a starved runner one page's sim
+  // can crawl (or get boxed in behind traffic), and the room then waits out its 30 s finish
+  // grace (LIVE.finishGraceMs), the same 30 s this check allows.
+  for (const p of [host.page, guest.page]) {
+    await p.evaluate(() => { const g = window.__OT.GameState; g.distance = Math.max(g.distance, g.raceLength - 15); g.speed = Math.max(g.speed, 90); });
+  }
   for (const p of [host.page, guest.page]) await expect(p.locator('#livePodium li')).toHaveCount(6, { timeout: 30_000 });
   for (const p of [host.page, guest.page]) await expect(p.locator('#liveResTitle')).toHaveText(/RESULTS/, { timeout: 30_000 });
   const order = await Promise.all([host.page, guest.page].map((p) => p.locator('#livePodium li span').allInnerTexts()));
