@@ -418,7 +418,9 @@ export function advanceContractProgress(type, amount) {
   GameState.score += 3000 * GameState.combo;
   GameState.specialCharges = Math.min(5, GameState.specialCharges + 1);
   SoundEngine.playCheckpoint();
-  triggerAnnouncement(`🎯 MISSION ${missionsDone(GameState.missions)}/3 COMPLETE!`, `${m.label} · +${m.reward} ⚡ & +1 SPECIAL`, 1900);
+  // A finished mission is a reward the player earned: it outranks routine callouts (priority 2,
+  // with laps and checkpoints) so a start-of-race line can't push it out of the queue.
+  triggerAnnouncement(`🎯 MISSION ${missionsDone(GameState.missions)}/3 COMPLETE!`, `${m.label} · +${m.reward} ⚡ & +1 SPECIAL`, 1900, 2);
   SaveStore.save();
 }
 
