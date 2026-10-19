@@ -86,3 +86,27 @@ test('your best run is a YOUR BEST gate on the road; RETRY is driving again in u
   expect(await G(page, () => window.__OT.GameState.mode)).toBe('INFINITE');
   expect(problems).toEqual([]);
 });
+
+test('a running combo keeps its streak and the trick magnet; it lapses only when the timer ends', async ({ page }) => {
+  await page.goto(`${APP}?debug`);
+  await page.evaluate(() => window.__OT.startRace());
+  await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING');
+  const r = await page.evaluate(() => new Promise((done) => {
+    const g = window.__OT.GameState;
+    g.comboTimer = 0.6; g.combo = 3; g.dodgeStreak = 4; g.magnetTimer = 2;
+    const t0 = g.raceTime;
+    const mid = setInterval(() => {
+      if (g.raceTime - t0 < 0.25) return;
+      clearInterval(mid);
+      const during = { streak: g.dodgeStreak, magnet: g.magnetTimer };
+      const end = setInterval(() => {
+        if (g.comboTimer > 0) return;
+        clearInterval(end);
+        done({ during, after: { combo: g.combo, streak: g.dodgeStreak } });
+      }, 5);
+    }, 5);
+  }));
+  expect(r.during.streak).toBeGreaterThanOrEqual(4); // was wiped every step while the timer ran
+  expect(r.during.magnet).toBeGreaterThan(1.5);
+  expect(r.after).toEqual({ combo: 1, streak: 0 });
+});

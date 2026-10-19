@@ -1332,7 +1332,10 @@ export function updateGame(rawDt) {
 
   if (GameState.comboTimer > 0) {
     GameState.comboTimer -= rawDt;
-    if (GameState.comboTimer <= 0) GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0;
+    // The chain lapses when its timer runs out: back to ×1 and a fresh streak. (These used to
+    // sit outside the `if`, so the streak, the trick magnet and an air combo in progress were
+    // wiped on every step the timer was running. Magnet and air tricks keep their own timers.)
+    if (GameState.comboTimer <= 0) { GameState.combo = 1; GameState.dodgeStreak = 0; }
   }
 
   if (GameState.screenShake > 0) {
