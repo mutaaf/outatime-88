@@ -22,7 +22,13 @@ test.beforeEach(async ({ page }) => {
     // Count frames after each game frame, so tests can ask "how many frames until…".
     const raf = window.requestAnimationFrame;
     window.__frames = 0;
-    window.requestAnimationFrame = (cb) => raf.call(window, (t) => { cb(t); window.__frames++; });
+    window.requestAnimationFrame = (cb) => raf.call(window, (t) => {
+      cb(t);
+      window.__frames++;
+      // Checked right after each game frame, so the count can't drift with timer jitter.
+      const pr = window.__probe;
+      if (pr && window.__OT && Math.abs(window.__OT.GameState.steerInput - pr.s0) > 0.02) { window.__probe = null; pr.done(window.__frames - pr.f0); }
+    });
   });
 });
 
@@ -44,19 +50,18 @@ function framesToSteer(page, src) {
     const g = window.__OT.GameState;
     const hold = setInterval(() => { g.speed = 70; }, 4);
     setTimeout(() => {
-      const f0 = window.__frames, s0 = g.steerInput;
+      const s0 = g.steerInput;
+      const finish = (n) => {
+        clearInterval(hold);
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowRight', key: 'ArrowRight' }));
+        window.__pad.axes[0] = 0;
+        done(n);
+      };
+      window.__probe = { f0: window.__frames, s0, done: finish };
       if (src === 'key') window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', key: 'ArrowRight' }));
       if (src === 'pad') { window.__padOn = true; window.__pad.axes[0] = 0.8; }
       if (src === 'tilt') window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 12, gamma: 12 }));
-      const id = setInterval(() => {
-        if (Math.abs(g.steerInput - s0) > 0.02 || window.__frames - f0 > 30) {
-          clearInterval(id); clearInterval(hold);
-          const n = window.__frames - f0;
-          window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowRight', key: 'ArrowRight' }));
-          window.__pad.axes[0] = 0;
-          done(n);
-        }
-      }, 0);
+      setTimeout(() => { if (window.__probe) { window.__probe = null; finish(99); } }, 3000);
     }, 400);
   }), src);
 }
@@ -106,15 +111,21 @@ test('gamepad triggers are analog: half throttle pulls about half as hard', asyn
 test('the rumble carries the tyres sliding and a wall hit', async ({ page }) => {
   const problems = watchPage(page);
   await race(page);
+  // The force-feel chunk loads when a pad connects: wait for it, not a fixed beat.
+  const chunk = page.waitForResponse((r) => /forcefeel-[^/]*\.js$/.test(r.url()));
   await page.evaluate(() => { window.__padOn = true; window.dispatchEvent(new Event('gamepadconnected')); });
-  // Slam into the right wall at speed with the stick pinned.
+  await chunk;
+  // Slam into the right wall at speed with the stick pinned, for 2 s of sim time.
   await page.evaluate(() => new Promise((done) => {
-    const g = window.__OT.GameState;
+    const g = window.__OT.GameState, t0 = g.raceTime;
     // Stick pinned and the brake on: a power drift into the barrier.
     window.__pad.axes[0] = 1;
     window.__pad.buttons[6].value = 1; window.__pad.buttons[6].pressed = true;
-    const id = setInterval(() => { g.speed = 95; }, 4);
-    setTimeout(() => { clearInterval(id); window.__pad.axes[0] = 0; window.__pad.buttons[6].value = 0; window.__pad.buttons[6].pressed = false; done(); }, 2500);
+    const id = setInterval(() => {
+      g.speed = 95;
+      if (g.raceTime - t0 < 2) return;
+      clearInterval(id); window.__pad.axes[0] = 0; window.__pad.buttons[6].value = 0; window.__pad.buttons[6].pressed = false; done();
+    }, 4);
   }));
   const fx = await page.evaluate(() => window.__rumble.filter((e) => e.type === 'dual-rumble'));
   expect(fx.length).toBeGreaterThan(3);
