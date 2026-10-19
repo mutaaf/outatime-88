@@ -1693,43 +1693,14 @@ function selectCharacterByIndex(idx) {
   return true;
 }
 
+// The driver grid lives in the events chunk too (src/level-select.js, 0185): it only shows in
+// the events panel.
 function renderCharacterRosterGrid() {
-  const grid = document.getElementById('characterRosterGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
-
-  POP_CULTURE_ROSTER.forEach((c, idx) => {
-    const isSel = (idx === GameState.selectedCharIdx);
-    const owned = isOwned(SaveStore.data, c.id);
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.dataset.carId = c.id;
-    btn.dataset.locked = owned ? '0' : '1';
-    btn.className = `text-left p-2 rounded-xl border transition flex flex-col justify-between ${
-      !owned
-        ? 'bg-slate-950/80 border border-slate-800 text-slate-400'
-        : isSel
-        ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow'
-        : 'bg-slate-900/90 border border-slate-800 text-slate-300 hover:border-slate-600'
-    }`;
-    btn.innerHTML = owned ? `
-      <div class="font-arcade text-[9px] font-black text-white truncate">${c.car}</div>
-      <div class="text-[9px] text-cyan-300 truncate">${c.driver}</div>
-      <div class="flex items-center justify-between text-[8px] font-arcade text-slate-400 mt-1">
-        <span class="text-emerald-300">💚${c.maxHp}HP</span>
-        <span>${c.massKg}kg</span>
-      </div>
-    ` : `
-      <div class="font-arcade text-[9px] font-black text-slate-300 truncate">🔒 ${c.car}</div>
-      <div class="text-[9px] text-amber-300/90 leading-tight">${unlockProgress(SaveStore.data, c.id).text}</div>
-    `;
-    btn.addEventListener('click', () => {
-      if (!owned) { openGarageModal(c.id); return; }
-      selectCharacterByIndex(idx);
-      SoundEngine.playCoinPickup();
-    });
-    grid.appendChild(btn);
-  });
+  levelSelect = levelSelect || import('./level-select.js');
+  return levelSelect.then((m) => m.renderRosterGrid({
+    GameState, SaveStore, roster: POP_CULTURE_ROSTER, locked: (id) => openGarageModal(id),
+    pick: (idx) => { selectCharacterByIndex(idx); SoundEngine.playCoinPickup(); },
+  }));
 }
 
 /** 250000 → '250k', 2500000 → '2.5M' */

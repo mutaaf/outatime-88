@@ -173,8 +173,11 @@ export function createHome(h) {
 
   // Escape on the results = home (it would open the garage); Enter = play again.
   window.addEventListener('keydown', (e) => {
-    if (!shown('gameOverModal') || S.status !== 'GAMEOVER' || blocking() || (e.target && e.target.tagName === 'INPUT')) return;
-    if (e.code === 'Escape' || e.code === 'Backspace') { e.preventDefault(); e.stopImmediatePropagation(); goHome(); }
+    if (!shown('gameOverModal') || S.status !== 'GAMEOVER' || blocking()) return;
+    // In the (auto-focused) initials box only Escape means home; Backspace and Enter edit/post.
+    const inInput = !!(e.target && e.target.tagName === 'INPUT');
+    if (e.code === 'Escape' || (e.code === 'Backspace' && !inInput)) { e.preventDefault(); e.stopImmediatePropagation(); goHome(); }
+    else if (inInput) return;
     else if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !(e.target && e.target.closest && e.target.closest('button, a, input'))) {
       e.preventDefault(); e.stopImmediatePropagation(); clickIf('btnPlayAgain');
     }
