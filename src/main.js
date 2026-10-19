@@ -25,7 +25,7 @@ import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, applyRunResult } from './progress.js';
 import { setTrackIntensity, setTrackPowerups, addItem } from './track.js';
 import { createStorm, stepStorm, stormRespite, runnerMult, canContinue, continueCost, CONTINUE } from './runner.js';
-import { difficultyOf, endlessTuning, recordEndless, ENDLESS } from './endless.js';
+import { difficultyOf, endlessTuning, endlessCash, recordEndless, ENDLESS } from './endless.js';
 import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt, curvatureAt, bankAt } from './track.js';
 import { stepSetPieces, progressIn, viewRoll } from './setpieces.js';
 export let pickupArt = null; // src/pickup-art.js, lazy: crisp cached pickup icons (simple shapes until it lands)
@@ -2510,6 +2510,7 @@ function initTouchControls() {
 }
 
 let lastFrameTime = 0;
+let simHeld = false; // the balance harness steps the sim itself (?debug, tests/balance)
 let rafId = null;
 
 // Fixed-timestep simulation (ticket 0070): the race always advances in 1/120 s steps, so
@@ -2563,6 +2564,7 @@ function renderBlended(alpha, frameDt) {
 const garageModalEl = document.getElementById('garageModal');
 
 function mainLoop(timestamp) {
+  if (simHeld) { rafId = requestAnimationFrame(mainLoop); return; }
   if (!lastFrameTime) lastFrameTime = timestamp;
   const frameSeconds = (timestamp - lastFrameTime) / 1000;
   const dt = Math.min(0.05, frameSeconds); // wall-clock frame time for attract mode and render FX
@@ -2671,6 +2673,10 @@ window.onload = () => {
     pickup: (type) => raceStep && raceStep.applyPickup({ type, offset: GameState.playerX }, PICKUPS[type]),
     fair: () => RS.fair, // jump/trick caps and counters (ticket 0180)
     hazard: (k, a, l) => RS.hz && RS.hz.debugPlace(k, a, l),
+    // Balance harness (docs/BALANCE.md): hold the frame loop and run sim steps flat out.
+    sim: (n, cb) => { simHeld = true; let i = 0; for (; i < n && GameState.status === 'PLAYING'; i++) { if (cb) cb(); snapshotView(); raceStep.updateGame(simClock.step); syncContactZ(); } return i; },
+    release: () => { simHeld = false; lastFrameTime = 0; },
+    save: () => SaveStore.data,
   };
   initSettings({ announce: triggerAnnouncement });
   // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.
@@ -2750,7 +2756,7 @@ export const RACE_DEPS = {
   WORLD_LEVELS, addItem, addNos, applyRunResult, beginRun, boostOutcome, breakdown, canContinue,
   continueCost, createDrive, createGhostRecorder, createHitStop, createHud, createLateral,
   createNos, createOnboarding, createPenaltyLog, createRaceClock, createSteer, createStorm,
-  crossingTime, currentDifficulty, difficultyOf, endlessTuning, featureAt, finishBonus,
+  crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, finishBonus,
   forkCueState, forkLean, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
   impactVelocities, isNewPlayer, landingKeep, lapOf, logHit, logPayload, logWall, loopStep,
   magnetPull, materialFor, missionsDone, mulberry32, nearMissChain, nosFill, nosFor, nosSpeed,

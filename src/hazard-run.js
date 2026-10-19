@@ -163,7 +163,7 @@ export function step(dt) {
       if (!h.locked && t <= RULES.wrongLock) { h.locked = true; h.lanes = 1 << nearestLane(G.playerX); }
     } else t = timeTo(h.z0, pz, zps);
     h.t = t;
-    if (!h.warned && t <= Math.max(h.tutor ? RULES.warnFirst : RULES.warn, h.kind === 'TRAIN' ? RULES.trainArm : 0)) { h.warned = true; telegraph(h); }
+    if (!h.warned && t <= Math.max(h.tutor ? RULES.warnFirst : HZ[h.kind].warn || RULES.warn, h.kind === 'TRAIN' ? RULES.trainArm : 0)) { h.warned = true; telegraph(h); }
     if (h.kind === 'TRAIN') {
       if (h.tOn == null && t <= RULES.trainArm) armTrain(h, now, t);
       if (h.tOn != null && now < h.tOff + 0.3 && (S.bell -= dt) <= 0) { S.bell = 0.32; SoundEngine.playTone(S.bell2 = S.bell2 === 880 ? 660 : 880, 'square', 0.12, 0.05); }

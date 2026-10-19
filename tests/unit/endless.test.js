@@ -1,6 +1,6 @@
 // Endless Highway progression (ticket 0150): tiers, the difficulty contract, tuning, bests.
 import { describe, it, expect } from 'vitest';
-import { ENDLESS, tierStart, tierFor, tierProgress, endlessDifficulty, difficultyOf, endlessTuning, recordEndless } from '../../src/endless.js';
+import { ENDLESS, tierStart, tierFor, tierProgress, endlessDifficulty, difficultyOf, endlessTuning, endlessCash, recordEndless } from '../../src/endless.js';
 
 describe('endless tiers', () => {
   it('start at tier 1 and each tier is longer than the last', () => {
@@ -74,5 +74,18 @@ describe('endless bests', () => {
     expect(recordEndless(save, 4000.6, 2)).toEqual({ best: 4001, bestTier: 2, isBest: true });
     expect(recordEndless(save, 3000, 3)).toEqual({ best: 4001, bestTier: 3, isBest: false });
     expect(save.endless.runs).toBe(2);
+  });
+});
+
+describe('Endless cash (docs/BALANCE.md)', () => {
+  it('pays ENDLESS.cash of each amount and carries the fraction, so nothing is lost', () => {
+    const acc = {};
+    let paid = 0;
+    for (let i = 0; i < 1000; i++) paid += endlessCash(acc, 4);
+    expect(paid).toBe(Math.floor(4000 * ENDLESS.cash));
+    expect(acc.milli).toBeGreaterThanOrEqual(0);
+    expect(acc.milli).toBeLessThan(1000);
+    expect(endlessCash({}, 0)).toBe(0);
+    expect(endlessCash({}, -50)).toBe(0);
   });
 });

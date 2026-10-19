@@ -19,7 +19,7 @@ const {
   WORLD_LEVELS, addItem, addNos, applyRunResult, beginRun, boostOutcome, breakdown, canContinue,
   continueCost, createDrive, createGhostRecorder, createHitStop, createHud, createLateral,
   createNos, createOnboarding, createPenaltyLog, createRaceClock, createSteer, createStorm,
-  crossingTime, currentDifficulty, difficultyOf, endlessTuning, featureAt, finishBonus,
+  crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, finishBonus,
   forkCueState, forkLean, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
   impactVelocities, isNewPlayer, landingKeep, lapOf, logHit, logPayload, logWall, loopStep,
   magnetPull, materialFor, missionsDone, mulberry32, nearMissChain, nosFill, nosFor, nosSpeed,
@@ -157,6 +157,11 @@ export const diffIn = { mode: 'ARCADE', distance: 0, levelIndex: 0, levels: 1, r
 export const diffOut = { tier: 1, difficulty: 0 };
 
 export const tune = { wave: 1, intensity: 1, coinMult: 1 };
+
+// Endless pays a share of the campaign's cash rate (docs/BALANCE.md); fractions carry over.
+const cashAcc = { milli: 0 };
+/** FLUX cash this run earns for something worth `n` in the campaign. */
+export const earnCash = (n) => (endlessSolo() ? endlessCash(cashAcc, n) : n);
 
 export function updateDifficulty() {
   diffIn.mode = GameState.mode;
@@ -413,7 +418,7 @@ export function applyPickup(item, def) {
   // Endless tiers multiply coin cash (ticket 0150); points are unchanged (the server re-checks them).
   // The 2X power-up doubles cash on top (0177).
   const doubled = cashMult(power);
-  const cash = def.coins ? Math.round(def.coins * (GameState.coinMult || 1)) * doubled : 0;
+  const cash = def.coins ? earnCash(Math.round(def.coins * (GameState.coinMult || 1)) * doubled) : 0;
   if (cash) {
     GameState.runCoins += cash; SaveStore.data.fluxCoins += cash; runStats.coins++;
     if (doubled > 1) runStats.doubledCash += cash;
@@ -503,8 +508,9 @@ export function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
 
   const tdPoints = 2000 * GameState.combo;
   GameState.score += tdPoints;
-  GameState.runCoins += 15;
-  SaveStore.data.fluxCoins += 15;
+  const tdCash = earnCash(15);
+  GameState.runCoins += tdCash;
+  SaveStore.data.fluxCoins += tdCash;
   GameState.screenShake = 0.42;
   GameState.takedownSlowMoTimer = GameState.reducedMotion ? 0 : 0.35; // Brief dramatic impact slow-mo!
   burstSparks(34, 190, 1.3);
@@ -637,8 +643,9 @@ export function triggerTimeWarp() {
 
   const warpBonus = 3000 * GameState.combo;
   GameState.score += warpBonus;
-  GameState.runCoins += 30;
-  SaveStore.data.fluxCoins += 30;
+  const warpCash = earnCash(30);
+  GameState.runCoins += warpCash;
+  SaveStore.data.fluxCoins += warpCash;
   GameState.specialCharges = Math.min(5, GameState.specialCharges + 1);
   let warpTime = 0;
   if (GameState.mode === 'ARCADE') {
@@ -1794,6 +1801,9 @@ export function startNewRace(opts) {
   GameState.lineSeed = liveRace ? liveRace.seed : daily ? daily.seed : (1 + Math.random() * 2147483646) | 0;
   // Missions (0026) draw from their own stream so they never shift the seeded traffic.
   GameState.missions = pickMissions(liveRace || daily ? mulberry32(GameState.lineSeed ^ 0x5eed) : Math.random);
+  cashAcc.milli = 0;
+  // Endless missions pay the Endless cash rate too, in round numbers (docs/BALANCE.md).
+  if (endlessSolo()) for (const m of GameState.missions) m.reward = Math.max(10, Math.round((m.reward * ENDLESS.cash) / 5) * 5);
   GameState.trafficGapScale = 1;
 
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
@@ -2088,8 +2098,9 @@ export function endRaceRun(customBadgeText = null) {
   const scoreSheet = breakdown(Math.round(GameState.score) + penaltyPoints(penLog), penLog);
   GameState.score = scoreSheet.final;
   if (GameState.racePosition <= 3) {
-    GameState.runCoins += lvl.bonusReward;
-    SaveStore.data.fluxCoins += lvl.bonusReward;
+    const bonus = earnCash(lvl.bonusReward);
+    GameState.runCoins += bonus;
+    SaveStore.data.fluxCoins += bonus;
   }
   if (GameState.score > SaveStore.data.bestScore) {
     SaveStore.data.bestScore = GameState.score;

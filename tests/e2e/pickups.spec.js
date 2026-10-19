@@ -3,6 +3,7 @@
 // in use at 2× device pixels. Uses the ?debug hook to place the car.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';
+import { ENDLESS } from '../../src/endless.js';
 
 async function race(page) {
   await page.goto(`${APP}?debug`);
@@ -53,7 +54,8 @@ test('2D: driving the clean line collects a whole coin trail (score, coins, comb
   }), trail);
   expect(after.done).toBe(true);
   expect(after.n - before.n).toBeGreaterThanOrEqual(4);
-  expect(after.coins - before.coins).toBeGreaterThanOrEqual(16);
+  // Four 4-coin pickups; Endless (the title's mode) pays its share of that (docs/BALANCE.md).
+  expect(after.coins - before.coins).toBeGreaterThanOrEqual(Math.floor(16 * ENDLESS.cash));
   expect(after.score).toBeGreaterThan(before.score);
   expect(problems).toEqual([]);
 });

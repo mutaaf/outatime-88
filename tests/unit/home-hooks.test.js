@@ -41,8 +41,9 @@ describe('the daily countdown is real', () => {
 describe('best run', () => {
   it('no run yet asks how far; a best shows the next tier to beat with real numbers', () => {
     expect(bestHook(save()).line).toBe('HOW FAR CAN YOU GO?');
-    const h = bestHook(save({ endless: { bestDistance: 3880, bestTier: 2, runs: 4 } }));
-    expect(h.title).toBe('YOUR BEST 3,880 m');
+    const best = tierStart(2) + 1080; // partway through tier 2
+    const h = bestHook(save({ endless: { bestDistance: best, bestTier: 2, runs: 4 } }));
+    expect(h.title).toBe(`YOUR BEST ${best.toLocaleString('en-US')} m`);
     expect(h.line).toContain(`TIER 3 STARTS AT ${tierStart(3).toLocaleString('en-US')} m`);
     expect(h.progress).toBeGreaterThan(0);
     expect(h.progress).toBeLessThan(1);

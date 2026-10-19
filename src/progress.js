@@ -4,18 +4,18 @@
 export const MEDALS = ['bronze', 'silver', 'gold'];
 export const MEDAL_ICON = { bronze: '🥉', silver: '🥈', gold: '🥇' };
 
-// Recalibrated 2026-10-17 after races got an end (ticket 0016: decaying time bonuses + a
-// 100–140 s cap). Ten Playwright runs per style, levels 1–5, 1280x720, five browsers at a
-// time: runs now finish in 77–90 s; holding only the gas scored 0.38–1.04M (median ~0.57M),
-// the LUMEN autopilot 0.15–1.14M (median ~0.57M). Bronze ≈ a decent run; silver ≈ beating
-// the bots' typical run; gold ≈ clearly beating their best. Later levels ask a little more.
+// Recalibrated 2026-10-19 (docs/BALANCE.md) after the combo fix (#102) and the handling work
+// lifted every run's score: the balance harness's four bots (tests/balance, ten races each per
+// level) now all win in ~50–60 s and score within a few percent of each other (level 1 median
+// 1.45M, best 1.52M), so the old bronze and silver were free. Bronze ≈ 60% of the bots' typical
+// run; silver ≈ matching it (about half the bots' runs); gold ≈ a quarter past their best.
 export const LEVEL_MEDALS = {
-  LVL1_CLOCK_HOLLOW: { bronze: 300000, silver: 900000, gold: 1800000 },
-  LVL2_RED_ROCK: { bronze: 330000, silver: 1000000, gold: 2000000 },
-  LVL3_TOKYO_2015: { bronze: 360000, silver: 1100000, gold: 2200000 },
-  LVL4_MULHOLLAND_2088: { bronze: 400000, silver: 1200000, gold: 2400000 },
-  LVL5_INFINITE_HW: { bronze: 450000, silver: 1350000, gold: 2700000 },
-  LVL6_LOW_ORBIT: { bronze: 480000, silver: 1450000, gold: 2900000 }, // a step past level 5 (ticket 0155)
+  LVL1_CLOCK_HOLLOW: { bronze: 850000, silver: 1450000, gold: 1900000 },
+  LVL2_RED_ROCK: { bronze: 1000000, silver: 1700000, gold: 2200000 },
+  LVL3_TOKYO_2015: { bronze: 1050000, silver: 1720000, gold: 2250000 },
+  LVL4_MULHOLLAND_2088: { bronze: 1100000, silver: 1720000, gold: 2300000 },
+  LVL5_INFINITE_HW: { bronze: 1150000, silver: 1760000, gold: 2350000 },
+  LVL6_LOW_ORBIT: { bronze: 1200000, silver: 2030000, gold: 2650000 }, // a step past level 5 (ticket 0155)
 };
 
 export function medalFor(levelId, score) {

@@ -13,15 +13,28 @@
 // A tier is a stretch of road; each one is a little longer than the last.
 
 export const ENDLESS = {
-  firstTier: 2600,   // distance of tier 1 (≈30 s at 88 mph)
-  growth: 450,       // each later tier is this much longer
+  firstTier: 4800,   // distance of tier 1 (≈50 s at 100 mph; docs/BALANCE.md)
+  growth: 1000,      // each later tier is this much longer
   ramp: 7,           // tiers to reach ~63% difficulty
   maxWave: 13,       // the arcade wave scale the difficulty maps onto (speed, traffic, density)
   intensity: 0.3,    // extra curve amplitude at full difficulty
-  healFrac: 0.15,    // a level-up patches this share of max HP
+  healFrac: 0.08,    // a level-up patches this share of max HP (docs/BALANCE.md: HP has to matter)
   coinStep: 0.2,     // coin multiplier gained per tier
   coinMax: 3,
+  cash: 0.35,        // Endless pays this share of the campaign's cash rate (docs/BALANCE.md)
 };
+
+/**
+ * Endless FLUX cash (docs/BALANCE.md): every coin, warp and takedown pays `ENDLESS.cash` of its
+ * campaign value. The remainder carries over in `acc` (whole thousandths, so it never drifts),
+ * so small coins still add up exactly. Returns the whole coins to pay now.
+ */
+export function endlessCash(acc, n) {
+  acc.milli = (acc.milli || 0) + Math.round(Math.max(0, n) * ENDLESS.cash * 1000);
+  const whole = Math.floor(acc.milli / 1000);
+  acc.milli -= whole * 1000;
+  return whole;
+}
 
 /** Distance at which tier `n` (≥1) starts. */
 export function tierStart(n) {

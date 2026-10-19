@@ -19,7 +19,7 @@ export const POWER = {
   DOUBLER: { secs: 10, perLv: 2, name: '2X COINS', icon: '2×', color: '#facc15' },
 };
 
-export const UPGRADE = { max: 5, cost: [250, 500, 900, 1400, 2000] };
+export const UPGRADE = { max: 5, cost: [600, 1000, 1600, 2400, 3400] }; // docs/BALANCE.md
 
 export const isPower = (type) => Object.prototype.hasOwnProperty.call(POWER, type);
 

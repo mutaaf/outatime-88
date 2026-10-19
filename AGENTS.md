@@ -377,6 +377,7 @@ every device running the same simulation.
 | `npm run check` | **The gate**: backlog validator + lint + unit + build + e2e. CI runs exactly this. |
 | `npm run check:fast` | Everything but e2e, for sandboxes that can't install Playwright browsers. CI still runs the full gate. |
 | `npm run e2e:flake-guard` | Runs the e2e specs your branch adds or changes several times in a row with no retries (CI does this on every PR) |
+| `npm run balance` | Endless/campaign balance harness: seeded bots play the real sim flat out (docs/BALANCE.md). Not part of the gate; re-run it before changing tuning constants. |
 
 E2E tests must pass on a starved CI runner, where the 120 Hz sim steps slower than the wall clock
 and a frame can take 100 ms+. Wait on the game, not the clock (`tests/e2e/helpers.js`):

@@ -24,13 +24,14 @@ export const nearestLane = (x) => (x < -LANE_HALF ? 0 : x > LANE_HALF ? 2 : 1);
 
 //   from   Endless tier it unlocks at · len: Z length · act: the call-out · how: the tutorial line
 //   cause: the death card's headline · tip: how to beat it next time
+//   warn: s of warning when it isn't RULES.warn (lane switches need longer at speed; docs/BALANCE.md)
 export const HZ = {
-  BRIDGE: { from: 2, len: 600, icon: '🌉', sign: 'BRIDGE OUT', act: 'JUMP!', how: 'JUMP JUST BEFORE THE GAP — H · E · SWIPE UP', cause: 'FELL THROUGH THE BROKEN BRIDGE', tip: 'Jump right before the gap.' },
-  WRONGWAY: { from: 2, len: 240, icon: '🚘', sign: 'WRONG WAY', act: 'SWERVE!', how: 'HEADLIGHTS COMING AT YOU — CHANGE LANES', cause: 'HEAD-ON WITH A WRONG-WAY DRIVER', tip: 'When headlights come at you, switch lanes.' },
-  BEAM: { from: 3, len: 200, icon: '🚧', sign: 'LOW CLEARANCE', act: 'DUCK!', how: 'HOLD BRAKE TO DUCK — OR TAKE THE GREEN LANE', cause: 'SMACKED THE LOW OVERPASS', tip: 'Hold brake to duck under, or take the green lane.' },
-  COLLAPSE: { from: 3, len: 1000, icon: '🕳️', sign: 'ROAD CRUMBLING', act: 'GREEN LANE!', how: 'THE ROAD IS CRUMBLING — STEER INTO THE GREEN LANE', cause: 'THE ROAD CRUMBLED UNDER YOU', tip: 'Steer into the lane with the green arrows.' },
+  BRIDGE: { from: 3, len: 480, icon: '🌉', sign: 'BRIDGE OUT', act: 'JUMP!', how: 'JUMP JUST BEFORE THE GAP — H · E · SWIPE UP', cause: 'FELL THROUGH THE BROKEN BRIDGE', tip: 'Jump right before the gap.' },
+  WRONGWAY: { from: 3, len: 240, warn: 2.1, icon: '🚘', sign: 'WRONG WAY', act: 'SWERVE!', how: 'HEADLIGHTS COMING AT YOU — CHANGE LANES', cause: 'HEAD-ON WITH A WRONG-WAY DRIVER', tip: 'When headlights come at you, switch lanes.' },
+  BEAM: { from: 2, len: 200, icon: '🚧', sign: 'LOW CLEARANCE', act: 'DUCK!', how: 'HOLD BRAKE TO DUCK — OR TAKE THE GREEN LANE', cause: 'SMACKED THE LOW OVERPASS', tip: 'Hold brake to duck under, or take the green lane.' },
+  COLLAPSE: { from: 4, len: 1000, warn: 2.2, icon: '🕳️', sign: 'ROAD CRUMBLING', act: 'GREEN LANE!', how: 'THE ROAD IS CRUMBLING — STEER INTO THE GREEN LANE', cause: 'THE ROAD CRUMBLED UNDER YOU', tip: 'Steer into the lane with the green arrows.' },
   TRAIN: { from: 4, len: 260, icon: '🚂', sign: 'TRAIN CROSSING', act: 'BRAKE!', how: 'BELLS RINGING — BRAKE AND LET THE TRAIN PASS', cause: 'THE TIME TRAIN GOT YOU', tip: 'When the bells ring, brake and wait for the train.' },
-  EDGE: { from: 4, len: 2400, icon: '⚠️', sign: 'NO GUARDRAIL', act: 'STAY OFF THE EDGE!', how: 'THE GUARDRAIL IS GONE — KEEP AWAY FROM THAT SIDE', cause: 'DROVE OFF THE BROKEN EDGE', tip: 'Where the guardrail is gone, keep away from that side.' },
+  EDGE: { from: 5, len: 2400, icon: '⚠️', sign: 'NO GUARDRAIL', act: 'STAY OFF THE EDGE!', how: 'THE GUARDRAIL IS GONE — KEEP AWAY FROM THAT SIDE', cause: 'DROVE OFF THE BROKEN EDGE', tip: 'Where the guardrail is gone, keep away from that side.' },
   LIGHTNING: { from: 2, storm: true, len: 360, icon: '⚡', sign: 'STORM', act: 'DODGE THE BOLT!', how: 'STEER OUT OF THE GLOWING RING', cause: 'ZAPPED BY STORM LIGHTNING', tip: 'Keep ahead of the Time Storm, and steer out of glowing rings.' },
 };
 export const PLACED = ['BRIDGE', 'WRONGWAY', 'BEAM', 'COLLAPSE', 'TRAIN', 'EDGE'];
@@ -52,7 +53,7 @@ export const RULES = {
   ahead: 26000,        // Z ahead of the car where a hazard is laid down (just inside draw range)
   warn: 1.6,           // s before arrival: sign lit, lane highlight, sound, call-out
   warnFirst: 2.6,      // …the first time you ever meet a kind (with the how-to line)
-  gapSecs: 9,          // s of road (at 88 mph) between hazards at difficulty 0…
+  gapSecs: 12,         // s of road (at 88 mph) between hazards at difficulty 0…
   gapSecsHard: 4.6,    // …and at difficulty 1
   gapJitter: 3,        // + up to this many seconds, seeded
   signLead: 0.8,       // the roadside sign stands this many seconds before the hazard
@@ -60,10 +61,10 @@ export const RULES = {
   lowY: 3,             // under this you're on the road (a gap swallows you)
   trainArm: 2.4,       // s before arrival the bells start and the train is scheduled
   trainLead: 0.9,      // the train reaches the road this long before you would…
-  trainTail: 0.75,     // …and is clear this long after you would have
+  trainTail: 0.6,      // …and is clear this long after you would have
   trainHalf: 150,      // Z either side of the rails the train fills
   wrongMph: 46,        // a wrong-way driver's speed toward you
-  wrongLock: 1.8,      // s of closing time when it picks your lane (and stops changing)
+  wrongLock: 2.1,      // s of closing time when it picks your lane (and stops changing)
   wrongHalf: 260,      // Z overlap that counts as a head-on
   wrongY: 44,          // clear it by jumping higher than this
   collapseHoles: 0.9,  // s before arrival the doomed lanes fall away (cracks show from `warn`)
@@ -158,7 +159,7 @@ export const endZ = (h) => (h.kind === 'WRONGWAY' ? h.carZ : h.z0 + h.len);
 
 // Fuel: the tank drains with road covered (per Z, so every pace mode feels the same) and a
 // PLUTONIUM core tops it up. Dry = no throttle: you coast, and `drySecs` without a core ends it.
-export const FUEL = { max: 100, perSeg: 10 / (72 * 200), perSegHard: 0.6, core: 22, low: 25, drySecs: 5, refill: 60 };
+export const FUEL = { max: 100, perSeg: 10 / (72 * 200), perSegHard: 1, core: 22, low: 25, drySecs: 5, refill: 60 };
 
 /** Burn fuel for `dz` Z of road at `difficulty`. Returns the new level. */
 export function burnFuel(level, dz, difficulty) {
