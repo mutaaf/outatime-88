@@ -1,7 +1,7 @@
 ---
 id: 0180
 title: Fair play — mashing can't break the game, and the board catches runs that did
-status: in-progress
+status: shipped
 pr: 104
 priority: P0
 size: M
@@ -71,6 +71,9 @@ mid-race change nothing the score depends on.
   shadow boards, rate limits) in the op PR.
 - e2e: `tests/e2e/fairplay.spec.js` mashes H and Space and checks landings, heals and the
   posted counters.
+
+## Shipped
+- #104 (client caps and counters) and #107 (server: payload v4, unranked runs, rate limits).
 
 ## Not caught (honest limits)
 The game runs on the player's device, so someone who rewrites the game code can still forge
