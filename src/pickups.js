@@ -120,10 +120,15 @@ export function pickupReach(def, speedMph, touch, magnetActive) {
  * function of the sim state only. `aheadSegs` is how many segments in front of the car it is.
  */
 export function magnetPull(it, def, playerX, aheadSegs, reach, dt) {
-  if (!def.magnet || it.collected || aheadSegs < 0 || aheadSegs > PICKUP.magnetSegs) return false;
+  if (!def.magnet || it.collected || aheadSegs < 0 || aheadSegs > PICKUP.magnetSegs) { it.vOff = 0; return false; }
   const d = playerX - it.offset;
-  if (Math.abs(d) > reach * PICKUP.magnetRange) return false;
+  if (Math.abs(d) > reach * PICKUP.magnetRange) { it.vOff = 0; return false; }
   const near = 1 - aheadSegs / (PICKUP.magnetSegs + 1);
-  it.offset += d * Math.min(1, dt * PICKUP.magnetRate * near);
+  // A force, not a slide (0176): the pull stiffens as the pickup closes, so it gathers speed and
+  // swoops in; damping keeps it from orbiting, and it never overshoots your line.
+  const w = PICKUP.magnetRate * (0.6 + 1.4 * near);
+  const v = (it.vOff || 0) + (w * w * d - 1.6 * w * (it.vOff || 0)) * dt;
+  const step = v * dt;
+  if (Math.abs(step) >= Math.abs(d)) { it.offset = playerX; it.vOff = 0; } else { it.offset += step; it.vOff = v; }
   return true;
 }
