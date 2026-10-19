@@ -28,7 +28,11 @@ describe('payload versions', () => {
     expect(readPayload({ ...base, earned: 1500, pen: { obstacle: [], traffic: [], wallMs: 0 }, car: 'ARC_MK88', cls: 'B' })).toEqual({ pv: 2, car: 'ARC_MK88', cls: 'B' });
     expect(readPayload({ ...base, earned: 1500, pen: { obstacle: [], traffic: [], wallMs: 0, wallN: 0, wallBill: 0 } })).toEqual({ pv: 3, car: '', cls: '' });
     expect(readPayload({ ...base, v: 3, earned: 1, pen: { obstacle: [], traffic: [], wallMs: 0 } }).error).toMatch(/wall/);
-    expect(readPayload({ ...base, v: 4 }).error).toMatch(/version/);
+    expect(readPayload({ ...base, v: 5 }).error).toMatch(/version/);
+    const pen3 = { obstacle: [], traffic: [], wallMs: 0, wallN: 0, wallBill: 0 };
+    expect(readPayload({ ...base, earned: 1, pen: pen3, fp: {} })).toEqual({ pv: 4, car: '', cls: '' });
+    expect(readPayload({ ...base, v: 4, earned: 1, pen: pen3 }).error).toMatch(/fair-play/);
+    expect(readPayload({ ...base, v: 3, earned: 1, pen: pen3, fp: {} }).error).toMatch(/fair-play/);
     expect(readPayload({ ...base, v: 2 }).error).toMatch(/penalty/);
     expect(readPayload({ ...base, car: 'bad car!', cls: 'xx' })).toEqual({ pv: 1, car: '', cls: '' });
   });

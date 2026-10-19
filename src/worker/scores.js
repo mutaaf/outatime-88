@@ -3,8 +3,12 @@
 //
 //   POST /outatime/api/run     → { token }                       start of every run
 //   POST /outatime/api/scores  { token, initials, score, distance, durationMs, warps, level, mode,
-//                                earned?, pen?, v?, car?, cls?, trace? }  (payload.js, ghost-codec.js)
-//                              → { ok, rank: { all, daily }, boards, streak, season, ghost }
+//                                earned?, pen?, fp?, v?, car?, cls?, trace? }  (payload.js, ghost-codec.js)
+//                              → { ok, rank: { all, daily }, boards, streak, season, ghost, unranked? }
+//
+// Fair play (ticket 0180): a v4 run whose counters break the sim's own caps (src/fairplay.js),
+// and any v1–v3 run after LEGACY_UNTIL, is stored with a `flag`: it answers like any other run
+// and shows on its own device's boards, but nobody else's boards, ranks, champions or ghosts.
 //   GET  /outatime/api/scores?board=all|daily|week|friends&mode=ARCADE|INFINITE|DAILY&limit=10
 //                              [&level=N] [&cls=A] [&around=ABC]
 //                              → { board, mode, day, level, season, entries: [{ rank, initials, score }], me }
@@ -15,19 +19,20 @@
 //   POST/GET /outatime/api/ads/impressions             sponsor-board counts (ads.js, docs/ADS.md)
 
 import { SCHEMA, MIGRATIONS } from './schema.js';
-import { handleIdentity, whoIs } from './identity.js';
+import { handleIdentity, whoIs, throttleKey, throttled } from './identity.js';
 import { handleAds } from './ads.js';
 import { cleanInitials } from './initials.js';
 import { implausible } from './plausible.js';
 import { signToken, verifyToken, randomId } from './token.js';
-import { readPayload } from './payload.js';
+import { readPayload, LEGACY_UNTIL } from './payload.js';
+import { fairMalformed, fairProblem } from '../fairplay.js';
 import {
   afterSubmit, boardFilter, ghostProblem, hallOfFame, placement, previousBests, prune,
   readGhost, seasonOf, standing, storeGhost,
 } from './compete.js';
 
 export const MODES = ['ARCADE', 'INFINITE', 'DAILY'];
-export const RATE = { windowMs: 10 * 60e3, maxSubmits: 12 };
+export const RATE = { windowMs: 10 * 60e3, maxSubmits: 12, maxRunsPerHour: 120 };
 const MAX_LIMIT = 25;
 const MAX_BODY = 8192; // a ghost trace is ~3 kB
 export const PRUNE_CHANCE = 0.04;
@@ -80,9 +85,13 @@ async function ipHash(ip, day, secret) {
   return Array.from(digest.slice(0, 12), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function issueRun({ db, now }) {
+export async function issueRun({ db, now, ip }) {
   await ensureSchema(db);
   const secret = await signingSecret(db);
+  // Run tokens per address (hourly-salted key, rows gone within the hour): plenty for real
+  // play, a wall for scripts minting them by the thousand (0180).
+  const t = now();
+  if (await throttled(db, await throttleKey('run', ip || 'unknown', secret, t), RATE.maxRunsPerHour, t)) return json(429, { error: 'slow down' });
   const token = await signToken({ id: randomId(), t: now() }, secret);
   return json(200, { token });
 }
@@ -105,7 +114,7 @@ async function rankOf(db, score, mode, day) {
   const binds = day ? [mode, day, score] : [mode, score];
   const dayClause = day ? 'AND day = ?' : '';
   const row = await db.prepare(
-    `SELECT COUNT(*) AS above FROM (SELECT MAX(score) AS best FROM scores WHERE mode = ? ${dayClause}
+    `SELECT COUNT(*) AS above FROM (SELECT MAX(score) AS best FROM scores WHERE mode = ? AND flag = '' ${dayClause}
      GROUP BY initials) WHERE best > ?`,
   ).bind(...binds).first();
   return (row?.above ?? 0) + 1;
@@ -131,6 +140,13 @@ export async function submitScore(body, { db, now, ip, request, rand = Math.rand
   const run = { score: body.score, distance: body.distance, durationMs: body.durationMs, warps: body.warps, earned: body.earned, pen: body.pen };
   const why = implausible(run, t - payload.t);
   if (why) return json(422, { error: `rejected: ${why}` });
+  // Fair play (0180): forged counters are rejected; counters that break the rules unrank the run.
+  let flag = '';
+  if (pv === 4) {
+    const bad = fairMalformed(body.fp);
+    if (bad) return json(422, { error: `rejected: ${bad}` });
+    flag = fairProblem(body.fp, run) || '';
+  } else if (t >= LEGACY_UNTIL) flag = 'legacy';
 
   const day = utcDay(t);
   const iph = await ipHash(ip || 'unknown', day, secret);
@@ -139,12 +155,17 @@ export async function submitScore(body, { db, now, ip, request, rand = Math.rand
   const recent = await db.prepare('SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ? AND created_at > ?')
     .bind(iph, t - RATE.windowMs).first();
   if ((recent?.n ?? 0) >= RATE.maxSubmits) return json(429, { error: 'slow down' });
+  // …and per racer, so one player hopping networks can't submit faster either.
+  if (dev) {
+    const mine = await db.prepare('SELECT COUNT(*) AS n FROM scores WHERE dev = ? AND created_at > ?').bind(dev, t - RATE.windowMs).first();
+    if ((mine?.n ?? 0) >= RATE.maxSubmits) return json(429, { error: 'slow down' });
+  }
 
   const prev = await previousBests(db, { mode, level, day, initials });
   const res = await db.prepare(
-    `INSERT OR IGNORE INTO scores (run_id, initials, score, distance, duration_ms, warps, level, mode, day, created_at, ip_hash, dev, car, cls, pv)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).bind(payload.id, initials, run.score, run.distance, run.durationMs, run.warps, level, mode, day, t, iph, dev, car, cls, pv).run();
+    `INSERT OR IGNORE INTO scores (run_id, initials, score, distance, duration_ms, warps, level, mode, day, created_at, ip_hash, dev, car, cls, pv, flag)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(payload.id, initials, run.score, run.distance, run.durationMs, run.warps, level, mode, day, t, iph, dev, car, cls, pv, flag).run();
   if (!res.meta || res.meta.changes === 0) return json(409, { error: 'run already submitted' });
   // The address hash only exists for the rate-limit window, then it's wiped (AGENTS.md privacy).
   await db.prepare("UPDATE scores SET ip_hash = '' WHERE ip_hash != '' AND created_at < ?").bind(t - RATE.windowMs).run();
@@ -157,7 +178,7 @@ export async function submitScore(body, { db, now, ip, request, rand = Math.rand
 
   // A bad ghost never costs the player their score; it just isn't stored.
   let ghost = null;
-  if (typeof body.trace === 'string' && body.trace) {
+  if (typeof body.trace === 'string' && body.trace && !flag) {
     ghost = ghostProblem(body.trace, run) || 'kept';
     if (ghost === 'kept' && !(await storeGhost(db, { runId: payload.id, mode, level, initials, dev, score: run.score, trace: body.trace, t }))) ghost = 'not a best';
   }
@@ -166,15 +187,14 @@ export async function submitScore(body, { db, now, ip, request, rand = Math.rand
     afterSubmit(db, { mode, level, day, initials, score: run.score, prev, dev }),
   ]);
   if (rand() < PRUNE_CHANCE) await prune(db, t).catch(() => {});
-  return json(200, { ok: true, initials, score: run.score, mode, day, rank: { all, daily }, ...extra, ghost });
+  // Autopilot runs are told they're unranked; other flags stay quiet (shadow).
+  return json(200, { ok: true, initials, score: run.score, mode, day, rank: { all, daily }, ...extra, ghost, ...(flag === 'assist' ? { unranked: 'assist' } : {}) });
 }
 
 export const BOARDS = ['all', 'daily', 'week', 'friends'];
 
 /** Friends board ids: you plus the friends in your profile (cookie / mirrored credential). */
-async function friendIds(db, request) {
-  if (!request) return [];
-  const { pub } = await whoIs(request, await signingSecret(db));
+async function friendIds(db, pub) {
   if (!pub) return [];
   const row = await db.prepare('SELECT friends FROM profiles WHERE pub = ?').bind(pub).first();
   let ids = [];
@@ -191,8 +211,9 @@ export async function readBoard(params, { db, now, request }) {
   const cls = clsParam(params);
   const t = now();
   const day = utcDay(t);
-  const devs = board === 'friends' ? await friendIds(db, request) : [];
-  const f = boardFilter(board, { mode, level, cls, day, devs });
+  const viewer = request ? (await whoIs(request, await signingSecret(db))).pub || '' : '';
+  const devs = board === 'friends' ? await friendIds(db, viewer) : [];
+  const f = boardFilter(board, { mode, level, cls, day, devs, viewer });
   const base = { board, mode, day, level, cls, season: seasonOf(t) };
   if (!f) return json(200, { ...base, entries: [], me: null });
   const { results } = await db.prepare(boardQuery(f)).bind(...f.binds, limit).all();

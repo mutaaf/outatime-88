@@ -3,21 +3,30 @@
 //   v1  { score, distance, durationMs, warps, level, mode }        (the 0024 shape)
 //   v2  v1 + { earned, pen }  the score is recomputed from the penalty log (0073, plausible.js)
 //   v3  v2 with pen.{wallN, wallBill}: wall scrapes cost a capped amount per contact (0165)
+//   v4  v3 + fp: fair-play counters (jumps, tricks, airtime, top speed…) checked against the
+//       sim's own caps (src/fairplay.js, ticket 0180)
 // Optional on any version: `car` (roster id) and `cls` (one-letter car class) so boards can
-// be split by class and different cars race fairly. A future scoring change adds v3 here
+// be split by class and different cars race fairly. A future scoring change adds v5 here
 // rather than loosening an existing version.
 
-export const PAYLOAD_VERSIONS = [1, 2, 3];
+export const PAYLOAD_VERSIONS = [1, 2, 3, 4];
+// Cached and offline clients still post v1–v3 for a while. After this date those runs are
+// kept but unranked, so leaving out the fair-play counters isn't a way around them (0180).
+export const LEGACY_UNTIL = Date.UTC(2026, 10, 16);
 const CAR_RE = /^[A-Z0-9_]{1,24}$/;
 const CLS_RE = /^[A-Z]$/;
 
 /** → { pv, car, cls } or { error } */
 export function readPayload(body) {
   const pen = body.pen;
-  const pv = body.v === undefined ? (pen !== undefined ? (pen && pen.wallN !== undefined ? 3 : 2) : 1) : body.v;
+  const pv = body.v === undefined
+    ? (body.fp !== undefined ? 4 : pen !== undefined ? (pen && pen.wallN !== undefined ? 3 : 2) : 1)
+    : body.v;
   if (!PAYLOAD_VERSIONS.includes(pv)) return { error: 'unknown payload version' };
   if (pv >= 2 && pen === undefined) return { error: `v${pv} needs a penalty log` };
-  if (pv === 3 && !(pen && pen.wallN !== undefined)) return { error: 'v3 needs wall contacts' };
+  if (pv >= 3 && !(pen && pen.wallN !== undefined)) return { error: `v${pv} needs wall contacts` };
+  if (pv === 4 && body.fp === undefined) return { error: 'v4 needs a fair-play log' };
+  if (pv < 4 && body.fp !== undefined) return { error: `v${pv} has no fair-play log` };
   if (pv === 2 && pen && pen.wallN !== undefined) return { error: 'v2 has no wall contacts' };
   const car = typeof body.car === 'string' && CAR_RE.test(body.car) ? body.car : '';
   const cls = typeof body.cls === 'string' && CLS_RE.test(body.cls) ? body.cls : '';

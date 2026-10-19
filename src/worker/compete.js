@@ -27,11 +27,13 @@ export function seasonOf(ms) {
 
 /**
  * WHERE clause for a board. board: all | daily | week | friends (devs = racer ids); level
- * narrows any board to one track, cls to one car class. Null if it can't be built.
+ * narrows any board to one track, cls to one car class. Unranked (flagged) runs only show to
+ * the device that made them (`viewer`, its public id). Null if it can't be built.
  */
-export function boardFilter(board, { mode, level = null, cls = '', day, devs = [] }) {
+export function boardFilter(board, { mode, level = null, cls = '', day, devs = [], viewer = '' }) {
   const where = ['mode = ?'];
   const binds = [mode];
+  if (viewer) { where.push("(flag = '' OR dev = ?)"); binds.push(viewer); } else where.push("flag = ''");
   if (board === 'daily') { where.push('day = ?'); binds.push(day); }
   if (board === 'week') { where.push('day >= ?'); binds.push(weekStart(day)); }
   if (board === 'friends') {
@@ -142,8 +144,8 @@ export async function standing(db, { mode, level, initials, since, dev, now }) {
   if (prev.all !== null && Number.isFinite(since) && since > 0) {
     [overtaken] = await reads(db, [[
       `SELECT initials, MAX(score) AS score FROM scores
-       WHERE mode = ? AND initials != ? AND score > ? AND created_at > ?
-         AND initials NOT IN (SELECT initials FROM scores WHERE mode = ? AND score > ? AND created_at <= ?)
+       WHERE mode = ? AND initials != ? AND score > ? AND created_at > ? AND flag = ''
+         AND initials NOT IN (SELECT initials FROM scores WHERE mode = ? AND score > ? AND created_at <= ? AND flag = '')
        GROUP BY initials ORDER BY score DESC LIMIT 3`,
       [mode, initials, prev.all, since, mode, prev.all, since],
     ]]);
@@ -174,7 +176,7 @@ async function fillChampions(db, mode, now) {
     const end = utcDay(Date.parse(`${w}T00:00:00Z`) + 7 * DAY_MS);
     await db.prepare(
       `INSERT OR IGNORE INTO champions (week, mode, initials, score)
-       SELECT ?, mode, initials, score FROM scores WHERE mode = ? AND day >= ? AND day < ?
+       SELECT ?, mode, initials, score FROM scores WHERE mode = ? AND day >= ? AND day < ? AND flag = ''
        ORDER BY score DESC, created_at ASC LIMIT 1`,
     ).bind(w, mode, w, end).run();
   }
@@ -239,12 +241,12 @@ export async function prune(db, now) {
   await db.batch([
     db.prepare(
       `DELETE FROM scores WHERE created_at < ? AND EXISTS (SELECT 1 FROM scores b WHERE b.initials = scores.initials
-         AND b.mode = scores.mode AND b.level = scores.level AND b.day = scores.day
+         AND b.mode = scores.mode AND b.level = scores.level AND b.day = scores.day AND (b.flag = '' OR scores.flag != '')
          AND (b.score > scores.score OR (b.score = scores.score AND b.id < scores.id)))`,
     ).bind(now - PRUNE.dominatedAfterMs),
     db.prepare(
       `DELETE FROM scores WHERE created_at < ? AND EXISTS (SELECT 1 FROM scores b WHERE b.initials = scores.initials
-         AND b.mode = scores.mode AND b.level = scores.level
+         AND b.mode = scores.mode AND b.level = scores.level AND (b.flag = '' OR scores.flag != '')
          AND (b.score > scores.score OR (b.score = scores.score AND b.id < scores.id)))`,
     ).bind(now - PRUNE.bestOnlyAfterMs),
     db.prepare(
