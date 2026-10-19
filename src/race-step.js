@@ -37,9 +37,9 @@ RS.fair = createFair();
 
 // The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
 // and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
-let createRigidWorld, applyImpulseAt, RIGID, playerBody, carHit, launchCar, hitJitter, lookAhead;
+let createRigidWorld, playerBody, carHit, launchCar, lookAhead, unpin, bumpObstacle, stompObstacle;
 export function useRigid(m) {
-  ({ createRigidWorld, applyImpulseAt, RIGID, playerBody, carHit, launchCar, hitJitter, lookAhead } = m);
+  ({ createRigidWorld, playerBody, carHit, launchCar, lookAhead, unpin, bumpObstacle, stompObstacle } = m);
 }
 
 export const hitStop = createHitStop();
@@ -356,7 +356,7 @@ export function performHumanTrick(direction) {
         if (dz > -200 && dz < 1800) {
           ob.hitCount++;
           const side = ob.offset >= 0 ? 1 : -1;
-          applyImpulseAt(ob, side * ob.massKg * RIGID.LAT * 0.9, ob.massKg * 1000, ob.offset * RIGID.LAT - side * 20, ob.worldZ - ob.halfL, ob.massKg * 1500);
+          stompObstacle(ob, side);
         }
       }
     }
@@ -2358,16 +2358,9 @@ export const LiveTrafficMethods = {
           } else {
             const totalInvMass = playerInvMass + tr.invMass;
             const e = 0.42;
-            // Pinned (0176): you're on the wall and this car is on your inside. It yields (a line
-            // clear of you, held for a while), and if it's only clipping your lane you slide past.
-            const wallSide = Math.sign(GameState.playerX);
-            const pinned = Math.abs(GameState.playerX) >= 0.70 && (tr.offset - GameState.playerX) * wallSide < 0;
-            const clipping = latDist > minLatSep - 0.09;
-            if (pinned) {
-              RS.pinnedT = 0.5;
-              tr.avoidX = Math.max(-0.66, Math.min(0.66, GameState.playerX - wallSide * (minLatSep + 0.06)));
-              tr.avoidZ = tr.worldZ + 2500;
-            }
+            // Pinned against the wall (src/rigid.js unpin): the car yields, and you slide past it.
+            const slid = unpin(tr, GameState.playerX, latDist, minLatSep);
+            if (slid) RS.pinnedT = 0.5;
             // One crash per contact: staying in touch with the same car isn't a new hit every step.
             const fresh = !(tr.touchT > GameState.raceTime - 0.3);
             tr.touchT = GameState.raceTime;
@@ -2378,10 +2371,8 @@ export const LiveTrafficMethods = {
               GameState.chassisPitchVel += 16;
             }
 
-            if (pinned && clipping) {
-              // The wall holds you, so the car takes all the separation; you keep your speed.
-              tr.offset -= wallSide * (minLatSep - latDist + 0.02);
-              tr.vx = -wallSide * Math.max(0.3, -wallSide * tr.vx);
+            if (slid === 2) {
+              // Only clipping your lane: it took the separation (the wall holds you).
             } else if (prevPZ < tr.prevZ - tr.halfL * 0.5) {
               // Into its back: a semi barely moves and stops you; a sedan gets shoved and,
               // hit off-centre, spins.
@@ -2511,14 +2502,8 @@ export const LiveTrafficMethods = {
             if (!ob.isStatic) {
               ob.worldZ = Math.max(ob.worldZ, playerZ + playerHalfL + ob.halfL + 40);
               ob.prevZ = ob.worldZ;
-              // Momentum exchange along the road (heavier = slower off the bumper), kicked
-              // aside and up off your sloped nose, at the point your bumper met it, so a
-              // corner hit sends it spinning (src/rigid.js).
-              const v = impactVelocities(playerMass, playerWorldVZ, ob.massKg, ob.vz, Math.max(0.5, ob.restitution));
-              const jz = ob.massKg * (v.body - ob.vz + 1450);
-              const jx = -pushDir * (1.0 + Math.abs(leverX) * 2.5) * ob.massKg * RIGID.LAT * 0.6;
-              const hx = Math.max(ob.offset - ob.halfW, Math.min(ob.offset + ob.halfW, GameState.playerX)) * RIGID.LAT;
-              applyImpulseAt(ob, jx, jz, hx, ob.worldZ - ob.halfL, (420 + hitJitter(ob) * 160) * ob.massKg);
+              // A real momentum exchange at the point your bumper met it (src/rigid.js).
+              bumpObstacle(ob, impactVelocities(playerMass, playerWorldVZ, ob.massKg, ob.vz, Math.max(0.5, ob.restitution)).body, GameState.playerX, pushDir, leverX);
             }
 
             // 3. Compress 4-wheel suspension & pitch nose forward on impact!
