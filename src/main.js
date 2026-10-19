@@ -582,6 +582,8 @@ function syncContactZ() {
 const backdropFrame = { curve: 0, trackPos: 0, playerX: 0, t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false };
 
 let lookPx = 0, lookClock = 0; // 2D look-into-the-corner (ticket 0181)
+const visibleSegs = [], drawMovers = [], moverSeg = [];
+function pushAll(out, a) { for (let i = 0; i < a.length; i++) out.push(a[i]); }
 function renderScene() {
   const eraCfg = getActiveEraRenderConfig();
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
@@ -684,7 +686,8 @@ function renderScene() {
   let dx = -(baseSeg.curve * basePercent);
   let maxY = rh;
   const DK = eraCfg.deck || TOY_DECK; // the track's colours (orange toy track; glass ribbon in orbit)
-  const visibleSegments = [];
+  const visibleSegments = visibleSegs; // reused every frame (ticket 0182)
+  visibleSegments.length = 0;
   const playerTireScreenY = Math.floor(rh * 0.87);
   let foundPlayerSeg = null;
 
@@ -785,6 +788,15 @@ function renderScene() {
   if (setPieceArt) setPieceArt.drawAhead(ctx, visibleSegments, eraCfg, rw, rh);
 
   // 3. Draw Scenery, Night-Street Smoke Flares, Collectibles & Rival/Police Cars
+  // Every moving car's segment, worked out once per frame (it used to rebuild the list and
+  // re-test every car on every visible segment: ~150 arrays and ~5k checks a frame; 0182).
+  const allMovingCars = drawMovers;
+  allMovingCars.length = 0;
+  pushAll(allMovingCars, LiveTraffic.racers);
+  pushAll(allMovingCars, LiveTraffic.traffic);
+  pushAll(allMovingCars, live.ghosts);
+  moverSeg.length = allMovingCars.length;
+  for (let m = 0; m < allMovingCars.length; m++) moverSeg[m] = allMovingCars[m].takenDown ? -1 : Math.floor(allMovingCars[m].worldZ / ROAD_CFG.segLength);
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
     const seg = visibleSegments[i];
     const roadX = seg.p1.screen.x;
@@ -835,7 +847,8 @@ function renderScene() {
         if (seg.trackType === 'BOOSTER' && roadW > 20) {
           const spinAngle = GameState.reducedMotion ? 0.6 : nowSec * 18;
           const rollerR = Math.min(rh * 0.05, Math.max(3, roadW * 0.065));
-          [-1.04, 1.04].forEach((side) => {
+          for (let sd = 0; sd < 2; sd++) {
+            const side = sd ? 1.04 : -1.04;
             // booster rollers (ticket 0101): a dark housing with a glowing, spinning wheel
             const rx = roadX + side * roadW;
             const ry = roadY - rollerR;
@@ -851,7 +864,7 @@ function renderScene() {
             ctx.moveTo(rx - Math.cos(spinAngle) * rollerR * 0.6, ry - Math.sin(spinAngle) * rollerR * 0.6);
             ctx.lineTo(rx + Math.cos(spinAngle) * rollerR * 0.6, ry + Math.sin(spinAngle) * rollerR * 0.6);
             ctx.stroke();
-          });
+          }
         }
       } else if (PICKUPS[item.type]) {
         // Crisp cached icon (src/pickup-art.js); a plain disc until the chunk lands.
@@ -981,12 +994,9 @@ function renderScene() {
     }
 
     // Render Live Moving Street Rivals & Highway Traffic on this Segment!
-    const allMovingCars = live.ghosts.length ? LiveTraffic.racers.concat(LiveTraffic.traffic, live.ghosts) : LiveTraffic.racers.concat(LiveTraffic.traffic);
     for (let m = 0; m < allMovingCars.length; m++) {
+      if (moverSeg[m] !== seg.index) continue;
       const mv = allMovingCars[m];
-      if (mv.takenDown) continue;
-      const mvSegIdx = Math.floor(mv.worldZ / ROAD_CFG.segLength);
-      if (mvSegIdx !== seg.index) continue;
 
       const cx = roadX + mv.offset * roadW;
       const mvLift = (((mv.y || 0) + (mv.suspY || 0)) / 180) * (roadW * 0.45);
@@ -1219,9 +1229,11 @@ function renderScene() {
   // 6. Blit onto Main Display Canvas
   mainCtx.save();
   mainCtx.imageSmoothingEnabled = (eraCfg.pixelScale === 1.0);
-  mainCtx.clearRect(0, 0, viewW, viewH);
   const playing = GameState.status === 'PLAYING';
   const feel = nosFeel(speedFeel(playing ? GameState.speed : 0, GameState.reducedMotion));
+  // The blit below covers the whole screen; only a shake leaves an edge to clear. Skipping a
+  // full-screen clear every frame saves a whole pass over the pixels (ticket 0182).
+  if (feel.shake) mainCtx.clearRect(0, 0, viewW, viewH);
   // FOV push-in toward the vanishing point as you approach 88 (crop the source a touch).
   const cropW = pixelCanvas.width / feel.fov;
   const cropH = pixelCanvas.height / feel.fov;
@@ -1381,6 +1393,14 @@ function drawFinishLine(ctx, x1, y1, w1, x2, y2, w2) {
       drawPolygon(ctx, xa + u0 * wa, ya, xa + u1 * wa, ya, xb + u1 * wb, yb, xb + u0 * wb, yb, (c + row) % 2 ? '#0b1020' : '#f8fafc');
     }
   }
+}
+
+// Speed-line colours by alpha in 1/50 steps, built once (no string per line per frame; 0182).
+const LINE_RGB = ['255,190,110', '200,245,255'];
+const lineColors = [[], []];
+function lineColor(k, a) {
+  const q = Math.max(0, Math.min(50, Math.round(a * 50)));
+  return lineColors[k][q] || (lineColors[k][q] = `rgba(${LINE_RGB[k]},${q / 50})`);
 }
 
 function drawSpeedLines(c, intensity) {

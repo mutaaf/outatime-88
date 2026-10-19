@@ -343,7 +343,7 @@ export function performHumanTrick(direction) {
     GameState.magnetTimer = Math.max(GameState.magnetTimer, 4.0);
     SoundEngine.playStunt();
 
-    const driftBox = document.getElementById('driftCounterBox');
+    const driftBox = driftBoxEl || (driftBoxEl = document.getElementById('driftCounterBox'));
     if (driftBox) {
       driftBox.classList.remove('hidden');
       driftBox.textContent = `${trickName} (AIR COMBO x${GameState.airTrickCount}) • +${trickPts} PTS!`;
@@ -504,14 +504,7 @@ export function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
   spawnObstacleShatter(car.offset - GameState.playerX, '#ff5500', '#00f0ff', '💥 TAKEDOWN! +2000');
   // Spawn explosion sparks
   for (let s = 0; s < 22; s++) {
-    GameState.particles.push({
-      x: (car.offset - GameState.playerX) * 120,
-      y: -15,
-      vx: (Math.random() - 0.5) * 380,
-      vy: -80 - Math.random() * 240,
-      color: s % 2 === 0 ? '#ff5500' : '#fde047',
-      life: 0.55
-    });
+    spawnParticle((car.offset - GameState.playerX) * 120, -15, (Math.random() - 0.5) * 380, -80 - Math.random() * 240, s % 2 === 0 ? '#ff5500' : '#fde047', 0.55);
   }
 
   SoundEngine.playTakedown();
@@ -540,6 +533,7 @@ export function activateMidnightSpecial(type) {
     SoundEngine.playAbilityZone();
     if (tint) {
       tint.className = 'pointer-events-none absolute inset-0 bg-emerald-500/10 opacity-100 transition-opacity duration-200';
+      tint.style.opacity = ''; tintShown = true; // the step loop's '0' would otherwise hide it
     }
     triggerAnnouncement('🟢 MIDNIGHT ZONE ENGAGED!', 'BULLET-TIME PRECISION REFLEX ACTIVE', 1600);
   } else if (type === 'AGRO') {
@@ -548,6 +542,7 @@ export function activateMidnightSpecial(type) {
     SoundEngine.playBoosterHit();
     if (tint) {
       tint.className = 'pointer-events-none absolute inset-0 bg-orange-600/10 opacity-100 transition-opacity duration-200';
+      tint.style.opacity = ''; tintShown = true; // the step loop's '0' would otherwise hide it
     }
     triggerAnnouncement('🔴 AGRO JUGGERNAUT SHIELD!', 'RAM ANY RIVAL OR COP FOR INSTANT TAKEDOWNS!', 1800);
   } else if (type === 'ROAR') {
@@ -672,6 +667,22 @@ export function resetNos() {
 
 export const latParams = { speedMph: 0, curve: 0, bank: 0, worldScale: 1, h: null, braking: false, throttle: false, drifting: false, gripBonus: 1 };
 
+// Per-step scratch (ticket 0182): the sim runs 120 times a second, so anything it builds and
+// drops each step is garbage the collector has to chase mid-race. These are filled in place.
+const threatSlot = { car: null, distSegs: 0, seg: null };
+const collectSlot = { item: null, distSegs: 0 };
+const stepMovers = [];
+function pushAll(out, a) { for (let i = 0; i < a.length; i++) out.push(a[i]); }
+const sparePart = [];
+/** A drift/crash spark from the pool (the particle list swap-removes dead ones into it). */
+export function spawnParticle(x, y, vx, vy, color, life) {
+  const p = sparePart.pop() || { x: 0, y: 0, vx: 0, vy: 0, color: '', life: 0 };
+  p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.color = color; p.life = life;
+  GameState.particles.push(p);
+}
+const DRIFT_TIER_NAMES = ['', 'TIER 1 CYAN', 'TIER 2 BLAZING', 'TIER 3 PURPLE MAX!'];
+let driftBoxEl = null, driftShownTier = -1, driftShownAt = 0, tintShown = null;
+
 export function updateGame(rawDt) {
   if (GameState.status !== 'PLAYING') return;
   // Grid lineup and start lights (ticket 0052): the world waits for GO.
@@ -690,9 +701,11 @@ export function updateGame(rawDt) {
   if (GameState.agroTimer > 0) {
     GameState.agroTimer -= rawDt;
   }
-  if (GameState.zoneTimer <= 0 && GameState.agroTimer <= 0) {
+  if (GameState.zoneTimer <= 0 && GameState.agroTimer <= 0 && tintShown !== false) {
+    // Written once when the abilities run out, not every 120 Hz step (ticket 0182).
     const tint = document.getElementById('abilityTintOverlay');
     if (tint) tint.style.opacity = '0';
+    tintShown = false;
   }
 
   RS.fxClock += rawDt;
@@ -903,13 +916,13 @@ export function updateGame(rawDt) {
     for (let c = 0; c < lSeg.cars.length; c++) {
       const car = lSeg.cars[c];
       if (!car.takenDown && !nearestThreat) {
-        nearestThreat = { car, distSegs: look, seg: lSeg };
+        nearestThreat = threatSlot; threatSlot.car = car; threatSlot.distSegs = look; threatSlot.seg = lSeg;
       }
     }
     for (let k = 0; k < lSeg.items.length; k++) {
       const it = lSeg.items[k];
       if (!it.collected && (it.type === 'PLUTONIUM' || it.type === 'HW_COIN') && !bestCollectible) {
-        bestCollectible = { item: it, distSegs: look };
+        bestCollectible = collectSlot; collectSlot.item = it; collectSlot.distSegs = look;
       }
       if (!it.collected && !hintItem && PICKUPS[it.type] && PICKUPS[it.type].power) { hintItem = it; hintSegs = look; }
     }
@@ -976,7 +989,7 @@ export function updateGame(rawDt) {
   // A power drift is asked for (brake + steer) or happens (the tyres are sliding past grip).
   const wantsDrift = GameState.speed > 45 && GameState.playerY < 10 &&
     ((braking && Math.abs(steerInput) > 0.3) || (GameState.isDrifting ? lateral.slip > 0.12 : lateral.slip > 0.35));
-  const driftBox = document.getElementById('driftCounterBox');
+  const driftBox = driftBoxEl || (driftBoxEl = document.getElementById('driftCounterBox'));
 
   if (wantsDrift) {
     GameState.isDrifting = true;
@@ -997,20 +1010,15 @@ export function updateGame(rawDt) {
     const tierColors = ['#00f0ff', '#00f0ff', '#ff6600', '#d946ef'];
     const sparkCol = tierColors[GameState.driftTier];
     for (let s = 0; s < 3; s++) {
-      GameState.particles.push({
-        x: (Math.random() - 0.5) * 95,
-        y: 0,
-        vx: -steerInput * (140 + Math.random() * 120),
-        vy: -45 - Math.random() * 95,
-        color: sparkCol,
-        life: 0.38
-      });
+      spawnParticle((Math.random() - 0.5) * 95, 0, -steerInput * (140 + Math.random() * 120), -45 - Math.random() * 95, sparkCol, 0.38);
     }
 
-    if (driftBox) {
-      driftBox.classList.remove('hidden');
-      const tierNames = ['', 'TIER 1 CYAN', 'TIER 2 BLAZING', 'TIER 3 PURPLE MAX!'];
-      driftBox.textContent = `🔥 DRIFT: +${GameState.currentDriftScore} PTS • ${tierNames[GameState.driftTier]}`;
+    // The counter is DOM: shown once, then rewritten ~12×/s or on a new tier, not every
+    // 120 Hz step (each write is a string, a style recalc and a layout; ticket 0182).
+    if (driftBox && (driftShownTier !== GameState.driftTier || RS.fxClock - driftShownAt >= 0.08)) {
+      if (driftShownTier === -1) driftBox.classList.remove('hidden');
+      driftShownTier = GameState.driftTier; driftShownAt = RS.fxClock;
+      driftBox.textContent = `🔥 DRIFT: +${GameState.currentDriftScore} PTS • ${DRIFT_TIER_NAMES[GameState.driftTier]}`;
     }
   } else {
     if (GameState.isDrifting) {
@@ -1030,6 +1038,7 @@ export function updateGame(rawDt) {
       GameState.driftChargeTime = 0;
       GameState.driftTier = 0;
       if (driftBox) driftBox.classList.add('hidden');
+      driftShownTier = -1;
     }
   }
 
@@ -1092,7 +1101,7 @@ export function updateGame(rawDt) {
     const lost = wallContact(lateral, side, GameState.speed, rawDt);
     GameState.playerVX = lateral.vx;
     GameState.speed = Math.max(Math.min(GameState.speed, 25), GameState.speed - lost);
-    if (hit) GameState.particles.push({ x: side * 38, y: -5, vx: -side * 90, vy: -60, color: '#ffea00', life: 0.25 });
+    if (hit) spawnParticle(side * 38, -5, -side * 90, -60, '#ffea00', 0.25);
   }
   if (smoke2d) smoke2d.step(rawDt, GameState, gfxQ.particles == null ? 1 : gfxQ.particles, !view3d);
 
@@ -1177,7 +1186,7 @@ export function updateGame(rawDt) {
         GameState.airTrickCount = 0;
         GameState.airTrickNames = [];
         GameState.airLandingBoostMph = 0;
-        const driftBox = document.getElementById('driftCounterBox');
+        const driftBox = driftBoxEl || (driftBoxEl = document.getElementById('driftCounterBox'));
         if (driftBox && !GameState.isDrifting) driftBox.classList.add('hidden');
       }
       // Land straight to keep your speed (ticket 0120).
@@ -1206,7 +1215,10 @@ export function updateGame(rawDt) {
 
   // 5. Street-Racer Slipstream Drafting Wake Detection behind Moving Rivals & Traffic
   GameState.draftingCar = null;
-  const allMoving = LiveTraffic.racers.concat(LiveTraffic.traffic);
+  stepMovers.length = 0;
+  pushAll(stepMovers, LiveTraffic.racers);
+  pushAll(stepMovers, LiveTraffic.traffic);
+  const allMoving = stepMovers;
   for (let m = 0; m < allMoving.length; m++) {
     const mc = allMoving[m];
     if (mc.takenDown) continue;
@@ -1401,12 +1413,13 @@ export function updateGame(rawDt) {
   GameState.loopPitchOffset += (targetLoopPitch - GameState.loopPitchOffset) * Math.min(1, rawDt * 3);
 
   // Update Particles, Lightning & Flying Takedown Wrecks
-  for (let i = GameState.particles.length - 1; i >= 0; i--) {
-    const p = GameState.particles[i];
+  const parts = GameState.particles;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
     p.x += p.vx * rawDt;
     p.y += p.vy * rawDt;
     p.life -= rawDt;
-    if (p.life <= 0) GameState.particles.splice(i, 1);
+    if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.length--; sparePart.push(p); } // swap-remove into the pool
   }
   for (let i = GameState.lightningBolts.length - 1; i >= 0; i--) {
     GameState.lightningBolts[i].life -= rawDt;
