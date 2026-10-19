@@ -71,6 +71,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 function connect() {
   link = createPadLink({
     code,
+    // Whatever the TV end sends is untrusted: only decodeHud's whitelisted fields (numbers and
+    // enum strings) are ever shown, always via textContent; anything else is dropped.
     onFrame(d) {
       const h = decodeHud(d);
       if (!h) return;
@@ -82,7 +84,7 @@ function connect() {
       if (st === 'error') {
         link.close();
         show('join');
-        $('padJoinErr').textContent = ERRORS[detail] || 'Couldn’t connect to the TV.';
+        $('padJoinErr').textContent = Object.hasOwn(ERRORS, detail) ? ERRORS[detail] : 'Couldn’t connect to the TV.';
         return;
       }
       status(st, detail);

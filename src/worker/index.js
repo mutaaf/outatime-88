@@ -7,12 +7,16 @@
 //   POST /outatime/api/room         new private room → { code }           (live.js)
 //   POST /outatime/api/quick        a public quick-race room → { code }
 //   GET  /outatime/api/room/<CODE>  WebSocket into that room (RaceRoom Durable Object)
+//   POST /outatime/api/pad          TV mode pairing code → { code }      (pad.js)
+//   GET  /outatime/api/pad/<CODE>   WebSocket for the TV (?role=tv) or a phone pad (?role=pad)
 
 import { handleApi } from './scores.js';
 import { handleLive } from './live.js';
+import { handlePad } from './pad.js';
 
 export { RaceRoom } from './room.js';
 export { MatchIndex } from './match.js';
+export { PadRoom } from './pad.js';
 
 export default {
   async fetch(request, env) {
@@ -20,6 +24,8 @@ export default {
     if (url.pathname.startsWith('/outatime/api/')) {
       const live = await handleLive(request, env, url);
       if (live) return live;
+      const pad = await handlePad(request, env, url);
+      if (pad) return pad;
       return handleApi(request, {
         db: env.DB,
         now: () => Date.now(),

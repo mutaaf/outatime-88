@@ -67,24 +67,36 @@ export function startTv(h) {
     document.documentElement.style.setProperty('--tv-scale', String(1 - (2 * SAFE_STEPS[safe]) / 100));
   }
 
-  async function pair() {
+  // The code and its secret TV key survive a reload of this tab (sessionStorage), so a paired
+  // phone reconnects to the same screen; any other tab or device never sees the key.
+  const SAVE = 'ot-tv-pair';
+  const saved = () => { try { const v = JSON.parse(sessionStorage.getItem(SAVE) || 'null'); return v && v.code && v.key ? v : null; } catch { return null; } };
+  const keep = (v) => { try { if (v) sessionStorage.setItem(SAVE, JSON.stringify(v)); else sessionStorage.removeItem(SAVE); } catch { /* private mode */ } };
+
+  async function pair(reuse = false) {
     if (link) link.close();
     $('tvPairNote').textContent = 'Getting a code…';
-    let res;
-    try { res = await newPadCode(); } catch {
-      $('tvPairNote').textContent = 'TV mode needs an internet connection. Retrying…';
-      setTimeout(pair, 5000);
-      return;
+    let res = reuse ? saved() : null;
+    if (!res) {
+      try { res = await newPadCode(); } catch {
+        $('tvPairNote').textContent = 'TV mode needs an internet connection. Retrying…';
+        setTimeout(pair, 5000);
+        return;
+      }
+      res = { code: res.code, key: res.key, exp: Date.now() + (res.ttlMs || 600e3) };
+      keep(res);
     }
     code = res.code;
-    expiresAt = performance.now() + (res.ttlMs || 600e3);
+    // A paired session never expires for its phones (src/worker/pad-core.js).
+    expiresAt = res.paired ? Infinity : performance.now() + Math.max(0, (Number(res.exp) || 0) - Date.now());
     $('tvCode').textContent = code;
     qrToCanvas(padLink(code), $('tvQr'), { size: 280 });
     link = createTvLink({
       code,
+      key: res.key,
       onPad(slot, on) {
         joined[slot] = on;
-        if (on) { pairedOnce = true; pads[slot].s.at = performance.now(); }
+        if (on) { pairedOnce = true; pads[slot].s.at = performance.now(); keep({ ...saved(), paired: true }); }
         render();
       },
       onFrame(slot, d) {
@@ -97,7 +109,7 @@ export function startTv(h) {
         if (taps.fit) setSafe(safe + 1);
       },
       onState(st, why) {
-        if (st === 'error' && (why === 'NO_CODE')) pair();
+        if (st === 'error' && (why === 'NO_CODE' || why === 'BAD_KEY')) { keep(null); pair(); }
         render();
       },
     });
@@ -190,7 +202,7 @@ export function startTv(h) {
 
   const q = new URLSearchParams(location.search);
   setSafe(Math.max(0, SAFE_STEPS.indexOf(Number(q.get('safe')) || 0)));
-  pair();
+  pair(true);
   requestAnimationFrame(tick);
   const api = { get code() { return code; }, pads, joined, get path() { return link ? [link.path(0), link.path(1)] : []; } };
   if (h.debug) window.__OT_TV = api;

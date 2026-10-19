@@ -49,7 +49,11 @@ play on the phone itself.
 ## How it works
 
 - **Pairing:**
-  - `POST /outatime/api/pad` mints a code.
+  - `POST /outatime/api/pad` mints a code and a secret 128-bit TV key. Only the TV that
+    asked holds the key (in memory and its tab's sessionStorage, so a reload keeps the code).
+    The TV socket must present it, compared in constant time, so someone who guesses a code
+    can join as a phone at most and can never replace the screen or message a kid's phone.
+  - Every socket join, TV or phone, is throttled to 30 a minute per IP.
   - The TV and the phones open same-origin WebSockets to `/outatime/api/pad/<CODE>`. That is the
     `PadRoom` Durable Object, with rules in `src/worker/pad-core.js` and code in
     `src/worker/pad.js`; it is an operator path.

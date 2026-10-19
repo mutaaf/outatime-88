@@ -139,3 +139,29 @@ test('without WebRTC the phone still drives through the relay', async ({ browser
   await padCtx.close();
   await tvCtx.close();
 });
+
+test('guessing a code never takes over the TV: the TV role needs the secret key', async ({ browser, request }) => {
+  const probe = await request.post(`${BASE}/outatime/api/pad`);
+  test.skip(probe.status() === 404 || probe.status() === 503, 'this Worker has no PadRoom yet (operator PR 0175)');
+  expect((await probe.json()).key).toMatch(/^[0-9a-f]{32}$/);
+  const tvCtx = await browser.newContext({ baseURL: BASE, viewport: { width: 1280, height: 720 } });
+  const tv = await tvCtx.newPage();
+  await tv.goto('/outatime/?tv&debug');
+  await expect(tv.locator('#tvCode')).toHaveText(/^[BCDFGHJKLMNPQRSTVWXZ]{4}$/);
+  const code = await tv.locator('#tvCode').innerText();
+  // Another device on our own origin that knows only the code.
+  const otherCtx = await browser.newContext({ baseURL: BASE });
+  const other = await otherCtx.newPage();
+  await other.goto('/outatime/pad.html');
+  const replies = await other.evaluate((c) => Promise.all(['', 'key=' + '0'.repeat(32)].map((q) => new Promise((resolve) => {
+    const ws = new WebSocket(`${location.origin.replace('http', 'ws')}/outatime/api/pad/${c}?role=tv&${q}`);
+    ws.onmessage = (e) => resolve(e.data);
+    ws.onclose = () => resolve('closed');
+  }))), code);
+  expect(replies).toEqual(['{"t":"err","code":"BAD_KEY"}', '{"t":"err","code":"BAD_KEY"}']);
+  // The real TV still owns its code: a reload of its tab keeps the same one.
+  await tv.reload();
+  await expect(tv.locator('#tvCode')).toHaveText(code);
+  await otherCtx.close();
+  await tvCtx.close();
+});
