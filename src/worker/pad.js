@@ -10,7 +10,9 @@ import { json } from './scores.js';
 import { createAllowed, sameOrigin } from './live.js';
 
 const rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
-const joins = new Map(); // per-isolate throttle on phone joins (guessing codes)
+// Per-isolate throttles, separate from race rooms' so TV pairing never eats a room quota.
+const minted = new Map(); // new codes per IP
+const joins = new Map();  // phone joins per IP (guessing codes)
 
 export async function handlePad(request, env, url) {
   const path = url.pathname.replace(/\/+$/, '');
@@ -20,7 +22,7 @@ export async function handlePad(request, env, url) {
 
   if (path === '/outatime/api/pad') {
     if (request.method !== 'POST') return json(405, { error: 'POST only' });
-    if (!createAllowed(ip, Date.now())) return json(429, { error: 'slow down' });
+    if (!createAllowed(ip, Date.now(), minted)) return json(429, { error: 'slow down' });
     for (let i = 0; i < 6; i++) {
       const code = makeCode(rand);
       const res = await env.PADS.get(env.PADS.idFromName(code)).fetch('https://pad/init', { method: 'POST' });
