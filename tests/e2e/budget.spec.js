@@ -58,7 +58,9 @@ test('the lazy 3D view (three.js + src/render3d) stays in its own budget', () =>
   const files = closure(view[0]);
   const total = files.reduce((t, f) => t + gz(f), 0);
   expect(files.some((f) => readFileSync(`${DIR}/${f}`, 'utf8').includes('WebGLRenderer'))).toBe(true);
-  expect(total).toBeLessThan(170);
+  // ≤ 172 (0170): #86 (car shapes for 3D) brought it to ~169 kB locally and ~170 on CI, where gzip
+  // sizes run ~1 kB higher; the race-step split adds a few bytes of import names to view-*.js.
+  expect(total).toBeLessThan(172);
 });
 
 test('live races are a lazy chunk in their own budget (solo players never download them)', () => {
