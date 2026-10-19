@@ -520,6 +520,72 @@ export function createRigidWorld({ subSteps = 2, iterations = RIGID.iterations, 
   };
 }
 
+// ── Your car in a hit, and drivers looking ahead (used by the race step) ─────────────────
+
+// The player as a rigid body for one contact. src/handling.js owns how your car drives; a hit
+// only needs your box, mass and velocity, and hands back the change.
+const PLAYER_BODY = {
+  kind: 'PLAYER', style: 'SEDAN', shape: null, offset: 0, worldZ: 0, vx: 0, vz: 0, yaw: 0, vYaw: 0,
+  y: 0, vy: 0, height: 34, clearanceY: 0, halfW: 0.14, halfL: 105, massKg: 1300, invMass: 1 / 1300,
+  isStatic: false, sleeping: false, active: true, restitution: 0.45, rot: 0, vRot: 0, suspVY: 0,
+  restTime: 0, stun: 0, _mpKey: -1,
+};
+export function playerBody(g, z, halfW, halfL, massKg, stw) {
+  const P = PLAYER_BODY;
+  P.offset = g.playerX; P.worldZ = z; P.vx = g.playerVX; P.vz = g.speed * stw;
+  P.yaw = g.carYaw || 0; P.vYaw = 0; P.y = g.playerY; P.halfW = halfW; P.halfL = halfL;
+  P.massKg = massKg; P.invMass = 1 / massKg; P.vRot = 0; P.suspVY = 0;
+  return P;
+}
+
+/**
+ * Car-on-car hit along a normal (a → b): rear-enders are (0, 1), door-to-door (±1, 0). Your
+ * everyday bumps push and spin the other car but don't take it out of its driver's hands
+ * (racing AI that froze after every nudge would be no race); takedowns do (launchCar).
+ */
+export function carHit(P, b, nx, nz, e, stuns = false) {
+  const stun = b.stun;
+  const j = resolve(P, b, contactAlong(P, b, nx, nz), e);
+  if (!stuns) b.stun = stun;
+  return j;
+}
+
+/** A takedown: a ram at three times your mass, then the car is popped off its wheels. */
+export function launchCar(P, b, dir, popVy) {
+  const m = P.massKg; const v = P.vz;
+  P.massKg = m * 3; P.invMass = 1 / P.massKg;
+  carHit(P, b, dir * 0.55, 0.835, 0.9, true);
+  applyImpulseAt(b, 0, 0, b.offset * LAT, b.worldZ, b.massKg * popVy);
+  b.vRot += dir * 7;
+  b.stun = RIGID.stunMax;
+  P.massKg = m; P.invMass = 1 / m; P.vz = v;
+}
+
+/** Deterministic jitter in [0, 1) from a body and its hit count (no RNG draw, so a hit never
+ *  shifts the traffic or prop sequences). */
+export const hitJitter = (b) => { const x = Math.sin(b.worldZ * 12.9898 + b.hitCount * 78.233) * 43758.5453; return x - Math.floor(x); };
+
+/**
+ * A driver looking down the road: the first fixed or heavy obstacle in this car's path within
+ * 1,400 gets a line just clear of it, toward the open road, held until the car is past
+ * (integrate() steers it there).
+ */
+export function lookAhead(car, obstacles) {
+  if (car.avoidZ > car.worldZ) return;
+  for (let k = 0; k < obstacles.length; k++) {
+    const ob = obstacles[k];
+    const ahead = ob.worldZ - car.worldZ;
+    if (ahead < 0 || ahead > 1400 || (!ob.isStatic && ob.massKg < car.massKg * 0.3)) continue;
+    const d = car.offset - ob.offset;
+    const room = ob.halfW + car.halfW + 0.04;
+    if (Math.abs(d) >= room) continue;
+    const side = Math.abs(d) > 0.5 * room ? Math.sign(d) : (car.offset > 0 ? -1 : 1);
+    car.avoidX = clamp(ob.offset + side * room, -0.66, 0.66);
+    car.avoidZ = ob.worldZ + ob.halfL + car.halfL;
+    return;
+  }
+}
+
 /** A position/velocity hash of the world, for replay tests and desync checks. */
 export function worldHash(bodies) {
   let h = 2166136261 >>> 0;

@@ -16,7 +16,7 @@ semi and a sedan pushed each other almost the same amount, traffic and rivals ha
 overwritten every frame so a shunt was forgotten at once, and a wall was a clamp.
 
 ## What
-- `src/rigid.js`, its own lazy chunk (~3.5 kB, fetched with the race step):
+- `src/rigid.js`, its own lazy chunk (~4.2 kB, fetched in parallel with the race step):
   - every body is an oriented box with real mass, yaw inertia from its footprint, roll inertia
     from its width and height, and a centre of mass from its car shape (src/car-shapes.js);
   - separating-axis contacts, so a car spun sideways is hit on its flank;

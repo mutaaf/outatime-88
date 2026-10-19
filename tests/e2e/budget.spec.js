@@ -47,7 +47,7 @@ test('the rigid-body world is its own small lazy chunk (0176)', () => {
   const files = readdirSync(DIR);
   const rigid = files.filter((f) => /^rigid-.*\.js$/.test(f));
   expect(rigid.length).toBe(1);
-  expect(gz(rigid[0])).toBeLessThan(5); // today ~3.5 kB: oriented-box contacts, impulses, drivers
+  expect(gz(rigid[0])).toBeLessThan(5); // today ~4.2 kB: oriented-box contacts, impulses, drivers, your hits
   for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('contactAlong');
 });
 
