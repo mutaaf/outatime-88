@@ -1,11 +1,12 @@
 ---
 id: 0183
 title: Controls you can feel — analog pedals, a steady tilt, force-feel rumble
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-18
+pr: 99
 ---
 
 ## Why

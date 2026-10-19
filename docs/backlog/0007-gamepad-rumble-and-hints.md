@@ -16,12 +16,10 @@ hints say "SPACEBAR" / "KEY: H / E", and crashes/takedowns produce no haptics. T
 Burnout-style impact feel almost for free.
 
 ## What
-On `gamepadconnected`, swap control hint labels to pad glyphs (A/B/X/Y) and back on
-disconnect. Fire short dual-rumble on crash, takedown, and time warp, scaled by impact; guard
-all calls so unsupported browsers no-op.
+Rumble already shipped with 0183 (`src/forcefeel.js`); what remains is only the hints. On `gamepadconnected`, swap control hint labels to pad glyphs (A/B/X/Y) and back on
+disconnect. 
 
 ## Acceptance criteria
-- [ ] Unit test: a `rumble(strength)` helper in `src/input.js` calls `playEffect` with clamped magnitudes and never throws when the actuator is missing
 - [ ] e2e: dispatching a synthetic `gamepadconnected` event swaps the hint text on `#btnFluxBoost`
 - [ ] Keyboard/touch hints unchanged with no pad
 

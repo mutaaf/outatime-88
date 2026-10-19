@@ -1,11 +1,12 @@
 ---
 id: 0182
 title: Steady frames — no per-step garbage in the hot paths, a p95/p99 frame gate
-status: in-progress
+status: shipped
 priority: P1
 size: S
 lens: performance
 created: 2026-10-19
+pr: 105
 ---
 
 ## Why

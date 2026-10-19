@@ -1,11 +1,12 @@
 ---
 id: 0181
 title: Handling you can read — a progressive tyre limit, weighted transfer, catchable slides
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-18
+pr: 103
 ---
 
 ## Why
