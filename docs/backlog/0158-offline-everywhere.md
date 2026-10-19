@@ -1,11 +1,12 @@
 ---
 id: 0158
 title: Offline everywhere — the whole game on a plane, in every major browser
-status: in-progress
+status: shipped
 priority: P0
 size: M
 lens: tech-health
 created: 2026-10-18
+pr: 90
 ---
 
 ## Why

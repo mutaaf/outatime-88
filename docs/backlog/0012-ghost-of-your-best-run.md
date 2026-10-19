@@ -1,13 +1,15 @@
 ---
 id: 0012
 title: Race a translucent ghost of your best run on each level
-status: ready
+status: dropped
 priority: P2
 size: M
 lens: content
 created: 2026-10-16
 pr:
 ---
+
+> Dropped 2026-10-19: superseded by 0092 (race-a-ghost), shipped; src/ghost.js exists.
 
 ## Why
 Pillar 5. Racing your own best line is the most motivating single-player loop in arcade

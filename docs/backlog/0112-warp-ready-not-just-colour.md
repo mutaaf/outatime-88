@@ -1,7 +1,7 @@
 ---
 id: 0112
 title: WARP READY must not rely on colour or glow alone (shape + sound cue)
-status: proposed
+status: ready
 priority: P2
 size: S
 lens: accessibility
