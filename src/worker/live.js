@@ -30,9 +30,12 @@ export async function handleLive(request, env, url) {
   if (path !== '/outatime/api/room' && path !== '/outatime/api/quick' && !path.startsWith('/outatime/api/room/')) return null;
   if (!env.ROOMS || !env.MATCH) return json(503, { error: 'live races offline' });
   const ip = request.headers.get('cf-connecting-ip') || '';
+  // wrangler dev in CI (LIVE_TEST=1, never set in production): every test browser is one IP,
+  // and the flake guard re-runs the live specs back to back, so the room throttle stays off.
+  const testing = env.LIVE_TEST === '1';
 
   if (path === '/outatime/api/room' && request.method === 'POST') {
-    if (!createAllowed(ip, Date.now())) return json(429, { error: 'slow down' });
+    if (!testing && !createAllowed(ip, Date.now())) return json(429, { error: 'slow down' });
     for (let i = 0; i < 6; i++) {
       const code = makeCode(rand);
       const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
@@ -43,7 +46,7 @@ export async function handleLive(request, env, url) {
   }
 
   if (path === '/outatime/api/quick' && request.method === 'POST') {
-    if (!createAllowed(ip, Date.now())) return json(429, { error: 'slow down' });
+    if (!testing && !createAllowed(ip, Date.now())) return json(429, { error: 'slow down' });
     const stub = env.MATCH.get(env.MATCH.idFromName('global'));
     const res = await stub.fetch('https://match/quick', { method: 'POST' });
     const body = await res.json().catch(() => ({}));
