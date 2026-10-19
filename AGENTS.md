@@ -149,8 +149,8 @@ src/missions.js     Run missions (0026): three distinct contracts per run (seede
                       (solo/daily finishes; live rooms pay completions but have their own results)
 src/hazards.js      Endless hazards (0186): pure rules — run-ending road hazards (bridge, wrong-way, low overpass,
                       crumbling lanes, train, missing guardrail, storm lightning), fuel, NOS heat, stall, the Patrol,
-                      checkpoints, deaths by cause (save.endless.hz). Lazy, with src/hazard-run.js (glue: the race
-                      step calls step/reset/onContinue/noteEnd through RS.hz) and src/hazard-art.js (2D art + HUD)
+                      checkpoints, deaths by cause (save.endless.hz). Lazy, with src/hazard-run.js (glue, loaded by main after
+                      the race step; the race step calls step/reset/onContinue/noteEnd through RS.hz) and src/hazard-art.js (2D art + HUD)
 src/powerups.js     Runner power-ups (0177): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
                       Road placement is pickups.js powerupAt (track.power = Endless tier, 0 off)
 src/scoring.js      Penalty rules (hits, wall scrapes) + the run log the Worker recomputes

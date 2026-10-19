@@ -69,6 +69,9 @@ function loadRaceStep() {
   return raceStepLoad;
 }
 loadRaceStep().catch(() => {});
+// Endless hazards, fuel, NOS heat, the Patrol and checkpoints (0186): a lazy chunk after the race
+// step; the race step calls it through RS.hz once it is in.
+setTimeout(() => { import('./hazard-run.js').then((m) => { RS.hz = m; m.reset(); }, () => {}); }, 0);
 // Race-time actions that main still triggers (keys, touch, co-pilot, the debug hook) run in the
 // race step; before it lands (no race can be on yet) they do nothing.
 const raceCall = (name) => (...args) => (raceStep ? raceStep[name](...args) : undefined);

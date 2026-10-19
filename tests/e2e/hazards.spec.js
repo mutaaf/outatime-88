@@ -18,7 +18,9 @@ async function endless(page, { seen = ALL_SEEN, coins = 0 } = {}) {
 }
 
 /** Lay `kind` ahead and wait for the run to end. */
-async function ignore(page, kind, ahead = 1.6, lane = -1) {
+async function ignore(page, kind, ahead = 1.6, lane = -1, keep = true) {
+  // Hands off the wheel, held in the middle lane (curves would otherwise drift the car).
+  if (keep) await G(page, () => { const g = window.__OT.GameState, l = window.__OT.lateral(); (function hold() { if (g.status !== 'PLAYING') return; l.x = 0; g.playerX = 0; requestAnimationFrame(hold); })(); });
   await G(page, ([k, a, l]) => window.__OT.hazard(k, a, l), [kind, ahead, lane]);
   await page.waitForFunction(() => window.__OT.GameState.status === 'GAMEOVER', null, { timeout: 12000 });
   return G(page, () => ({ cause: window.__OT.GameState.deathCause, card: (document.getElementById('hzCause') || {}).textContent || '', badge: document.getElementById('endModalBadge').textContent }));
@@ -50,7 +52,7 @@ test('grinding the side where the guardrail is gone drops you off the edge', asy
   await endless(page);
   await G(page, () => { window.__OT.input.right = true; });
   await page.waitForFunction(() => window.__OT.GameState.playerX > 0.7);
-  const end = await ignore(page, 'EDGE', 0.2, 2);
+  const end = await ignore(page, 'EDGE', 0.2, 2, false);
   expect(end.cause).toBe('EDGE');
   expect(end.card).toMatch(/EDGE/);
   expect(problems).toEqual([]);
@@ -117,16 +119,13 @@ test('reacting the way the call-out asks survives each hazard', async ({ page })
   ];
   let survived = 0;
   for (const [kind, ahead, lane, act] of moves) {
-    await G(page, () => { const g = window.__OT.GameState; g.speed = 82; g.playerX = 0; });
+    // Square in the middle lane, straight, at cruising speed.
+    await G(page, () => { const g = window.__OT.GameState, l = window.__OT.lateral(), i = window.__OT.input; i.left = i.right = i.down = false; g.speed = 82; Object.assign(l, { x: 0, vx: 0, yaw: 0, yawVel: 0, beta: 0, slip: 0 }); g.playerX = 0; g.playerVX = 0; });
     await page.waitForTimeout(300);
     const r = await react(page, kind, ahead, lane, act);
     expect(r.status, `${kind}: ${r.cause}`).toBe('PLAYING');
     expect(r.survived).toBeGreaterThan(survived);
     survived = r.survived;
-    // Back to the middle lane for the next one.
-    await G(page, () => { window.__OT.input.right = window.__OT.GameState.playerX < -0.05; });
-    await page.waitForTimeout(500);
-    await G(page, () => { window.__OT.input.right = false; });
   }
   expect(problems).toEqual([]);
 });

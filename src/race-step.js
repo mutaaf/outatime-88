@@ -41,8 +41,6 @@ export const hitStop = createHitStop();
 export const power = createPower();
 GameState.power = power;
 const endlessSolo = () => GameState.mode === 'INFINITE' && !GameState.daily;
-// Endless hazards, fuel, NOS heat, the Patrol and checkpoints (0186): their own lazy chunk.
-import('./hazard-run.js').then((m) => { RS.hz = m; m.reset(); }).catch(() => {});
 
 /** A crash while the shield is up: the shield takes it (no HP, speed or points lost). */
 export function shieldBreak(rel) {
