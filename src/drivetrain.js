@@ -97,6 +97,8 @@ export function createDrive() {
  * @param {number} [i.grip=1] the car's grip multiplier (handlingFor().grip)
  * @param {number} [i.lat=0] share of grip cornering is using (stepLateral's `load`)
  * @param {boolean} [i.airborne] wheels off the road: no drive, no brakes, no engine braking
+ * @param {number} [i.throttleAmt=1] how far the throttle is pressed, 0..1 (gamepad RT; keys are 1)
+ * @param {number} [i.brakeAmt=1] how hard the brake is pressed, 0..1 (gamepad LT; keys are 1)
  */
 export function stepDrive(d, i) {
   const v = Math.max(0, i.speed);
@@ -112,7 +114,9 @@ export function stepDrive(d, i) {
     d.brake = 0;
     s = v;
   } else if (i.brake) {
-    d.brake = Math.min(1, d.brake + dt / DRIVE.brakeRamp);
+    // Analog pedals (ticket 0180): the brakes bite up to how hard you press, at the same rate.
+    const want = i.brakeAmt == null ? 1 : clamp(i.brakeAmt, 0, 1);
+    d.brake = d.brake < want ? Math.min(want, d.brake + dt / DRIVE.brakeRamp) : want;
     const vv = v / 88;
     const keep = Math.max(DRIVE.cornerKeep, Math.sqrt(1 - lat * lat));
     const decel = (DRIVE.brake + DRIVE.brakeAero * vv * vv) * grip * keep * d.brake;
@@ -120,7 +124,8 @@ export function stepDrive(d, i) {
   } else {
     d.brake = 0;
     if (i.throttle && v < i.cap) {
-      let thrust = d.cut > 0 ? 0 : i.engine * DRIVE.ratio[g - 1] * torqueAt(revFrac(v, g));
+      const amt = i.throttleAmt == null ? 1 : clamp(i.throttleAmt, 0, 1);
+      let thrust = d.cut > 0 ? 0 : i.engine * DRIVE.ratio[g - 1] * torqueAt(revFrac(v, g)) * amt;
       const limit = tractionLimit(grip, lat);
       if (thrust > limit) { d.spin = (thrust - limit) / limit; thrust = limit; }
       s = Math.min(i.cap, v + thrust * dt);

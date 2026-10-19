@@ -34,8 +34,33 @@ export const InputState = {
   lookZoom: 1
 };
 
-// TV mode (ticket 0175, src/tv/tv.js): a paired phone drives through the gamepad path.
-export const PhonePad = { on: false, steer: 0, gas: false, brake: false, boost: false, hover: false, nos: false, back: false, l3: false };
+// Gamepad (ticket 0180). Polled once per 120 Hz sim step, so a stick or trigger change is
+// in the very next step, not the next frame.
+//   - Stick: a deadzone rescaled to start from zero (no jump out of it, and a worn stick's
+//     drift never steers), then a gentle response curve: small corrections at 100 mph are
+//     fine, and full lock is still there before the rim.
+//   - Triggers are analog: RT is the throttle, LT the brake, both 0..1 (A/B are full press).
+//     Feathering RT keeps the wheels from spinning on a launch.
+// The result is one reused object (no garbage at 120 Hz); read it before the next poll.
+export const PAD = Object.freeze({ dead: 0.12, outer: 0.96, curve: 1.35, trigDead: 0.06 });
+
+const shapeAxis = (x) => {
+  const m = Math.abs(x);
+  if (m <= PAD.dead) return 0;
+  return Math.sign(x) * Math.min(1, (m - PAD.dead) / (PAD.outer - PAD.dead)) ** PAD.curve;
+};
+const trigger = (b) => {
+  if (!b) return 0;
+  const v = typeof b.value === 'number' && b.value > 0 ? b.value : (b.pressed ? 1 : 0);
+  return v <= PAD.trigDead ? 0 : Math.min(1, (v - PAD.trigDead) / (1 - PAD.trigDead));
+};
+const pressed = (p, i) => Boolean(p.buttons[i] && p.buttons[i].pressed);
+
+const padOut = { steer: 0, gas: false, brake: false, gasAmt: 0, brakeAmt: 0, boost: false, hover: false, nos: false, back: false, l3: false };
+
+// TV mode (ticket 0175, src/tv/tv.js): a paired phone drives through the gamepad path. Its
+// pedals are on/off, so their analog amounts stay at a full press (ticket 0180).
+export const PhonePad = { on: false, steer: 0, gas: false, brake: false, gasAmt: 1, brakeAmt: 1, boost: false, hover: false, nos: false, back: false, l3: false };
 
 export function pollGamepad() {
   if (PhonePad.on) return PhonePad;
@@ -45,24 +70,25 @@ export function pollGamepad() {
     for (let i = 0; i < pads.length; i++) {
       const p = pads[i];
       if (p && p.connected) {
-        const axisX = Math.abs(p.axes[0] || 0) > 0.14 ? p.axes[0] : 0;
-        const dLeft = p.buttons[14] && p.buttons[14].pressed;
-        const dRight = p.buttons[15] && p.buttons[15].pressed;
-        const steer = axisX !== 0 ? axisX : (dLeft ? -1 : (dRight ? 1 : 0));
-        return {
-          steer,
-          gas: (p.buttons[0] && p.buttons[0].pressed) || (p.buttons[7] && p.buttons[7].pressed),
-          brake: (p.buttons[1] && p.buttons[1].pressed) || (p.buttons[6] && p.buttons[6].pressed),
-          boost: (p.buttons[2] && p.buttons[2].pressed) || (p.buttons[5] && p.buttons[5].pressed),
-          hover: (p.buttons[3] && p.buttons[3].pressed),
-          nos: Boolean(p.buttons[4] && p.buttons[4].pressed),
-          back: Boolean(p.buttons[8] && p.buttons[8].pressed), // BACK / SELECT / VIEW: steering mode
-          l3: Boolean(p.buttons[10] && p.buttons[10].pressed)  // left-stick click: co-pilot
-        };
+        const axisX = shapeAxis(p.axes[0] || 0);
+        const steer = axisX !== 0 ? axisX : (pressed(p, 14) ? -1 : (pressed(p, 15) ? 1 : 0));
+        const gasAmt = Math.max(pressed(p, 0) ? 1 : 0, trigger(p.buttons[7]));
+        const brakeAmt = Math.max(pressed(p, 1) ? 1 : 0, trigger(p.buttons[6]));
+        padOut.steer = steer;
+        padOut.gasAmt = gasAmt;
+        padOut.brakeAmt = brakeAmt;
+        padOut.gas = gasAmt > 0;
+        padOut.brake = brakeAmt > 0;
+        padOut.boost = pressed(p, 2) || pressed(p, 5);
+        padOut.hover = pressed(p, 3);
+        padOut.nos = pressed(p, 4);
+        padOut.back = pressed(p, 8); // BACK / SELECT / VIEW: steering mode
+        padOut.l3 = pressed(p, 10);  // left-stick click: co-pilot
+        return padOut;
       }
     }
   } catch (e) {}
   return NO_PAD;
 }
 
-const NO_PAD = Object.freeze({ steer: 0, gas: false, brake: false, boost: false, hover: false, nos: false, back: false, l3: false });
+const NO_PAD = Object.freeze({ steer: 0, gas: false, brake: false, gasAmt: 0, brakeAmt: 0, boost: false, hover: false, nos: false, back: false, l3: false });

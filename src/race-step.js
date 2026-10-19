@@ -658,7 +658,7 @@ export function triggerTimeWarp() {
 // Handling state (ticket 0120), reset with each race; latParams is reused to avoid per-step garbage.
 export const steerWheel = createSteer();
 
-export const driveIn = { speed: 0, throttle: false, brake: false, cap: 0, engine: 0, dt: 0, grip: 1, lat: 0, airborne: false };
+export const driveIn = { speed: 0, throttle: false, brake: false, cap: 0, engine: 0, dt: 0, grip: 1, lat: 0, airborne: false, throttleAmt: 1, brakeAmt: 1 };
 
 export let latCarP = null, latTires = 0;
 
@@ -766,6 +766,9 @@ export function updateGame(rawDt) {
   driveIn.speed = GameState.speed;
   driveIn.throttle = Boolean(accelerating);
   driveIn.brake = Boolean(braking);
+  // Analog triggers (ticket 0180): a key, touch pad or auto-gas is a full press.
+  driveIn.throttleAmt = GameState.autoGas || InputState.up || InputState.touchUp ? 1 : gp.gasAmt;
+  driveIn.brakeAmt = InputState.down || InputState.touchDown ? 1 : gp.brakeAmt;
   driveIn.cap = targetMaxSpeed;
   driveIn.engine = (14 + (upg.engine - 1) * 2.5) * carP.accelMult * paceCfg.accelMult * (GameState.warpActiveTimer > 0 ? 1.5 : 1.0);
   driveIn.dt = rawDt;
@@ -886,7 +889,7 @@ export function updateGame(rawDt) {
   if (InputState.tiltEnabled && Math.abs(InputState.tiltSteerVal) > 0.03) {
     steerInput += InputState.tiltSteerVal; // sensitivity and invert are already applied (src/settings.js)
   }
-  if (Math.abs(gp.steer) > 0.05) steerInput += gp.steer;
+  steerInput += gp.steer; // deadzone and response curve already applied (src/input.js)
 
   // Scan upcoming road curvature & threats for LUMEN AR HUD and Co-Pilot
   let curveAhead = 0;

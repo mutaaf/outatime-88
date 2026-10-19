@@ -14,13 +14,16 @@ export const HAPTIC_PATTERNS = Object.freeze({
   hit: [38, 24, 38],        // crash / penalty
   lap: [14, 50, 14, 50, 30], // new lap, final lap
   pickup: [7],              // a coin, core, wrench or NOS canister collected
+  wall: [26, 18, 12],       // hitting a barrier (src/forcefeel.js, ticket 0180)
+  land: [30],               // a hard landing
+  slip: [5],                // the tyres letting go
 });
 
 /** Shortest gap between two pulses of the same kind (ms). */
-export const HAPTIC_GAP = Object.freeze({ engage: 60, tick: 45, press: 40, boost: 140, special: 140, hit: 220, lap: 600, pickup: 55 });
+export const HAPTIC_GAP = Object.freeze({ engage: 60, tick: 45, press: 40, boost: 140, special: 140, hit: 220, lap: 600, pickup: 55, wall: 320, land: 260, slip: 420 });
 
 /** Game events (not under the player's thumb): skipped in calm mode, and at low strength. */
-const AMBIENT = new Set(['hit', 'lap']);
+const AMBIENT = new Set(['hit', 'lap', 'wall', 'land']);
 
 /** Which haptic engine this browser has: 'vibrate', 'ios' or 'none'. */
 export function hapticEngine(win = globalThis.window, doc = globalThis.document) {

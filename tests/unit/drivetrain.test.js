@@ -154,3 +154,33 @@ describe('off throttle and in the air', () => {
     expect(a.d).toEqual(b.d);
   });
 });
+
+describe('analog pedals (ticket 0180)', () => {
+  it('half throttle pulls about half as hard; full or unset is the old full press', () => {
+    const full = createDrive(), half = createDrive(), unset = createDrive();
+    stepDrive(full, { speed: 50, throttle: true, cap: 140, engine: ENGINE, dt: DT, throttleAmt: 1 });
+    stepDrive(half, { speed: 50, throttle: true, cap: 140, engine: ENGINE, dt: DT, throttleAmt: 0.5 });
+    stepDrive(unset, { speed: 50, throttle: true, cap: 140, engine: ENGINE, dt: DT });
+    expect(half.ax).toBeCloseTo(full.ax / 2, 6);
+    expect(unset.ax).toBe(full.ax);
+  });
+  it('feathering the throttle on a launch keeps the wheels from spinning', () => {
+    const strong = ENGINE * 3;
+    const flat = createDrive(), feather = createDrive();
+    stepDrive(flat, { speed: 5, throttle: true, cap: 140, engine: strong, dt: DT, throttleAmt: 1 });
+    stepDrive(feather, { speed: 5, throttle: true, cap: 140, engine: strong, dt: DT, throttleAmt: 0.4 });
+    expect(flat.spin).toBeGreaterThan(0);
+    expect(feather.spin).toBeLessThan(flat.spin);
+  });
+  it('a light brake bites less, and easing off releases at once', () => {
+    const hard = createDrive(), light = createDrive();
+    for (let i = 0; i < 30; i++) {
+      stepDrive(hard, { speed: 80, brake: true, cap: 140, engine: ENGINE, dt: DT, brakeAmt: 1 });
+      stepDrive(light, { speed: 80, brake: true, cap: 140, engine: ENGINE, dt: DT, brakeAmt: 0.3 });
+    }
+    expect(light.brake).toBeCloseTo(0.3, 6);
+    expect(-light.ax).toBeCloseTo(-hard.ax * 0.3, 4);
+    stepDrive(hard, { speed: 80, brake: true, cap: 140, engine: ENGINE, dt: DT, brakeAmt: 0.2 });
+    expect(hard.brake).toBe(0.2);
+  });
+});
