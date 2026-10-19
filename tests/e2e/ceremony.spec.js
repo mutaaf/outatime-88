@@ -54,8 +54,19 @@ test('tapping boost right on green is a rocket start; too early stalls you', asy
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.locator('#rcSkip').click();
   await expect(page.locator('#rcLights')).toHaveAttribute('data-state', '1');
-  await page.waitForTimeout(700); // ~0.2 s before green
-  await page.keyboard.press('Space');
+  // Tap the moment the lights go green. The lights run on game time, so a wall-clock wait
+  // ("0.7 s after the last red") lands too early on a runner that steps the sim slowly: press
+  // from the page itself, as the light changes, before the next sim step.
+  await page.evaluate(() => new Promise((done) => {
+    const el = document.getElementById('rcLights');
+    const press = () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true }));
+      done();
+    };
+    if (el.dataset.state === 'go') { press(); return; }
+    new MutationObserver((_, obs) => { if (el.dataset.state === 'go') { obs.disconnect(); press(); } }).observe(el, { attributes: true });
+  }));
   await expect.poll(() => gs(page, 'launchResult')).toMatch(/perfect|good/);
   expect(await gs(page, 'speed')).toBeGreaterThan(55);
 

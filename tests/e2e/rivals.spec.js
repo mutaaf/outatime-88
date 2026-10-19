@@ -37,7 +37,7 @@ for (const mode of ['ARCADE', 'INFINITE']) test(`rivals race for real (${mode}):
     last.modes.forEach((m) => modes.add(m));
     nosSeen = nosSeen || last.nos;
     worstX = Math.max(worstX, ...last.offsets.map(Math.abs));
-    await simWait(page, 0.3);
+    if (!(await simWait(page, 0.3))) break; // the run ended (Endless can end it): judge what we saw
   }
   const stats = await page.evaluate(() => {
     const t = window.__OT.traffic();

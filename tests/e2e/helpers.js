@@ -104,10 +104,13 @@ export function nextFrames(page, n = 2) {
 /**
  * Wait until `seconds` of race (simulation) time have passed. The sim runs slower than the
  * wall clock on a loaded runner, so `waitForTimeout` can end before the game has moved at all.
+ * Also returns early if the race stops running (it ended, or paused): the clock won't move.
+ * Resolves true if the time passed while racing.
  */
 export async function simWait(page, seconds, { timeout = 20000 } = {}) {
   const t0 = await page.evaluate(() => window.__OT.GameState.raceTime);
-  await page.waitForFunction(([t, s]) => window.__OT.GameState.raceTime - t >= s, [t0, seconds], { timeout });
+  await page.waitForFunction(([t, s]) => { const g = window.__OT.GameState; return g.raceTime - t >= s || g.status !== 'PLAYING'; }, [t0, seconds], { timeout });
+  return page.evaluate(([t, s]) => window.__OT.GameState.raceTime - t >= s, [t0, seconds]);
 }
 
 /** Wait until a started race is really running: past the lights and its first sim steps. */

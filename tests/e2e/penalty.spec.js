@@ -57,6 +57,9 @@ test('a long wall grind costs a capped amount and wears HP instead (ticket 0165)
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.keyboard.down('ArrowUp');
   await page.waitForFunction(() => window.__OT.GameState.speed > 45, null, { timeout: 15000 });
+  // Clear the right-hand lanes: a slow semi parked ahead against the same wall pins the car
+  // behind it (real rigid-body contact), and the grind under test never builds up.
+  await page.evaluate(() => { const g = window.__OT.GameState; for (const c of window.__OT.traffic().traffic) { c.worldZ = g.trackPos + 60000; c.offset = -0.5; } });
   const hp0 = await page.evaluate(() => window.__OT.GameState.hp);
   await page.keyboard.down('ArrowRight');
   await page.waitForFunction(() => window.__OT.GameState.penaltyLog.wallMs > 3000, null, { timeout: 20000 });
