@@ -19,10 +19,13 @@ export async function handlePad(request, env, url) {
   if (path !== '/outatime/api/pad' && !path.startsWith('/outatime/api/pad/')) return null;
   if (!env.PADS) return json(503, { error: 'tv mode offline' });
   const ip = request.headers.get('cf-connecting-ip') || '';
+  // wrangler dev in CI (LIVE_TEST=1, never set in production): every test browser is one IP,
+  // and the flake guard re-runs the TV specs back to back, so the per-IP throttles stay off.
+  const testing = env.LIVE_TEST === '1';
 
   if (path === '/outatime/api/pad') {
     if (request.method !== 'POST') return json(405, { error: 'POST only' });
-    if (!createAllowed(ip, Date.now(), minted)) return json(429, { error: 'slow down' });
+    if (!testing && !createAllowed(ip, Date.now(), minted)) return json(429, { error: 'slow down' });
     for (let i = 0; i < 6; i++) {
       const code = makeCode(rand);
       const key = makeKey();
@@ -37,7 +40,7 @@ export async function handlePad(request, env, url) {
   if (request.headers.get('upgrade') !== 'websocket') return json(426, { error: 'websocket only' });
   if (!sameOrigin(request, url)) return json(403, { error: 'bad origin' });
   // Every socket (TV or phone) counts against the per-IP join throttle: guessing codes is slow.
-  if (!joinAllowed(joins, ip, Date.now())) return json(429, { error: 'slow down' });
+  if (!testing && !joinAllowed(joins, ip, Date.now())) return json(429, { error: 'slow down' });
   return env.PADS.get(env.PADS.idFromName(code)).fetch(request);
 }
 
