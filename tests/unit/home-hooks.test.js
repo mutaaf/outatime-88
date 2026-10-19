@@ -101,7 +101,7 @@ describe('ranking', () => {
     expect(first().id).toBe(NEWS[0].id);
     for (let i = 0; i < NEWS_VIEWS; i++) noteNewsSeen(s, NEWS[0].id);
     expect(first().id).toBe(NEWS[1].id);
-    noteNewsSeen(s, NEWS[1].id, true);
+    for (const n of NEWS.slice(1)) noteNewsSeen(s, n.id, true);
     expect(first()).toBeUndefined();
     const phone = save({ onboarded: true });
     expect(homeHooks(phone, { now: NOW, bigScreen: false }).some((h) => h.act === 'tv')).toBe(false);
@@ -109,7 +109,7 @@ describe('ranking', () => {
   it('a car you already own is never news', () => {
     const s = save({ onboarded: true });
     s.garage.owned.push('VOLT_ROADSTER');
-    noteNewsSeen(s, NEWS[0].id, true);
+    for (const n of NEWS) if (!n.car) noteNewsSeen(s, n.id, true);
     expect(homeHooks(s, { now: NOW, bigScreen: true }).some((h) => h.isNew)).toBe(false);
   });
 });

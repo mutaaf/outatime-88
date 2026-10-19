@@ -18,6 +18,7 @@ export const HOME_HOOKS = 4;
  * times or tapped once. Add an entry when a feature ships; drop it a few weeks later.
  */
 export const NEWS = [
+  { id: 'powerups-2026-10', icon: '🧲', title: 'NEW: POWER-UPS', line: 'MAGNET · SHIELD · 2X COINS ON THE ENDLESS HIGHWAY', act: 'play' },
   { id: 'tv-2026-10', icon: '📺', title: 'PLAY ON A TV', line: 'YOUR PHONE IS THE STEERING WHEEL', act: 'tv', big: true },
   { id: 'volt-2026-10', icon: '🔋', title: 'NEW CAR', line: 'VOLT ROADSTER · ELECTRIC, 0-88 IN A BLINK', act: 'garage', car: 'VOLT_ROADSTER' },
 ];

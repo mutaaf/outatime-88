@@ -32,7 +32,7 @@ Run) put a run-again button and today's hooks one tap away.
   - the next car (or BUY IT NOW);
   - Endless goals;
   - your weekly rival;
-  - what's new (a few views, then retired);
+  - what's new (power-ups, Volt Roadster, TV; a few views, then retired);
   - PLAY ON A TV on big screens.
   Each card is one tap to its action.
 - **First visit:** a three-beat pitch instead of the cards. The attract road gets an AI driver
@@ -69,4 +69,3 @@ Run) put a run-again button and today's hooks one tap away.
 ## Out of scope
 - An AI attract driver that dodges traffic (it weaves on a smooth path).
 - Friends-online presence (there is no presence API).
-- A power-ups news card, which belongs with 0177.
