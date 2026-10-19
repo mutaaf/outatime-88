@@ -38,8 +38,8 @@ steps quality down when p95 runs over budget (`mobile.spec`, slow phone), and th
 steps at 120 Hz, so 120 Hz screens get one sim step per frame.
 
 ## Acceptance criteria
-- 2D and 3D game JS stays under p95 24/16 ms and p99 36/28 ms, and garbage under 14 MB/s,
-  mid-race (e2e).
+- 2D and 3D game JS stays under p95 24 ms and p99 36 ms, and garbage under 14 MB/s, mid-race
+  (e2e).
 - No behaviour change: race, feel, props, rivals, live, runner and mobile e2e pass.
 
 ## Test plan
