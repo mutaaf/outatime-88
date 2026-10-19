@@ -71,14 +71,18 @@ test('TV pairs a phone by QR, the phone starts and steers the race, losing it pa
   await phone.evaluate(() => window.__PAD.setTilt(0)); // calibrated zero = 0 already
   await phone.evaluate(() => window.__PAD.setTilt(25));
   await tv.waitForFunction(() => window.__OT_TV.pads[0].s.steer > 0.6, null, { timeout: 5_000 });
+  // The car carries its sideways momentum into each swerve (the handling model), and a loaded
+  // runner steps the sim slowly, so wait for it to head the new way rather than a fixed 700 ms.
   const x0 = await x();
-  await tv.waitForTimeout(700);
-  const x1 = await x();
-  expect(x1).toBeGreaterThan(x0);
+  await tv.waitForFunction((x0) => window.__OT.GameState.playerX > x0 + 0.02, x0, { timeout: 10_000 });
   await phone.evaluate(() => window.__PAD.setTilt(-25));
   await tv.waitForFunction(() => window.__OT_TV.pads[0].s.steer < -0.6, null, { timeout: 5_000 });
-  const x2 = await x();
-  await tv.waitForTimeout(700);
+  const x2 = await tv.evaluate(() => new Promise((done) => {
+    // The furthest right it gets before turning back.
+    const g = window.__OT.GameState; let hi = g.playerX;
+    const id = setInterval(() => { hi = Math.max(hi, g.playerX); if (g.playerX < hi - 0.02) { clearInterval(id); done(hi); } }, 5);
+    setTimeout(() => { clearInterval(id); done(hi); }, 10_000);
+  }));
   expect(await x()).toBeLessThan(x2);
   await phone.evaluate(() => window.__PAD.setTilt(0));
 

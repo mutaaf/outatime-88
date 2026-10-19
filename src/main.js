@@ -159,8 +159,18 @@ const segCurveAt = (z) => curvatureAt(z) * ROAD_CFG.segLength;
 // until it lands (or if it fails) rivals use the simple pace-and-dodge driver below.
 export let RAI = null;
 export const aiRoad = { curvatureAt: segCurveAt, bankAt, featureAt, line: null };
-import('./rival-ai.js').then((m) => { RAI = m; LiveTraffic.aiWorld = m.createAiWorld(); }).catch(() => {});
+import('./rival-ai.js').then((m) => {
+  RAI = m; LiveTraffic.aiWorld = m.createAiWorld();
+  // A race that started before the chunk landed (a slow phone, a quick tap): seat its drivers now.
+  if (LiveTraffic.racers.length && !LiveTraffic.racers.some((r) => r.ai)) LiveTraffic.seatDrivers();
+}).catch(() => {});
 export const LiveTraffic = {
+  /** Drivers (src/rival-ai.js) for the field; one of them is your nemesis and hunts you all race. */
+  seatDrivers() {
+    const pace = currentDifficulty().rivalPace;
+    const nem = RAI && RAI.setupField(this.aiWorld, this.racers, { seed: GameState.lineSeed, pace, cls: (r) => (CAR_SPECS[r.id] || {}).cls, carP: (r) => carParams(r.rc) });
+    GameState.nemesisId = nem ? nem.id : null;
+  },
   racers: [],
   traffic: [],
   obstacles: [],
@@ -233,9 +243,7 @@ export const LiveTraffic = {
       body.targetOffset = slot.offset;
       return body;
     });
-    // Drivers (src/rival-ai.js); one of them is your nemesis and hunts you all race.
-    const nem = RAI && RAI.setupField(this.aiWorld, this.racers, { seed: GameState.lineSeed, pace, cls: (r) => (CAR_SPECS[r.id] || {}).cls, carP: (r) => carParams(r.rc) });
-    GameState.nemesisId = nem ? nem.id : null;
+    this.seatDrivers();
     this.updateStandings(0, playerZ0, this.speedToWorld());
 
     // ONLY 4 Well-Spaced Highway Traffic Vehicles (Spaced 5,200 Z-units apart!)
