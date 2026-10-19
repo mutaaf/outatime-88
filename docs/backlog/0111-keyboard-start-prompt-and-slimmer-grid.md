@@ -24,6 +24,7 @@ above the lights instead of a 2x3 block, so the car and road stay visible.
 
 ## Acceptance criteria
 - [ ] Keyboard/mouse start shows no "TAP" text and names the real boost key, exactly once
+- [ ] The line-up cards' "TAP TO SKIP ▶▶" pill reads "PRESS ENTER TO SKIP" (or the pad button) for keyboard/gamepad (seen again 2026-10-19 at 1280x720)
 - [ ] Touch start keeps today's wording; gamepad shows the pad button
 - [ ] Line-up block height ≤ 12% of the viewport at 1280x720 and 390x844; player car and road centre stay unobstructed
 - [ ] Zero-overlap layout e2e still green at all viewports

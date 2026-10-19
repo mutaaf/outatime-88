@@ -1,11 +1,12 @@
 ---
 id: 0187
 title: Endless balance — a bot harness that measures difficulty and the coin economy, and a tuning pass from its numbers
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-19
+pr: 119
 ---
 
 ## Why
