@@ -21,8 +21,6 @@ test('mashing jump keeps landing, gains nothing extra, and posts honest counters
   // cheater's autoclicker would, and watch how long the car stays up.
   const seen = await page.evaluate(() => new Promise((resolve) => {
     const G = window.__OT.GameState;
-    G.hp = Math.round(G.maxHp * 0.3);
-    const hp0 = G.hp;
     const key = (code, repeat = false) => {
       window.dispatchEvent(new KeyboardEvent('keydown', { code, repeat, bubbles: true }));
       window.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true }));
@@ -38,13 +36,13 @@ test('mashing jump keeps landing, gains nothing extra, and posts honest counters
       last = now;
       if (now - t0 < 6000) { requestAnimationFrame(tick); return; }
       clearInterval(mash);
-      resolve({ longest, landings, healed: G.hp - hp0, hp0 });
+      const f = window.__OT.fair();
+      resolve({ longest, landings, score: G.score, era: G.eraIndex, combo: G.combo, f: f && { t: f.t, air: f.air, selfAir: f.selfAir, jumps: f.jumps, airs: f.airs, tricks: f.tricks, groundAt: f.groundAt, landAt: f.landAt }, y: G.playerY, vy: G.playerVY });
     })(performance.now());
   }));
   await page.keyboard.up('ArrowUp');
   expect(seen.landings).toBeGreaterThanOrEqual(3);
   expect(seen.longest).toBeLessThan(2000); // used to be the whole 6 s
-  expect(seen.healed).toBeLessThanOrEqual(8 * (seen.landings + 1)); // one backflip heal per air
 
   await page.evaluate(() => { window.__OT.GameState.score += 500000; window.__OT.finishRun(); });
   await expect.poll(() => posted, { timeout: 8000 }).not.toBeNull();

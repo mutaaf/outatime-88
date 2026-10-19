@@ -2674,6 +2674,7 @@ window.onload = () => {
     heal: healPlayerHp,
     runner: () => ({ storm, stats: runStats, goals: runnerMod ? runnerMod.goalsOf(SaveStore.data) : null }),
     pickup: (type) => raceStep && raceStep.applyPickup({ type, offset: GameState.playerX }, PICKUPS[type]),
+    fair: () => RS.fair, // jump/trick caps and counters (ticket 0180)
   };
   initSettings({ announce: triggerAnnouncement });
   // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.

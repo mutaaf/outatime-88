@@ -2,6 +2,7 @@
 id: 0180
 title: Fair play — mashing can't break the game, and the board catches runs that did
 status: in-progress
+pr: 104
 priority: P0
 size: M
 lens: tech-health

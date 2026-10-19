@@ -48,7 +48,7 @@ export function createFair() {
 export function fairStep(f, dtMs, y, mph, auto = false) {
   f.t += dtMs;
   f.simMs = Math.round(f.t);
-  if (mph > f.topMph) f.topMph = Math.min(FAIR.maxMph, Math.round(mph));
+  if (mph > f.topMph) f.topMph = Math.min(FAIR.maxMph, Math.ceil(mph)); // up, so distance ≤ top × time holds
   if (auto) f.autoMs += dtMs;
   const up = y > FAIR.airY;
   if (y <= FAIR.jump.groundY) f.groundAt = f.t;
