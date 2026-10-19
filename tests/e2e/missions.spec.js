@@ -11,6 +11,8 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
     await page.keyboard.press('Enter');
     // The race starts as soon as the lazy race step is in (0170): wait for it, not a fixed beat.
     await page.waitForFunction(() => window.__OT.GameState.missions);
+    // Complete it once racing, as a player would (a lineup and lights have their own callouts).
+    await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING');
     const first = await page.evaluate(() => {
       const ms = window.__OT.GameState.missions;
       const m = ms[0];

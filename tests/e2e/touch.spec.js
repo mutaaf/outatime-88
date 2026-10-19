@@ -248,8 +248,13 @@ test('HUD layout editor: drag a button, resize it, save; it stays there after a 
   await touch(cdp, 'touchMove', [to]);
   await touch(cdp, 'touchEnd', []);
   await page.locator('#tcEditSize').fill('1.3');
-  await page.locator('#tcEditBar [data-act="done"]').tap();
-  await expect(page.locator('#tcEditBar')).toHaveCount(0);
+  // A tap is a click only if the finger lifts before the long-press threshold; on a starved CI
+  // runner the emulated touchEnd can land late and Chromium reads a long press (no click).
+  // Saving still has to work: retry the tap, never the assertion's meaning.
+  await expect(async () => {
+    await page.locator('#tcEditBar [data-act="done"]').tap({ timeout: 2000 });
+    await expect(page.locator('#tcEditBar')).toHaveCount(0, { timeout: 1500 });
+  }).toPass({ timeout: 10000 });
   await page.reload();
   await page.evaluate(() => window.__OT.startRace());
   await page.waitForTimeout(300);
