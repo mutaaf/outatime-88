@@ -86,10 +86,11 @@ const endRaceRun = raceCall('endRaceRun');
 /** Every race start goes through here: straight away once the race step is in, else as soon as it
  *  lands (taps while it loads collapse into one start, with the latest options). */
 let startWanted, startWait = null;
+const NO_START = {}; // going home while the race step loads cancels the queued start (0185)
 function startNewRace(opts) {
   if (raceStep) return raceStep.startNewRace(opts);
   startWanted = opts;
-  startWait = startWait || loadRaceStep().then((m) => { startWait = null; return m.startNewRace(startWanted); });
+  startWait = startWait || loadRaceStep().then((m) => { startWait = null; return startWanted === NO_START ? null : m.startNewRace(startWanted); });
   return startWait;
 }
 
@@ -1692,43 +1693,14 @@ function selectCharacterByIndex(idx) {
   return true;
 }
 
+// The driver grid lives in the events chunk too (src/level-select.js, 0185): it only shows in
+// the events panel.
 function renderCharacterRosterGrid() {
-  const grid = document.getElementById('characterRosterGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
-
-  POP_CULTURE_ROSTER.forEach((c, idx) => {
-    const isSel = (idx === GameState.selectedCharIdx);
-    const owned = isOwned(SaveStore.data, c.id);
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.dataset.carId = c.id;
-    btn.dataset.locked = owned ? '0' : '1';
-    btn.className = `text-left p-2 rounded-xl border transition flex flex-col justify-between ${
-      !owned
-        ? 'bg-slate-950/80 border border-slate-800 text-slate-400'
-        : isSel
-        ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow'
-        : 'bg-slate-900/90 border border-slate-800 text-slate-300 hover:border-slate-600'
-    }`;
-    btn.innerHTML = owned ? `
-      <div class="font-arcade text-[9px] font-black text-white truncate">${c.car}</div>
-      <div class="text-[9px] text-cyan-300 truncate">${c.driver}</div>
-      <div class="flex items-center justify-between text-[8px] font-arcade text-slate-400 mt-1">
-        <span class="text-emerald-300">💚${c.maxHp}HP</span>
-        <span>${c.massKg}kg</span>
-      </div>
-    ` : `
-      <div class="font-arcade text-[9px] font-black text-slate-300 truncate">🔒 ${c.car}</div>
-      <div class="text-[9px] text-amber-300/90 leading-tight">${unlockProgress(SaveStore.data, c.id).text}</div>
-    `;
-    btn.addEventListener('click', () => {
-      if (!owned) { openGarageModal(c.id); return; }
-      selectCharacterByIndex(idx);
-      SoundEngine.playCoinPickup();
-    });
-    grid.appendChild(btn);
-  });
+  levelSelect = levelSelect || import('./level-select.js');
+  return levelSelect.then((m) => m.renderRosterGrid({
+    GameState, SaveStore, roster: POP_CULTURE_ROSTER, locked: (id) => openGarageModal(id),
+    pick: (idx) => { selectCharacterByIndex(idx); SoundEngine.playCoinPickup(); },
+  }));
 }
 
 /** 250000 → '250k', 2500000 → '2.5M' */
@@ -1887,20 +1859,27 @@ const liveHooks = {
     document.getElementById('titleScreen').classList.add('hidden');
     document.getElementById('gameOverModal').classList.add('hidden');
   },
-  leaveLive: () => {
-    if (GameState.mode === 'LIVE') {
-      if (GameState.savedLevelIndex !== undefined) restoreSoloSettings();
-      else GameState.mode = 'ARCADE';
-    }
-    GameState.status = 'TITLE';
-    GameState.racePosition = 8;
-    initTrack();
-    document.getElementById('gameOverModal').classList.add('hidden');
-    document.getElementById('titleScreen').classList.remove('hidden');
-    document.body.classList.add('on-title');
-    updateTitleChip();
-  },
+  leaveLive: () => showTitle(),
 };
+
+/** Home (ticket 0185): the one way back to the title from results, pause or a live room. */
+export function showTitle() {
+  if (GameState.savedLevelIndex !== undefined) restoreSoloSettings();
+  else if (GameState.mode === 'LIVE') GameState.mode = 'ARCADE';
+  if (startWait) startWanted = NO_START;
+  GameState.status = 'TITLE';
+  GameState.daily = null;
+  GameState.racePosition = 8;
+  initTrack();
+  for (const id of ['gameOverModal', 'garageModal', 'settingsModal', 'leaderboardModal', 'continueOffer']) document.getElementById(id)?.classList.add('hidden');
+  document.getElementById('titleScreen').classList.remove('hidden');
+  document.body.classList.add('on-title');
+  document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
+  renderRacerPill();
+  syncRunnerUi(true);
+  refreshRival();
+}
+let home = null; // src/home.js: hooks, results → home, history, the attract driver (lazy)
 
 
 
@@ -2602,6 +2581,7 @@ function mainLoop(timestamp) {
     // attract mode rolls the road.
     if (GameState.status !== 'PAUSED' && GameState.status !== 'GRID') {
       GameState.trackPos += 1350 * dt;
+      if (home) home.attract(dt);
       const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
       if (track.end - currentSegIdx < ROAD_CFG.drawDistance + 60) {
         generateNextTrackBiome();
@@ -2662,6 +2642,7 @@ window.onload = () => {
   if (DEBUG_MODE) window.__OT = !/^(localhost|127\.0\.0\.1|\[::1\])$|\.workers\.dev$/.test(location.hostname) ? { view } : {
     GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
+    home: () => home, // the home flow (0185), once its chunk is in
     finishRun: () => endRaceRun('🏁 FINISH!'),
     mission: advanceContractProgress,
     traffic: () => LiveTraffic,
@@ -2695,6 +2676,12 @@ window.onload = () => {
   }).catch(() => {}), 0);
   setTimeout(loadGfx, 0);
   setTimeout(() => { loadResultsUi().catch(() => {}); loadMusic().catch(() => {}); }, 0);
+  setTimeout(() => import('./home.js').then((m) => { home = m.createHome({
+    state: GameState, save: SaveStore, goHome: showTitle, play: () => startNewRace(titleStart || { mode: 'INFINITE' }),
+    daily: () => startNewRace({ daily: true }), garage: openGarageModal, ranks: () => openLeaderboard(), pause: openGarageModal,
+    tv: () => { location.href = `${import.meta.env.BASE_URL}?tv`; }, leaveLive: () => live.leave(), touchActive: () => !!touch,
+    bigScreen: !coarsePointer,
+  }); }).catch(() => {}), 0);
   bindRaceStageSkip();
   if (/[?&]track=/.test(location.search)) loadShareUi().catch(() => {});
   watchLayout();

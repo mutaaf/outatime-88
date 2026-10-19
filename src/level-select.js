@@ -1,6 +1,7 @@
 // Events panel: the level cards with medals and bests (split out of main.js to keep the boot
 // bundle in budget). Rendered on demand when the panel opens.
 import { LEVEL_MEDALS, MEDAL_ICON } from './progress.js';
+import { isOwned, unlockProgress } from './cars.js';
 
 export function renderLevelGrid({ GameState, SaveStore, levels, shortScore, picked }) {
   const grid = document.getElementById('levelSelectGrid');
@@ -51,5 +52,44 @@ export function renderLevelGrid({ GameState, SaveStore, levels, shortScore, pick
       picked();
     });
     grid.appendChild(card);
+  });
+}
+
+/** Events panel: the driver/car grid (moved out of main.js, ticket 0185). Locked cars open the garage. */
+export function renderRosterGrid({ GameState, SaveStore, roster, locked, pick }) {
+  const grid = document.getElementById('characterRosterGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  roster.forEach((c, idx) => {
+    const isSel = (idx === GameState.selectedCharIdx);
+    const owned = isOwned(SaveStore.data, c.id);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.carId = c.id;
+    btn.dataset.locked = owned ? '0' : '1';
+    btn.className = `text-left p-2 rounded-xl border transition flex flex-col justify-between ${
+      !owned
+        ? 'bg-slate-950/80 border border-slate-800 text-slate-400'
+        : isSel
+        ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow'
+        : 'bg-slate-900/90 border border-slate-800 text-slate-300 hover:border-slate-600'
+    }`;
+    btn.innerHTML = owned ? `
+      <div class="font-arcade text-[9px] font-black text-white truncate">${c.car}</div>
+      <div class="text-[9px] text-cyan-300 truncate">${c.driver}</div>
+      <div class="flex items-center justify-between text-[8px] font-arcade text-slate-400 mt-1">
+        <span class="text-emerald-300">💚${c.maxHp}HP</span>
+        <span>${c.massKg}kg</span>
+      </div>
+    ` : `
+      <div class="font-arcade text-[9px] font-black text-slate-300 truncate">🔒 ${c.car}</div>
+      <div class="text-[9px] text-amber-300/90 leading-tight">${unlockProgress(SaveStore.data, c.id).text}</div>
+    `;
+    btn.addEventListener('click', () => {
+      if (!owned) { locked(c.id); return; }
+      pick(idx);
+    });
+    grid.appendChild(btn);
   });
 }

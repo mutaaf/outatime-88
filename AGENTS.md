@@ -200,6 +200,12 @@ src/perf/           Graphics quality (ticket 0041), render-only — the sim is i
                       gfx-boot.js (lazy: Settings → GRAPHICS, ?debug overlay). See § Graphics tiers.
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
+src/home-hooks.js   Home screen hooks (0185), pure: ranked, true reasons to play (best/next tier, daily +
+                      real countdown + streak, next car, goals, rival, news, TV) and the first-visit test
+src/home.js         Home flow (0185), lazy chunk + home.css: draws the hooks or the 3-beat pitch, the
+                      attract-road AI driver, results → home (HOME, 20 s idle, Esc, pad B), pause QUIT,
+                      and history (a race = one entry; Back = home from results, pause mid-race).
+                      main.js showTitle() is the ONE way back to the title — reuse it, never hand-roll it
 src/raceflow.js     Race rules: field, laps, length, rival pace, standings, gaps, finish timing
 src/racecall.js     Race ceremony rules: start timeline, rocket start, callouts, finish order, headlines
 src/racestage.js    Ceremony on screen: lineup cards, lights, flag, podium rows, beeps, fanfare, speech
