@@ -1,7 +1,7 @@
 // Pause → resume never leaves the race frozen, whichever way you paused, and a thumb that
 // goes down during the start lights is the stick once the race goes green.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, touchReady } from './helpers.js';
 
 const SAVE_KEY = 'outatime_cruisn_88_save_v2';
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -20,6 +20,7 @@ async function race(page, query = '?debug') {
   await page.goto(`${APP}${query}`);
   await page.evaluate(() => window.__OT.startRace());
   await expect.poll(() => page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
+  await touchReady(page); // the touch kit is its own chunk: the stick isn't there until it lands
 }
 
 const status = (page) => page.evaluate(() => window.__OT.GameState.status);
@@ -55,6 +56,7 @@ test('gear → RESUME', async ({ page }) => {
 test('gear, then the back gesture, then RESUME', async ({ page }) => {
   await race(page);
   await page.locator('#btnHudSettings').tap();
+  await expect(page.locator('#settingsModal')).toBeVisible(); // open before the back gesture
   await page.goBack();
   await expect(page.locator('#settingsModal')).toBeVisible();
   await expectRunsAfterResume(page, resumeButton(page));

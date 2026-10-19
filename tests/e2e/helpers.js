@@ -117,3 +117,8 @@ export async function racing(page, { minTime = 0.3, timeout = 20000 } = {}) {
     return g && g.status === 'PLAYING' && g.racePhase !== 'START' && g.raceTime >= m;
   }, minTime, { timeout });
 }
+
+/** Touch devices: wait until the lazily loaded touch kit (stick, buttons, gestures) is live. */
+export function touchReady(page, { timeout = 20000 } = {}) {
+  return page.waitForFunction(() => Boolean(window.__OT && window.__OT.touch && window.__OT.touch()), null, { timeout });
+}

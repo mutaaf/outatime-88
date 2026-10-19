@@ -1,16 +1,16 @@
 // Share your result (ticket 0053): a personalised card with a live preview, native share with
 // the image where allowed, copy-link and save-image fallbacks, and challenge links.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, racing } from './helpers.js';
 
 async function finishFirst(page) {
   await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ initials: 'ACE', onboarded: true, bestScore: 1 })));
   await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.ready()); // results come from the lazy ceremony chunk
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
-  await page.waitForTimeout(400);
+  await racing(page, { minTime: 0.4 });
   await page.evaluate(() => { const g = window.__OT.GameState; g.distance = g.raceLength - 10; g.speed = 140; });
-  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 8000 });
+  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 15000 }); // after a 2.8 s (game time) roll-out
   await expect(page.locator('#sharePreview')).toHaveAttribute('src', /^blob:/, { timeout: 8000 });
 }
 
@@ -29,8 +29,10 @@ test('no share sheet API: the sheet opens with the card, COPY LINK and SAVE IMAG
   await expect(page.locator('#shareStatus')).toContainText('COPIED');
   const clip = await page.evaluate(() => navigator.clipboard.readText());
   expect(clip).toMatch(/\/outatime\/\?track=1&beat=\d+\.\d&by=ACE/);
-  await page.locator('[data-format="wide"]').click();
-  await expect(page.locator('#shareSheetImg')).toHaveAttribute('data-format', 'wide');
+  await page.locator('#shareSheet button[data-format="wide"]').click();
+  // The wide card is drawn and PNG-encoded on the main thread: seconds on a
+  // starved software-rendered runner, so give that one step room.
+  await expect(page.locator('#shareSheetImg')).toHaveAttribute('data-format', 'wide', { timeout: 20000 });
   const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('#btnShareSave').click()]);
   expect(dl.suggestedFilename()).toMatch(/^outatime-\d(st|nd|rd|th)-.+\.png$/);
   const path = await dl.path();

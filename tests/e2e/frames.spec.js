@@ -48,7 +48,7 @@ const jsWindow = (page, frames) => page.evaluate((frames) => new Promise((done) 
 }), frames);
 
 for (const view of ['2d', '3d']) {
-  test(`${view}: the game's per-frame JS holds a 60 Hz budget at p95/p99, and makes little garbage`, async ({ page }, info) => {
+  test(`${view}: the game's per-frame JS holds a 60 Hz budget at p95/p99, and makes little garbage`, { tag: '@perf' }, async ({ page }, info) => {
     test.setTimeout(90_000);
     const problems = watchPage(page);
     await race(page, view);

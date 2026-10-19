@@ -1,7 +1,7 @@
 // Competition (ticket 0091) end to end against the real Worker handlers: the rank card after
 // a run, the weekly board with your row, and the rival / "passed you" line on the title.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, simWait } from './helpers.js';
 import { createBackend } from './backend.js';
 
 // Runs shorter than 4 s are rejected by the server's plausibility check, so each run waits.
@@ -139,7 +139,9 @@ test('a finished race leaves a ghost, and you can race it from the results', asy
   await expect(page.locator('#gameOverModal')).toBeHidden();
   await expect(page.locator('#hudGhost')).toContainText('👻 CLD', { timeout: 5000 });
   expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
-  await page.waitForTimeout(1500);
+  // The server turns away runs under 4 s (LIMITS.minDurationMs) with a 422, which logs a console
+  // error: drive the ghost race past that in game time, which is never ahead of the wall clock.
+  await simWait(page, 4.5);
   await page.evaluate(() => { const G = window.__OT.GameState; G.finishTime = 0.5; window.__OT.finishRun(); });
   await expect(page.locator('#endGhostText')).toContainText("YOU BEAT CLD'S GHOST");
   expect(problems).toEqual([]);

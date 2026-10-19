@@ -1,7 +1,7 @@
 // A real race (ticket 0051): six named racers, three laps, a finish line, and a HUD that
 // says where you are at a glance on phones and tablets in both orientations.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage, HUD_PANELS } from './helpers.js';
+import { APP, watchPage, HUD_PANELS, racing } from './helpers.js';
 
 const gs = (page, expr) => page.evaluate(`window.__OT.GameState.${expr}`);
 
@@ -32,9 +32,11 @@ test('crossing the line finishes the race with your place and a finish bonus', a
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
-  await page.waitForTimeout(500);
+  await racing(page, { minTime: 0.5 }); // half a second of race time, however slow the runner
   await page.evaluate(() => { const g = window.__OT.GameState; g.distance = g.raceLength - 20; g.speed = 120; });
-  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 5000 });
+  await page.waitForFunction(() => window.__OT.GameState.racePhase === 'FINISHED');
+  // The chequered-flag roll-out lasts 2.8 s of game time; a loaded runner steps it slower.
+  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 15000 });
   await expect(page.locator('#endModalBadge')).toContainText('FINISH');
   const pos = await gs(page, 'racePosition');
   await expect(page.locator('#endWarpsText')).toContainText(new RegExp(`^${pos}(ST|ND|RD|TH)`));

@@ -123,6 +123,11 @@ test('after one visit the game boots, races in 2D and 3D, plays sounds and shows
   console.log(`[${browserName}] offline cache: ${status.total} files, ${(status.bytes / 1048576).toFixed(2)} MB`);
 
   await net.down();
+  // Diagnostics (CI only fails this now and then, in WebKit): the game reloads itself once if a
+  // lazy chunk fails to load (vite:preloadError, src/offline.js), which shows up below as an
+  // interrupted navigation. Name the file that failed when that happens.
+  page.on('requestfailed', (r) => { if (!/\/api\//.test(r.url())) console.log(`[${browserName}] offline request failed: ${r.url()} (${r.failure()?.errorText})`); });
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) console.log(`[${browserName}] navigated: ${f.url()}`); });
   await page.reload();
   await expect(page.locator('#titleScreen')).toBeVisible();
   await expect(page.locator('#offlinePill')).toHaveText(browserName === 'firefox' ? /READY FOR OFFLINE/ : /PLAYING OFFLINE/);
@@ -231,6 +236,11 @@ test('a race started offline says it saved your best on this device', async ({ p
   });
   await goOnlineThenWaitReady(page, net.url(`${APP}?debug`));
   await net.down();
+  // Diagnostics (CI only fails this now and then, in WebKit): the game reloads itself once if a
+  // lazy chunk fails to load (vite:preloadError, src/offline.js), which shows up below as an
+  // interrupted navigation. Name the file that failed when that happens.
+  page.on('requestfailed', (r) => { if (!/\/api\//.test(r.url())) console.log(`[${browserName}] offline request failed: ${r.url()} (${r.failure()?.errorText})`); });
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) console.log(`[${browserName}] navigated: ${f.url()}`); });
   await page.reload();
   await page.keyboard.press('Enter');
   await expect.poll(() => page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');

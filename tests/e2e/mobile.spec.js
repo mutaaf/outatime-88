@@ -86,7 +86,7 @@ test('phone portrait: no button sits on your car, and the first race is never pa
   expect(hits).toEqual([]);
 });
 
-test('slow phone (4× CPU throttle): the race keeps moving and the governor holds the frame rate', async ({ page }) => {
+test('slow phone (4× CPU throttle): the race keeps moving and the governor holds the frame rate', { tag: '@perf' }, async ({ page }) => {
   test.slow();
   await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ controls: { coachSeen: true } })));
   await page.goto(`${APP}?debug`);

@@ -26,18 +26,25 @@ test('a tap nudges, a hold ramps to full lock, and sideways motion has no jumps'
   // stay down a little longer than 50 ms of sim time: judge the peak against how long it was
   // actually held (a small first step, then the wheel ramps at ~4.2 lock/s), and wait for the
   // return to centre in sim time too.
-  const held = await page.evaluate(() => new Promise((done) => {
+  // The 10 ms recorder can miss a 50 ms tap entirely on a starved runner, so the tap watches
+  // the wheel itself too (every 1 ms while held, every 5 ms on the way back).
+  const { held, peak } = await page.evaluate(() => new Promise((done) => {
     const g = window.__OT.GameState, inp = window.__OT.InputState, t0 = g.raceTime;
+    let peak = 0;
     inp.right = true;
     const id = setInterval(() => {
+      peak = Math.max(peak, g.steerInput);
       if (g.raceTime - t0 < 0.05) return;
       inp.right = false; clearInterval(id);
       const held = g.raceTime - t0, t1 = g.raceTime;
-      const back = setInterval(() => { if (g.raceTime - t1 >= 0.5) { clearInterval(back); done(held); } }, 5);
+      const back = setInterval(() => {
+        peak = Math.max(peak, g.steerInput);
+        if (g.raceTime - t1 >= 0.5) { clearInterval(back); done({ held, peak }); }
+      }, 5);
     }, 1);
   }));
   const tap = await take(page);
-  const tapPeak = Math.max(...tap.map((r) => r[1]));
+  const tapPeak = Math.max(peak, ...tap.map((r) => r[1]));
   expect(tapPeak).toBeGreaterThan(0.05);
   expect(tapPeak).toBeLessThan(0.15 + 4.2 * held + 0.05); // first step + the ramp, never a jump to lock
   if (held < 0.1) expect(tapPeak).toBeLessThan(0.6); // a real tap is never full lock

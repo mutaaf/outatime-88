@@ -77,7 +77,7 @@ test('3D: the loop and the corkscrew are real geometry the car and camera follow
   test.setTimeout(150000);
   const problems = watchPage(page);
   await race(page, { level: 0, view: '3d' });
-  await page.waitForFunction(() => window.__OT.view().mode === '3d', null, { timeout: 30000 });
+  await page.waitForFunction(() => window.__OT.view().mode === '3d' && window.__OT.view().stats, null, { timeout: 30000 }); // the 3D view itself is up
   const loop = await jumpTo(page, 'LOOP', 2500);
   const seen = await driveThrough(page, loop);
   expect(seen.entered).toBe(true);
@@ -160,14 +160,14 @@ for (const [w, h] of SIZES) {
   });
 }
 
-test('perf: frame cost through hairpins and a corkscrew stays playable in 2D and 3D', async ({ page }, info) => {
+test('perf: frame cost through hairpins and a corkscrew stays playable in 2D and 3D', { tag: '@perf' }, async ({ page }, info) => {
   test.setTimeout(150000);
   // Shared CI runners render 3D in software (SwiftShader) next to noisy neighbours, so judge the
   // game's own JS work per frame (median, after a warm-up), plus a loose ceiling on the median
   // frame interval that only a frozen or crawling frame loop trips (helpers.js frameStats).
   for (const view of ['', '3d']) {
     await race(page, { level: 3, view });
-    if (view) await page.waitForFunction(() => window.__OT.view().mode === '3d', null, { timeout: 30000 });
+    if (view) await page.waitForFunction(() => window.__OT.view().mode === '3d' && window.__OT.view().stats, null, { timeout: 30000 });
     await jumpTo(page, 'CORKSCREW', 1000);
     await page.keyboard.down('ArrowUp');
     const st = await frameStats(page, { frames: 90, warmup: 30 });

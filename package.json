@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "playwright test",
+    "e2e:flake-guard": "node scripts/e2e-repeat-changed.mjs",
     "check": "node scripts/check-backlog.mjs && npm run lint && npm test && npm run e2e",
     "lint": "eslint .",
     "check:fast": "node scripts/check-backlog.mjs && npm run lint && npm test && npm run build"
