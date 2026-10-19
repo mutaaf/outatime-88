@@ -575,6 +575,39 @@ export function activateMidnightSpecial(type) {
   updateLiveHud();
 }
 
+// The Arc Pulse Beam (B key / pulse button): moved out of main with the rest of race-only code.
+export function fireUnibeam() {
+  SoundEngine.init();
+  if (GameState.fluxCharge < 18 && GameState.specialCharges <= 0) {
+    JarvisAI.setStatus('Arc Core needs 18% Flux energy to fire the Pulse Beam.', false);
+    return;
+  }
+  GameState.fluxCharge = Math.max(0, GameState.fluxCharge - 18);
+  GameState.unibeamTimer = 0.42;
+  SoundEngine.playAbilityRoar();
+
+  let hitCar = null;
+  let bestDz = 999999;
+  const allTargets = LiveTraffic.racers.concat(LiveTraffic.traffic);
+  for (let i = 0; i < allTargets.length; i++) {
+    const c = allTargets[i];
+    const dz = c.worldZ - (GameState.trackPos + ROAD_CFG.playerZOffset);
+    if (!c.takenDown && dz > 150 && dz < 4800 && dz < bestDz) {
+      bestDz = dz;
+      hitCar = c;
+    }
+  }
+
+  if (hitCar) {
+    triggerRivalTakedown(hitCar, '💠 ARC PULSE TAKEDOWN!');
+    JarvisAI.setStatus(`Target ${hitCar.name} neutralized via Mark-88 Arc Pulse Beam.`, true);
+  } else {
+    GameState.speed = Math.min(135, GameState.speed + 14);
+    JarvisAI.setStatus('Arc Pulse Beam discharged. Pulse overboost applied.', false);
+    triggerAnnouncement('💠 ARC PULSE BEAM FIRED!', '+14 MPH PULSE THRUST!', 1100);
+  }
+}
+
 // --- TIME WARP AT 88 MPH ---
 export function triggerTimeWarp() {
   SoundEngine.playTimeWarp88();

@@ -73,7 +73,7 @@ const raceCall = (name) => (...args) => (raceStep ? raceStep[name](...args) : un
 const applyPlayerDamage = raceCall('applyPlayerDamage');
 const healPlayerHp = raceCall('healPlayerHp');
 const performHumanTrick = raceCall('performHumanTrick');
-const triggerRivalTakedown = raceCall('triggerRivalTakedown');
+const fireUnibeam = raceCall('fireUnibeam'); // the B-key pulse beam (race-only: lives in the race step)
 const activateMidnightSpecial = raceCall('activateMidnightSpecial');
 const updateInteractiveCoach = raceCall('updateInteractiveCoach');
 const updateLiveHud = raceCall('updateLiveHud');
@@ -137,37 +137,6 @@ export const JarvisAI = {
           window.speechSynthesis.speak(u);
         } catch (e) {}
       }
-    }
-  },
-  fireUnibeam() {
-    SoundEngine.init();
-    if (GameState.fluxCharge < 18 && GameState.specialCharges <= 0) {
-      this.setStatus('Arc Core needs 18% Flux energy to fire the Pulse Beam.', false);
-      return;
-    }
-    GameState.fluxCharge = Math.max(0, GameState.fluxCharge - 18);
-    GameState.unibeamTimer = 0.42;
-    SoundEngine.playAbilityRoar();
-
-    let hitCar = null;
-    let bestDz = 999999;
-    const allTargets = LiveTraffic.racers.concat(LiveTraffic.traffic);
-    for (let i = 0; i < allTargets.length; i++) {
-      const c = allTargets[i];
-      const dz = c.worldZ - (GameState.trackPos + ROAD_CFG.playerZOffset);
-      if (!c.takenDown && dz > 150 && dz < 4800 && dz < bestDz) {
-        bestDz = dz;
-        hitCar = c;
-      }
-    }
-
-    if (hitCar) {
-      triggerRivalTakedown(hitCar, '💠 ARC PULSE TAKEDOWN!');
-      this.setStatus(`Target ${hitCar.name} neutralized via Mark-88 Arc Pulse Beam.`, true);
-    } else {
-      GameState.speed = Math.min(135, GameState.speed + 14);
-      this.setStatus('Arc Pulse Beam discharged. Pulse overboost applied.', false);
-      triggerAnnouncement('💠 ARC PULSE BEAM FIRED!', '+14 MPH PULSE THRUST!', 1100);
     }
   }
 };
@@ -2011,7 +1980,7 @@ function bindAllControls() {
     if (e.code === 'KeyR') InputState.roarPressed = true;
     if (e.code === 'KeyQ') InputState.twoWheelPressed = true;
     if (e.code === 'KeyF') InputState.slamPressed = true;
-    if (e.code === 'KeyB') JarvisAI.fireUnibeam();
+    if (e.code === 'KeyB') fireUnibeam();
     if (e.code === 'KeyI') cycleJarvisMode();
     if (e.code === 'KeyK' && steerModes) steerModes.cycleMode(e.shiftKey ? -1 : 1);
     if (e.code === 'KeyJ') toggleJarvisArHud();
@@ -2063,7 +2032,7 @@ function bindAllControls() {
   document.getElementById('btnAbilityZone').addEventListener('click', () => activateMidnightSpecial('ZONE'));
   document.getElementById('btnAbilityAgro').addEventListener('click', () => activateMidnightSpecial('AGRO'));
   document.getElementById('btnAbilityRoar').addEventListener('click', () => activateMidnightSpecial('ROAR'));
-  document.getElementById('btnPulseBeam').addEventListener('click', () => { JarvisAI.fireUnibeam(); });
+  document.getElementById('btnPulseBeam').addEventListener('click', () => { fireUnibeam(); });
   document.getElementById('btnJarvisMode').addEventListener('click', cycleJarvisMode);
   document.getElementById('btnJarvisArToggle').addEventListener('click', toggleJarvisArHud);
   document.getElementById('btnTwoWheel').addEventListener('click', () => { SoundEngine.init(); InputState.twoWheelPressed = true; });
@@ -2647,8 +2616,8 @@ window.onload = () => {
   // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself). Only
   // on local and preview hosts: on the real site ?debug keeps just the graphics overlay, so the
   // console isn't a one-line score editor (ticket 0180).
-  if (DEBUG_MODE && !/^(localhost|127\.0\.0\.1|\[::1\])$|\.workers\.dev$/.test(location.hostname)) window.__OT = { view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }) };
-  else if (DEBUG_MODE) window.__OT = {
+  const view = () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null });
+  if (DEBUG_MODE) window.__OT = !/^(localhost|127\.0\.0\.1|\[::1\])$|\.workers\.dev$/.test(location.hostname) ? { view } : {
     GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
@@ -2659,7 +2628,7 @@ window.onload = () => {
     offline: () => loadOffline().then((m) => m.offlineDebug()),
     ads: boardsDebug,
     gfx: () => gfx,
-    view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }),
+    view,
     setView: (m) => setRenderMode(m, { persist: false }),
     input: InputState,
     controls: () => SaveStore.data.controls,
