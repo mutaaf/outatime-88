@@ -1114,6 +1114,7 @@ export function updateGame(rawDt) {
   // speed by how hard you hit, a yaw kick away from the barrier, and grinding costs speed.
   // Touching the wall (pressed against it, or bouncing off this step) grinds: smoke and scrub.
   GameState.wallGrind = Math.abs(GameState.playerX) >= MAX_TRACK_X - 0.004;
+  if (RS.pinnedT > 0) RS.pinnedT -= rawDt;
   if (GameState.playerX < -MAX_TRACK_X || GameState.playerX > MAX_TRACK_X) {
     const side = GameState.playerX < 0 ? -1 : 1;
     GameState.playerX = side * MAX_TRACK_X;
@@ -1121,7 +1122,8 @@ export function updateGame(rawDt) {
     // Points barely move for a scrape now (ticket 0165); grinding wears HP instead, never to 0.
     // A shield (0177) takes a hard hit into the wall and buys a second of grinding for free.
     if (GameState.playerVX * side > 0.35 && GameState.speed >= 30 && GameState.invulnTimer <= 0) shieldBreak(side * 0.6);
-    if (GameState.speed >= 30 && GameState.invulnTimer <= 0) {
+    // Pinned against the wall by a car (0176): that's the car's doing, not a grind you chose.
+    if (GameState.speed >= 30 && GameState.invulnTimer <= 0 && !(RS.pinnedT > 0)) {
       GameState.hp = Math.max(Math.min(GameState.hp, 1), GameState.hp - 5 * activeCarParams().damageMult * currentDifficulty().damage * rawDt);
     }
     const hit = GameState.playerVX * side > 0;
@@ -2356,12 +2358,31 @@ export const LiveTrafficMethods = {
           } else {
             const totalInvMass = playerInvMass + tr.invMass;
             const e = 0.42;
-            GameState.dodgeStreak = 0; GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0; applyPlayerDamage(14, 'TRAFFIC COLLISION');
-            spawnObstacleShatter(tr.offset - GameState.playerX, '#ef4444', '#fde047', '💥 SOLID TRAFFIC IMPACT!');
-            GameState.suspVel -= 210;
-            GameState.chassisPitchVel += 16;
+            // Pinned (0176): you're on the wall and this car is on your inside. It yields (a line
+            // clear of you, held for a while), and if it's only clipping your lane you slide past.
+            const wallSide = Math.sign(GameState.playerX);
+            const pinned = Math.abs(GameState.playerX) >= 0.70 && (tr.offset - GameState.playerX) * wallSide < 0;
+            const clipping = latDist > minLatSep - 0.09;
+            if (pinned) {
+              RS.pinnedT = 0.5;
+              tr.avoidX = Math.max(-0.66, Math.min(0.66, GameState.playerX - wallSide * (minLatSep + 0.06)));
+              tr.avoidZ = tr.worldZ + 2500;
+            }
+            // One crash per contact: staying in touch with the same car isn't a new hit every step.
+            const fresh = !(tr.touchT > GameState.raceTime - 0.3);
+            tr.touchT = GameState.raceTime;
+            if (fresh) {
+              GameState.dodgeStreak = 0; GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0; applyPlayerDamage(14, 'TRAFFIC COLLISION');
+              spawnObstacleShatter(tr.offset - GameState.playerX, '#ef4444', '#fde047', '💥 SOLID TRAFFIC IMPACT!');
+              GameState.suspVel -= 210;
+              GameState.chassisPitchVel += 16;
+            }
 
-            if (prevPZ < tr.prevZ - tr.halfL * 0.5) {
+            if (pinned && clipping) {
+              // The wall holds you, so the car takes all the separation; you keep your speed.
+              tr.offset -= wallSide * (minLatSep - latDist + 0.02);
+              tr.vx = -wallSide * Math.max(0.3, -wallSide * tr.vx);
+            } else if (prevPZ < tr.prevZ - tr.halfL * 0.5) {
               // Into its back: a semi barely moves and stops you; a sedan gets shoved and,
               // hit off-centre, spins.
               GameState.trackPos = tr.worldZ - ROAD_CFG.playerZOffset - (playerHalfL + tr.halfL + 8);
