@@ -273,7 +273,10 @@ deterministic, called once per 120 Hz step from `updateGame`. Keys are digital a
 (`stepSteer`). Stick, tilt, wheel and touch are analog and share the same speed-sensitive lock.
 `stepLateral` is grip-limited: corners pull ∝ curve·v², banks relieve it, and slip past grip is
 a drift. Tune it with the constants `STEER` and `LATERAL` and keep `tests/unit/handling.test.js`
-green. Car specs feed it through `handlingFor(carParams(car), tyreLevel)`.
+green. Car specs feed it through `handlingFor(carParams(car), tyreLevel)`. v4 (ticket 0181): the
+tyres follow `tyreCurve` (linear to 75% of grip, round over to the peak, fall 10% past it), weight
+transfer follows the chassis pitch (`weight`), counter-steer catches a slide (`catchAt`), and each
+era's `grip` is the road surface (lateral only).
 
 ### Set pieces (sprint 4)
 

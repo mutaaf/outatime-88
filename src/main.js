@@ -610,6 +610,7 @@ function syncContactZ() {
 // The backdrop's per-frame facts, reused every frame (no allocation in the render loop).
 const backdropFrame = { curve: 0, trackPos: 0, playerX: 0, t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false };
 
+let lookPx = 0, lookClock = 0; // 2D look-into-the-corner (ticket 0181)
 function renderScene() {
   const eraCfg = getActiveEraRenderConfig();
   const camCfg = CAMERA_MODES[GameState.cameraMode] || CAMERA_MODES[0];
@@ -696,6 +697,18 @@ function renderScene() {
   const cameraZ = GameState.trackPos;
   const dynamicDepth = cameraDepth(camCfg, GameState.speed);
 
+  // Look into the corner (ticket 0181): the chase cam turns toward where the road goes (the
+  // curvature ahead) and where the car points (its yaw), like a driver's eyes. A shift of the
+  // view's centre line, so road, cars and props all move together; off for loops, corkscrews
+  // and under reduced motion.
+  const racing = GameState.status === 'PLAYING' || GameState.status === 'PAUSED';
+  const lookOn = racing && !GameState.reducedMotion && roll === 0 && !(setPieceArt && loopNear(GameState.trackPos + ROAD_CFG.playerZOffset));
+  const lookWant = lookOn ? -Math.max(-0.045, Math.min(0.045, (GameState.upcomingCurveSum || 0) * 0.0025 + (GameState.carYaw || 0) * 0.06)) * rw : 0;
+  const lookDt = Math.min(0.1, Math.max(0, RS.fxClock - lookClock)); // sim time: holds while paused
+  lookClock = RS.fxClock;
+  if (!racing) lookPx = 0;
+  else lookPx += (lookWant - lookPx) * (1 - Math.exp(-lookDt * 2.6));
+  const viewCx = rw / 2 + Math.round(lookPx);
   let x = 0;
   let dx = -(baseSeg.curve * basePercent);
   let maxY = rh;
@@ -711,8 +724,8 @@ function renderScene() {
     seg.p1.world.x = x;
     seg.p2.world.x = x + dx;
 
-    projectPoint(seg.p1, cameraX, cameraY, cameraZ, dynamicDepth, rw, rh);
-    projectPoint(seg.p2, cameraX, cameraY, cameraZ, dynamicDepth, rw, rh);
+    projectPoint(seg.p1, cameraX, cameraY, cameraZ, dynamicDepth, rw, rh, viewCx);
+    projectPoint(seg.p2, cameraX, cameraY, cameraZ, dynamicDepth, rw, rh, viewCx);
 
     x += dx;
     dx += seg.curve;
@@ -1276,11 +1289,13 @@ const rideMovers = [null, null, null]; // reused: the cars the loop ride view dr
 /** A loop under the car, or one it is just entering or leaving (the ride view's blend). */
 function loopNear(z) {
   const k = setPieceArt.LOOP_CAM.fade;
-  for (const d of [0, k, -k]) {
-    const f = featureAt(z + d);
-    if (f && f.kind === 'LOOP') return f;
-  }
-  return null;
+  // Here, just ahead or just behind (three calls, no array: this runs every frame).
+  let f = featureAt(z);
+  if (f && f.kind === 'LOOP') return f;
+  f = featureAt(z + k);
+  if (f && f.kind === 'LOOP') return f;
+  f = featureAt(z - k);
+  return f && f.kind === 'LOOP' ? f : null;
 }
 
 /** Pickups flying into the car, hit shockwaves and debris (screen space; both renderers). */
