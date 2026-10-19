@@ -43,12 +43,14 @@ test('a gas-only arcade race reaches the finish within the level cap', async ({ 
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' })); // a track race (PLAY is Endless, 0150)
   await page.keyboard.down('ArrowUp');
   const t0 = Date.now();
-  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 125_000 }); // cap 100 s of game time + CI slack
+  await expect(page.locator('#gameOverModal')).toBeVisible({ timeout: 150_000 }); // cap 100 s of game time + CI slack
   await page.keyboard.up('ArrowUp');
-  // The cap is game time; on a loaded CI box the fixed-step sim can run a little slower than
-  // the wall clock, so allow 15 s of slack.
-  expect((Date.now() - t0) / 1000).toBeLessThanOrEqual(115);
+  // The cap is game time, so judge it in game time: a loaded runner steps the sim slower than
+  // the wall clock, and the wall clock says nothing about the level. The chequered-flag
+  // roll-out after the line adds up to 2.8 s.
+  const raceTime = await page.evaluate(() => window.__OT.GameState.raceTime);
+  expect(raceTime).toBeLessThanOrEqual(103);
   await expect(page.locator('#endModalBadge')).toContainText(/FINISH|WRECKED|TIME UP/);
-  console.log(`gas-only run: ${((Date.now() - t0) / 1000).toFixed(1)}s, score ${await page.evaluate(() => window.__OT.GameState.score)}`);
+  console.log(`gas-only run: ${raceTime.toFixed(1)} s of game time (${((Date.now() - t0) / 1000).toFixed(1)} s wall), score ${await page.evaluate(() => window.__OT.GameState.score)}`);
   expect(problems).toEqual([]);
 });

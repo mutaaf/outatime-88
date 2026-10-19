@@ -146,10 +146,17 @@ for (const vp of VIEWPORTS) {
     const st = await page.locator('#garageStage').boundingBox();
     await page.locator('#garageStage').scrollIntoViewIfNeeded();
     const st2 = await page.locator('#garageStage').boundingBox();
-    await page.mouse.move(st2.x + st2.width * 0.8, st2.y + st2.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(st2.x + st2.width * 0.2, st2.y + st2.height / 2, { steps: 3 });
-    await page.mouse.up();
+    // A swipe is a drag that lifts within 320 ms: send it as one burst of input events (CDP
+    // runs them in order), not five round trips that a loaded runner can stretch past that.
+    const y = st2.y + st2.height / 2, x0 = st2.x + st2.width * 0.8, x1 = st2.x + st2.width * 0.2;
+    const cdp = await page.context().newCDPSession(page);
+    const mouse = (type, x, buttons) => cdp.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons, clickCount: 1 });
+    await mouse('mouseMoved', x0, 0);
+    await Promise.all([
+      mouse('mousePressed', x0, 1),
+      ...[0.33, 0.66, 1].map((k) => mouse('mouseMoved', x0 + (x1 - x0) * k, 1)),
+      mouse('mouseReleased', x1, 0),
+    ]);
     await expect(page.locator('#garageModal')).not.toHaveAttribute('data-view-car', 'FLUX_COUPE_88');
     expect(st.width).toBeGreaterThan(200);
     expect(problems).toEqual([]);

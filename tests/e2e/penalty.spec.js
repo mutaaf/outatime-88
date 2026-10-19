@@ -18,7 +18,9 @@ test('grinding the wall costs points, shows a popup, and the results explain it'
   await page.keyboard.down('ArrowRight');
   await expect(page.locator('#hudPenalty')).toContainText('WALL SCRAPE', { timeout: 8000 });
   await expect(page.locator('#hudPenalty')).toContainText('−');
-  await page.waitForTimeout(800);
+  // Keep grinding until the log holds more than 300 ms of wall contact (game time: a loaded
+  // runner steps the sim slower than the wall clock, so 800 ms of waiting could log less).
+  await page.waitForFunction(() => window.__OT.GameState.penaltyLog.wallMs > 300, null, { timeout: 15000 });
   await page.keyboard.up('ArrowRight');
   await page.keyboard.up('ArrowUp');
   const log = await page.evaluate(() => window.__OT.GameState.penaltyLog);

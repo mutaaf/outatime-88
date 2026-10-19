@@ -3,7 +3,7 @@ import { APP, frameStats } from './helpers.js';
 
 // Light perf probe: median rAF interval during a race (after a warm-up; helpers.js frameStats). Thresholds are deliberately
 // generous (headless CI uses software rendering); the Keeper tracks the trend in docs/PERF.md.
-test('perf probe: median frame interval during a race', async ({ page }, info) => {
+test('perf probe: median frame interval during a race', { tag: '@perf' }, async ({ page }, info) => {
   await page.goto(APP);
   await page.locator('#btnStartRace').click();
   await page.keyboard.down('ArrowUp');

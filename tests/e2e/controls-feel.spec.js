@@ -147,11 +147,17 @@ test('tilt held still is steady: sensor jitter barely moves the wheel', async ({
     const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
     const vals = [];
     let i = 0;
+    const t0 = performance.now();
     const id = setInterval(() => {
       const t = i++ * 16.7;
       // Held at 10°, with 0.5° of sensor noise and a 9 Hz hand tremor.
       const a = 10 + (rnd() - 0.5) * 1.7 + 0.3 * Math.sin(2 * Math.PI * 9 * t / 1000);
-      window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: a, gamma: a }));
+      // A real sensor reports every 16.7 ms; a loaded runner fires this timer in bursts. The
+      // filter adapts to the sample clock (e.timeStamp), so stamp each sample with its sensor
+      // time: the result is then the same on any machine.
+      const ev = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: a, gamma: a });
+      Object.defineProperty(ev, 'timeStamp', { value: t0 + t });
+      window.dispatchEvent(ev);
       if (i > 30) vals.push(window.__OT.InputState.tiltSteerVal);
       if (i > 120) {
         clearInterval(id);
@@ -161,6 +167,7 @@ test('tilt held still is steady: sensor jitter barely moves the wheel', async ({
     }, 16);
   }));
   expect(spread.mean).toBeGreaterThan(0.25);
+  console.log(`[tilt] held-still rms ${spread.rms.toFixed(4)}`);
   expect(spread.rms).toBeLessThan(0.015); // unfiltered, this noise is ~0.025
   expect(problems).toEqual([]);
 });

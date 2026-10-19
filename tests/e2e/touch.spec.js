@@ -2,7 +2,7 @@
 // browser produces the same pointer events a phone does: several fingers at once, sliding
 // between buttons, the D-pad, long-press, cancel. Uses the ?debug hook to read InputState.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, touchReady } from './helpers.js';
 
 const SAVE_KEY = 'outatime_cruisn_88_save_v2';
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -16,6 +16,7 @@ async function race(page, controls = {}) {
   }, [SAVE_KEY, controls]);
   await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.startRace());
+  await touchReady(page);
   await page.waitForTimeout(300);
   return page.context().newCDPSession(page);
 }
@@ -292,9 +293,13 @@ test('2D: holding a drag on the right side looks back (mirror); a quick flick up
   await touch(cdp, 'touchEnd', []);
   await expect(page.locator('#tcMirror')).toBeHidden({ timeout: 10000 });
   await page.evaluate(() => { window.__OT.GameState.playerY = 0; });
-  await touch(cdp, 'touchStart', [{ x: 260, y: 520 }]);
-  await touch(cdp, 'touchMove', [{ x: 260, y: 440 }]);
-  await touch(cdp, 'touchEnd', []);
+  // A flick is a swipe that lifts within 260 ms. Send the three events back to back (CDP runs
+  // them in order) instead of a round trip each, which a loaded runner can stretch past that.
+  await Promise.all([
+    touch(cdp, 'touchStart', [{ x: 260, y: 520 }]),
+    touch(cdp, 'touchMove', [{ x: 260, y: 440 }]),
+    touch(cdp, 'touchEnd', []),
+  ]);
   await expect.poll(() => page.evaluate(() => window.__OT.GameState.playerY), { timeout: 2000 }).toBeGreaterThan(3);
 });
 
@@ -302,7 +307,9 @@ test('3D: dragging the right side orbits the camera and pinch changes the chase 
   test.slow(); // SwiftShader 3D under parallel workers
   const cdp = await race(page);
   await page.evaluate(() => window.__OT.setView('3d'));
-  await expect.poll(() => page.evaluate(() => window.__OT.view().mode), { timeout: 40000 }).toBe('3d');
+  // view().mode flips to 3d at once; the 3D view (what the touch kit asks is3D() of) exists only
+  // once its chunk has loaded, and a drag before that is read as a 2D look-back.
+  await expect.poll(() => page.evaluate(() => Boolean(window.__OT.view().mode === '3d' && window.__OT.view().stats)), { timeout: 40000 }).toBe(true);
   await touch(cdp, 'touchStart', [{ x: 250, y: 420 }]);
   await touch(cdp, 'touchMove', [{ x: 340, y: 400 }]);
   await expect.poll(() => page.evaluate(() => window.__OT.input.lookYaw), { timeout: 10000 }).toBeGreaterThan(0.3);

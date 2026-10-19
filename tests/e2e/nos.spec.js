@@ -21,8 +21,12 @@ test('holding Shift burns NOS: speed goes past top speed and the gauge drains', 
     window.__nosRec = setInterval(() => { if (g.nosBurning) window.__peak = Math.max(window.__peak, g.speed); }, 5);
   });
   await page.keyboard.down('Shift');
-  await page.waitForFunction(() => window.__OT.GameState.nosBurning === true);
-  const t0 = await page.evaluate(() => window.__OT.GameState.raceTime);
+  // Start the burn from 95 mph: on a loaded runner many sim steps can pass between setting the
+  // speed above and the burn starting, and the car settles back toward its top speed meanwhile.
+  const t0 = await page.evaluate(() => new Promise((done) => {
+    const g = window.__OT.GameState;
+    const id = setInterval(() => { if (g.nosBurning) { clearInterval(id); g.speed = Math.max(g.speed, 95); done(g.raceTime); } }, 1);
+  }));
   await page.waitForFunction((t) => window.__OT.GameState.raceTime - t > 0.9, t0, { timeout: 15000 });
   const mid = await page.evaluate(() => ({ s: window.__peak, f: window.__OT.GameState.nosFill }));
   await expect(page.locator('#hudSpeedCard')).toHaveClass(/is-nos/);

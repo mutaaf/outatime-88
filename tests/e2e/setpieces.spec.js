@@ -2,14 +2,14 @@
 // corkscrew and a gap jump in 2D and 3D with no console errors, and screenshot them at phone,
 // tablet and laptop sizes in both orientations. Uses the ?debug hook to move the car.
 import { test, expect } from '@playwright/test';
-import { APP, frameStats, watchPage, canvasLitFraction } from './helpers.js';
+import { APP, frameStats, watchPage, canvasLitFraction, nextFrames, racing } from './helpers.js';
 
 async function race(page, { level = 0, view = '' } = {}) {
   await page.goto(`${APP}?debug${view ? `&view=${view}` : ''}`);
   await page.waitForFunction(() => window.__OT);
   await page.evaluate((l) => { window.__OT.GameState.levelIndex = l; }, level);
   await page.locator('#btnStartRace').click();
-  await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING', null, { timeout: 20000 });
+  await racing(page); // past the lights and stepping, so a jump isn't undone by the race start
 }
 
 /** Put the car `before` track Z ahead of the first `kind` set piece; returns the feature. */
@@ -77,7 +77,7 @@ test('3D: the loop and the corkscrew are real geometry the car and camera follow
   test.setTimeout(150000);
   const problems = watchPage(page);
   await race(page, { level: 0, view: '3d' });
-  await page.waitForFunction(() => window.__OT.view().mode === '3d', null, { timeout: 30000 });
+  await page.waitForFunction(() => window.__OT.view().mode === '3d' && window.__OT.view().stats, null, { timeout: 30000 }); // the 3D view itself is up
   const loop = await jumpTo(page, 'LOOP', 2500);
   const seen = await driveThrough(page, loop);
   expect(seen.entered).toBe(true);
@@ -91,7 +91,7 @@ test('2D: you ride round the loop itself (camera on the loop, not a cutaway), an
   await race(page, { level: 0 });
   await page.waitForFunction(() => typeof window.__OT.GameState.loopRide === 'number');
   await jumpTo(page, 'LOOP', 4000);
-  await page.waitForTimeout(200);
+  await nextFrames(page); // loopRide is worked out as each frame draws
   expect(await page.evaluate(() => window.__OT.GameState.loopRide)).toBe(0);
   for (const frac of [0.25, 0.5, 0.75]) {
     await jumpTo(page, 'LOOP', 0, frac);
@@ -100,7 +100,7 @@ test('2D: you ride round the loop itself (camera on the loop, not a cutaway), an
   // Calm mode: no screen turning over.
   await page.evaluate(() => { window.__OT.GameState.reducedMotion = true; });
   await jumpTo(page, 'LOOP', 0, 0.5);
-  await page.waitForTimeout(200);
+  await nextFrames(page);
   expect(await page.evaluate(() => window.__OT.GameState.loopRide)).toBe(0);
   expect(problems).toEqual([]);
 });
@@ -112,6 +112,9 @@ test('2D: rivals and pickups ride the loop with you, and falling off the top fli
   await page.waitForFunction(() => typeof window.__OT.GameState.loopRide === 'number');
   // Cars and a coin ahead of you, part way up the loop.
   const f = await jumpTo(page, 'LOOP', 0, 0.12);
+  // Let the sim step there before pausing: a paused game keeps drawing the last simulated view,
+  // so a pause before any step would freeze the frame from before the jump.
+  await nextFrames(page);
   await page.evaluate((f) => {
     const OT = window.__OT, T = OT.traffic(), tr = OT.track();
     T.racers.concat(T.traffic).forEach((c, i) => { c.worldZ = f.z0 + f.length * 0.12 + 700 + i * 650; c.offset = [-0.45, 0.4, 0][i % 3]; c.takenDown = false; });
@@ -119,7 +122,7 @@ test('2D: rivals and pickups ride the loop with you, and falling off the top fli
     s.items.push({ offset: 0.3, type: 'HW_COIN', collected: false, phase: 0 });
     OT.pause();
   }, f);
-  await page.waitForTimeout(250);
+  await nextFrames(page, 3);
   expect(await page.evaluate(() => window.__OT.GameState.loopRide)).toBe(1);
   expect(await canvasLitFraction(page)).toBeGreaterThan(0.2);
   await info.attach('loop-traffic', { body: await page.screenshot(), contentType: 'image/png' });
@@ -157,14 +160,14 @@ for (const [w, h] of SIZES) {
   });
 }
 
-test('perf: frame cost through hairpins and a corkscrew stays playable in 2D and 3D', async ({ page }, info) => {
+test('perf: frame cost through hairpins and a corkscrew stays playable in 2D and 3D', { tag: '@perf' }, async ({ page }, info) => {
   test.setTimeout(150000);
   // Shared CI runners render 3D in software (SwiftShader) next to noisy neighbours, so judge the
   // game's own JS work per frame (median, after a warm-up), plus a loose ceiling on the median
   // frame interval that only a frozen or crawling frame loop trips (helpers.js frameStats).
   for (const view of ['', '3d']) {
     await race(page, { level: 3, view });
-    if (view) await page.waitForFunction(() => window.__OT.view().mode === '3d', null, { timeout: 30000 });
+    if (view) await page.waitForFunction(() => window.__OT.view().mode === '3d' && window.__OT.view().stats, null, { timeout: 30000 });
     await jumpTo(page, 'CORKSCREW', 1000);
     await page.keyboard.down('ArrowUp');
     const st = await frameStats(page, { frames: 90, warmup: 30 });

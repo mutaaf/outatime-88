@@ -34,7 +34,10 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } } },
+    // Frame-time tests (tagged @perf) measure the machine as much as the game, so they run on
+    // their own, one at a time, after everything else: never next to five other browsers.
+    { name: 'desktop', grepInvert: /@perf/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } } },
+    { name: 'perf', grep: /@perf/, dependencies: ['desktop'], workers: 1, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } } },
     ...engines,
   ],
   webServer: [

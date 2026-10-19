@@ -88,3 +88,37 @@ export function frameStats(page, { frames = 120, warmup = 30 } = {}) {
     })(performance.now());
   }), { frames, warmup });
 }
+
+/**
+ * Resolve after the page has drawn `n` more frames. State that the renderer derives each frame
+ * (the loop ride blend, what the canvas shows) is only current once a frame has run after you
+ * change the game: on a starved CI runner a fixed wall-clock wait can pass with no frame at all.
+ */
+export function nextFrames(page, n = 2) {
+  return page.evaluate((n) => new Promise((done) => {
+    let left = n;
+    (function tick() { if (left-- <= 0) done(); else requestAnimationFrame(tick); })();
+  }), n);
+}
+
+/**
+ * Wait until `seconds` of race (simulation) time have passed. The sim runs slower than the
+ * wall clock on a loaded runner, so `waitForTimeout` can end before the game has moved at all.
+ */
+export async function simWait(page, seconds, { timeout = 20000 } = {}) {
+  const t0 = await page.evaluate(() => window.__OT.GameState.raceTime);
+  await page.waitForFunction(([t, s]) => window.__OT.GameState.raceTime - t >= s, [t0, seconds], { timeout });
+}
+
+/** Wait until a started race is really running: past the lights and its first sim steps. */
+export async function racing(page, { minTime = 0.3, timeout = 20000 } = {}) {
+  await page.waitForFunction((m) => {
+    const g = window.__OT && window.__OT.GameState;
+    return g && g.status === 'PLAYING' && g.racePhase !== 'START' && g.raceTime >= m;
+  }, minTime, { timeout });
+}
+
+/** Touch devices: wait until the lazily loaded touch kit (stick, buttons, gestures) is live. */
+export function touchReady(page, { timeout = 20000 } = {}) {
+  return page.waitForFunction(() => Boolean(window.__OT && window.__OT.touch && window.__OT.touch()), null, { timeout });
+}

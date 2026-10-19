@@ -1,9 +1,9 @@
 // Rival racing AI (ticket 0160): a real race where the field drives lines, passes and spreads.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, simWait } from './helpers.js';
 
 for (const mode of ['ARCADE', 'INFINITE']) test(`rivals race for real (${mode}): they stay on the road, swap places and spread out`, async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
   await page.waitForFunction(() => window.__OT && window.__OT.traffic);
@@ -28,13 +28,16 @@ for (const mode of ['ARCADE', 'INFINITE']) test(`rivals race for real (${mode}):
   const orders = new Set();
   const modes = new Set();
   let nosSeen = false, worstX = 0, last = null;
-  for (let i = 0; i < 40; i++) {
+  // 12 s of race time (40 samples, 0.3 s of race time apart), however slowly the runner steps
+  // it; a runner so starved it can't manage that in 90 s gets what it has.
+  const tEnd = Date.now() + 90_000;
+  for (let i = 0; i < 40 && Date.now() < tEnd; i++) {
     last = await sample();
     orders.add(last.order);
     last.modes.forEach((m) => modes.add(m));
     nosSeen = nosSeen || last.nos;
     worstX = Math.max(worstX, ...last.offsets.map(Math.abs));
-    await page.waitForTimeout(300);
+    await simWait(page, 0.3);
   }
   const stats = await page.evaluate(() => {
     const t = window.__OT.traffic();
@@ -45,7 +48,7 @@ for (const mode of ['ARCADE', 'INFINITE']) test(`rivals race for real (${mode}):
   test.info().annotations.push({ type: 'rivals', description: JSON.stringify({ orders: orders.size, modes: [...modes], nosSeen, worstX, stats, spread: Math.max(...last.progress) - Math.min(...last.progress) }) });
 
   expect(worstX).toBeLessThanOrEqual(0.72);                 // on the road the whole time
-  expect(orders.size > 1 || stats.sum.passes > 0).toBe(true); // places changed (on a slow CI box a 12 s window may hold one order)
+  expect(orders.size > 1 || stats.sum.passes > 0).toBe(true); // places changed (over 12 s of race time)
   expect(Math.max(...last.progress) - Math.min(...last.progress)).toBeGreaterThan(30); // the field spread out
   expect(stats.sum.passes + stats.sum.nos).toBeGreaterThan(0); // they raced, not just cruised
   expect(stats.nemesisFlag).toBe(1);
