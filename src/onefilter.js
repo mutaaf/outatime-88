@@ -16,8 +16,10 @@ const alpha = (cutoff, dt) => 1 / (1 + 1 / (TAU * cutoff * dt));
  * @param {number} [o.minCutoff=1] Hz at rest: lower = steadier when held still
  * @param {number} [o.beta=0.04] how fast the cutoff opens with speed (per unit/s): higher = less lag
  * @param {number} [o.dCutoff=1] Hz for the speed estimate itself
+ * @param {number} [o.snap=Infinity] a jump bigger than this between samples is taken as is
+ *   (no sensor jitters that far: it's a deliberate swerve, or a slow, sparse event stream)
  */
-export function createOneEuro({ minCutoff = 1, beta = 0.04, dCutoff = 1 } = {}) {
+export function createOneEuro({ minCutoff = 1, beta = 0.04, dCutoff = 1, snap = Infinity } = {}) {
   let x = null, dx = 0, last = 0;
   return {
     filter(value, tMs) {
@@ -28,6 +30,7 @@ export function createOneEuro({ minCutoff = 1, beta = 0.04, dCutoff = 1 } = {}) 
       }
       const dt = Math.min(0.25, (tMs - last) / 1000);
       last = tMs;
+      if (Math.abs(value - x) > snap) { dx = (value - x) / dt; x = value; return x; }
       const d = (value - x) / dt;
       dx += alpha(dCutoff, dt) * (d - dx);
       x += alpha(minCutoff + beta * Math.abs(dx), dt) * (value - x);

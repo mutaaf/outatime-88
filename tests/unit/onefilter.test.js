@@ -43,6 +43,13 @@ describe('One Euro filter (ticket 0180)', () => {
     expect(reached).toBeLessThanOrEqual(120 + 2 * 1000 / 60);
   });
 
+  it('takes a jump bigger than `snap` as is (a swerve, or a sparse event stream)', () => {
+    const f = createOneEuro({ minCutoff: 0.8, beta: 0.5, snap: 6 });
+    f.filter(14, 0); f.filter(14, 40);
+    expect(f.filter(-14, 80)).toBe(-14);
+    expect(f.filter(-13.5, 96)).toBeGreaterThan(-14); // small moves are filtered again
+  });
+
   it('reset starts over', () => {
     const f = createOneEuro();
     f.filter(10, 0); f.filter(10, 16);
