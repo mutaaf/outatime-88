@@ -1,4 +1,4 @@
-// Runner power-ups (ticket 0175): magnet, shield, 2X coins — timers, upgrades, placement.
+// Runner power-ups (ticket 0177): magnet, shield, 2X coins — timers, upgrades, placement.
 import { describe, it, expect } from 'vitest';
 import {
   POWER, POWER_KINDS, UPGRADE, powerSecs, upgradeCost, ensurePower, buyUpgrade, createPower,

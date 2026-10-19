@@ -147,7 +147,7 @@ src/era-palettes.js ERA_PALETTES: sky/horizon/fog/sun/ground + weather per era â
 src/garage-ui.js    Garage showroom + NEW CAR reveal (lazy chunk with car-art.js turntable and garage.css)
 src/missions.js     Run missions (0026): three distinct contracts per run (seeded on dailies), today's tally in the save
                       (solo/daily finishes; live rooms pay completions but have their own results)
-src/powerups.js     Runner power-ups (0175): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
+src/powerups.js     Runner power-ups (0177): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
                       Road placement is pickups.js powerupAt (track.power = Endless tier, 0 off)
 src/scoring.js      Penalty rules (hits, wall scrapes) + the run log the Worker recomputes
 src/cars.js         Car ratings (same 30-point budget each), unlock rules, carParams() â†’ the physics

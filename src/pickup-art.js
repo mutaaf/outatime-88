@@ -12,7 +12,7 @@ export const ART = {
   PLUTONIUM: { shape: 'hex', body: '#22d3ee', rim: '#0e7490', core: '#fef08a', glow: 'rgba(0,240,255,0.55)' },
   REPAIR_WRENCH: { shape: 'cross', body: '#10b981', rim: '#065f46', core: '#ffffff', glow: 'rgba(52,211,153,0.5)' },
   NOS_CAN: { shape: 'capsule', body: '#3b82f6', rim: '#1e3a8a', core: '#e0f2fe', glow: 'rgba(96,165,250,0.55)' },
-  // Runner power-ups (0175): magnet = horseshoe with silver tips, shield = crest, 2X = star badge.
+  // Runner power-ups (0177): magnet = horseshoe with silver tips, shield = crest, 2X = star badge.
   MAGNET: { shape: 'magnet', body: '#f43f5e', rim: '#881337', core: '#e2e8f0', glow: 'rgba(244,63,94,0.55)' },
   SHIELD: { shape: 'shield', body: '#38bdf8', rim: '#0c4a6e', core: '#f0f9ff', glow: 'rgba(56,189,248,0.6)' },
   DOUBLER: { shape: 'badge', body: '#facc15', rim: '#92400e', core: '#7c2d12', glow: 'rgba(250,204,21,0.6)' },
@@ -310,7 +310,7 @@ export function drawHint(ctx, rw, rh, kind, side, segs, t) {
   ctx.globalAlpha = 1;
 }
 
-// ── Power-up HUD (0175): a countdown ring per active power-up and the shield bubble ─────────
+// ── Power-up HUD (0177): a countdown ring per active power-up and the shield bubble ─────────
 const RING_ORDER = ['MAGNET', 'SHIELD', 'DOUBLER'];
 
 /**

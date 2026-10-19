@@ -1,4 +1,4 @@
-// Runner power-ups (ticket 0175), Subway-Surfers style, Endless solo runs only:
+// Runner power-ups (ticket 0177), Subway-Surfers style, Endless solo runs only:
 //
 //   MAGNET    every coin in nearby lanes flies to you for a few seconds
 //   SHIELD    a bubble that eats one crash (traffic, barrier, rival or a hard wall hit): no HP

@@ -26,7 +26,7 @@ export const track = {
   generatedCount: 0,
   line: null,
   seed: 0,           // shuffle-bag seed (0: the level's own fixed layout)
-  power: 0,          // runner power-up spawn level (0175): the Endless tier, 0 = none
+  power: 0,          // runner power-up spawn level (0177): the Endless tier, 0 = none
   run: {},           // replaced on every reset; renderers compare it to know the road restarted
   bag: [], bagPos: 0, bagCount: 0, lastPiece: '',
   allocated: 0,      // segment objects ever created (bounded by RING: proves the pool works)

@@ -57,7 +57,7 @@ describe('rhythm', () => {
       expect(i - last, `segment ${i}`).toBeGreaterThan(PICKUP.gap);
       last = i;
     }
-    // Runner power-ups (0175) come from powerupAt, not the base rhythm (tests/unit/powerups.test.js).
+    // Runner power-ups (0177) come from powerupAt, not the base rhythm (tests/unit/powerups.test.js).
     expect([...seen].sort()).toEqual(Object.keys(PICKUPS).filter((k) => !PICKUPS[k].powerup).sort());
   });
 

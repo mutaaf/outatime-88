@@ -48,7 +48,7 @@ function titleLine(goals) {
 }
 
 /**
- * The power-up shop (0175) on the results card and in the pause panel: one button per power-up,
+ * The power-up shop (0177) on the results card and in the pause panel: one button per power-up,
  * its level pips, how long it lasts and the next level's price in earned FLUX cash (no money).
  */
 function fillShop(box, save, onSave) {

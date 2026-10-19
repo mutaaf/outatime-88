@@ -32,7 +32,7 @@ import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useS
 
 export const hitStop = createHitStop();
 
-// Runner power-ups (0175, src/powerups.js): this run's timers. Renderers read GameState.power.
+// Runner power-ups (0177, src/powerups.js): this run's timers. Renderers read GameState.power.
 export const power = createPower();
 GameState.power = power;
 const endlessSolo = () => GameState.mode === 'INFINITE' && !GameState.daily;
@@ -251,7 +251,7 @@ export function continueRun(cost) {
 export function levelUpEndless() {
   const tier = GameState.tier;
   setTrackIntensity(tune.intensity);
-  setTrackPowerups(endlessSolo() ? tier : 0); // power-ups a little more often each tier (0175)
+  setTrackPowerups(endlessSolo() ? tier : 0); // power-ups a little more often each tier (0177)
   const healed = Math.round(healPlayerHp(Math.round(GameState.maxHp * ENDLESS.healFrac)));
   GameState.eraIndex = (GameState.eraIndex + 1) % ERAS.length; // every tier is a new era
   updateEraHud();
@@ -359,7 +359,7 @@ export function performHumanTrick(direction) {
 }
 
 /** A pickup was collected: its effect, score, cue and burst (defs in src/pickups.js). */
-/** A power-up was grabbed (0175): start its timer for the upgraded length. */
+/** A power-up was grabbed (0177): start its timer for the upgraded length. */
 function applyPowerup(item) {
   const kind = item.type, rel = item.offset - GameState.playerX;
   const lv = ensurePower(SaveStore.data)[kind];
@@ -382,7 +382,7 @@ export function applyPickup(item, def) {
   if (def.combo) { GameState.combo = Math.min(12, GameState.combo + 1); GameState.comboTimer = 5.0; }
   if (def.flux) GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains[def.flux]);
   // Endless tiers multiply coin cash (ticket 0150); points are unchanged (the server re-checks them).
-  // The 2X power-up doubles cash on top (0175).
+  // The 2X power-up doubles cash on top (0177).
   const doubled = cashMult(power);
   const cash = def.coins ? Math.round(def.coins * (GameState.coinMult || 1)) * doubled : 0;
   if (cash) {
@@ -1034,7 +1034,7 @@ export function updateGame(rawDt) {
     GameState.playerX = side * MAX_TRACK_X;
     chargePenalty(logWall(GameState.penaltyLog, rawDt * 1000, GameState.speed, Math.round(GameState.raceTime * 1000)), 'WALL SCRAPE');
     // Points barely move for a scrape now (ticket 0165); grinding wears HP instead, never to 0.
-    // A shield (0175) takes a hard hit into the wall and buys a second of grinding for free.
+    // A shield (0177) takes a hard hit into the wall and buys a second of grinding for free.
     if (GameState.playerVX * side > 0.35 && GameState.speed >= 30 && GameState.invulnTimer <= 0) shieldBreak(side * 0.6);
     if (GameState.speed >= 30 && GameState.invulnTimer <= 0) {
       GameState.hp = Math.max(Math.min(GameState.hp, 1), GameState.hp - 5 * activeCarParams().damageMult * currentDifficulty().damage * rawDt);
@@ -2328,7 +2328,7 @@ export const LiveTrafficMethods = {
             // HARD PHYSICAL RIGID-BODY COLLISION: Never let the player pass through the obstacle!
             ob.hitCount++;
             const isBoostSmash = (GameState.agroTimer > 0 || GameState.warpActiveTimer > 0);
-            // A shield (0175) takes the hit like a boost smash: the barricade flies, you keep going.
+            // A shield (0177) takes the hit like a boost smash: the barricade flies, you keep going.
             const shielded = !isBoostSmash && !isDebris(ob) && GameState.invulnTimer <= 0 && shieldBreak(ob.offset - GameState.playerX);
             const leverX = ob.offset - GameState.playerX;
             const pushDir = (GameState.playerX <= ob.offset) ? -1 : 1;

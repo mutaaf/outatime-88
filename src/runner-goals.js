@@ -12,7 +12,7 @@ export const GOALS = [
   { type: 'TIER', stat: 'tier', base: 2, step: 1, label: (n) => `REACH TIER ${n}` },
   { type: 'NEAR', stat: 'nearMisses', base: 3, step: 2, label: (n) => `${n} NEAR MISSES IN ONE RUN` },
   { type: 'NOS', stat: 'nosSecs', base: 3, step: 2, label: (n) => `BURN NOS FOR ${n} SECONDS` },
-  // Power-up goals (0175): magnet, shield and 2X coins (src/powerups.js).
+  // Power-up goals (0177): magnet, shield and 2X coins (src/powerups.js).
   { type: 'MAGNET', stat: 'magnetCoins', base: 12, step: 10, label: (n) => `GRAB ${n} COINS WITH THE 🧲 MAGNET` },
   { type: 'SHIELD', stat: 'shieldSaves', base: 1, step: 1, label: (n) => `BLOCK ${n} CRASH${n > 1 ? 'ES' : ''} WITH A 🛡️ SHIELD` },
   { type: 'POWER', stat: 'powerups', base: 2, step: 1, label: (n) => `GRAB ${n} POWER-UPS IN ONE RUN` },

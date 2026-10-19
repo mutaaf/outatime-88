@@ -16,7 +16,7 @@ export const PICKUPS = {
   PLUTONIUM: { pts: 500, coins: 8, flux: 'plutonium', combo: true, reach: 0.44, magnet: true, cue: 'coin', power: true, color: '#22d3ee' },
   REPAIR_WRENCH: { pts: 400, heal: 25, combo: false, reach: 0.42, magnet: false, cue: 'repair', power: true, color: '#10b981' },
   NOS_CAN: { pts: 0, nos: 'canister', combo: false, reach: 0.44, magnet: true, cue: 'nos', power: true, color: '#3b82f6' },
-  // Runner power-ups (0175, Endless solo only; effects in src/powerups.js). No points: the
+  // Runner power-ups (0177, Endless solo only; effects in src/powerups.js). No points: the
   // reward is the effect, so scores and the server's checks are unchanged.
   MAGNET: { pts: 0, powerup: true, combo: false, reach: 0.46, magnet: false, cue: 'power', power: true, color: '#f43f5e' },
   SHIELD: { pts: 0, powerup: true, combo: false, reach: 0.46, magnet: false, cue: 'power', power: true, color: '#38bdf8' },
@@ -62,7 +62,7 @@ export function kindAt(i, patternType = '') {
   return null;
 }
 
-// Power-up slots (0175): one candidate every `every` segments (fewer segments apart each tier),
+// Power-up slots (0177): one candidate every `every` segments (fewer segments apart each tier),
 // kept only where nothing else sits within PICKUP.gap, and a seeded coin-flip decides whether it
 // shows and which of the three it is. Off (level 0) outside Endless solo runs.
 export const POWER_SPAWN = { from: 60, every: 160, perTier: 10, minEvery: 90, chance: 0.55, chancePerTier: 0.05, kinds: ['MAGNET', 'SHIELD', 'DOUBLER'] };

@@ -368,7 +368,7 @@ export function initTrack() {
   // gets its level's fixed layout so the level's leaderboard is one road for everyone.
   setTrackSeed(GameState.daily || GameState.mode === 'LIVE' ? GameState.lineSeed : 0);
   setTrackIntensity(1);
-  setTrackPowerups(GameState.mode === 'INFINITE' && !GameState.daily ? 1 : 0); // runner power-ups (0175)
+  setTrackPowerups(GameState.mode === 'INFINITE' && !GameState.daily ? 1 : 0); // runner power-ups (0177)
   buildInitialTrack();
   LiveTraffic.init();
 }

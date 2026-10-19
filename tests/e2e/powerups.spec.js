@@ -1,4 +1,4 @@
-// Runner power-ups (ticket 0175): magnet, shield and 2X coins in Endless, their HUD rings, and
+// Runner power-ups (ticket 0177): magnet, shield and 2X coins in Endless, their HUD rings, and
 // the coins-only upgrade shop. Uses the ?debug hooks to grab a power-up and to place the car.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';
