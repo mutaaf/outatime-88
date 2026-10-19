@@ -63,10 +63,12 @@ export const RS = {};
 let raceStep = null, raceStepLoad = null;
 function loadRaceStep() {
   // The rigid-body world (0176) is its own chunk, fetched in parallel and handed to the race step.
-  raceStepLoad = raceStepLoad || Promise.all([import('./race-step.js'), import('./rigid.js')]).then(([m, rigid]) => {
+  // Race start/finish, coach and race HUD (0176) are their own chunk too: one object holds both.
+  raceStepLoad = raceStepLoad || Promise.all([import('./race-step.js'), import('./rigid.js'), import('./race-flow.js')]).then(([m, rigid, flow]) => {
     m.useRigid(rigid);
+    m.useFlow(flow);
     if (m.LiveTrafficMethods) Object.assign(LiveTraffic, m.LiveTrafficMethods);
-    return (raceStep = m);
+    return (raceStep = Object.assign({}, m, flow));
   }, (e) => { raceStepLoad = null; throw e; });
   return raceStepLoad;
 }
