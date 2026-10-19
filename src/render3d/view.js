@@ -718,6 +718,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       g.userData.paint.color.set(b.bodyColor || '#94a3b8');
       if (!b.ghost) g.userData.glow.color.set(b.underglow || (b.kind === 'RIVAL' ? NEON_PINK : '#000000'));
       if (g.userData.lightbar) g.userData.lightbar.material.color.set(Math.floor(t * 6) % 2 ? '#ef4444' : '#3b82f6');
+      if (g.userData.setThrust) g.userData.setThrust(b.nosActive && !b.ghost ? 1 : 0, 'nos', t + i);
       // A gentle suspension bob, out of phase per car.
       const bob = Math.sin(t * 9 + i * 1.7) * 0.025 * Math.min(1, (b.mph || b.speed || 60) / 60);
       poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE + bob, bp.yaw * 0.35, bp.rot, 0);
@@ -776,7 +777,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       tr.emitT += dt;
       if (active && tr.emitT > 1 / 40) {
         tr.emitT = 0;
-        wheelLocal.set(tr.side * 1.25, 0.06, 2.3);
+        wheelLocal.set(tr.side * (playerCar.userData.trailX ?? 1.25), 0.06, 2.3); // this car's own track width
         playerCar.localToWorld(wheelLocal);
         tr.head = (tr.head + 1) % TRAIL_N;
         tr.xs[tr.head] = wheelLocal.x; tr.ys[tr.head] = wheelLocal.y; tr.zs[tr.head] = wheelLocal.z; tr.age[tr.head] = 0;
@@ -899,6 +900,11 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     playerCar.userData.lastZ = pz;
     if (lz !== undefined) turnWheels(playerCar, Math.max(0, Math.min(40, (pz - lz) * PATH_SCALE.zScale)), -(s.steerInput || 0) * 0.32);
     playerCar.userData.setBrake(Boolean(s.braking) && s.status === 'PLAYING');
+    if (playerCar.userData.setThrust) {
+      const racing = s.status === 'PLAYING';
+      const nosOn = racing && s.nosBurning;
+      playerCar.userData.setThrust(nosOn ? 1 : racing && (s.warpActiveTimer > 0 || s.speed >= 82) ? 0.45 : 0, nosOn ? 'nos' : 'fire', s.raceTime || 0);
+    }
     playerCar.userData.beams.visible = !pal.bright;
     return pz;
   }

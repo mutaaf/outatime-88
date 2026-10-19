@@ -24,7 +24,7 @@ describe('game content integrity', () => {
   });
 
   it('every roster and multiverse car uses a body shape the renderer knows', () => {
-    const SHAPES = ['GULLWING', 'MUSCLE', 'SCANNER', 'ROCKET', 'LIGHTCYCLE', 'TUNER_WING', 'HEAVY_VAN'];
+    const SHAPES = ['GULLWING', 'MUSCLE', 'SCANNER', 'ROCKET', 'LIGHTCYCLE', 'TUNER_WING', 'HEAVY_VAN', 'ROADSTER'];
     for (const c of [...POP_CULTURE_ROSTER, ...MULTIVERSE_POOL]) expect(SHAPES).toContain(c.shape);
   });
 

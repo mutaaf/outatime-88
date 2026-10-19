@@ -1214,6 +1214,7 @@ function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
     rot: 0,
     vRot: (Math.random() > 0.5 ? 1 : -1) * 12,
     color: car.type === 'POLICE_INTERCEPTOR' ? '#3b82f6' : '#e11d48',
+    look: car.look || null, // the car itself tumbles away (src/car-sprite.js), when it has one
     life: 1.1
   });
 
@@ -2504,7 +2505,7 @@ function renderScene() {
     pixelCanvas.width = bw;
     pixelCanvas.height = bh;
   }
-  if (carArt && carArt.setSpriteScale) carArt.setSpriteScale(pk);
+  if (carArt) { carArt.setSpriteScale(pk); carArt.beginFrame(); }
   if (pickupArt && pickupArt.setPixelScale) pickupArt.setPixelScale(pk);
   GameState.pixelScale = pk; // for lazy 2D art (billboards…): cache at pixelScale × drawn size
 
@@ -2907,19 +2908,31 @@ function renderScene() {
         ctx.globalAlpha = 0.55;
         ctx.fillRect(cx - cw * 0.58, roadYifted - 3, cw * 1.16, Math.max(4, ch * 0.18));
         ctx.globalAlpha = 1.0;
+      } else if (carArt) {
+        // (the sprite carries its own contact shadow)
       } else if (!drawSoftShadow(ctx, cx, roadY, cw * 1.1)) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
         ctx.fillRect(cx - cw * 0.54, roadYifted - 2, cw * 1.08, 4);
       }
 
-      if (carArt && mv.shape && !isTruck) {
-        // Rivals and friends in their own roster cars (same models as the garage and 3D).
-        const look = mv.look || (mv.look = { shape: mv.shape, body: mv.bodyColor || '#334155', cabin: mv.accentColor || '#64748b', glow: mv.underglow || '' });
-        carArt.drawCarAt(ctx, look, cx, roadYifted, cw, { yaw: mv.yaw || 0 });
+      if (carArt) {
+        // Everyone in their own car: rivals and friends in their roster cars, traffic as
+        // sedans, taxis, SUVs and semis, all painted by the same car painter (src/car-paint.js).
+        const look = mv.look || (mv.look = isTruck
+          ? { shape: 'SEMI_TRUCK', body: '#cbd5e1', cabin: '#94a3b8', glow: '' }
+          : { shape: mv.shape || mv.style || 'SEDAN', body: mv.bodyColor || '#334155', cabin: mv.accentColor || '#64748b', glow: mv.underglow || '' });
+        // Seen from the chase cam, a car turns with the road under it and with where it sits
+        // across your view (one to your right shows you its left flank).
+        const p2 = seg.p2.screen;
+        const heading = p2 && p2.w > 0 ? Math.atan(((p2.x - rw * 0.5) / p2.w - (roadX - rw * 0.5) / Math.max(1, roadW)) * 2.2) : 0;
+        const spin = mv.yaw ? Math.atan2(Math.sin(mv.yaw), Math.cos(mv.yaw)) : 0; // fishtail / spin-out, wrapped
+        const yawApp = Math.max(-0.7, Math.min(0.7, spin + heading - Math.atan((cx - rw * 0.5) / (rw * 0.43)) * 0.4));
+        if (!rivalThrust) rivalThrust = carArt.createThrust();
+        carArt.drawCarAt(ctx, look, cx, roadYifted, Math.max(10, roadW * 0.32), { yaw: yawApp }, rivalThrust);
         if (mv.nosActive) {
-          ctx.fillStyle = '#00f0ff';
-          ctx.fillRect(cx - cw * 0.36, roadYifted - ch * 0.1, cw * 0.12, ch * 0.26);
-          ctx.fillRect(cx + cw * 0.24, roadYifted - ch * 0.1, cw * 0.12, ch * 0.26);
+          thrustState.nos = 1; thrustState.plume = 0; thrustState.hover = false;
+          thrustState.t = fxClock + m; thrustState.calm = GameState.reducedMotion;
+          carArt.drawThrust(ctx, rivalThrust, thrustState);
         }
         if (GameState.status !== 'TITLE' && (mv.ghostTag || mv.short)) {
           queueTag(cx, roadY - ch * 1.3 - 6, roadW, mv.ghostTag || mv.short, mv.ghostTag ? (mv.cpu ? 0 : 1) : 2, mv.underglow);
@@ -2927,68 +2940,12 @@ function renderScene() {
         continue;
       }
 
-      // 2. Tires
-      ctx.fillStyle = '#090a0f';
-      ctx.fillRect(cx - cw * 0.52, roadYifted - ch * 0.38, cw * 0.18, ch * 0.38);
-      ctx.fillRect(cx + cw * 0.34, roadYifted - ch * 0.38, cw * 0.18, ch * 0.38);
-
-      if (isTruck) {
-        // 18-Wheeler Semi-Truck Trailer with Metallic Ribs & Amber Clearance Lights
-        ctx.fillStyle = '#cbd5e1';
-        ctx.fillRect(cx - cw * 0.5, roadY - ch * 1.15, cw, ch * 0.92);
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillRect(cx - cw * 0.46, roadY - ch * 1.1, cw * 0.92, ch * 0.82);
-        ctx.fillStyle = '#f59e0b';
-        ctx.fillRect(cx - cw * 0.44, roadY - ch * 1.12, cw * 0.12, 3);
-        ctx.fillRect(cx + cw * 0.32, roadY - ch * 1.12, cw * 0.12, 3);
-      } else {
-        // 3D Shaded Car Lower Chassis & Tapered Roof Cabin
-        ctx.fillStyle = mv.bodyColor || '#334155';
-        ctx.fillRect(cx - cw * 0.5, roadYifted - ch * 0.68, cw, ch * 0.48);
-
-        // Tapered 3D Roof & Rear Windshield
-        ctx.fillStyle = mv.accentColor || '#64748b';
-        ctx.beginPath();
-        ctx.moveTo(cx - cw * 0.44, roadYifted - ch * 0.68);
-        ctx.lineTo(cx - cw * 0.32, roadYifted - ch * 1.08);
-        ctx.lineTo(cx + cw * 0.32, roadYifted - ch * 1.08);
-        ctx.lineTo(cx + cw * 0.44, roadYifted - ch * 0.68);
-        ctx.closePath();
-        ctx.fill();
-
-        // Dark Tinted Rear Window
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(cx - cw * 0.28, roadYifted - ch * 1.02, cw * 0.56, ch * 0.30);
-
-        // Dez's Brawler Chrome Blower OR Kai's Carbon GT Spoiler Wing!
-        if (mv.style === 'MUSCLE') {
-          ctx.fillStyle = '#e2e8f0';
-          ctx.fillRect(cx - cw * 0.12, roadY - ch * 1.20, cw * 0.24, ch * 0.15);
-        } else if (mv.style === 'TUNER_WING') {
-          ctx.fillStyle = '#090a0f';
-          ctx.fillRect(cx - cw * 0.48, roadY - ch * 0.86, cw * 0.96, Math.max(2, ch * 0.08));
-          ctx.fillRect(cx - cw * 0.32, roadY - ch * 0.86, 2, ch * 0.18);
-          ctx.fillRect(cx + cw * 0.30, roadY - ch * 0.86, 2, ch * 0.18);
-        }
-
-        // Twin NOS Purge Flames when Rival is Boosting!
-        if (mv.nosActive) {
-          ctx.fillStyle = '#00f0ff';
-          ctx.fillRect(cx - cw * 0.36, roadY - ch * 0.18, cw * 0.12, ch * 0.26);
-          ctx.fillRect(cx + cw * 0.24, roadY - ch * 0.18, cw * 0.12, ch * 0.26);
-        }
-      }
-
-      // Headlights (for Oncoming Traffic) OR Glowing Red Taillights
-      if (mv.oncoming) {
-        ctx.fillStyle = '#fef08a';
-        ctx.fillRect(cx - cw * 0.44, roadY - ch * 0.52, cw * 0.22, ch * 0.18);
-        ctx.fillRect(cx + cw * 0.22, roadY - ch * 0.52, cw * 0.22, ch * 0.18);
-      } else {
-        ctx.fillStyle = '#ff1e1e';
-        ctx.fillRect(cx - cw * 0.46, roadY - ch * 0.54, cw * 0.22, ch * 0.16);
-        ctx.fillRect(cx + cw * 0.24, roadY - ch * 0.54, cw * 0.22, ch * 0.16);
-      }
+      // Placeholder for the first frames before the car painter (src/car-sprite.js) loads.
+      ctx.fillStyle = isTruck ? '#cbd5e1' : (mv.bodyColor || '#334155');
+      ctx.fillRect(cx - cw * 0.5, roadYifted - ch * (isTruck ? 1.15 : 0.9), cw, ch * (isTruck ? 1.15 : 0.7));
+      ctx.fillStyle = '#ff1e1e';
+      ctx.fillRect(cx - cw * 0.46, roadYifted - ch * 0.54, cw * 0.22, ch * 0.16);
+      ctx.fillRect(cx + cw * 0.24, roadYifted - ch * 0.54, cw * 0.22, ch * 0.16);
 
       // Name tags (ticket 0101): queued here, laid out once after all cars so they never pile up.
       if (GameState.status !== 'TITLE' && (mv.ghostTag || mv.short)) {
@@ -3004,10 +2961,13 @@ function renderScene() {
     ctx.save();
     ctx.translate(rw * 0.5 + w.x * (rw / 480), rh * 0.72 - w.y * (rh / 480));
     ctx.rotate(w.rot);
-    ctx.fillStyle = w.color;
-    ctx.fillRect(-22, -12, 44, 24);
-    ctx.fillStyle = '#fde047';
-    ctx.fillRect(-14, -6, 28, 12);
+    if (carArt && w.look) carArt.drawCarAt(ctx, w.look, 0, 12, 44);
+    else {
+      ctx.fillStyle = w.color;
+      ctx.fillRect(-22, -12, 44, 24);
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(-14, -6, 28, 12);
+    }
     ctx.restore();
   }
 
@@ -3235,8 +3195,8 @@ function drawNosFlames(ctx, rw, rh) {
   ctx.restore();
 }
 
-function drawCarFx(ctx, rw, rh) {
-  drawNosFlames(ctx, rw, rh);
+function drawCarFx(ctx, rw, rh, over3d) {
+  if (!over3d && !carArt) drawNosFlames(ctx, rw, rh);
   // 5.2 Render Animated Power-Ups Magnetically Arcing into the player car's Fusion Core!
   const carCenterX = rw * 0.5;
   const carCenterY = rh * 0.81;
@@ -3374,6 +3334,8 @@ function drawSparks(c, rw, rh) {
 // pastel lollipop trees stand in for the neon-era props on the same scenery slots.
 
 const playerLook = { shape: '', body: '', cabin: '', glow: '' };
+let playerThrust = null, rivalThrust = null;
+const thrustState = { nos: 0, plume: 0, color: '', t: 0, calm: false, hover: false };
 function drawPlayerCar(ctx, rw, rh, eraCfg) {
   const carW = Math.max(58, Math.floor(rw * 0.22));
   const carH = Math.max(32, Math.floor(carW * 0.54));
@@ -3468,7 +3430,7 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
 
   // Tires OR 2015 Hover Conversion Glowing Thrusters
   const isHovering = (GameState.hoverActiveTimer > 0 || GameState.playerY > 25 || eraCfg.id === '2088');
-  if (isHovering) {
+  if (isHovering && !carArt) {
     ctx.fillStyle = '#00f0ff';
     ctx.fillRect(-carW * 0.58, carH * 0.28, carW * 0.25, carH * 0.16);
     ctx.fillRect(carW * 0.33, carH * 0.28, carW * 0.25, carH * 0.16);
@@ -3487,8 +3449,17 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
   if (carArt) {
     // Your car, as itself: the garage model of the car you picked, in your paint (src/car-sprite.js).
     playerLook.shape = activeChar.shape; playerLook.body = liveryObj.body; playerLook.cabin = liveryObj.cabin; playerLook.glow = activeChar.glow;
-    carArt.drawCarAt(ctx, playerLook, 0, carH * 0.54, carW * 0.84, { yaw, hover: isHovering });
+    if (!playerThrust) playerThrust = carArt.createThrust();
+    carArt.drawCarAt(ctx, playerLook, 0, carH * 0.54, carW * 0.84, { yaw, hover: isHovering, brake: Boolean(GameState.braking) && GameState.status === 'PLAYING' }, playerThrust);
     GameState.playerShape2D = activeChar.shape;
+    // Flames, NOS, plumes and hover thrusters from this car's own pipes (src/car-sprite.js).
+    const plume = GameState.warpActiveTimer > 0 || GameState.driftTier > 0 ? 1 : GameState.speed >= 76 ? Math.min(1, (GameState.speed - 70) / 30) : 0;
+    thrustState.nos = GameState.nosBurning && GameState.status === 'PLAYING' ? 1 : 0;
+    thrustState.plume = plume;
+    thrustState.color = GameState.driftTier === 3 ? '#d946ef' : GameState.driftTier > 0 ? '#ff6600' : (GameState.speed >= 88 ? '#00f0ff' : '#ff6600');
+    thrustState.t = fxClock; thrustState.calm = GameState.reducedMotion; thrustState.hover = isHovering;
+    carArt.drawThrust(ctx, playerThrust, thrustState);
+    GameState.thrustTips = playerThrust.n;
   } else {
     // Placeholder until the sprite chunk lands (the first frames of a cold boot).
     ctx.fillStyle = liveryObj.body;
@@ -3501,8 +3472,8 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
     GameState.playerShape2D = '';
   }
 
-  // Twin Plasma & Nitrous Exhaust Plumes
-  if (GameState.speed >= 76 || GameState.warpActiveTimer > 0 || GameState.driftTier > 0) {
+  // Twin Plasma & Nitrous Exhaust Plumes (placeholder car only; sprites use their own pipes)
+  if (!carArt && (GameState.speed >= 76 || GameState.warpActiveTimer > 0 || GameState.driftTier > 0)) {
     const flameLen = (GameState.speed >= 88 ? 0.36 : 0.22) * carH;
     ctx.fillStyle = GameState.driftTier === 3 ? '#d946ef' : (GameState.speed >= 88 ? '#00f0ff' : '#ff6600');
     ctx.fillRect(-carW * 0.39, carH * 0.18, carW * 0.11, flameLen);
@@ -4739,7 +4710,7 @@ function renderOverlayFx(feel) {
   drawSpeedLines(mainCtx, feel.lines);
   drawSparks(mainCtx, rw, rh);
   mainCtx.scale(viewW / rw, viewH / rh);
-  drawCarFx(mainCtx, rw, rh);
+  drawCarFx(mainCtx, rw, rh, true);
   mainCtx.restore();
 }
 

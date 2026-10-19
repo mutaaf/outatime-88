@@ -8,6 +8,7 @@ import {
   PlaneGeometry, SRGBColorSpace, Shape, TorusGeometry, AdditiveBlending,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { shapeOf } from '../car-shapes.js';
 
 export const NEON_CYAN = '#22e6ff';
 export const NEON_PINK = '#ff2bd6';
@@ -59,6 +60,7 @@ const PROFILES = {
   SCANNER: [[0, 0.3], [0, 0.9], [0.26, 0.98], [0.38, 1.26], [0.56, 1.26], [0.68, 0.92], [1, 0.5], [1, 0.3]],
   ROCKET: [[0, 0.26], [0, 0.82], [0.16, 0.88], [0.27, 1.14], [0.45, 1.14], [0.6, 0.8], [1, 0.38], [1, 0.26]],
   HEAVY_VAN: [[0, 0.38], [0, 1.96], [0.82, 1.98], [0.9, 1.34], [1, 1.16], [1, 0.38]],
+  ROADSTER: [[0, 0.27], [0, 0.78], [0.18, 0.82], [0.3, 1.04], [0.52, 1.04], [0.66, 0.78], [1, 0.5], [1, 0.27]],
   LIGHTCYCLE: [[0, 0.34], [0, 0.92], [0.22, 1.02], [0.5, 0.94], [0.72, 1.1], [1, 0.72], [1, 0.34]],
 };
 PROFILES.GULLWING = PROFILES.TIME_CAR;
@@ -72,6 +74,7 @@ const GLASS = {
   SCANNER: [[0.27, 0.97], [0.38, 1.24], [0.56, 1.24], [0.67, 0.93]],
   ROCKET: [[0.17, 0.87], [0.27, 1.12], [0.45, 1.12], [0.59, 0.82]],
   HEAVY_VAN: [[0.62, 1.4], [0.62, 1.9], [0.82, 1.92], [0.89, 1.38]],
+  ROADSTER: [[0.19, 0.83], [0.3, 1.02], [0.51, 1.02], [0.65, 0.79]],
   LIGHTCYCLE: [[0.5, 0.95], [0.6, 1.12], [0.7, 1.12], [0.72, 1.0]],
 };
 GLASS.GULLWING = GLASS.TIME_CAR;
@@ -220,6 +223,8 @@ export function buildCar(style, length, width, { police = false, clearcoat = fal
     g.add(beams);
     g.userData.beams = beams;
   }
+  g.userData.trailX = cycle ? 0.05 : width / 2 - 0.25;
+  addThrusters(g, style, length, bodyW, isTruck);
   if (police) {
     const bar = new Mesh(new BoxGeometry(1.2, 0.18, 0.32), new MeshBasicMaterial({ color: '#3b82f6' }));
     bar.position.set(0, prof === PROFILES.SUV ? 1.7 : 1.58, 0);
@@ -231,6 +236,42 @@ export function buildCar(style, length, width, { police = false, clearcoat = fal
   g.userData.glow = glow.material;
   g.add(glow);
   return g;
+}
+
+// Flames from each car's own exhaust tips (src/car-shapes.js), the same anchors the 2D sprites
+// use: NOS (blue-violet), warp fire (orange), cold gas for the electric roadster, one big jet
+// for the rocket. Hidden (no draw call) until `setThrust(level, kind, t)` lights them.
+const FLAME = { nos: ['#7c6cff', '#e8f4ff'], fire: ['#ff6a1a', '#fff1c2'], cold: ['#bfe9ff', '#ffffff'] };
+
+function addThrusters(g, style, length, bodyW, isTruck) {
+  const S = shapeOf(style === 'TIME_CAR' ? 'GULLWING' : style);
+  if (isTruck || S.thrust === 'none') return;
+  const kx = bodyW / S.W, outer = [], core = [];
+  for (const [x, y, r] of S.exhaust) {
+    const rr = Math.max(0.06, r * kx * (S.thrust === 'jet' ? 1.6 : 1.9));
+    // (car-shapes x is the car's left seen from behind; three's +x is its right)
+    for (const [list, k] of [[outer, 1], [core, 0.45]]) list.push(new ConeGeometry(rr * k, 1, 10, 1, true).rotateX(Math.PI / 2).translate(-x * kx, y, 0.5));
+  }
+  const mk = (geo, order) => {
+    const m = new Mesh(merged(geo), new MeshBasicMaterial({ transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
+    m.frustumCulled = false; m.renderOrder = order;
+    return m;
+  };
+  const mo = mk(outer, 4), mc = mk(core, 5);
+  const grp = new Group();
+  grp.position.z = length / 2 + 0.02;
+  grp.add(mo, mc);
+  grp.visible = false;
+  g.add(grp);
+  const base = S.thrust === 'jet' ? 2.6 : S.thrust === 'cold' ? 0.9 : 1.7;
+  g.userData.setThrust = (level, kind, t) => {
+    grp.visible = level > 0;
+    if (!grp.visible) return;
+    const c = FLAME[S.thrust === 'cold' ? 'cold' : kind] || FLAME.fire;
+    mo.material.color.set(c[0]); mc.material.color.set(c[1]);
+    mo.scale.z = base * (0.6 + 1.4 * level) * (0.85 + 0.15 * Math.sin((t || 0) * 43));
+    mc.scale.z = mo.scale.z * 0.6;
+  };
 }
 
 /** Rolls (and for the player, steers) a car's wheels. `dist` metres travelled this frame. */
