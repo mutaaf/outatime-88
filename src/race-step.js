@@ -29,6 +29,11 @@ const {
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, utcDay, wallContact, warpReady
 } = RACE_DEPS;
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
+import {
+  airRefills, createFair, fairPayload, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
+} from './fairplay.js';
+
+RS.fair = createFair();
 
 export const hitStop = createHitStop();
 
@@ -291,7 +296,9 @@ export function performHumanTrick(direction) {
   if (GameState.status !== 'PLAYING') return false;
 
   // A. MID-AIR DIRECTIONAL TRICK COMBOS (When Airborne playerY > 10)
+  // Fair play (0180): tricks are spaced out and capped per air, so mashing can't farm them.
   if (GameState.playerY > 10) {
+    if (!RS.fair || !takeTrick(RS.fair, GameState.playerY)) return false;
     GameState.airTrickCount++;
     let trickName = '360° KICKFLIP';
     let basePts = 1200;
@@ -307,9 +314,10 @@ export function performHumanTrick(direction) {
     } else if (direction === 'UP') {
       trickName = '🦅 PROFESSOR BACKFLIP';
       GameState.trickPitchAngle = 360;
-      GameState.playerVY = Math.max(GameState.playerVY, 240); // Slight air-hang extension!
+      const hang = takeHang(RS.fair); // the hang and the heal: once per air
+      if (hang) GameState.playerVY = Math.max(GameState.playerVY, 240); // Slight air-hang extension!
       GameState.airLandingBoostMph = Math.min(36, GameState.airLandingBoostMph + 18);
-      healPlayerHp(8);
+      if (hang) healPlayerHp(8);
       basePts = 1600;
     } else if (direction === 'DOWN') {
       trickName = '⚡ SHOCKWAVE STOMP';
@@ -344,10 +352,10 @@ export function performHumanTrick(direction) {
   }
 
   // B. GROUND DOUBLE-TAP PHASE-JUKE DASH (Gives Human Reflexes Instant Dodge + Invulnerability Edge!)
-  if ((direction === 'JUKE_LEFT' || direction === 'JUKE_RIGHT') && GameState.phaseJukeTimer <= 0) {
+  if ((direction === 'JUKE_LEFT' || direction === 'JUKE_RIGHT') && GameState.phaseJukeTimer <= 0 && RS.fair && takeJuke(RS.fair)) {
     const dirSign = direction === 'JUKE_LEFT' ? -1 : 1;
     GameState.phaseJukeTimer = 0.50;
-    GameState.invulnTimer = Math.max(GameState.invulnTimer, 0.50);
+    GameState.invulnTimer = Math.max(GameState.invulnTimer, FAIR.juke.invulnS);
     GameState.playerVX = dirSign * 2.15;
     GameState.speed = Math.min(135, GameState.speed + 9);
     GameState.magnetTimer = Math.max(GameState.magnetTimer, 3.0);
@@ -738,7 +746,7 @@ export function updateGame(rawDt) {
   // warp ceiling that live rooms and the leaderboard already allow.
   const nosHeld = InputState.nosHeld || InputState.touchNos || gp.nos;
   const wasBurning = RS.nos.burning;
-  const burning = stepNos(RS.nos, nosHeld && GameState.speed > 10, rawDt, { drifting: GameState.isDrifting, airborne: GameState.playerY > 10, penalised: RS.penaltyThisStep });
+  const burning = stepNos(RS.nos, nosHeld && GameState.speed > 10, rawDt, { drifting: GameState.isDrifting, airborne: GameState.playerY > 10 && airRefills(RS.fair), penalised: RS.penaltyThisStep });
   RS.penaltyThisStep = false;
   if (burning) { GameState.speed = nosSpeed(GameState.speed, rawDt, baseMaxMph, warpMaxMph + 8); runStats.nosSecs += rawDt; }
   if (burning && !wasBurning) {
@@ -826,6 +834,7 @@ export function updateGame(rawDt) {
   const distBefore = GameState.distance;
   GameState.distance += GameState.speed * dt;
   GameState.raceTime += rawDt;
+  fairStep(RS.fair, rawDt * 1000, GameState.playerY, GameState.speed, GameState.jarvisMode === 1); // ticket 0180
   ghostRecorder.sample(GameState.raceTime, GameState.distance, GameState.playerX); // ticket 0092
   GameState.score += Math.floor(GameState.speed * dt * 2.2 * GameState.combo * (GameState.runMult || 1)); // ×Endless level (0151)
   // The finish line (ticket 0051): three laps of the level's race length.
@@ -1096,14 +1105,16 @@ export function updateGame(rawDt) {
     triggerAnnouncement('MEGA TOY-TRACK LAUNCH!', 'PRESS SPACE OR HOVER FOR MID-AIR TRICK!', 1500);
   }
 
-  if (InputState.hoverPressed || gp.hover) {
-    InputState.hoverPressed = false;
-    if (GameState.playerY <= 3) {
-      const jumpScale = (activeChar && activeChar.jumpBonus) ? activeChar.jumpBonus : 1.0;
-      GameState.playerVY = 490 * jumpScale;
-      GameState.hoverActiveTimer = 0.55;
-      SoundEngine.playStunt();
-    }
+  // Fair play (0180): a press (or a pad button going down) queues a jump; it fires from the
+  // ground after the landing cooldown. Holding or mashing never gives more than honest hops.
+  const gpHover = gp.hover && !RS.gpHover;
+  RS.gpHover = gp.hover;
+  if (InputState.hoverPressed || gpHover) { InputState.hoverPressed = false; pressJump(RS.fair); }
+  if (takeJump(RS.fair, GameState.playerY)) {
+    const jumpScale = (activeChar && activeChar.jumpBonus) ? activeChar.jumpBonus : 1.0;
+    GameState.playerVY = 490 * jumpScale;
+    GameState.hoverActiveTimer = 0.55;
+    SoundEngine.playStunt();
   }
   if (GameState.hoverActiveTimer > 0) {
     GameState.hoverActiveTimer = Math.max(0, GameState.hoverActiveTimer - rawDt);
@@ -1190,15 +1201,19 @@ export function updateGame(rawDt) {
   GameState.fluxCharge = Math.min(100, GameState.fluxCharge + passiveFluxRate(GameState.speed, upg.flux) * carP.fluxMult * rawDt);
   GameState.sinceWarp += rawDt;
 
-  if (InputState.boostPressed || gp.boost) {
+  const gpBoost = gp.boost && !RS.gpBoost; // the pad button going down, not held (0180)
+  RS.gpBoost = gp.boost;
+  if (InputState.boostPressed || gpBoost) {
     InputState.boostPressed = false;
     if (GameState.playerY > 38) {
-      GameState.stuntSpinAngle = 360;
-      const stuntPts = 1600 * GameState.combo;
-      GameState.score += stuntPts;
-      GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.barrelRoll);
-      SoundEngine.playStunt();
-      triggerAnnouncement('FLUX BARREL ROLL!', `+${stuntPts} PTS!`, 1200);
+      if (takeTrick(RS.fair, GameState.playerY)) { // a barrel roll uses one of the air's trick slots
+        GameState.stuntSpinAngle = 360;
+        const stuntPts = 1600 * GameState.combo;
+        GameState.score += stuntPts;
+        GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.barrelRoll);
+        SoundEngine.playStunt();
+        triggerAnnouncement('FLUX BARREL ROLL!', `+${stuntPts} PTS!`, 1200);
+      }
     } else if (boostOutcome(GameState.fluxCharge) !== 'none') {
       GameState.speed = Math.max(GameState.speed + 26, 92);
       // Only a nearly-full meter turns a boost into a warp; otherwise it's a nitro purge.
@@ -1730,6 +1745,7 @@ export function startNewRace(opts) {
   GameState.isDuckSliding = false;
   GameState.score = 0;
   GameState.penaltyLog = createPenaltyLog();
+  RS.fair = createFair(); // jump/trick/juke rules and the run's fair-play counters (0180)
   GameState.runCoins = 0;
   GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0;
   GameState.timeWarps = 0;
@@ -2034,6 +2050,7 @@ export function endRaceRun(customBadgeText = null) {
     RS.currentRun.score = scoreSheet.final;
     RS.currentRun.earned = scoreSheet.earned;
     RS.currentRun.pen = logPayload(penLog);
+    RS.currentRun.fp = fairPayload(RS.fair); // payload v4 (0180)
     RS.currentRun.distance = Math.max(0, Math.round(GameState.distance));
     RS.currentRun.durationMs = Math.round(performance.now() - RS.currentRun.t0);
     RS.currentRun.warps = GameState.timeWarps;

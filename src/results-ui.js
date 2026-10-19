@@ -222,7 +222,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     }
     const r = await submitRun({
       token, initials, score: current.score, distance: current.distance, durationMs: current.durationMs,
-      warps: current.warps, level: current.level, mode: current.mode, car: current.car, earned: current.earned, pen: current.pen, trace: current.trace,
+      warps: current.warps, level: current.level, mode: current.mode, car: current.car, earned: current.earned, pen: current.pen, fp: current.fp, trace: current.trace,
     });
     if (r.ok) {
       const card = $('endRankCard');
@@ -231,6 +231,8 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
         onGhost: current.mode === 'ARCADE' ? (who) => raceGhostOf(who, current.level) : null,
       });
       rankEl.textContent = rich ? '' : `🏆 ${initials} ${rankLine(r.body.rank)}`;
+      // Autopilot runs are saved but don't rank against hand-driven ones (ticket 0180).
+      if (r.body.unranked === 'assist') rankEl.textContent = '🤖 AUTOPILOT RUN — SAVED FOR YOU, NOT RANKED ON THE GLOBAL BOARD';
       refreshRival();
     }
     else if (r.status === 400) { rankEl.textContent = 'PICK OTHER INITIALS'; SaveStore.data.initials = ''; SaveStore.save(); run.set(current); form.classList.remove('hidden'); }

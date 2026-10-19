@@ -1997,15 +1997,15 @@ function bindAllControls() {
       InputState.right = true;
     }
     if (['ArrowUp', 'KeyW'].includes(e.code)) {
-      if (GameState.playerY > 10) performHumanTrick('UP');
+      if (GameState.playerY > 10 && !e.repeat) performHumanTrick('UP');
       InputState.up = true;
     }
     const racing = GameState.status === 'PLAYING';
     if (e.code === 'KeyN' && !racing) selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
     if (['ShiftLeft', 'ShiftRight'].includes(e.code) || (e.code === 'KeyN' && racing)) InputState.nosHeld = true;
-    if (['ArrowDown', 'KeyS'].includes(e.code)) { if (GameState.playerY > 12) performHumanTrick('DOWN'); InputState.down = true; }
-    if (e.code === 'Space') { e.preventDefault(); InputState.boostPressed = true; }
-    if (['KeyH', 'KeyE'].includes(e.code)) { if (GameState.playerY > 12) performHumanTrick('UP'); else InputState.hoverPressed = true; }
+    if (['ArrowDown', 'KeyS'].includes(e.code)) { if (GameState.playerY > 12 && !e.repeat) performHumanTrick('DOWN'); InputState.down = true; }
+    if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) InputState.boostPressed = true; }
+    if (['KeyH', 'KeyE'].includes(e.code) && !e.repeat) { if (GameState.playerY > 12) performHumanTrick('UP'); else InputState.hoverPressed = true; }
     if (e.code === 'KeyZ') InputState.zonePressed = true;
     if (e.code === 'KeyX') InputState.agroPressed = true;
     if (e.code === 'KeyR') InputState.roarPressed = true;
@@ -2644,8 +2644,11 @@ let offlineHintLoaded = false;
 window.onload = () => {
   registerServiceWorker();
   preloadBackdrops(ERAS[GameState.eraIndex].id);
-  // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself).
-  if (new URLSearchParams(location.search).has('debug')) window.__OT = {
+  // Test/debug hook: ?debug exposes state for e2e checks (never used by the game itself). Only
+  // on local and preview hosts: on the real site ?debug keeps just the graphics overlay, so the
+  // console isn't a one-line score editor (ticket 0180).
+  if (DEBUG_MODE && !/^(localhost|127\.0\.0\.1|\[::1\])$|\.workers\.dev$/.test(location.hostname)) window.__OT = { view: () => ({ mode: activeView, loading: view3dLoading, stats: view3d ? view3d.stats : null }) };
+  else if (DEBUG_MODE) window.__OT = {
     GameState, InputState, announce: triggerAnnouncement, startRace: startNewRace, ready: () => ceremonyReady, get live() { return live; }, loadLive,
     pause: () => { GameState.status = 'PAUSED'; },
     finishRun: () => endRaceRun('🏁 FINISH!'),
