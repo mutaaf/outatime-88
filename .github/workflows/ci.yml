@@ -12,7 +12,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +25,12 @@ jobs:
       - run: npx playwright install --with-deps chromium firefox webkit
       - name: Backlog, unit tests, build, e2e
         run: npm run check
+      # Flake guard: e2e specs this PR adds or changes run several times in a row with no
+      # retries (scripts/e2e-repeat-changed.mjs), so a test that only passes some of the time
+      # is caught here instead of failing everyone else's PRs after it merges.
+      - name: Flake guard (changed e2e specs, repeated)
+        if: github.event_name == 'pull_request' && hashFiles('scripts/e2e-repeat-changed.mjs') != ''
+        run: node scripts/e2e-repeat-changed.mjs
       # Offline play in the other engines (ticket 0158), after the Chromium suite so it never
       # adds load to timing-sensitive tests.
       - name: Offline e2e in Firefox and WebKit
