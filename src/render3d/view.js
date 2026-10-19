@@ -721,7 +721,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       if (g.userData.setThrust) g.userData.setThrust(b.nosActive && !b.ghost ? 1 : 0, 'nos', t + i);
       // A gentle suspension bob, out of phase per car.
       const bob = Math.sin(t * 9 + i * 1.7) * 0.025 * Math.min(1, (b.mph || b.speed || 60) / 60);
-      poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE + bob, bp.yaw * 0.35, bp.rot, 0);
+      poseCar(g, bp.z, bp.offset, bp.y * JUMP_SCALE + bob, bp.yaw, bp.rot, 0); // full yaw: a spun car shows it (0176)
       const lz = g.userData.lastZ;
       g.userData.lastZ = bp.z;
       if (lz !== undefined && g.userData.axles) turnWheels(g, Math.max(0, Math.min(40, (bp.z - lz) * PATH_SCALE.zScale)));

@@ -13,7 +13,7 @@ import { createDrive, stepDrive, rpmFor } from './drivetrain.js';
 import { nosFor, createNos, stepNos, addNos, nosSpeed, nosFill } from './nos.js';
 import { PICKUPS, PICKUP, pickupReach, magnetPull } from './pickups.js';
 import { materialFor, impactVelocities } from './materials.js';
-import { createWorld, createPropPool } from './world.js';
+import { createPropPool } from './world.js';
 import { projectPoint } from './projection.js';
 import { createFixedStep, lerp } from './fixedstep.js';
 import { contactZ, cameraDepth } from './contact.js';
@@ -62,7 +62,9 @@ export const RS = {};
 // title, and awaited by every race start, so a race never runs without it (0170).
 let raceStep = null, raceStepLoad = null;
 function loadRaceStep() {
-  raceStepLoad = raceStepLoad || import('./race-step.js').then((m) => {
+  // The rigid-body world (0176) is its own chunk, fetched in parallel and handed to the race step.
+  raceStepLoad = raceStepLoad || Promise.all([import('./race-step.js'), import('./rigid.js')]).then(([m, rigid]) => {
+    m.useRigid(rigid);
     if (m.LiveTrafficMethods) Object.assign(LiveTraffic, m.LiveTrafficMethods);
     return (raceStep = m);
   }, (e) => { raceStepLoad = null; throw e; });
@@ -164,7 +166,7 @@ export const LiveTraffic = {
   obstacles: [],
   // Ticket 0074: one world stepper (Z-hash broadphase, sleeping, statics), a fixed pool of
   // knockable props, and persistent body lists so the step never allocates.
-  world: createWorld(),
+  world: null,         // the rigid-body world (src/rigid.js), made by the race step
   props: createPropPool(PROP_POOL_SIZE, () => new RigidBody3D({ kind: 'OBSTACLE', type: 'TRAFFIC_CONE' })),
   bodies: [],          // racers + traffic + obstacles + live props (what the world steps)
   drawObstacles: [],   // obstacles + live props (what the renderers draw)
@@ -257,6 +259,7 @@ export const LiveTraffic = {
         offset: this.planner.trafficLane(i, tz, GameState.waveTier || 1, isTruck ? 0.16 : 0.13, isTruck ? 160 : 105),
         oncoming: false,
         mph: 38 + i * 4,
+        vz: (38 + i * 4) * this.speedToWorld(), // already cruising (the rigid world drives it from here)
         bodyColor: ['#334155', '#eab308', '#e2e8f0', '#1e3a8a'][i % 4]
       }));
     }

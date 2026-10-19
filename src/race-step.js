@@ -35,6 +35,13 @@ import {
 
 RS.fair = createFair();
 
+// The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
+// and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
+let createRigidWorld, applyImpulseAt, RIGID, playerBody, carHit, launchCar, hitJitter, lookAhead;
+export function useRigid(m) {
+  ({ createRigidWorld, applyImpulseAt, RIGID, playerBody, carHit, launchCar, hitJitter, lookAhead } = m);
+}
+
 export const hitStop = createHitStop();
 
 // Runner power-ups (0177, src/powerups.js): this run's timers. Renderers read GameState.power.
@@ -55,6 +62,14 @@ export function shieldBreak(rel) {
   GameState.hitShockwaves.push({ x: rel * 150, y: 0, radius: 18, maxRadius: 150, color: POWER.SHIELD.color, label: '🛡️ SHIELD SAVED YOU!', life: 0.7, maxLife: 0.7 });
   triggerAnnouncement('🛡️ SHIELD SAVED YOU!', 'NO DAMAGE · GRAB ANOTHER TO STAY SAFE', 1200);
   return true;
+}
+
+/** What a hit did to you (0176): speed, sideways speed, and a yaw kick handling.js catches. */
+function playerAfterHit(P, stw, minMph) {
+  GameState.speed = Math.max(minMph, P.vz / stw);
+  GameState.playerVX = P.vx;
+  // Half the twist, capped: you feel the hit but handling can always catch it.
+  lateral.yawVel += Math.max(-0.6, Math.min(0.6, P.vYaw * 0.5));
 }
 
 export const nearMisses = nearMissChain();
@@ -335,7 +350,8 @@ export function performHumanTrick(direction) {
         const dz = ob.worldZ - pz;
         if (dz > -200 && dz < 1800) {
           ob.hitCount++;
-          ob.applyImpulseAndTorque((ob.offset >= 0 ? 1 : -1) * 2800, 480000, 320000, 0.3);
+          const side = ob.offset >= 0 ? 1 : -1;
+          applyImpulseAt(ob, side * ob.massKg * RIGID.LAT * 0.9, ob.massKg * 1000, ob.offset * RIGID.LAT - side * 20, ob.worldZ - ob.halfL, ob.massKg * 1500);
         }
       }
     }
@@ -2153,18 +2169,25 @@ export const LiveTrafficMethods = {
         if (r.respawnTimer <= 0) {
           // A wrecked rival rejoins behind you, same driver, and has to fight back.
           r.takenDown = false;
-          r.y = 0; r.vy = 0; r.vx = 0; r.rot = 0; r.vRot = 0; r.yaw = 0; r.vYaw = 0;
+          r.y = 0; r.vy = 0; r.vx = 0; r.rot = 0; r.vRot = 0; r.yaw = 0; r.vYaw = 0; r.stun = 0;
           r.worldZ = playerZ - 2600 - i * 500;
           r.prevZ = r.worldZ;
           r.mph = Math.max(45, GameState.speed * 0.8);
+          r.vz = r.mph * speedToWorld;
         }
+        continue;
+      }
+      // Knocked out of its driver's hands (src/rigid.js): only the tyres until it's caught.
+      if (r.stun > 0) {
+        r.prevZ = r.worldZ;
+        r.prevOffset = r.offset;
         continue;
       }
 
       if (r.ai && aw) {
         // Real racing AI (src/rival-ai.js): corners, apexes, passes, drafting, NOS, defending.
         RAI.stepRival(r, r.ai, aw, r.progress - GameState.distance, rawDt);
-        r.vz = r.mph * speedToWorld;
+        r.driveVz = r.mph * speedToWorld;
         r.prevZ = r.worldZ;
         r.prevOffset = r.offset;
         continue;
@@ -2174,7 +2197,7 @@ export const LiveTrafficMethods = {
       const targetMph = r.finishTime != null ? 60 : rivalTargetMph(r.pace, lead);
       r.nosActive = targetMph > r.pace + 5;
       r.mph += (targetMph - r.mph) * Math.min(1, rawDt * 2.5);
-      r.vz = r.mph * speedToWorld;
+      r.driveVz = r.mph * speedToWorld;
       const nT = this.traffic.length;
       for (let h = 0; h < nT + this.obstacles.length; h++) {
         const hz = h < nT ? this.traffic[h] : this.obstacles[h - nT];
@@ -2192,9 +2215,13 @@ export const LiveTrafficMethods = {
     const waveTrafficMphBonus = Math.min(16, (GameState.waveTier - 1) * 2.0);
     for (let i = 0; i < this.traffic.length; i++) {
       const tr = this.traffic[i];
-      tr.vz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
+      // Cruise control: traffic pulls back up to its speed gently after a knock (src/rigid.js).
+      tr.driveVz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
+      tr.driveAccel = 900;
+      // Drivers look ahead (0176): a line just clear of a fixed or heavy obstacle (src/rigid.js).
+      if (!tr.takenDown) lookAhead(tr, this.drawObstacles);
       // Keep the racing line clear: drift to a clear lane (or the shoulder) on this side of it.
-      if (!tr.takenDown) {
+      if (!tr.takenDown && !(tr.stun > 0) && !(tr.blockedT > 0) && !(tr.avoidZ > tr.worldZ) && Math.abs(tr.yaw) < 0.5) {
         const tgt = this.planner.trafficTarget(tr.worldZ, tr.offset, tr.halfW, tr.halfL);
         const maxStep = TRAFFIC_LATERAL * rawDt;
         tr.offset += Math.max(-maxStep, Math.min(maxStep, tgt - tr.offset));
@@ -2213,7 +2240,14 @@ export const LiveTrafficMethods = {
     this.props.retireBehind(playerZ, 1800);
     if (this.props.live.length + this.obstacles.length + this.traffic.length + this.racers.length !== this.bodies.length) this.rebuildBodyLists();
     this.spawnProps(playerZ);
+    // v2 (ticket 0176): oriented boxes, impulses at the contact point, friction, drivers.
+    if (!this.world || !this.world.rigid) { this.world = createRigidWorld(); this.world.rigid = true; }
     this.world.step(this.bodies, dt, rawDt, this.onChain);
+    // Rivals feel the hit: the AI's speed is whatever the physics left it with.
+    for (let i = 0; i < this.racers.length; i++) {
+      const r = this.racers[i];
+      if (!r.takenDown) r.mph = Math.max(0, r.vz) / speedToWorld;
+    }
 
     // 3. Player ↔ Rivals Swept 3D Rigid-Body Collision + PIT-Maneuver Torque Solver
     for (let i = 0; i < this.racers.length; i++) {
@@ -2229,8 +2263,9 @@ export const LiveTrafficMethods = {
         if (latDist < minLatSep && vertOverlap) {
           const isSlam = (GameState.agroTimer > 0 || GameState.warpActiveTimer > 0 || Math.abs(GameState.playerVX) > 0.62 || GameState.isDrifting);
           const leverX = r.offset - GameState.playerX;
+          const P = playerBody(GameState, playerZ, playerHalfW, playerHalfL, playerMass, speedToWorld);
           if (isSlam) {
-            r.applyImpulseAndTorque(leverX >= 0 ? 3200 : -3200, 680000, playerWorldVZ * 800, leverX);
+            launchCar(P, r, leverX >= 0 ? 1 : -1, 450);
             r.takenDown = true;
             r.respawnTimer = 6.0;
             GameState.suspVel -= 140;
@@ -2240,25 +2275,31 @@ export const LiveTrafficMethods = {
             const e = 0.48;
             if (prevPZ < r.prevZ - r.halfL * 0.55 && GameState.speed > r.mph) {
               // Rear-end collision with off-center PIT-maneuver torque!
+              // Momentum through the bumpers at the real contact point: hit a rear corner and
+              // it spins them (a PIT); a heavier car barely notices a light one.
               GameState.trackPos = r.worldZ - ROAD_CFG.playerZOffset - (playerHalfL + r.halfL + 6);
-              const vRelMph = GameState.speed - r.mph;
-              const jMph = (1 + e) * vRelMph / totalInvMass;
-              GameState.speed = Math.max(24, GameState.speed - jMph * playerInvMass);
-              r.mph += jMph * r.invMass;
-              r.applyImpulseAndTorque(leverX * 1800, 120000, jMph * 400, leverX);
+              P.worldZ = GameState.trackPos + ROAD_CFG.playerZOffset;
+              carHit(P, r, 0, 1, e);
+              playerAfterHit(P, speedToWorld, 24);
+              r.mph = Math.max(0, r.vz) / speedToWorld;
               GameState.suspVel -= 160;
               GameState.chassisPitchVel += 12; // Nose dive on front impact!
               SoundEngine.playImpact('crash2', 120, 0.1, 0.1);
             } else {
               // Door-to-door side collision with body roll & lateral impulse!
+              // Door to door: separate by mass, then a sideways impulse with friction between
+              // the doors (the faster car is dragged back, the slower one pulled along).
               const dir = GameState.playerX < r.offset ? -1 : 1;
               const overlapX = minLatSep - latDist + 0.02;
-              GameState.playerX += dir * overlapX * 0.55;
-              r.offset -= dir * overlapX * 0.55;
-              const vRelX = GameState.playerVX - r.vx;
-              const jx = -(1 + e) * vRelX / totalInvMass;
-              GameState.playerVX += (jx * playerInvMass) + dir * 0.38;
-              r.applyImpulseAndTorque(-jx - dir * 800, 80000, 0, leverX);
+              const share = r.invMass / totalInvMass;
+              GameState.playerX += dir * overlapX * share;
+              r.offset -= dir * overlapX * (1 - share);
+              P.offset = GameState.playerX;
+              carHit(P, r, -dir, 0, e);
+              // Doors spring apart a little even at a crawl, so you're never glued together.
+              P.vx += dir * 0.2 * share * 2;
+              playerAfterHit(P, speedToWorld, 0);
+              r.mph = Math.max(0, r.vz) / speedToWorld;
               GameState.chassisRollVel += dir * 18;
               SoundEngine.playImpact('bump', 140, 0.08, 0.08);
             }
@@ -2276,7 +2317,8 @@ export const LiveTrafficMethods = {
       const trF = featureAt(tr.worldZ);
       if (relZ < -800 || tr.takenDown || (trF && trF.kind !== 'BOOSTER')) {
         tr.takenDown = false;
-        tr.y = 0; tr.vy = 0; tr.vx = 0; tr.rot = 0; tr.vRot = 0; tr.yaw = 0; tr.vYaw = 0;
+        tr.y = 0; tr.vy = 0; tr.vx = 0; tr.rot = 0; tr.vRot = 0; tr.yaw = 0; tr.vYaw = 0; tr.stun = 0;
+        tr.vz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
         const maxT = Math.max(playerZ + 12000, ...this.traffic.map(t => t.worldZ));
         tr.worldZ = maxT + (4800 + RS.trafficRand() * 2200) * GameState.trafficGapScale;
         for (let k = 0; k < 20 && hasSetPieceBetween(tr.worldZ - 600, tr.worldZ + 600); k++) tr.worldZ += 2000;
@@ -2295,8 +2337,9 @@ export const LiveTrafficMethods = {
 
         if (latDist < minLatSep && vertOverlap) {
           const leverX = tr.offset - GameState.playerX;
+          const P = playerBody(GameState, playerZ, playerHalfW, playerHalfL, playerMass, speedToWorld);
           if (GameState.agroTimer > 0 || GameState.warpActiveTimer > 0 || (GameState.invulnTimer <= 0 && shieldBreak(leverX))) {
-            tr.applyImpulseAndTorque(leverX >= 0 ? 4500 : -4500, 850000, playerWorldVZ * 900, leverX);
+            launchCar(P, tr, leverX >= 0 ? 1 : -1, tr.style === 'SEMI_TRUCK' ? 160 : 520);
             tr.takenDown = true;
             triggerRivalTakedown(tr, '💥 TRAFFIC LAUNCHED!');
           } else {
@@ -2308,21 +2351,27 @@ export const LiveTrafficMethods = {
             GameState.chassisPitchVel += 16;
 
             if (prevPZ < tr.prevZ - tr.halfL * 0.5) {
+              // Into its back: a semi barely moves and stops you; a sedan gets shoved and,
+              // hit off-centre, spins.
               GameState.trackPos = tr.worldZ - ROAD_CFG.playerZOffset - (playerHalfL + tr.halfL + 8);
-              const vRelMph = Math.max(10, GameState.speed - tr.mph);
-              const jMph = (1 + e) * vRelMph / totalInvMass;
-              GameState.speed = Math.max(22, GameState.speed - jMph * playerInvMass);
-              tr.mph += jMph * tr.invMass;
-              tr.applyImpulseAndTorque(leverX * 2200, tr.style === 'SEMI_TRUCK' ? 90000 : 320000, jMph * 950, leverX);
+              P.worldZ = GameState.trackPos + ROAD_CFG.playerZOffset;
+              P.vz = Math.max(P.vz, tr.vz + 5 * speedToWorld); // a hit is always a hit
+              carHit(P, tr, 0, 1, e);
+              playerAfterHit(P, speedToWorld, 22);
             } else {
               const dir = GameState.playerX < tr.offset ? -1 : 1;
               const overlapX = minLatSep - latDist + 0.04;
-              GameState.playerX += dir * overlapX * 0.7;
-              tr.offset -= dir * overlapX * 0.3;
-              GameState.playerVX = dir * 0.68;
-              tr.applyImpulseAndTorque(-dir * 1900, 140000, 0, leverX);
+              const share = tr.invMass / totalInvMass;
+              GameState.playerX += dir * overlapX * Math.max(0.3, share);
+              tr.offset -= dir * overlapX * Math.max(0.3, 1 - share);
+              P.offset = GameState.playerX;
+              // Side-swiping traffic: a real sideways impulse (a semi throws you, a sedan
+              // gives), door friction, and the crumple costs a share of your speed.
+              carHit(P, tr, -dir, 0, e);
+              P.vx += dir * (0.25 + 0.4 * (1 - share));
+              playerAfterHit(P, speedToWorld, 26);
+              GameState.speed = Math.max(26, GameState.speed * 0.9);
               GameState.chassisRollVel += dir * 22;
-              GameState.speed = Math.max(26, GameState.speed * 0.80);
             }
           }
         } else if (latDist < minLatSep + 0.18 && !tr.nearMissed && GameState.speed > 50) {
@@ -2430,10 +2479,14 @@ export const LiveTrafficMethods = {
             if (!ob.isStatic) {
               ob.worldZ = Math.max(ob.worldZ, playerZ + playerHalfL + ob.halfL + 40);
               ob.prevZ = ob.worldZ;
-              const launchVZ = (playerWorldVZ * 1.65 + 1450) * ob.massKg;
-              const launchVX = -pushDir * (1.5 + Math.abs(leverX) * 2.5) * ob.massKg;
-              const launchVY = (420 + Math.random() * 160) * ob.massKg;
-              ob.applyImpulseAndTorque(launchVX, launchVY, launchVZ, leverX);
+              // Momentum exchange along the road (heavier = slower off the bumper), kicked
+              // aside and up off your sloped nose, at the point your bumper met it, so a
+              // corner hit sends it spinning (src/rigid.js).
+              const v = impactVelocities(playerMass, playerWorldVZ, ob.massKg, ob.vz, Math.max(0.5, ob.restitution));
+              const jz = ob.massKg * (v.body - ob.vz + 1450);
+              const jx = -pushDir * (1.0 + Math.abs(leverX) * 2.5) * ob.massKg * RIGID.LAT * 0.6;
+              const hx = Math.max(ob.offset - ob.halfW, Math.min(ob.offset + ob.halfW, GameState.playerX)) * RIGID.LAT;
+              applyImpulseAt(ob, jx, jz, hx, ob.worldZ - ob.halfL, (420 + hitJitter(ob) * 160) * ob.massKg);
             }
 
             // 3. Compress 4-wheel suspension & pitch nose forward on impact!

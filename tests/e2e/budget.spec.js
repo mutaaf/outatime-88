@@ -43,6 +43,14 @@ test('the race step is a lazy chunk in its own budget (0170)', () => {
   for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('TOO SLOW FOR THE LOOP');
 });
 
+test('the rigid-body world is its own small lazy chunk (0176)', () => {
+  const files = readdirSync(DIR);
+  const rigid = files.filter((f) => /^rigid-.*\.js$/.test(f));
+  expect(rigid.length).toBe(1);
+  expect(gz(rigid[0])).toBeLessThan(5); // today ~4.2 kB: oriented-box contacts, impulses, drivers, your hits
+  for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('contactAlong');
+});
+
 /** A chunk plus every chunk it statically imports (not the main bundle): what loading it downloads. */
 function closure(entry) {
   const seen = new Set();
