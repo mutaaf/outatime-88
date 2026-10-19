@@ -6,6 +6,8 @@
   <title>OUTATIME 88: Neon Time-Warp Street Racer</title>
   <meta name="description" content="OUTATIME 88 — a neon time-travel arcade racer. Hit 88 mph to jump eras." />
   <meta name="theme-color" content="#05050d" />
+  <!-- TV mode (ticket 0175): a TV's QR opens ?pad=CODE; phones go straight to the controller page. -->
+  <script>if (/[?&]pad=/.test(location.search)) location.replace('pad.html' + location.search);</script>
   <!-- Tab icon (ticket 0020): bundled, so it resolves under /outatime/ and full Chrome never asks for /favicon.ico. -->
   <link rel="icon" type="image/svg+xml" href="./src/favicon.svg" />
   <!-- Install to the home screen (mobile pass): fullscreen, no browser bars, our own icon. -->

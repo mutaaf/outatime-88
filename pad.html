@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>OUTATIME 88 · Phone controller</title>
+  <meta name="description" content="Use your phone as the tilt controller for OUTATIME 88 on a TV." />
+  <meta name="theme-color" content="#05050d" />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/svg+xml" href="./src/favicon.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+</head>
+<body>
+  <main id="pad" class="pad" data-state="join">
+    <!-- 1 · join: enter the TV's code (skipped when the QR link carries it) -->
+    <section id="padJoin" class="pad-screen pad-join">
+      <p class="pad-kicker">OUTATIME 88 · PHONE CONTROLLER</p>
+      <h1>Enter the code on your TV</h1>
+      <form id="padForm" autocomplete="off">
+        <input id="padCodeIn" inputmode="latin" maxlength="4" autocapitalize="characters" spellcheck="false" aria-label="TV code" placeholder="BCDF" />
+        <button type="submit" class="pad-cta">CONNECT</button>
+      </form>
+      <p class="pad-hint">On the TV open <b id="padTvUrl"></b></p>
+      <p id="padJoinErr" class="pad-err" role="alert"></p>
+    </section>
+    <!-- 2 · arm: one tap grants motion access (iOS), wake lock and full screen -->
+    <section id="padArm" class="pad-screen pad-arm">
+      <p class="pad-kicker">CODE <b id="padCodeShow"></b></p>
+      <button id="padGo" type="button" class="pad-cta pad-big">TAP TO START YOUR CONTROLLER</button>
+      <p class="pad-hint">Hold the phone sideways like a steering wheel. Tilt to steer.</p>
+    </section>
+    <!-- 3 · drive -->
+    <section id="padDrive" class="pad-screen pad-drive">
+      <div class="pad-col pad-left">
+        <button id="padBrake" class="pad-btn pad-brake" data-hold="brake" type="button">BRAKE</button>
+        <button id="padNos" class="pad-btn pad-nos" data-hold="nos" type="button">NOS</button>
+      </div>
+      <div class="pad-mid">
+        <div class="pad-hud">
+          <span id="padMph" class="pad-mph">0</span><small>MPH</small>
+          <span class="pad-hp"><i id="padHp"></i></span>
+          <span id="padCoins" class="pad-coins">⚡ 0</span>
+        </div>
+        <div id="padWheel" class="pad-wheel" aria-label="Steering: tilt the phone, or drag here">
+          <span id="padDot" class="pad-dot"></span>
+          <span id="padSteerHint" class="pad-steer-hint">TILT TO STEER</span>
+        </div>
+        <div class="pad-row">
+          <button id="padCenter" class="pad-small" type="button">⟲ CENTER</button>
+          <button id="padStart" class="pad-small pad-start" type="button">▶ START</button>
+          <button id="padFit" class="pad-small" type="button">⛶ FIT TV</button>
+        </div>
+        <p id="padStatus" class="pad-status">connecting…</p>
+      </div>
+      <div class="pad-col pad-right">
+        <button id="padBoost" class="pad-btn pad-boost" type="button">BOOST</button>
+        <button id="padGas" class="pad-btn pad-gas" data-hold="gas" type="button">GAS</button>
+      </div>
+    </section>
+    <p id="padRotate" class="pad-rotate">↻ Turn your phone sideways</p>
+  </main>
+  <script type="module" src="./src/tv/pad.js"></script>
+</body>
+</html>

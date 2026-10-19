@@ -34,7 +34,11 @@ export const InputState = {
   lookZoom: 1
 };
 
+// TV mode (ticket 0175, src/tv/tv.js): a paired phone drives through the gamepad path.
+export const PhonePad = { on: false, steer: 0, gas: false, brake: false, boost: false, hover: false, nos: false, back: false, l3: false };
+
 export function pollGamepad() {
+  if (PhonePad.on) return PhonePad;
   if (!navigator.getGamepads) return NO_PAD;
   try {
     const pads = navigator.getGamepads();

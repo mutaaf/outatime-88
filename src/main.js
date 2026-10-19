@@ -2686,6 +2686,12 @@ window.onload = () => {
   syncAudioUI();
   updateEraHud();
   updateLiveHud();
+  // TV mode (ticket 0175): ?tv (or ?screen=tv) pairs a phone as the controller; lazy, TV only.
+  if (/[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search)) import('./tv/tv.js').then((m) => m.startTv({
+    start: () => { const again = document.getElementById('btnPlayAgain'); if (again && again.offsetParent) again.click(); else if (titleVisible()) startNewRace(titleStart || { mode: 'INFINITE' }); },
+    unlockAudio: () => SoundEngine.init(),
+    debug: new URLSearchParams(location.search).has('debug'),
+  })).catch(() => {});
   // A ?room=CODE invite drops you straight into that room's lobby (no title, no menus).
   const roomParam = new URLSearchParams(location.search).get('room');
   if (roomParam) loadLive().then((l) => l.join(roomParam));
