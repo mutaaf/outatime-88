@@ -207,7 +207,8 @@ export function step(dt) {
   if (S.heat >= HEAT.max) { fail('HEAT'); return; }
 
   // Stalling (waiting for a train or coasting dry doesn't count).
-  const waiting = S.list.some((h) => h.kind === 'TRAIN' && h.tOn != null && pz < h.z0 + h.len + 2 * SEG && now < h.tOff + 2.5);
+  let waiting = false;
+  for (let k = 0; k < S.list.length; k++) { const h = S.list[k]; if (h.kind === 'TRAIN' && h.tOn != null && pz < h.z0 + h.len + 2 * SEG && now < h.tOff + 2.5) waiting = true; }
   const wasStall = S.stall;
   S.stall = stepStall(S.stall, G.speed, dt, waiting || S.dry || now < STALL.after);
   if (S.stall >= 2 && wasStall < 2) triggerAnnouncement('🐌 MOVE IT!', 'STALL TOO LONG AND THE RUN IS OVER', 1200, 3);
