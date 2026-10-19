@@ -2709,7 +2709,7 @@ window.onload = () => {
     state: GameState, save: SaveStore, goHome: showTitle, play: () => startNewRace(titleStart || { mode: 'INFINITE' }),
     daily: () => startNewRace({ daily: true }), garage: openGarageModal, ranks: () => openLeaderboard(), pause: openGarageModal,
     tv: () => { location.href = `${import.meta.env.BASE_URL}?tv`; }, leaveLive: () => live.leave(), touchActive: () => !!touch,
-    names: Object.fromEntries(POP_CULTURE_ROSTER.map((c) => [c.id, c.car.replace(/^'\d+\s+/, '')])), bigScreen: !coarsePointer,
+    bigScreen: !coarsePointer,
   }); }).catch(() => {}), 0);
   bindRaceStageSkip();
   if (/[?&]track=/.test(location.search)) loadShareUi().catch(() => {});

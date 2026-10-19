@@ -8,16 +8,18 @@
 // main.js owns the state change itself (showTitle); this module only decides when and draws.
 import './home.css';
 import { HOME_IDLE_MS, PITCH, homeHooks, isFirstVisit, noteNewsSeen } from './home-hooks.js';
+import { POP_CULTURE_ROSTER } from './data.js';
 
 /**
  * h: { state (GameState), save (SaveStore), goHome(), play(), daily(), garage(carId), ranks(),
- *      tv(), pause(), leaveLive(), names (car id → name), bigScreen, touchActive() }
+ *      tv(), pause(), leaveLive(), bigScreen, touchActive() }
  */
 export function createHome(h) {
   const $ = (id) => document.getElementById(id);
   const shown = (id) => { const el = $(id); return !!el && !el.classList.contains('hidden'); };
   const S = h.state;
   const reduced = () => !!S.reducedMotion;
+  const names = Object.fromEntries(POP_CULTURE_ROSTER.map((c) => [c.id, c.car.replace(/^'\d+\s+/, '')]));
 
   // ---------- home screen: hooks or the pitch ----------
   const rail = $('homeHooks');
@@ -47,7 +49,7 @@ export function createHome(h) {
       return;
     }
     const rival = ($('titleRival') && $('titleRival').textContent.trim()) || '';
-    const hooks = homeHooks(save, { now: Date.now(), names: h.names, rival, bigScreen: h.bigScreen && !onTv });
+    const hooks = homeHooks(save, { now: Date.now(), names, rival, bigScreen: h.bigScreen && !onTv });
     hooks.forEach((k, i) => {
       const b = document.createElement('button');
       b.type = 'button';
