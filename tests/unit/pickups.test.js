@@ -31,7 +31,7 @@ describe('pickup definitions', () => {
       expect(d.reach, k).toBeGreaterThan(0.3);
       if (d.flux) expect(FLUX.gains[d.flux], k).toBeGreaterThan(0);
       if (d.nos) expect(NOS.refill[d.nos], k).toBeGreaterThan(0);
-      expect(d.pts > 0 || d.nos || d.heal, k).toBeTruthy();
+      expect(d.pts > 0 || d.nos || d.heal || d.powerup, k).toBeTruthy();
     }
     const { ART } = await import('../../src/pickup-art.js');
     for (const k of Object.keys(PICKUPS)) shapes.add(ART[k].shape);
@@ -57,7 +57,8 @@ describe('rhythm', () => {
       expect(i - last, `segment ${i}`).toBeGreaterThan(PICKUP.gap);
       last = i;
     }
-    expect([...seen].sort()).toEqual(Object.keys(PICKUPS).sort());
+    // Runner power-ups (0175) come from powerupAt, not the base rhythm (tests/unit/powerups.test.js).
+    expect([...seen].sort()).toEqual(Object.keys(PICKUPS).filter((k) => !PICKUPS[k].powerup).sort());
   });
 
   it('pays about what the old layout did per kilometre (±15%)', () => {

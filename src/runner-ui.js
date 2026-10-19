@@ -3,6 +3,7 @@
 // (src/runner.js) and calls in here; nothing here changes the simulation by itself.
 import { runnerMult } from './runner.js';
 import { ensureGoals, checkGoals, goalLabel, goalProgress } from './runner-goals.js';
+import { POWER, POWER_KINDS, UPGRADE, ensurePower, powerSecs, upgradeCost, buyUpgrade } from './powerups.js';
 
 export { goalLabel };
 
@@ -46,14 +47,66 @@ function titleLine(goals) {
   el.textContent = `⭐ LV ${goals.level + 1} ×${runnerMult(goals.level).toFixed(1)} · 🎯 ${done}/3${next ? ` · ${goalLabel(next)}` : ''}`;
 }
 
+/**
+ * The power-up shop (0175) on the results card and in the pause panel: one button per power-up,
+ * its level pips, how long it lasts and the next level's price in earned FLUX cash (no money).
+ */
+function fillShop(box, save, onSave) {
+  if (!box) return;
+  const lv = ensurePower(save);
+  const coins = save.fluxCoins | 0;
+  const key = POWER_KINDS.map((k) => lv[k]).join(',') + '|' + coins;
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.textContent = '';
+  const head = document.createElement('div');
+  head.className = 'shop-head';
+  head.textContent = `⚡ POWER-UP UPGRADES · YOU HAVE ${coins.toLocaleString()} ⚡`;
+  box.appendChild(head);
+  for (const k of POWER_KINDS) {
+    const P = POWER[k], l = lv[k], cost = upgradeCost(l);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'shop-item';
+    b.dataset.kind = k;
+    b.style.setProperty('--pc', P.color);
+    b.disabled = !cost || coins < cost;
+    const pips = '●'.repeat(l) + '○'.repeat(UPGRADE.max - l);
+    const secs = (s) => `${Math.round(s * 10) / 10}s`;
+    b.setAttribute('aria-label', `${P.name} level ${l} of ${UPGRADE.max}, lasts ${secs(powerSecs(k, l))}${cost ? `, upgrade for ${cost} flux cash` : ', maxed'}`);
+    const name = document.createElement('span');
+    name.className = 'shop-name';
+    name.textContent = `${P.icon} ${P.name}`;
+    const info = document.createElement('small');
+    info.textContent = `${pips} ${secs(powerSecs(k, l))}${cost ? ` → ${secs(powerSecs(k, l + 1))}` : ''}`;
+    const price = document.createElement('b');
+    price.textContent = cost ? `${cost.toLocaleString()} ⚡` : 'MAX';
+    b.append(name, info, price);
+    b.onclick = () => {
+      const r = buyUpgrade(save, k);
+      if (!r.ok) return;
+      if (onSave) onSave();
+      b.classList.add('bought');
+      fillShop(box, save, onSave);
+    };
+    box.appendChild(b);
+  }
+}
+
 /** Repaint every goals view (cheap when nothing changed). `endless` hides them in other modes. */
-export function renderGoals(save, stats, endless) {
+export function renderGoals(save, stats, endless, onSave) {
   const goals = ensureGoals(save);
   for (const id of ['pauseGoals', 'endGoals']) {
     const ul = $(id);
     if (!ul) continue;
     ul.classList.toggle('hidden', !endless);
     if (endless) fillList(ul, goals, stats);
+  }
+  for (const id of ['pauseShop', 'endShop']) {
+    const box = $(id);
+    if (!box) continue;
+    box.classList.toggle('hidden', !endless);
+    if (endless) fillShop(box, save, onSave);
   }
   titleLine(goals);
 }

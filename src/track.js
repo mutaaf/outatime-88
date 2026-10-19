@@ -26,6 +26,7 @@ export const track = {
   generatedCount: 0,
   line: null,
   seed: 0,           // shuffle-bag seed (0: the level's own fixed layout)
+  power: 0,          // runner power-up spawn level (0175): the Endless tier, 0 = none
   run: {},           // replaced on every reset; renderers compare it to know the road restarted
   bag: [], bagPos: 0, bagCount: 0, lastPiece: '',
   allocated: 0,      // segment objects ever created (bounded by RING: proves the pool works)
@@ -74,6 +75,11 @@ export function setTrackSeed(seed) {
  */
 export function setTrackIntensity(k) {
   track.intensity = k > 0 ? k : 1;
+}
+
+/** Runner power-ups on the road from now on (src/pickups.js powerupAt): Endless tier, 0 = off. */
+export function setTrackPowerups(level) {
+  track.power = level > 0 ? level | 0 : 0;
 }
 
 export function resetTrack() {
@@ -217,7 +223,7 @@ export function populateChunkDecorations(startIdx, endIdx, patternType) {
     }
 
     // Pickups (src/pickups.js): coin trails, flux cores, wrenches and NOS on the clean line.
-    if (seg.trackType !== 'CHECKPOINT') placePickup(seg, i, patternType, track.line, addItem);
+    if (seg.trackType !== 'CHECKPOINT') placePickup(seg, i, patternType, track.line, addItem, track.power, track.seed);
   }
 }
 

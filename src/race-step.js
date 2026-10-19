@@ -25,11 +25,32 @@ const {
   magnetPull, materialFor, missionsDone, mulberry32, nearMissChain, nosFill, nosFor, nosSpeed,
   ordinal, passiveFluxRate, penaltyPoints, pickMissions, pickupReach, pollGamepad,
   preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace, resetBackdrop,
-  rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, stepDrive, stepLateral, stepNos,
+  rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, setTrackPowerups, stepDrive, stepLateral, stepNos,
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, utcDay, wallContact, warpReady
 } = RACE_DEPS;
+import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 
 export const hitStop = createHitStop();
+
+// Runner power-ups (0175, src/powerups.js): this run's timers. Renderers read GameState.power.
+export const power = createPower();
+GameState.power = power;
+const endlessSolo = () => GameState.mode === 'INFINITE' && !GameState.daily;
+
+/** A crash while the shield is up: the shield takes it (no HP, speed or points lost). */
+export function shieldBreak(rel) {
+  if (!useShield(power)) return false;
+  GameState.invulnTimer = Math.max(GameState.invulnTimer, 1.0);
+  runStats.shieldSaves++;
+  if (!SoundEngine.sample('debris', 1.4, 0.9)) SoundEngine.playCrash();
+  SoundEngine.sample('zone', 1.6, 0.7);
+  if (touch) touch.controls.haptics.pulse('hit');
+  if (pickupArt) pickupArt.burst('SHIELD', rel);
+  GameState.screenShake = Math.max(GameState.screenShake, 0.18);
+  GameState.hitShockwaves.push({ x: rel * 150, y: 0, radius: 18, maxRadius: 150, color: POWER.SHIELD.color, label: '🛡️ SHIELD SAVED YOU!', life: 0.7, maxLife: 0.7 });
+  triggerAnnouncement('🛡️ SHIELD SAVED YOU!', 'NO DAMAGE · GRAB ANOTHER TO STAY SAFE', 1200);
+  return true;
+}
 
 export const nearMisses = nearMissChain();
 
@@ -66,6 +87,7 @@ export function chargePenalty(pts, label) {
 
 export function applyPlayerDamage(rawDmg, reasonText) {
   if (GameState.invulnTimer > 0 || GameState.agroTimer > 0 || GameState.warpActiveTimer > 0) return;
+  if (shieldBreak(0)) return;
   const hitKind = reasonText.includes('TRAFFIC') ? 'traffic' : 'obstacle';
   const impactMph = Math.max(GameState.speed, GameState.prevSpeed || 0);
   chargePenalty(logHit(GameState.penaltyLog, hitKind, impactMph), hitKind === 'traffic' ? 'TRAFFIC CRASH' : reasonText.replace('IMPACT', 'HIT'));
@@ -141,6 +163,7 @@ export function resetRunner() {
   for (const k of Object.keys(runStats)) runStats[k] = 0;
   runStats.tier = 1;
   RS.stormCrash = false; RS.goalClock = 0; RS.lastLoopF = null; RS.lastDist = 0; RS.passedBest = false;
+  resetPower(power);
   GameState.continued = false;
   GameState.stormGap = storm.gap; GameState.stormWarn = 0;
   const endless = GameState.mode === 'INFINITE' && !GameState.daily;
@@ -154,6 +177,11 @@ export function resetRunner() {
 
 export function stepRunner(rawDt) {
   if (GameState.mode !== 'INFINITE' || GameState.daily || GameState.racePhase !== 'RACING' || GameState.status !== 'PLAYING') return;
+  const ended = stepPower(power, rawDt);
+  if (ended) {
+    SoundEngine.sample('whoosh', 1.5, 0.5);
+    if (ended !== 'SHIELD' || !power.popped) triggerAnnouncement(`${POWER[ended].icon} ${POWER[ended].name} OFF`, '', 700, 0);
+  }
   runStats.tier = GameState.tier;
   const moved = GameState.distance - RS.lastDist;
   RS.lastDist = GameState.distance;
@@ -223,6 +251,7 @@ export function continueRun(cost) {
 export function levelUpEndless() {
   const tier = GameState.tier;
   setTrackIntensity(tune.intensity);
+  setTrackPowerups(endlessSolo() ? tier : 0); // power-ups a little more often each tier (0175)
   const healed = Math.round(healPlayerHp(Math.round(GameState.maxHp * ENDLESS.healFrac)));
   GameState.eraIndex = (GameState.eraIndex + 1) % ERAS.length; // every tier is a new era
   updateEraHud();
@@ -330,13 +359,37 @@ export function performHumanTrick(direction) {
 }
 
 /** A pickup was collected: its effect, score, cue and burst (defs in src/pickups.js). */
+/** A power-up was grabbed (0175): start its timer for the upgraded length. */
+function applyPowerup(item) {
+  const kind = item.type, rel = item.offset - GameState.playerX;
+  const lv = ensurePower(SaveStore.data)[kind];
+  activatePower(power, kind, lv);
+  runStats.powerups++;
+  if (!SoundEngine.sample('zone', kind === 'MAGNET' ? 0.8 : kind === 'SHIELD' ? 1.2 : 1.5, 0.9)) SoundEngine.playCheckpoint();
+  SoundEngine.sample(kind === 'DOUBLER' ? 'coin' : 'booster', kind === 'DOUBLER' ? 0.75 : 1.3, 0.6);
+  if (touch) touch.controls.haptics.pulse('pickup');
+  GameState.pickupsTaken = (GameState.pickupsTaken || 0) + 1;
+  if (pickupArt) pickupArt.burst(kind, rel);
+  const P = POWER[kind];
+  const secs = Math.round(power.dur[kind]);
+  triggerAnnouncement(`${P.icon} ${P.name}!`, kind === 'MAGNET' ? `COINS FLY TO YOU · ${secs}s` : kind === 'SHIELD' ? `BLOCKS ONE CRASH · ${secs}s` : `DOUBLE COIN CASH · ${secs}s`, 1100);
+  spawnAcquireAnimation(kind, rel, `${P.icon} ${P.name} ${secs}s`);
+}
+
 export function applyPickup(item, def) {
+  if (def.powerup) { applyPowerup(item); return; }
   const rel = item.offset - GameState.playerX;
   if (def.combo) { GameState.combo = Math.min(12, GameState.combo + 1); GameState.comboTimer = 5.0; }
   if (def.flux) GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains[def.flux]);
   // Endless tiers multiply coin cash (ticket 0150); points are unchanged (the server re-checks them).
-  const cash = def.coins ? Math.round(def.coins * (GameState.coinMult || 1)) : 0;
-  if (cash) { GameState.runCoins += cash; SaveStore.data.fluxCoins += cash; runStats.coins++; }
+  // The 2X power-up doubles cash on top (0175).
+  const doubled = cashMult(power);
+  const cash = def.coins ? Math.round(def.coins * (GameState.coinMult || 1)) * doubled : 0;
+  if (cash) {
+    GameState.runCoins += cash; SaveStore.data.fluxCoins += cash; runStats.coins++;
+    if (doubled > 1) runStats.doubledCash += cash;
+    if (powerOn(power, 'MAGNET')) runStats.magnetCoins++;
+  }
   const healed = def.heal ? Math.round(healPlayerHp(def.heal)) : 0;
   if (def.nos) { addNos(RS.nos, def.nos); GameState.nosFill = nosFill(RS.nos); }
   const pts = def.pts * GameState.combo;
@@ -981,6 +1034,8 @@ export function updateGame(rawDt) {
     GameState.playerX = side * MAX_TRACK_X;
     chargePenalty(logWall(GameState.penaltyLog, rawDt * 1000, GameState.speed, Math.round(GameState.raceTime * 1000)), 'WALL SCRAPE');
     // Points barely move for a scrape now (ticket 0165); grinding wears HP instead, never to 0.
+    // A shield (0175) takes a hard hit into the wall and buys a second of grinding for free.
+    if (GameState.playerVX * side > 0.35 && GameState.speed >= 30 && GameState.invulnTimer <= 0) shieldBreak(side * 0.6);
     if (GameState.speed >= 30 && GameState.invulnTimer <= 0) {
       GameState.hp = Math.max(Math.min(GameState.hp, 1), GameState.hp - 5 * activeCarParams().damageMult * currentDifficulty().damage * rawDt);
     }
@@ -1188,7 +1243,7 @@ export function updateGame(rawDt) {
       for (let i = 0; i < seg.items.length; i++) {
         const it = seg.items[i];
         const def = PICKUPS[it.type];
-        if (def && !it.collected) magnetPull(it, def, GameState.playerX, offset, pickupReach(def, GameState.speed, coarsePointer, GameState.magnetTimer > 0 || GameState.dodgeStreak >= 4), rawDt);
+        if (def && !it.collected) magnetPull(it, def, GameState.playerX, offset, pickupReach(def, GameState.speed, coarsePointer, GameState.magnetTimer > 0 || GameState.dodgeStreak >= 4 || power.t.MAGNET > 0), rawDt);
       }
     }
 
@@ -1218,7 +1273,7 @@ export function updateGame(rawDt) {
       if (item.collected || item.smashed) continue;
       const def = PICKUPS[item.type];
       if (!def) continue;
-      if (Math.abs(GameState.playerX - item.offset) < pickupReach(def, GameState.speed, coarsePointer, GameState.magnetTimer > 0 || GameState.dodgeStreak >= 4) && GameState.playerY < 95) {
+      if (Math.abs(GameState.playerX - item.offset) < pickupReach(def, GameState.speed, coarsePointer, GameState.magnetTimer > 0 || GameState.dodgeStreak >= 4 || power.t.MAGNET > 0) && GameState.playerY < 95) {
         item.collected = true;
         applyPickup(item, def);
       }
@@ -1240,7 +1295,7 @@ export function updateGame(rawDt) {
             Math.abs(GameState.playerVX) > 0.75 ||
             GameState.speed >= 86
           );
-          if (isAggressiveSlam) {
+          if (isAggressiveSlam || shieldBreak(car.offset - GameState.playerX)) {
             triggerRivalTakedown(
               car,
               car.type === 'POLICE_INTERCEPTOR' ? '🚓 COP INTERCEPTOR TAKEDOWN!' : '🔥 SIGNATURE SIDE-SLAM TAKEDOWN!'
@@ -2163,7 +2218,7 @@ export const LiveTrafficMethods = {
 
         if (latDist < minLatSep && vertOverlap) {
           const leverX = tr.offset - GameState.playerX;
-          if (GameState.agroTimer > 0 || GameState.warpActiveTimer > 0) {
+          if (GameState.agroTimer > 0 || GameState.warpActiveTimer > 0 || (GameState.invulnTimer <= 0 && shieldBreak(leverX))) {
             tr.applyImpulseAndTorque(leverX >= 0 ? 4500 : -4500, 850000, playerWorldVZ * 900, leverX);
             tr.takenDown = true;
             triggerRivalTakedown(tr, '💥 TRAFFIC LAUNCHED!');
@@ -2273,6 +2328,8 @@ export const LiveTrafficMethods = {
             // HARD PHYSICAL RIGID-BODY COLLISION: Never let the player pass through the obstacle!
             ob.hitCount++;
             const isBoostSmash = (GameState.agroTimer > 0 || GameState.warpActiveTimer > 0);
+            // A shield (0175) takes the hit like a boost smash: the barricade flies, you keep going.
+            const shielded = !isBoostSmash && !isDebris(ob) && GameState.invulnTimer <= 0 && shieldBreak(ob.offset - GameState.playerX);
             const leverX = ob.offset - GameState.playerX;
             const pushDir = (GameState.playerX <= ob.offset) ? -1 : 1;
 
@@ -2281,7 +2338,7 @@ export const LiveTrafficMethods = {
             if (isDebris(ob)) {
               GameState.speed = Math.max(30, GameState.speed * 0.8);
               GameState.playerX += pushDir * 0.12;
-            } else if (!isBoostSmash) {
+            } else if (!isBoostSmash && !shielded) {
               GameState.trackPos = Math.max(0, GameState.trackPos - 135);
               GameState.speed = Math.max(20, GameState.speed * 0.48);
               GameState.playerX += pushDir * 0.18;
@@ -2311,7 +2368,7 @@ export const LiveTrafficMethods = {
               ob.offset - GameState.playerX,
               '#ff5500',
               '#fde047',
-              ob.type === 'LOW_LASER_BAR' ? '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!' : (ob.type === 'HIGH_LIGHT_GATE' ? '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!' : '💥 BARRICADE IMPACT! -14 HP')
+              shielded ? '🛡️ SHIELD BASH!' : ob.type === 'LOW_LASER_BAR' ? '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!' : (ob.type === 'HIGH_LIGHT_GATE' ? '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!' : '💥 BARRICADE IMPACT! -14 HP')
             );
           }
         }
