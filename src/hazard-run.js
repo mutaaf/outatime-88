@@ -19,7 +19,7 @@ const FALLS = { BRIDGE: 1, COLLAPSE: 1, EDGE: 1 };
 export const S = {
   on: false, seed: 0, idx: 0, nextZ: 0, met: [], last: '', list: [], lastZ: 0, lastT: 0,
   fuel: FUEL.max, fuelOn: false, dry: false, dryT: 0, lowWarned: false, cores: 0,
-  heat: 0, hotWarned: false, stall: 0, patrol: { t: 0, dur: 1 }, slowT: 0, slowSpell: false, grind: false,
+  heat: 0, hotWarned: false, stall: 0, patrol: { t: 0, dur: 1 }, slowT: 0, slowSpell: false, grindT: 0, sinceSlip: 9,
   cp: { on: false, gate: 0, gateZ: 0, left: 0, dur: 1 }, boltT: 0, bolt: 0,
   dying: null, cause: '', cue: '', cueT: 0, bell: 0, bell2: 660, refZps: 1,
 };
@@ -35,7 +35,7 @@ export function reset() {
   S.idx = 0; S.nextZ = 0; S.met.length = 0; S.last = ''; S.list.length = 0;
   S.lastZ = G.trackPos + ROAD_CFG.playerZOffset; S.lastT = G.raceTime || 0;
   S.fuel = FUEL.max; S.fuelOn = false; S.dry = false; S.dryT = 0; S.lowWarned = false; S.cores = G.fuelCores | 0;
-  S.heat = 0; S.hotWarned = false; S.stall = 0; S.patrol.t = 0; S.slowT = 0; S.slowSpell = false; S.grind = false;
+  S.heat = 0; S.hotWarned = false; S.stall = 0; S.patrol.t = 0; S.slowT = 0; S.slowSpell = false; S.grindT = 0; S.sinceSlip = 9;
   S.cp.on = false; S.cp.left = 0; S.boltT = 3; S.bolt = 0;
   S.dying = null; S.cause = ''; S.cue = ''; S.cueT = 0; S.bell = 0;
   G.noGas = false; G.hzFall = 0;
@@ -208,20 +208,25 @@ export function step(dt) {
 
   // Stalling (waiting for a train or coasting dry doesn't count).
   const waiting = S.list.some((h) => h.kind === 'TRAIN' && h.tOn != null && pz < h.z0 + h.len + 2 * SEG && now < h.tOff + 2.5);
-  const was = S.stall;
+  const wasStall = S.stall;
   S.stall = stepStall(S.stall, G.speed, dt, waiting || S.dry || now < STALL.after);
-  if (S.stall >= 2 && was < 2) triggerAnnouncement('🐌 MOVE IT!', 'STALL TOO LONG AND THE RUN IS OVER', 1200, 3);
+  if (S.stall >= 2 && wasStall < 2) triggerAnnouncement('🐌 MOVE IT!', 'STALL TOO LONG AND THE RUN IS OVER', 1200, 3);
   if (S.stall >= STALL.secs) { fail('STALL'); return; }
 
   // The Patrol.
   if (!gentle && tier >= 2) {
-    const grind = G.wallGrind && G.speed >= PATROL.grindMph;
-    S.slowT = G.speed < PATROL.slowMph && !waiting ? S.slowT + dt : 0;
+    // Slips: a crash; grinding along a wall at speed (a kiss doesn't count); crawling — but not
+    // while you're still recovering from the last slip, so one crash never counts twice.
+    const was = S.grindT;
+    S.grindT = G.wallGrind && G.speed >= PATROL.grindMph ? S.grindT + dt : 0;
+    const grind = was < PATROL.grindSecs && S.grindT >= PATROL.grindSecs;
+    S.sinceSlip += dt;
+    S.slowT = G.speed < PATROL.slowMph && !waiting && S.sinceSlip > PATROL.recover ? S.slowT + dt : 0;
     const slow = S.slowT >= PATROL.slowSecs && !S.slowSpell;
     if (S.slowT === 0) S.slowSpell = false;
     if (slow) S.slowSpell = true;
-    const slip = Boolean(RS.stormCrash) || (grind && !S.grind) || slow;
-    S.grind = grind;
+    const slip = Boolean(RS.stormCrash) || grind || slow;
+    if (slip) S.sinceSlip = 0;
     const r = stepPatrol(S.patrol, slip, dt, diff);
     if (r === 'on') { triggerAnnouncement('🚨 THE PATROL IS ON YOU!', `NO MORE SLIPS FOR ${Math.round(S.patrol.dur)}s`, 1500, 3); SoundEngine.playTone(620, 'triangle', 0.6, 0.08, 980); }
     else if (r === 'lost') { triggerAnnouncement('😎 LOST THE PATROL', '', 900); }

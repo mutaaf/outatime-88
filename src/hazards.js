@@ -183,7 +183,7 @@ export function stepStall(t, mph, dt, excused) {
 
 // The Patrol: a slip (a crash, a wall grind, crawling) sets it on your tail for a few seconds;
 // a second slip before it gives up and you're caught.
-export const PATROL = { secs: 8, secsHard: 5, slowMph: 30, slowSecs: 1.5, grindMph: 30 };
+export const PATROL = { secs: 8, secsHard: 5, slowMph: 30, slowSecs: 1.5, grindMph: 30, grindSecs: 0.6, recover: 3 };
 
 export const patrolSecs = (difficulty) => PATROL.secs + (PATROL.secsHard - PATROL.secs) * Math.max(0, Math.min(1, difficulty || 0));
 

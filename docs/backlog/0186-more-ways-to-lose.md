@@ -32,7 +32,7 @@ are lazy chunks.
   - **Plutonium fuel:** the tank drains with road covered, and every PLUTONIUM core refills it. Dry means no throttle: you coast, and five seconds without a core ends the run.
   - **NOS heat:** burning heats the engine. One tank is fine; two back to back blow it.
   - **Stalling:** crawling below 25 mph for 4 s ends the run. Waiting at a crossing doesn't count.
-- **The Patrol:** an original time-patrol hover car. A slip (a crash, a wall grind at speed, or crawling)
+- **The Patrol:** an original time-patrol hover car. A slip (a crash, grinding along a wall at speed for 0.6 s, or crawling; a slow-down within 3 s of a slip doesn't count twice)
   puts it on your tail for 8 s, or 5 s at full difficulty. A second slip in that window and you're caught.
   It shows rising behind the car with its timer.
 - **Checkpoints** (from tier 3): a gate every 3,600 distance units with a clock. Spare time carries over,
@@ -45,6 +45,7 @@ are lazy chunks.
   cause and the kinds you've met are kept in `save.endless.hz`.
 - **Run goals:** survive N road hazards, jump N broken bridges, survive N train crossings.
 - **3D:** hazards appear as the existing simple obstacle shapes (no new meshes).
+- **TV mode:** the phone pad gets a JUMP button, so broken bridges can be cleared from the couch.
 
 ## Not changed
 - Scoring and the server check: hazards only end runs, cut speed or stop the throttle. No new
