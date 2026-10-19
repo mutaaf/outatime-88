@@ -30,6 +30,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .pad-gas { flex: 1.6; background: linear-gradient(180deg, #4dff91, #12a14b); color: #03200e; }
 .pad-brake { flex: 1.6; background: linear-gradient(180deg, #ff6a83, #b3122f); }
 .pad-nos { background: linear-gradient(180deg, #6ba8ff, #2340c9); }
+.pad-jump { background: linear-gradient(180deg, #f0abfc, #a21caf); color: #fff; } /* jump broken bridges (0186) */
 .pad-boost { background: linear-gradient(180deg, #ffe680, #f0a500); color: #2a1800; }
 
 .pad-mid { display: flex; flex-direction: column; gap: 10px; min-width: 0; }

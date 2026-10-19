@@ -17,6 +17,10 @@ export const GOALS = [
   { type: 'SHIELD', stat: 'shieldSaves', base: 1, step: 1, label: (n) => `BLOCK ${n} CRASH${n > 1 ? 'ES' : ''} WITH A 🛡️ SHIELD` },
   { type: 'POWER', stat: 'powerups', base: 2, step: 1, label: (n) => `GRAB ${n} POWER-UPS IN ONE RUN` },
   { type: 'DOUBLER', stat: 'doubledCash', base: 40, step: 30, label: (n) => `EARN ${n} ⚡ ON 2X COINS` },
+  // Hazard goals (0186, src/hazards.js): survived = passed without a shield or a continue.
+  { type: 'HAZARDS', stat: 'hazards', base: 3, step: 3, label: (n) => `SURVIVE ${n} ROAD HAZARDS IN ONE RUN` },
+  { type: 'BRIDGES', stat: 'bridges', base: 1, step: 1, label: (n) => `JUMP ${n} BROKEN BRIDGE${n > 1 ? 'S' : ''} IN ONE RUN` },
+  { type: 'TRAINS', stat: 'trains', base: 1, step: 1, label: (n) => `SURVIVE ${n} TRAIN CROSSING${n > 1 ? 'S' : ''}` },
 ];
 
 /** The three goals for Endless level `lv` (deterministic; consecutive levels rotate kinds). */

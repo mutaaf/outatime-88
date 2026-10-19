@@ -169,6 +169,7 @@ export function resetRunner() {
   runStats.tier = 1;
   RS.stormCrash = false; RS.goalClock = 0; RS.lastLoopF = null; RS.lastDist = 0; RS.passedBest = false;
   resetPower(power);
+  if (RS.hz) RS.hz.reset();
   GameState.continued = false;
   GameState.stormGap = storm.gap; GameState.stormWarn = 0;
   const endless = GameState.mode === 'INFINITE' && !GameState.daily;
@@ -206,6 +207,7 @@ export function stepRunner(rawDt) {
     triggerAnnouncement('🏁 NEW BEST!', `PAST YOUR ${Math.round(best).toLocaleString()} m — KEEP GOING!`, 1800, 3);
     if (touch) touch.controls.haptics.pulse('lap');
   }
+  if (RS.hz) { RS.hz.step(rawDt); if (GameState.status !== 'PLAYING') return; }
   const caught = stepStorm(storm, GameState.speed, GameState.difficulty, rawDt, GameState.wallGrind, RS.stormCrash);
   RS.stormCrash = false;
   GameState.stormGap = storm.gap;
@@ -228,6 +230,7 @@ export function stepRunner(rawDt) {
 
 /** HP 0 or caught in an endless run: offer the one continue if it's affordable, else end. */
 export function endOrContinue(reason) {
+  if (RS.hz) RS.hz.noteEnd(reason);
   if (GameState.mode !== 'INFINITE' || GameState.daily || !canContinue(GameState.continued, SaveStore.data.fluxCoins, GameState.tier)) { endRaceRun(reason); return; }
   GameState.status = 'CONTINUE';
   const cost = continueCost(GameState.tier);
@@ -247,6 +250,7 @@ export function continueRun(cost) {
   GameState.invulnTimer = CONTINUE.invuln;
   GameState.speed = Math.max(GameState.speed, 45);
   stormRespite(storm);
+  if (RS.hz) RS.hz.onContinue();
   GameState.stormGap = storm.gap; GameState.stormWarn = 0;
   GameState.status = 'PLAYING';
   triggerAnnouncement('🔧 BACK IN THE RACE!', `−${cost} ⚡ · ${CONTINUE.invuln}s SHIELD · STORM PUSHED BACK`, 1800, 3);
@@ -389,6 +393,7 @@ export function applyPickup(item, def) {
   const rel = item.offset - GameState.playerX;
   if (def.combo) { GameState.combo = Math.min(12, GameState.combo + 1); GameState.comboTimer = 5.0; }
   if (def.flux) GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains[def.flux]);
+  if (item.type === 'PLUTONIUM') GameState.fuelCores = (GameState.fuelCores | 0) + 1; // Endless fuel (0186)
   // Endless tiers multiply coin cash (ticket 0150); points are unchanged (the server re-checks them).
   // The 2X power-up doubles cash on top (0177).
   const doubled = cashMult(power);
@@ -769,7 +774,7 @@ export function updateGame(rawDt) {
 
   const gp = pollGamepad();
   if (steerModes) steerModes.gamepad(gp);
-  const accelerating = GameState.autoGas || InputState.up || InputState.touchUp || gp.gas;
+  const accelerating = !GameState.noGas && (GameState.autoGas || InputState.up || InputState.touchUp || gp.gas); // no gas: out of fuel (0186)
   const braking = InputState.down || InputState.touchDown || gp.brake;
 
   const paceCfg = PACE_MODES[GameState.paceMode] || PACE_MODES[0];
