@@ -32,6 +32,8 @@ export let pickupArt = null; // src/pickup-art.js, lazy: crisp cached pickup ico
 setTimeout(() => { import('./pickup-art.js').then((m) => { pickupArt = m; }, () => {}); }, 0);
 let setPieceArt = null; // src/setpieces-2d.js, lazy: the art waits for it, the sim never does
 setTimeout(() => { import('./setpieces-2d.js').then((m) => { setPieceArt = m; }, () => {}); }, 0);
+let hzArt = null; // src/hazard-art.js, lazy: Endless hazards on the road + their HUD (0186)
+setTimeout(() => { import('./hazard-art.js').then((m) => { hzArt = m; }, () => {}); }, 0);
 let carArt = null; // src/car-sprite.js, lazy: each roster car's own model as cached race sprites
 setTimeout(() => { import('./car-sprite.js').then((m) => { carArt = m; }, () => {}); }, 0);
 import { createLine, createHazardPlanner, TRAFFIC_LATERAL } from './cleanline.js';
@@ -799,6 +801,7 @@ function renderScene() {
   for (let m = 0; m < allMovingCars.length; m++) moverSeg[m] = allMovingCars[m].takenDown ? -1 : Math.floor(allMovingCars[m].worldZ / ROAD_CFG.segLength);
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
     const seg = visibleSegments[i];
+    if (hzArt && GameState.hz && GameState.hz.on) hzArt.seg(ctx, seg);
     const roadX = seg.p1.screen.x;
     const roadY = seg.p1.screen.y;
     const roadW = seg.p1.screen.w;
@@ -1342,6 +1345,7 @@ function drawCarFx(ctx, rw, rh, over3d) {
     if (GameState.status === 'PLAYING' && !GameState.loopRide) pickupArt.drawHint(ctx, rw, rh, GameState.pickupHint, GameState.pickupHintSide, GameState.pickupHintSegs, RS.fxClock);
     if (GameState.power && GameState.power.on) pickupArt.drawPowerHud(ctx, rw, rh, GameState.power, GameState.playerScreenX || carCenterX, carCenterY, RS.fxClock, GameState.reducedMotion);
   }
+  if (hzArt && GameState.hz && GameState.hz.on) hzArt.hud(ctx, rw, rh, over3d, RS.fxClock);
 
   // 5.3 Render Expanding 3D Shockwave Rings & Floating Holo-Popups on Acquire / Hit!
   for (let i = 0; i < GameState.hitShockwaves.length; i++) {
@@ -2382,7 +2386,7 @@ async function enable3D() {
       track,
       era: getActiveEraRenderConfig,
       collectCars: collectCarsFor3D,
-      obstacles: () => LiveTraffic.drawObstacles,
+      obstacles: () => (RS.hz ? RS.hz.with3D(LiveTraffic.drawObstacles) : LiveTraffic.drawObstacles),
       player: playerPaint,
       quality: gfxQ,
       onLost: () => {
@@ -2679,6 +2683,7 @@ window.onload = () => {
     runner: () => ({ storm, stats: runStats, goals: runnerMod ? runnerMod.goalsOf(SaveStore.data) : null }),
     pickup: (type) => raceStep && raceStep.applyPickup({ type, offset: GameState.playerX }, PICKUPS[type]),
     fair: () => RS.fair, // jump/trick caps and counters (ticket 0180)
+    hazard: (k, a, l) => RS.hz && RS.hz.debugPlace(k, a, l),
   };
   initSettings({ announce: triggerAnnouncement });
   // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.
