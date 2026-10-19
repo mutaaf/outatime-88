@@ -68,7 +68,8 @@ export function shieldBreak(rel) {
 function playerAfterHit(P, stw, minMph) {
   GameState.speed = Math.max(minMph, P.vz / stw);
   GameState.playerVX = P.vx;
-  lateral.yawVel += P.vYaw * 0.5;
+  // Half the twist, capped: you feel the hit but handling can always catch it.
+  lateral.yawVel += Math.max(-0.6, Math.min(0.6, P.vYaw * 0.5));
 }
 
 export const nearMisses = nearMissChain();

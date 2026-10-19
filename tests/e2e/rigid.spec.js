@@ -20,19 +20,20 @@ test('a semi drifting into a sedan shoves it aside; momentum goes the right way'
     const car = T.traffic.find((t) => t.style !== 'SEMI_TRUCK');
     // Side by side well ahead of you, same speed, the semi drifting right into the sedan.
     const z = (G.visualPlayerZ || G.trackPos + 1250) + 6000;
-    for (const [b, off] of [[semi, -0.2], [car, 0.12]]) {
+    for (const [b, off] of [[semi, -0.2], [car, 0.115]]) {
       b.worldZ = z; b.prevZ = z; b.offset = off; b.prevOffset = off; b.yaw = 0; b.vYaw = 0;
-      b.vz = semi.driveVz || 3000; b.stun = 0; b.takenDown = false;
+      b.vz = semi.driveVz || 3000; b.stun = 0; b.takenDown = false; b.avoidZ = 0; b.blockedT = 0;
     }
     T.planner.trafficTarget = (zz, off) => off; // hold their lanes: only physics moves them sideways
     semi.vx = 1.2;
     window.__OT.GameState.speed = 0;
     const before = { semi: semi.offset, car: car.offset };
+    // Watch every physics step (a slow machine runs several per frame).
     let carVx = 0, semiVx = 9;
-    for (let i = 0; i < 40; i++) {
-      await new Promise((res) => requestAnimationFrame(res));
-      if (car.vx > carVx) { carVx = car.vx; semiVx = semi.vx; }
-    }
+    const W = T.world, step = W.step;
+    W.step = function (...a) { const st = step.apply(this, a); if (car.vx > carVx) { carVx = car.vx; semiVx = semi.vx; } return st; };
+    for (let i = 0; i < 40; i++) await new Promise((res) => requestAnimationFrame(res));
+    W.step = step;
     return { before, car: car.offset, semi: semi.offset, carVx, semiVx, carStun: car.stun };
   });
   expect(r.carVx).toBeGreaterThan(0.3);     // the sedan was thrown right
