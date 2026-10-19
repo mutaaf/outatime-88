@@ -22,7 +22,7 @@ export const RIGID = {
   LAT: 300,          // world Z units per lane unit
   G: 1580,           // gravity, Z units/s² (the vertical integrator's)
   GRIP: 2600,        // μ·g for tyres on tarmac, Z/s² (game speeds run hot, so grip does too)
-  DRIVE: 6000,       // most a driver can speed up or brake, Z/s² (~48 mph/s: NOS, boosters)
+  DRIVE: 6000,       // hardest a driver brakes, Z/s²
   ROLL_DECEL: 1500,  // a wreck on its tyres/roof scrubbing speed, Z/s²
   iterations: 4,     // contact solver passes per sub-step
   slop: 1.5,         // penetration left alone (Z units), so resting contacts don't jitter
@@ -343,10 +343,12 @@ export function integrate(b, dt, rawDt) {
         // Braking is tyre-limited and speeding up is the driver's call (the rival AI already
         // limits it); traffic's cruise control eases both ways (driveAccel), so a car you shunt
         // keeps the push for a while instead of braking straight back into you.
-        const up = (b.driveAccel != null ? b.driveAccel : RIGID.DRIVE) * dt;
+        // The driver holds the car to the road: speed goes along it (Z), not along a nose that a
+        // bump has knocked a little off line, so a twitch never turns into a sideways launch. A
+        // racing driver's own launch and NOS are the AI's to limit (src/rival-ai.js).
+        const up = b.driveAccel != null ? b.driveAccel * dt : Infinity;
         const down = b.blockedT > 0 || b.driveAccel == null ? RIGID.DRIVE * dt : b.driveAccel * dt;
-        const dLong = clamp(want - vLong, -down, up);
-        VX += dLong * s; VZ += dLong * c;
+        VZ += clamp(want - VZ, -down, up);
         const path = Math.atan2(VX, Math.max(600, Math.abs(VZ)));
         const target = clamp(path, -0.45, 0.45);
         b.vYaw += ((target - b.yaw) * RIGID.recoverYaw * 6 - b.vYaw * 4.5) * rawDt;
