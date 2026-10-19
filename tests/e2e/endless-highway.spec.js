@@ -1,6 +1,7 @@
 // Endless Highway (ticket 0150): the default mode, tiers that level up, HP both ways, game over.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';
+import { tierStart } from '../../src/endless.js';
 
 const G = (page, fn) => page.evaluate(fn);
 
@@ -21,7 +22,7 @@ test('driving a tier levels up: banner, tier, difficulty, healed HP', async ({ p
   await page.goto(`${APP}?debug`);
   await page.locator('#btnStartRace').click();
   await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING');
-  await G(page, () => { const g = window.__OT.GameState; g.invulnTimer = 0; g.hp = Math.round(g.maxHp * 0.5); g.distance = 2601; });
+  await page.evaluate((d) => { const g = window.__OT.GameState; g.invulnTimer = 0; g.hp = Math.round(g.maxHp * 0.5); g.distance = d; }, tierStart(2) + 1);
   await page.waitForFunction(() => window.__OT.GameState.tier === 2);
   const s = await G(page, () => { const g = window.__OT.GameState; return { d: g.difficulty, hp: g.hp, max: g.maxHp, coin: g.coinMult }; });
   expect(s.d).toBeGreaterThan(0.1);
@@ -58,7 +59,7 @@ test('HP at zero ends the endless run with distance, tier and best', async ({ pa
   await page.goto(`${APP}?debug`);
   await page.locator('#btnStartRace').click();
   await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING');
-  await G(page, () => { const g = window.__OT.GameState; g.distance = 3200; });
+  await page.evaluate((d) => { window.__OT.GameState.distance = d; }, tierStart(2) + 600);
   await page.waitForFunction(() => window.__OT.GameState.tier === 2);
   await G(page, () => { const g = window.__OT.GameState; g.invulnTimer = 0; g.hp = 5; window.__OT.damage(50); });
   // With enough cash the one continue is offered first (ticket 0151): decline it.

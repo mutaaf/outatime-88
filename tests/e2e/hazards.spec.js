@@ -93,7 +93,7 @@ test('resource fails: out of plutonium, a blown engine, stalling, the Patrol and
   })).toBe('PATROL');
   expect(await run(() => {
     const g = window.__OT.GameState;
-    g.distance = 6000;
+    g.distance = 11000; // tier 3: checkpoints start (src/hazards.js CHECK.from)
     return new Promise((r) => setTimeout(() => { g.hz.cp.left = 0.05; r(); }, 300));
   })).toBe('TIMEOUT');
   expect(problems).toEqual([]);

@@ -12,9 +12,9 @@ describe('per-racer saves', () => {
   it('folds server bests into medals and unlocks, never lowering anything', () => {
     const levels = [{ id: 'LVL1_CLOCK_HOLLOW' }, { id: 'LVL2_RED_ROCK' }];
     const save = { bestScore: 5000, progress: { LVL1_CLOCK_HOLLOW: { best: 5000, medal: null } }, unlockedLevel: 1 };
-    expect(mergeServerBests(save, [{ mode: 'ARCADE', level: 0, best: 400000 }, { mode: 'DAILY', level: 1, best: 9e6 }], levels)).toBe(true);
-    expect(save.bestScore).toBe(400000);
-    expect(save.progress.LVL1_CLOCK_HOLLOW).toEqual({ best: 400000, medal: 'bronze' });
+    expect(mergeServerBests(save, [{ mode: 'ARCADE', level: 0, best: 900000 }, { mode: 'DAILY', level: 1, best: 9e6 }], levels)).toBe(true);
+    expect(save.bestScore).toBe(900000);
+    expect(save.progress.LVL1_CLOCK_HOLLOW).toEqual({ best: 900000, medal: 'bronze' });
     expect(save.unlockedLevel).toBe(2);
     expect(mergeServerBests(save, [{ mode: 'ARCADE', level: 0, best: 100 }], levels)).toBe(false);
   });

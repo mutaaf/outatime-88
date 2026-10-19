@@ -65,7 +65,8 @@ export function kindAt(i, patternType = '') {
 // Power-up slots (0177): one candidate every `every` segments (fewer segments apart each tier),
 // kept only where nothing else sits within PICKUP.gap, and a seeded coin-flip decides whether it
 // shows and which of the three it is. Off (level 0) outside Endless solo runs.
-export const POWER_SPAWN = { from: 60, every: 160, perTier: 10, minEvery: 90, chance: 0.55, chancePerTier: 0.05, kinds: ['MAGNET', 'SHIELD', 'DOUBLER'] };
+// chance 0.7: Endless tiers got longer (docs/BALANCE.md), so tier 1–3 needs more of its own.
+export const POWER_SPAWN = { from: 60, every: 160, perTier: 10, minEvery: 90, chance: 0.7, chancePerTier: 0.05, kinds: ['MAGNET', 'SHIELD', 'DOUBLER'] };
 
 function hash01(seed, i) {
   let t = (Math.imul(seed | 0, 0x9e3779b1) ^ Math.imul(i + 0x632be5ab, 0x85ebca6b)) >>> 0;

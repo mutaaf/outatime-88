@@ -21,11 +21,12 @@ describe('lanes', () => {
 });
 
 describe('unlocks and placement', () => {
-  it('nothing at tier 1; bridges and wrong-way drivers from tier 2; all six by tier 4', () => {
+  it('nothing at tier 1, then one or two new kinds a tier: all six by tier 5 (docs/BALANCE.md)', () => {
     expect(kindsFor(1)).toEqual([]);
-    expect(kindsFor(2).sort()).toEqual(['BRIDGE', 'WRONGWAY']);
-    expect(kindsFor(3)).toHaveLength(4);
-    expect(kindsFor(4).sort()).toEqual([...PLACED].sort());
+    expect(kindsFor(2)).toEqual(['BEAM']);
+    expect(kindsFor(3).sort()).toEqual(['BEAM', 'BRIDGE', 'WRONGWAY']);
+    expect(kindsFor(4)).toHaveLength(5);
+    expect(kindsFor(5).sort()).toEqual([...PLACED].sort());
   });
   it('a newly unlocked kind comes first, then the seed picks, never twice in a row', () => {
     expect(planHazard(7, 0, 3, ['BRIDGE', 'WRONGWAY'], 'WRONGWAY').kind).toBe('BEAM');

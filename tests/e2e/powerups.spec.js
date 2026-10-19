@@ -59,9 +59,12 @@ test('a shield takes one crash: no HP lost, then it is gone; the ring shows whil
 test('2X doubles coin cash while it runs', async ({ page }) => {
   const problems = watchPage(page);
   await endless(page);
-  const plain = await G(page, () => { const g = window.__OT.GameState; const c = g.runCoins; window.__OT.pickup('HW_COIN'); return g.runCoins - c; });
+  // Five coins at a time: Endless pays a share of each coin and carries the fraction
+  // (docs/BALANCE.md), and five 4-coin pickups always come to a whole number.
+  const five = () => G(page, () => { const g = window.__OT.GameState; const c = g.runCoins; for (let i = 0; i < 5; i++) window.__OT.pickup('HW_COIN'); return g.runCoins - c; });
+  const plain = await five();
   await G(page, () => window.__OT.pickup('DOUBLER'));
-  const doubled = await G(page, () => { const g = window.__OT.GameState; const c = g.runCoins; window.__OT.pickup('HW_COIN'); return g.runCoins - c; });
+  const doubled = await five();
   expect(plain).toBeGreaterThan(0);
   expect(doubled).toBe(plain * 2);
   expect(await G(page, () => window.__OT.runner().stats.doubledCash)).toBe(doubled);
@@ -127,7 +130,7 @@ test('the results card sells upgrades for FLUX cash only, and a level makes it l
   await shop.locator('.shop-item[data-kind="MAGNET"]').click();
   await expect.poll(() => G(page, () => JSON.parse(localStorage.getItem('outatime_cruisn_88_save_v2')).endless.power.MAGNET)).toBe(1);
   const after = await G(page, () => JSON.parse(localStorage.getItem('outatime_cruisn_88_save_v2')).fluxCoins);
-  expect(before - after).toBe(250);
+  expect(before - after).toBe(600); // UPGRADE.cost[0]
   await expect(shop).toContainText('YOU HAVE');
   // Next run: the magnet lasts its level-1 length.
   await page.locator('#btnPlayAgain').click();
