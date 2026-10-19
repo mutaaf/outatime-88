@@ -1,7 +1,7 @@
 ---
 id: 0030
 title: Announcements and race calls reach screen readers (aria-live) without spamming them
-status: proposed
+status: ready
 priority: P2
 size: S
 lens: accessibility

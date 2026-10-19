@@ -14,9 +14,10 @@ pr:
 Pillar 6. On phones steering is two digital arrow buttons; analog drag-steering (thumb
 position → steer amount) feels far better. Keyboard players need rebinding (AZERTY, left-handed).
 
+> Narrowed 2026-10-19: analog drag steering shipped (0061); only keyboard rebinding remains.
+
 ## What
-Drag-anywhere-on-lower-half steering with a dead zone and visible thumb indicator; keep the
-buttons as a fallback toggle. A small controls panel to rebind keys, stored under new save
+A small controls panel to rebind keys, stored under new save
 fields with defaults.
 
 ## Acceptance criteria
