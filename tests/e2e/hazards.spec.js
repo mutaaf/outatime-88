@@ -64,13 +64,23 @@ test('resource fails: out of plutonium, a blown engine, stalling, the Patrol and
   const run = async (setup) => {
     await endless(page);
     await G(page, setup);
-    await page.waitForFunction(() => window.__OT.GameState.status === 'GAMEOVER', null, { timeout: 20000 });
+    // Cores grabbed on the way pay FLUX cash, which can buy a CONTINUE offer: decline it.
+    await page.waitForFunction(() => ['GAMEOVER', 'CONTINUE'].includes(window.__OT.GameState.status), null, { timeout: 20000 });
+    if (await G(page, () => window.__OT.GameState.status) === 'CONTINUE') await page.locator('#btnContinueNo').click();
+    await page.waitForFunction(() => window.__OT.GameState.status === 'GAMEOVER', null, { timeout: 5000 });
     const cause = await G(page, () => window.__OT.GameState.deathCause);
     await page.evaluate(() => sessionStorage.removeItem('seeded'));
     return cause;
   };
-  // Out of fuel, steering clear of every core: five seconds dry ends it.
-  expect(await run(() => { const h = window.__OT.GameState.hz; h.fuelOn = true; setInterval(() => { h.fuel = 0; }, 16); })).toBe('FUEL');
+  // Out of fuel, no core in reach (one would refill the tank and restart the clock): five
+  // seconds dry ends it.
+  expect(await run(() => {
+    const h = window.__OT.GameState.hz, track = window.__OT.track();
+    setInterval(() => {
+      h.fuelOn = true; h.fuel = 0;
+      for (let i = track.start; i < track.end; i++) for (const it of track.seg(i).items) if (it.type === 'PLUTONIUM') it.collected = true;
+    }, 16);
+  })).toBe('FUEL');
   expect(await run(() => { window.__OT.GameState.hz.heat = 99; window.__OT.input.nosHeld = true; window.__OT.GameState.nosFill = 1; })).toBe('HEAT');
   expect(await run(() => { const g = window.__OT.GameState; g.autoGas = false; g.speed = 0; g.raceTime = Math.max(g.raceTime, 10); })).toBe('STALL');
   expect(await run(() => {
