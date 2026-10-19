@@ -72,3 +72,14 @@ describe('the TV side of a pad', () => {
     expect(p.take(decodeInput(encodeInput({ seq: 7, steer: 0, boostN: 2, startN: 1 })), 30)).toEqual({ boost: false, start: true, fit: false });
   });
 });
+
+describe('the phone only ever shows whitelisted HUD fields', () => {
+  it('turns hostile frames into plain numbers and known words', () => {
+    const evil = '<img src=x onerror=alert(1)>';
+    const h = decodeHud([1, evil, { toString: () => evil }, evil, 99, evil, 99, evil, evil, evil]);
+    expect(h).toEqual({ mph: 0, hp: 0, coins: 0, status: 'WAIT', rumbleN: 0, rumble: '', ms: 0, echo: 0, hpMax: 100 });
+    for (const v of Object.values(h)) expect(['number', 'string']).toContain(typeof v);
+    expect(decodeHud({ t: 'm', html: evil })).toBeNull();
+    expect(decodeHud([1, 2])).toBeNull();
+  });
+});

@@ -5,14 +5,14 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import { makeCode, cleanCode } from './live-rules.js';
-import { PAD, admit, fromPad, fromTv, padAllow } from './pad-core.js';
+import { PAD, KEY_RE, admit, fromPad, fromTv, padAllow, makeKey, joinAllowed } from './pad-core.js';
 import { json } from './scores.js';
 import { createAllowed, sameOrigin } from './live.js';
 
 const rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 // Per-isolate throttles, separate from race rooms' so TV pairing never eats a room quota.
 const minted = new Map(); // new codes per IP
-const joins = new Map();  // phone joins per IP (guessing codes)
+const joins = new Map();  // WebSocket joins per IP, TV and phone (guessing codes)
 
 export async function handlePad(request, env, url) {
   const path = url.pathname.replace(/\/+$/, '');
@@ -25,8 +25,9 @@ export async function handlePad(request, env, url) {
     if (!createAllowed(ip, Date.now(), minted)) return json(429, { error: 'slow down' });
     for (let i = 0; i < 6; i++) {
       const code = makeCode(rand);
-      const res = await env.PADS.get(env.PADS.idFromName(code)).fetch('https://pad/init', { method: 'POST' });
-      if (res.ok) return json(200, { code, ttlMs: PAD.ttlMs });
+      const key = makeKey();
+      const res = await env.PADS.get(env.PADS.idFromName(code)).fetch('https://pad/init', { method: 'POST', body: JSON.stringify({ key }) });
+      if (res.ok) return json(200, { code, key, ttlMs: PAD.ttlMs });
     }
     return json(503, { error: 'busy' });
   }
@@ -35,7 +36,8 @@ export async function handlePad(request, env, url) {
   if (!code) return json(404, { error: 'no such code' });
   if (request.headers.get('upgrade') !== 'websocket') return json(426, { error: 'websocket only' });
   if (!sameOrigin(request, url)) return json(403, { error: 'bad origin' });
-  if (url.searchParams.get('role') === 'pad' && !createAllowed(ip, Date.now(), joins)) return json(429, { error: 'slow down' });
+  // Every socket (TV or phone) counts against the per-IP join throttle: guessing codes is slow.
+  if (!joinAllowed(joins, ip, Date.now())) return json(429, { error: 'slow down' });
   return env.PADS.get(env.PADS.idFromName(code)).fetch(request);
 }
 
@@ -51,7 +53,9 @@ export class PadRoom extends DurableObject {
     const sess = await this.ctx.storage.get('s');
     if (url.pathname === '/init' && request.method === 'POST') {
       if (sess && this.ctx.getWebSockets().length) return new Response('in use', { status: 409 });
-      await this.ctx.storage.put('s', { at: now, paired: false });
+      const body = await request.json().catch(() => ({}));
+      if (!KEY_RE.test(body.key || '')) return new Response('bad key', { status: 400 });
+      await this.ctx.storage.put('s', { at: now, paired: false, key: body.key });
       await this.ctx.storage.setAlarm(now + PAD.idleMs);
       return new Response('ok');
     }
@@ -64,6 +68,7 @@ export class PadRoom extends DurableObject {
       tvOn: tv.length > 0,
       slots: pads.map((w) => w.deserializeAttachment().slot),
       want: Number(url.searchParams.get('slot') ?? -1),
+      key: url.searchParams.get('key') || '',
     });
     const [client, server] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(server);

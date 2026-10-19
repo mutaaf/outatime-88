@@ -5,6 +5,7 @@
 // Wire format (all JSON text frames):
 //   server → TV   {t:'join',s}  {t:'leave',s}  {t:'m',s,d}        (d = whatever the pad sent)
 //   server → pad  {t:'hi',s,tv} {t:'tv-gone'}  {t:'tv-back'}  {t:'m',d}  {t:'err',code}
+//   (the TV connects with ?role=tv&key=<the key from POST /api/pad>; phones need only the code)
 //   TV → server   {to: 0 | 1 | 'all', d}
 //   pad → server  any JSON value (relayed to the TV as d)
 // Input normally flows phone → TV over a WebRTC DataChannel (signalled through these same
@@ -16,19 +17,36 @@ export const PAD = Object.freeze({
   maxPads: 2,
   maxMsgBytes: 4096,      // fits a WebRTC offer/answer
   rate: { perSec: 70, burst: 140 },
+  joinsPerMin: 30,        // WebSocket joins per IP per minute (TV + phones)
 });
 
 export const ROLES = Object.freeze(['tv', 'pad']);
+export const KEY_RE = /^[0-9a-f]{32}$/;
+
+/** A fresh 128-bit TV key, hex. Only the TV that minted the code ever sees it. */
+export function makeKey(rand = (n) => crypto.getRandomValues(new Uint8Array(n))) {
+  return Array.from(rand(16), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Constant-time string compare (no early exit on the first differing character). */
+export function sameKey(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) diff |= (a.charCodeAt(i % (a.length || 1)) || 0) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 
 /**
- * May this socket join? `sess` = { at, paired } from storage (or null), `tvOn` whether a TV
- * socket is open, `slots` = slots already taken by open pads, `want` = a slot hint (reconnect).
+ * May this socket join? `sess` = { at, paired, key } from storage (or null), `tvOn` whether a
+ * TV socket is open, `slots` = slots already taken by open pads, `want` = a slot hint
+ * (reconnect), `key` = the key a TV presents. Phones need only the code; the TV role needs
+ * the secret key minted with it, so guessing a code can never take over someone's screen.
  * → { ok: true, slot } | { error }
  */
-export function admit(role, sess, now, { tvOn = false, slots = [], want = -1 } = {}) {
+export function admit(role, sess, now, { tvOn = false, slots = [], want = -1, key = '' } = {}) {
   if (!ROLES.includes(role)) return { error: 'BAD_ROLE' };
   if (!sess || !sess.at) return { error: 'NO_CODE' };
-  if (role === 'tv') return { ok: true, slot: -1 };
+  if (role === 'tv') return sess.key && sameKey(key, sess.key) ? { ok: true, slot: -1 } : { error: 'BAD_KEY' };
   if (!tvOn) return { error: 'NO_TV' };
   if (!sess.paired && now - sess.at > PAD.ttlMs) return { error: 'EXPIRED' };
   const free = [];
@@ -52,6 +70,22 @@ export function fromTv(data) {
   const to = m.to === 'all' ? 'all' : Number.isInteger(m.to) && m.to >= 0 && m.to < PAD.maxPads ? m.to : null;
   if (to == null) return null;
   return { to, text: JSON.stringify({ t: 'm', d: m.d }) };
+}
+
+/**
+ * Per-IP fixed-window throttle on WebSocket joins (TV and phone alike). A home shares one IP
+ * between the TV and both phones, so it allows reconnect storms on bad Wi-Fi, but it makes
+ * walking the 194,481 codes hopeless. → true if this join may proceed.
+ */
+export function joinAllowed(map, ip, now, { windowMs = 60e3, max = PAD.joinsPerMin } = {}) {
+  const row = map.get(ip);
+  if (!row || now - row.at > windowMs) {
+    if (map.size > 5000) map.clear();
+    map.set(ip, { at: now, n: 1 });
+    return true;
+  }
+  row.n += 1;
+  return row.n <= max;
 }
 
 /** Token bucket, same shape as the race rooms' (room-core.js allow). */

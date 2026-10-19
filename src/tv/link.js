@@ -12,7 +12,7 @@ export function wsUrl(code, query, loc = location) {
   return `${loc.protocol === 'https:' ? 'wss' : 'ws'}://${loc.host}${API}/pad/${code}?${query}`;
 }
 
-/** POST /api/pad → { code, ttlMs } (throws when TV mode is unavailable). */
+/** POST /api/pad → { code, key, ttlMs } (throws when TV mode is unavailable). `key` is the TV's secret. */
 export async function newPadCode(fetchFn = fetch) {
   const res = await fetchFn(`${API}/pad`, { method: 'POST' });
   if (!res.ok) throw new Error(`pad ${res.status}`);
@@ -29,7 +29,7 @@ function iceSink(pc) {
 }
 
 const hasRtc = () => typeof RTCPeerConnection === 'function';
-const FATAL = new Set(['NO_CODE', 'NO_TV', 'EXPIRED', 'FULL', 'BAD_ROLE']);
+const FATAL = new Set(['NO_CODE', 'NO_TV', 'EXPIRED', 'FULL', 'BAD_ROLE', 'BAD_KEY']);
 
 function openSocket(url, { onMsg, onOpen, onClose }) {
   const ws = new WebSocket(url);
@@ -44,7 +44,7 @@ function openSocket(url, { onMsg, onOpen, onClose }) {
  * The TV end: many pads. Callbacks: onPad(slot, joined), onFrame(slot, data, via),
  * onState('open' | 'down' | 'error', code).
  */
-export function createTvLink({ code, onPad, onFrame, onState = () => {}, rtc = hasRtc() }) {
+export function createTvLink({ code, key, onPad, onFrame, onState = () => {}, rtc = hasRtc() }) {
   const peers = new Map(); // slot → { pc, dc }
   let ws = null, closed = false, retry = 0;
 
@@ -84,7 +84,7 @@ export function createTvLink({ code, onPad, onFrame, onState = () => {}, rtc = h
     }
   }
   function connect() {
-    ws = openSocket(wsUrl(code, 'role=tv'), {
+    ws = openSocket(wsUrl(code, `role=tv&key=${encodeURIComponent(key || '')}`), {
       onMsg,
       onOpen: () => { retry = 0; onState('open'); },
       onClose: () => {
