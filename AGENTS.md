@@ -170,9 +170,9 @@ src/ghost-codec.js  Compact ghost traces (distance + lane at 5 Hz), shared with 
 src/ghost.js        Ghost recorder (every race) and ghost racing on the HUD strip (0092)
 src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks;
                       the score (src/music.js) is a lazy chunk, loadMusic() preloads it after boot
-src/input.js        InputState + pollGamepad() (deadzone + response curve, analog RT/LT pedals, one reused result; 0180)
-src/onefilter.js    Lazy (loads when tilt turns on): One Euro filter, steady at rest, lag-free on a swerve (0180)
-src/forcefeel.js    Lazy: gamepad dual rumble + phone pulses from tyre slip, wheelspin, walls, landings (0180)
+src/input.js        InputState + pollGamepad() (deadzone + response curve, analog RT/LT pedals, one reused result; 0183)
+src/onefilter.js    Lazy (loads when tilt turns on): One Euro filter, steady at rest, lag-free on a swerve (0183)
+src/forcefeel.js    Lazy: gamepad dual rumble + phone pulses from tyre slip, wheelspin, walls, landings (0183)
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound, static/sleep, reset() for pools)
 src/materials.js    Per-object materials (mass, bounce, friction, static/knockable, damage) + impulse maths
 src/world.js        World step: integrate awake bodies, Z-hash broadphase (broadphase.js), pair solver,

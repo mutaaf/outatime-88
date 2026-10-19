@@ -155,7 +155,7 @@ describe('off throttle and in the air', () => {
   });
 });
 
-describe('analog pedals (ticket 0180)', () => {
+describe('analog pedals (ticket 0183)', () => {
   it('half throttle pulls about half as hard; full or unset is the old full press', () => {
     const full = createDrive(), half = createDrive(), unset = createDrive();
     stepDrive(full, { speed: 50, throttle: true, cap: 140, engine: ENGINE, dt: DT, throttleAmt: 1 });

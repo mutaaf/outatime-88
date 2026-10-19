@@ -9,7 +9,7 @@ function sensor(seed = 3) {
 }
 const rms = (a) => Math.sqrt(a.reduce((x, v) => x + v * v, 0) / a.length);
 
-describe('One Euro filter (ticket 0180)', () => {
+describe('One Euro filter (ticket 0183)', () => {
   it('passes the first sample straight through and holds on a stalled clock', () => {
     const f = createOneEuro();
     expect(f.filter(5, 100)).toBe(5);

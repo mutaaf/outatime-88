@@ -19,7 +19,7 @@ describe('pollGamepad', () => {
     expect(pollGamepad()).toEqual(NEUTRAL);
   });
 
-  it('has a deadzone: a drifting or off-centre stick never steers (ticket 0180)', () => {
+  it('has a deadzone: a drifting or off-centre stick never steers (ticket 0183)', () => {
     expect(poll(pad({ axes: [0.1, 0] })).steer).toBe(0);
     expect(poll(pad({ axes: [0.08, -0.95] })).steer).toBe(0);
     expect(poll(pad({ axes: [-0.6, 0] })).steer).toBeLessThan(-0.4);

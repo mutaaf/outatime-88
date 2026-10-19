@@ -1,4 +1,4 @@
-// One Euro filter (Casiez, Roussel & Vogel, CHI 2012) for the tilt sensor (ticket 0180).
+// One Euro filter (Casiez, Roussel & Vogel, CHI 2012) for the tilt sensor (ticket 0183).
 //
 // A plain low-pass trades jitter for lag: smooth enough to hide a shaky hand at rest and it
 // drags behind every quick swerve. The One Euro filter adapts its cutoff to how fast the

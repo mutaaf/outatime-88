@@ -34,7 +34,7 @@ export const InputState = {
   lookZoom: 1
 };
 
-// Gamepad (ticket 0180). Polled once per 120 Hz sim step, so a stick or trigger change is
+// Gamepad (ticket 0183). Polled once per 120 Hz sim step, so a stick or trigger change is
 // in the very next step, not the next frame.
 //   - Stick: a deadzone rescaled to start from zero (no jump out of it, and a worn stick's
 //     drift never steers), then a gentle response curve: small corrections at 100 mph are
@@ -59,7 +59,7 @@ const pressed = (p, i) => Boolean(p.buttons[i] && p.buttons[i].pressed);
 const padOut = { steer: 0, gas: false, brake: false, gasAmt: 0, brakeAmt: 0, boost: false, hover: false, nos: false, back: false, l3: false };
 
 // TV mode (ticket 0175, src/tv/tv.js): a paired phone drives through the gamepad path. Its
-// pedals are on/off, so their analog amounts stay at a full press (ticket 0180).
+// pedals are on/off, so their analog amounts stay at a full press (ticket 0183).
 export const PhonePad = { on: false, steer: 0, gas: false, brake: false, gasAmt: 1, brakeAmt: 1, boost: false, hover: false, nos: false, back: false, l3: false };
 
 export function pollGamepad() {

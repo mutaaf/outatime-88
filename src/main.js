@@ -2452,7 +2452,7 @@ let touchLoading = null;
 const canTouch = () => (navigator.maxTouchPoints || 0) > 0
   || (typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches);
 
-// Force feel (ticket 0180, src/forcefeel.js): gamepad rumble and phone pulses from the tyres
+// Force feel (ticket 0183, src/forcefeel.js): gamepad rumble and phone pulses from the tyres
 // and chassis. Its own chunk, fetched when a gamepad connects or the touch kit loads.
 let forceFeel = null, forceFeelLoading = null;
 function loadForceFeel() {
@@ -2583,7 +2583,7 @@ function mainLoop(timestamp) {
     syncContactZ();
   }
   live.frame(); // live races: countdown → green light, friends' cars, our state out
-  if (forceFeel) forceFeel.frame(dt); // rumble and phone pulses (ticket 0180)
+  if (forceFeel) forceFeel.frame(dt); // rumble and phone pulses (ticket 0183)
 
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);

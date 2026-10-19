@@ -114,7 +114,7 @@ export function stepDrive(d, i) {
     d.brake = 0;
     s = v;
   } else if (i.brake) {
-    // Analog pedals (ticket 0180): the brakes bite up to how hard you press, at the same rate.
+    // Analog pedals (ticket 0183): the brakes bite up to how hard you press, at the same rate.
     const want = i.brakeAmt == null ? 1 : clamp(i.brakeAmt, 0, 1);
     d.brake = d.brake < want ? Math.min(want, d.brake + dt / DRIVE.brakeRamp) : want;
     const vv = v / 88;

@@ -15,7 +15,7 @@ let resumeOnClose = false;
 let gotSignal = false;
 let signalTimer = 0;
 let hooks = { announce() {} };
-// Tilt goes through a One Euro filter (ticket 0180): steady when you hold the phone still,
+// Tilt goes through a One Euro filter (ticket 0183): steady when you hold the phone still,
 // no lag when you swing it. Tuned on a 60 Hz sensor with 0.5° noise and a 9 Hz hand tremor:
 // jitter at rest drops ~2.5×, and a swerve reaches 90% within one sensor sample, as unfiltered.
 // The filter is its own tiny chunk, fetched when tilt is turned on (main stays in budget).

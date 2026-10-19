@@ -14,7 +14,7 @@ export const HAPTIC_PATTERNS = Object.freeze({
   hit: [38, 24, 38],        // crash / penalty
   lap: [14, 50, 14, 50, 30], // new lap, final lap
   pickup: [7],              // a coin, core, wrench or NOS canister collected
-  wall: [26, 18, 12],       // hitting a barrier (src/forcefeel.js, ticket 0180)
+  wall: [26, 18, 12],       // hitting a barrier (src/forcefeel.js, ticket 0183)
   land: [30],               // a hard landing
   slip: [5],                // the tyres letting go
 });

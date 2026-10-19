@@ -766,7 +766,7 @@ export function updateGame(rawDt) {
   driveIn.speed = GameState.speed;
   driveIn.throttle = Boolean(accelerating);
   driveIn.brake = Boolean(braking);
-  // Analog triggers (ticket 0180): a key, touch pad or auto-gas is a full press.
+  // Analog triggers (ticket 0183): a key, touch pad or auto-gas is a full press.
   driveIn.throttleAmt = GameState.autoGas || InputState.up || InputState.touchUp ? 1 : gp.gasAmt;
   driveIn.brakeAmt = InputState.down || InputState.touchDown ? 1 : gp.brakeAmt;
   driveIn.cap = targetMaxSpeed;

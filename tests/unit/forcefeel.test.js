@@ -3,7 +3,7 @@ import { rumbleFor, createForceFeel, FEEL } from '../../src/forcefeel.js';
 
 const base = () => ({ status: 'PLAYING', speed: 90, playerY: 0, tyreSlip: 0, wheelSpin: 0, isDrifting: false, wallGrind: false, hp: 100 });
 
-describe('rumbleFor (ticket 0180)', () => {
+describe('rumbleFor (ticket 0183)', () => {
   it('is silent off the race and in the air', () => {
     expect(rumbleFor({ ...base(), status: 'TITLE', tyreSlip: 1 }, 0.5)).toEqual({ weak: 0, strong: 0 });
     expect(rumbleFor({ ...base(), playerY: 40, tyreSlip: 1 }, 0).weak).toBe(0);

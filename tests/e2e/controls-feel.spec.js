@@ -1,4 +1,4 @@
-// Controls feel (ticket 0180): input reaches the screen on the next frame from every source,
+// Controls feel (ticket 0183): input reaches the screen on the next frame from every source,
 // gamepad triggers are analog pedals, tilt is filtered without lag, and the tyres and walls
 // come through the gamepad's rumble. Judged in frames and sim time, not wall-clock ms, so a
 // loaded CI runner can't fail it.
