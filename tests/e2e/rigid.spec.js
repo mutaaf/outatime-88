@@ -7,7 +7,7 @@ async function race(page) {
   await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ onboarded: true, initials: 'TST' })));
   await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
-  await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING' && window.__OT.traffic().traffic.length >= 2, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING' && window.__OT.traffic().traffic.length >= 2 && window.__OT.traffic().world, null, { timeout: 15000 });
 }
 
 test('a semi drifting into a sedan shoves it aside; momentum goes the right way', async ({ page }) => {
