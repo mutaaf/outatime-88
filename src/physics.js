@@ -1,4 +1,8 @@
-// 6-DOF-ish rigid body used by player, rivals, traffic and obstacles.
+// 6-DOF-ish rigid body used by player, rivals, traffic and obstacles. The race steps them
+// with the rigid-body world in src/rigid.js (ticket 0176); stepSubPhysics below is the old
+// integrator, kept for tools and tests that drive a single body.
+
+let nextId = 0;
 
 export class RigidBody3D {
   constructor(opts) {
@@ -7,7 +11,7 @@ export class RigidBody3D {
 
   /** (Re)initialise in place, so pools can recycle bodies without allocating (ticket 0074). */
   reset(opts) {
-    this.id = opts.id || ('RB_' + Math.random());
+    this.id = opts.id || ('RB_' + (nextId++));
     this.kind = opts.kind || 'OBSTACLE'; // 'RIVAL', 'TRAFFIC', 'OBSTACLE'
     this.type = opts.type || 'HOLO_BARRIER';
     this.name = opts.name || 'OBJECT';
@@ -63,6 +67,14 @@ export class RigidBody3D {
     this.sleeping = false;
     this.restTime = 0;
     this.knockable = Boolean(opts.knockable);
+    // Rigid world v2 (src/rigid.js): driver state and cached mass properties.
+    this.stun = 0;            // s the driver has lost the car for after a big hit
+    this.driveVz = null;      // the driver's target speed along the nose (Z/s)
+    this.driveAccel = opts.driveAccel ?? null; // cruise pull (Z/s²); null = the AI decides
+    this.blockedT = 0;        // s left braking for something in front of the nose
+    this.blockVz = 0;
+    this.blockSide = 0;
+    this._mpKey = -1;
     this.chained = false;
     this.active = true;
     return this;
