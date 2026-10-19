@@ -2452,6 +2452,19 @@ let touchLoading = null;
 const canTouch = () => (navigator.maxTouchPoints || 0) > 0
   || (typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches);
 
+// Force feel (ticket 0183, src/forcefeel.js): gamepad rumble and phone pulses from the tyres
+// and chassis. Its own chunk, fetched when a gamepad connects or the touch kit loads.
+let forceFeel = null, forceFeelLoading = null;
+function loadForceFeel() {
+  forceFeelLoading = forceFeelLoading || import('./forcefeel.js').then(({ createForceFeel }) => {
+    forceFeel = createForceFeel({
+      state: GameState, settings: () => SaveStore.data.controls || {}, calm: () => GameState.reducedMotion,
+      haptics: () => (touch ? touch.controls.haptics : null),
+    });
+  }).catch(() => { forceFeelLoading = null; });
+}
+window.addEventListener('gamepadconnected', loadForceFeel);
+
 /** `show` = put the controls on screen (a touch device); the settings buttons only need the code. */
 function loadTouch(show = true) {
   touchLoading = touchLoading || import('./touch/bridge.js').then(({ connectTouch }) => {
@@ -2459,6 +2472,7 @@ function loadTouch(show = true) {
       performHumanTrick, activateMidnightSpecial, cycleCameraMode, openSettings, recenterTilt, toggleTilt,
       announce: triggerAnnouncement, traffic: () => LiveTraffic, onboarding: () => RS.onboarding, is3D: () => !!view3d,
     });
+    loadForceFeel();
     return touch;
   });
   return touchLoading.then((t) => { if (show) t.show(); return t; });
@@ -2569,6 +2583,7 @@ function mainLoop(timestamp) {
     syncContactZ();
   }
   live.frame(); // live races: countdown → green light, friends' cars, our state out
+  if (forceFeel) forceFeel.frame(dt); // rumble and phone pulses (ticket 0183)
 
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);

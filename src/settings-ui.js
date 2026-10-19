@@ -15,6 +15,15 @@ let resumeOnClose = false;
 let gotSignal = false;
 let signalTimer = 0;
 let hooks = { announce() {} };
+// Tilt goes through a One Euro filter (ticket 0183): steady when you hold the phone still,
+// no lag when you swing it. Tuned on a 60 Hz sensor with 0.5° noise and a 9 Hz hand tremor:
+// jitter at rest drops ~2.5×, and a swerve reaches 90% within one sensor sample, as unfiltered.
+// The filter is its own tiny chunk, fetched when tilt is turned on (main stays in budget).
+let tiltFilter = null;
+const loadTiltFilter = () => import('./onefilter.js').then(({ createOneEuro }) => {
+  tiltFilter = tiltFilter || createOneEuro({ minCutoff: 0.8, beta: 0.5, snap: 6 }); // a 6°+ jump is a swerve, never jitter
+}).catch(() => {});
+let tiltDotPct = -1;
 
 export const settings = () => SaveStore.data.settings;
 export const currentDifficulty = () => difficultyOf(SaveStore.data.settings);
@@ -27,20 +36,25 @@ function save() { SaveStore.save(); }
 
 function onOrientation(e) {
   if (e.beta == null && e.gamma == null) return;
+  const angle = tiltAngle(e.beta, e.gamma, screenAngle(window));
   if (!gotSignal) {
     gotSignal = true;
     clearTimeout(signalTimer);
-    InputState.tiltZeroOffset = tiltAngle(e.beta, e.gamma, screenAngle(window));
+    if (tiltFilter) tiltFilter.reset();
+    InputState.tiltZeroOffset = angle;
     setTiltStatus('on');
   }
   if (!InputState.tiltEnabled) return;
-  const raw = tiltAngle(e.beta, e.gamma, screenAngle(window));
+  const raw = tiltFilter ? tiltFilter.filter(angle, e.timeStamp || performance.now()) : angle;
   InputState.tiltRawAngle = raw;
   InputState.tiltSteerVal = tiltSteer(raw, InputState.tiltZeroOffset, {
     sensitivity: SaveStore.data.tiltSensitivity || 1,
     invert: settings().tiltInvert,
   });
-  const pct = Math.max(6, Math.min(94, 50 + InputState.tiltSteerVal * 44));
+  // The meters move in whole percent: no style write (and layout) for sub-pixel jitter.
+  const pct = Math.round(Math.max(6, Math.min(94, 50 + InputState.tiltSteerVal * 44)));
+  if (pct === tiltDotPct) return;
+  tiltDotPct = pct;
   for (const id of ['tiltIndicatorDot', 'setTiltDot']) {
     const dot = $(id);
     if (dot) dot.style.left = `${pct}%`;
@@ -83,6 +97,7 @@ export async function enableTilt() {
     try { resp = await DOE.requestPermission(); } catch (e) { resp = 'denied'; }
     if (resp !== 'granted') { setTiltStatus('denied'); return false; }
   }
+  loadTiltFilter();
   window.removeEventListener('deviceorientation', onOrientation, true);
   window.addEventListener('deviceorientation', onOrientation, true);
   gotSignal = false;
@@ -110,6 +125,7 @@ export function toggleTilt(force) {
 }
 
 export function recenterTilt() {
+  // The filtered angle, so a twitch at the moment you tap never becomes the new centre.
   InputState.tiltZeroOffset = InputState.tiltRawAngle || 0;
   InputState.tiltSteerVal = 0;
   hooks.announce('📱 TILT CENTERED', 'HOLD IT LIKE THIS TO DRIVE STRAIGHT', 1100);

@@ -28,7 +28,7 @@ const TOGGLES = [
   { key: 'autoAccel', label: 'Auto-accelerate', hint: 'The car drives itself forward.' },
   { key: 'stickThrottle', label: 'Stick up/down = gas/brake', hint: 'Push up to speed up, down to brake.' },
   { key: 'steerAssist', label: 'Steer assist', hint: 'Keeps you in lane when you let go.' },
-  { key: 'haptics', label: 'Haptics', hint: 'Feel every press, boost and crash (vibration on Android, taps on iPhone with iOS 18+).' },
+  { key: 'haptics', label: 'Haptics', hint: 'Feel every press, boost and crash (vibration on Android, taps on iPhone with iOS 18+), and the tyres and walls through a gamepad.' },
   { key: 'fullscreen', label: 'Fullscreen races', hint: 'Phones hide the browser bars when a race starts (Android). Add to Home Screen does it everywhere.' },
 ];
 
