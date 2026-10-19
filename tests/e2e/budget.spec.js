@@ -28,7 +28,10 @@ test('main bundle stays in budget and does not contain three.js', () => {
   // ≤ 58 kB (0170): main was 73.2 kB at startup after crawling up from 60, so the race step
   // moved to a lazy chunk and the budget came down to just above the result (today ~56.5).
   // Rule: new features ship as lazy chunks; main only gets the hooks that load them.
-  expect(total).toBeLessThan(58);
+  // 58 → 59 (0183, 2026-10-19): TV mode, runner power-ups and handling v4 took main to ~57.9 on
+  // CI; the analog gamepad (it runs every sim step) and the hooks for the lazy force-feel and
+  // tilt-filter chunks add ~0.4. The features themselves are lazy.
+  expect(total).toBeLessThan(59);
   for (const f of files) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('WebGLRenderer');
 });
 
