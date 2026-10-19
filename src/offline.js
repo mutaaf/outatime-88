@@ -70,7 +70,15 @@ export function registerOffline(base) {
   window.addEventListener('offline', () => { offline.online = false; emit(); });
   // After an update, a tab still running the old page can ask for a chunk the new deploy
   // removed. Reload once onto the new version instead of breaking (Vite fires this event).
+  // Not while the page is being left: navigating away cancels the chunks still loading (Safari
+  // reports each as a failed import), and reloading then would undo the navigation.
+  let leaving = false;
+  const leave = () => { leaving = true; };
+  window.addEventListener('beforeunload', leave);
+  window.addEventListener('pagehide', leave);
+  window.addEventListener('pageshow', () => { leaving = false; }); // back from the bfcache
   window.addEventListener('vite:preloadError', (e) => {
+    if (leaving) return;
     try {
       if (sessionStorage.getItem('ot-reloaded') === '1') return;
       sessionStorage.setItem('ot-reloaded', '1');
