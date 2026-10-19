@@ -53,6 +53,10 @@ Depth over breadth: polish one moment until it sings before adding three.
 - Live races: `POST /outatime/api/room` (private room → code), `POST /outatime/api/quick`
   (quick race), WebSocket `/outatime/api/room/<CODE>` → the `RaceRoom` Durable Object (one per
   code) and `MatchIndex` (one, for quick races). Design, limits and Free-plan budget: `docs/LIVE.md`.
+- TV mode (ticket 0175, `docs/TV.md`): `?tv` on a TV shows a pairing code; phones open the
+  second page `pad.html` (its own Vite entry) and pair through `POST /outatime/api/pad` and
+  WebSocket `/outatime/api/pad/<CODE>` → the `PadRoom` Durable Object. Input goes phone → TV
+  over a WebRTC DataChannel (no STUN/TURN: same network only) or the PadRoom relay.
 - PR previews: Cloudflare does not generate version URLs for Workers that implement Durable
   Objects, so since live races there is no per-PR preview link. CI runs the real Worker and
   Durable Objects locally (`wrangler dev`, tests/e2e/live.spec.js) instead; verify on
