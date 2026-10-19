@@ -788,6 +788,19 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .end-goals li b { color: #fde047; }
 .end-goals .goals-head { background: none; padding: 0 2px; color: #fde68a; font-weight: 900; }
 .pause-goals { margin: 10px 0 4px; }
+.power-shop { margin: 8px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font: 700 clamp(9px, 1.4vmin, 12px)/1.25 'Orbitron', sans-serif; }
+.power-shop.hidden { display: none; }
+.power-shop .shop-head { grid-column: 1 / -1; color: #fde68a; font-weight: 900; text-align: left; padding: 0 2px; }
+.power-shop .shop-item { min-height: 44px; display: grid; gap: 2px; padding: 6px; border-radius: 10px; text-align: center; color: #f8fafc;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95)); border: 1.5px solid var(--pc, #64748b);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pc, #64748b) 35%, transparent); cursor: pointer; }
+.power-shop .shop-item small { color: #cbd5e1; font-size: 0.85em; letter-spacing: 0.02em; }
+.power-shop .shop-item b { color: #fde047; }
+.power-shop .shop-item:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
+.power-shop .shop-item:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.power-shop .shop-item.bought { animation: shopPop 0.35s ease-out; }
+@keyframes shopPop { 40% { transform: scale(1.07); } }
+[data-motion="reduce"] .power-shop .shop-item.bought { animation: none; }
 .storm-glow { position: absolute; inset: auto 0 0 0; height: 34vh; z-index: 19; opacity: 0;
   background: radial-gradient(120% 90% at 50% 120%, rgba(168, 85, 247, 0.85), rgba(56, 189, 248, 0.35) 45%, transparent 75%);
   transition: opacity 0.25s linear; }

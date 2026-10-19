@@ -336,6 +336,10 @@ export function propKinds() {
     PLUTONIUM: { geo: new OctahedronGeometry(0.85), mat: new MeshBasicMaterial({ color: '#4ff7ff' }), cap: 24, spin: true },
     REPAIR_WRENCH: { geo: merged([colored(new BoxGeometry(1.6, 0.4, 0.4), '#34d399'), colored(new BoxGeometry(0.4, 1.6, 0.4), '#34d399')]), mat: new MeshBasicMaterial({ vertexColors: true }), cap: 16, spin: true },
     NOS_CAN: { geo: merged([colored(new CylinderGeometry(0.45, 0.45, 1.3, 12), '#3b82f6'), colored(new CylinderGeometry(0.47, 0.47, 0.32, 12), '#e0f2fe'), colored(new CylinderGeometry(0.16, 0.2, 0.3, 8).translate(0, 0.8, 0), '#1f2937')]), mat: new MeshBasicMaterial({ vertexColors: true }), cap: 12, spin: true },
+    // Runner power-ups (0177): flat-colour magnet arc, shield disc and gold 2X gem (kept tiny: 3D budget).
+    MAGNET: { geo: new TorusGeometry(0.6, 0.22, 6, 12, Math.PI), mat: new MeshBasicMaterial({ color: '#f43f5e' }), cap: 8, spin: true },
+    SHIELD: { geo: new CylinderGeometry(0.85, 0.85, 0.16, 16).rotateX(Math.PI / 2), mat: new MeshBasicMaterial({ color: '#38bdf8' }), cap: 8, spin: true },
+    DOUBLER: { geo: new OctahedronGeometry(0.8), mat: new MeshBasicMaterial({ color: '#facc15' }), cap: 8, spin: true },
     PICKUP_GLOW: { geo: new PlaneGeometry(3, 3), mat: glowMaterial('#ffe27a', 0.55), cap: 64, billboard: true },
   };
 }

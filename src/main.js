@@ -23,7 +23,7 @@ import { FLUX, passiveFluxRate, warpReady, boostOutcome } from './flux.js';
 import { speedFeel, createParticlePool, createHitStop, nearMissChain } from './fx.js';
 import { createAnnouncer } from './announcer.js';
 import { LEVEL_MEDALS, applyRunResult } from './progress.js';
-import { setTrackIntensity, addItem } from './track.js';
+import { setTrackIntensity, setTrackPowerups, addItem } from './track.js';
 import { createStorm, stepStorm, stormRespite, runnerMult, canContinue, continueCost, CONTINUE } from './runner.js';
 import { difficultyOf, endlessTuning, recordEndless, ENDLESS } from './endless.js';
 import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt, curvatureAt, bankAt } from './track.js';
@@ -368,6 +368,7 @@ export function initTrack() {
   // gets its level's fixed layout so the level's leaderboard is one road for everyone.
   setTrackSeed(GameState.daily || GameState.mode === 'LIVE' ? GameState.lineSeed : 0);
   setTrackIntensity(1);
+  setTrackPowerups(GameState.mode === 'INFINITE' && !GameState.daily ? 1 : 0); // runner power-ups (0177)
   buildInitialTrack();
   LiveTraffic.init();
 }
@@ -430,7 +431,7 @@ export function advanceContractProgress(type, amount) {
 // that raise a permanent points multiplier, a "YOUR BEST" gate on the road, one coins-only
 // continue. Endless solo runs only.
 export const storm = createStorm();
-export const runStats = { coins: 0, driftSecs: 0, loops: 0, cleanBest: 0, cleanCur: 0, tier: 1, nearMisses: 0, nosSecs: 0 };
+export const runStats = { coins: 0, driftSecs: 0, loops: 0, cleanBest: 0, cleanCur: 0, tier: 1, nearMisses: 0, nosSecs: 0, powerups: 0, magnetCoins: 0, shieldSaves: 0, doubledCash: 0 };
 let runnerShown = ''; RS.stormCrash = false; RS.goalClock = 0; RS.lastLoopF = null; RS.lastDist = 0; RS.bestGateSeg = -1; RS.passedBest = false;
 // Goals and the continue offer live in the lazy runner UI chunk (fetched at boot, idle).
 export let runnerUi = null, runnerMod = null;
@@ -453,7 +454,7 @@ export function syncRunnerUi(force) {
       if (warn > 0) document.getElementById('hudStormGap').textContent = String(Math.max(0, Math.round(GameState.stormGap)));
     }
   }
-  if (force || RS.goalClock === 0) loadRunnerUi().then((ui) => ui.renderGoals(SaveStore.data, runStats, GameState.mode === 'INFINITE' && !GameState.daily)).catch(() => {});
+  if (force || RS.goalClock === 0) loadRunnerUi().then((ui) => ui.renderGoals(SaveStore.data, runStats, GameState.mode === 'INFINITE' && !GameState.daily, () => SaveStore.save())).catch(() => {});
 }
 
 
@@ -1341,6 +1342,7 @@ function drawCarFx(ctx, rw, rh, over3d) {
   if (pickupArt) {
     pickupArt.drawBursts(ctx, GameState.playerScreenX || carCenterX, carCenterY, rw);
     if (GameState.status === 'PLAYING' && !GameState.loopRide) pickupArt.drawHint(ctx, rw, rh, GameState.pickupHint, GameState.pickupHintSide, GameState.pickupHintSegs, RS.fxClock);
+    if (GameState.power && GameState.power.on) pickupArt.drawPowerHud(ctx, rw, rh, GameState.power, GameState.playerScreenX || carCenterX, carCenterY, RS.fxClock, GameState.reducedMotion);
   }
 
   // 5.3 Render Expanding 3D Shockwave Rings & Floating Holo-Popups on Acquire / Hit!
@@ -2651,6 +2653,7 @@ window.onload = () => {
     damage: (n, why = 'BARREL HIT') => applyPlayerDamage(n, why),
     heal: healPlayerHp,
     runner: () => ({ storm, stats: runStats, goals: runnerMod ? runnerMod.goalsOf(SaveStore.data) : null }),
+    pickup: (type) => raceStep && raceStep.applyPickup({ type, offset: GameState.playerX }, PICKUPS[type]),
   };
   initSettings({ announce: triggerAnnouncement });
   // Steering-mode switch (ticket 0130): its own chunk, fetched right after startup.
@@ -2730,6 +2733,6 @@ export const RACE_DEPS = {
   magnetPull, materialFor, missionsDone, mulberry32, nearMissChain, nosFill, nosFor, nosSpeed,
   ordinal, passiveFluxRate, penaltyPoints, pickMissions, pickupReach, pollGamepad,
   preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace, resetBackdrop,
-  rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, stepDrive, stepLateral, stepNos,
+  rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, setTrackPowerups, stepDrive, stepLateral, stepNos,
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, utcDay, wallContact, warpReady
 };

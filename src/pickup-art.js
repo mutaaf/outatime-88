@@ -12,6 +12,10 @@ export const ART = {
   PLUTONIUM: { shape: 'hex', body: '#22d3ee', rim: '#0e7490', core: '#fef08a', glow: 'rgba(0,240,255,0.55)' },
   REPAIR_WRENCH: { shape: 'cross', body: '#10b981', rim: '#065f46', core: '#ffffff', glow: 'rgba(52,211,153,0.5)' },
   NOS_CAN: { shape: 'capsule', body: '#3b82f6', rim: '#1e3a8a', core: '#e0f2fe', glow: 'rgba(96,165,250,0.55)' },
+  // Runner power-ups (0177): magnet = horseshoe with silver tips, shield = crest, 2X = star badge.
+  MAGNET: { shape: 'magnet', body: '#f43f5e', rim: '#881337', core: '#e2e8f0', glow: 'rgba(244,63,94,0.55)' },
+  SHIELD: { shape: 'shield', body: '#38bdf8', rim: '#0c4a6e', core: '#f0f9ff', glow: 'rgba(56,189,248,0.6)' },
+  DOUBLER: { shape: 'badge', body: '#facc15', rim: '#92400e', core: '#7c2d12', glow: 'rgba(250,204,21,0.6)' },
 };
 
 const STEP = 1.12;          // size buckets grow 12% at a time
@@ -112,6 +116,52 @@ export function paintIcon(c, kind, S, W) {
     c.fillStyle = a.core;
     roundRect(c, m - l, m - t, l * 2, t * 2, t * 0.6); c.fill();
     roundRect(c, m - t, m - l, t * 2, l * 2, t * 0.6); c.fill();
+  } else if (a.shape === 'magnet') {
+    // A horseshoe magnet: thick red arc, two silver pole tips.
+    const R = S * 0.3, w = S * 0.17, top = m - S * 0.06;
+    c.lineCap = 'butt';
+    c.beginPath(); c.arc(m, top, R, Math.PI, 0, true);
+    c.strokeStyle = 'rgba(8,6,20,0.8)'; c.lineWidth = w + line * 1.6; c.stroke();
+    c.strokeStyle = body; c.lineWidth = w; c.stroke();
+    c.fillStyle = a.rim;
+    for (const sx of [-1, 1]) {
+      const x = m + sx * R - w / 2;
+      c.fillStyle = 'rgba(8,6,20,0.8)'; c.fillRect(x - line * 0.8, m - S * 0.36 - line * 0.8, w + line * 1.6, S * 0.32 + line * 1.6);
+      c.fillStyle = body; c.fillRect(x, m - S * 0.36, w, S * 0.16);
+      c.fillStyle = a.core; c.fillRect(x, m - S * 0.2, w, S * 0.14);
+    }
+    c.lineCap = 'round';
+    // Little field lines between the poles.
+    c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = Math.max(1, S * 0.035);
+    for (const k of [0.1, 0.2]) { c.beginPath(); c.moveTo(m - S * k, m - S * 0.38); c.lineTo(m - S * k * 0.6, m - S * 0.3); c.moveTo(m + S * k, m - S * 0.38); c.lineTo(m + S * k * 0.6, m - S * 0.3); c.stroke(); }
+  } else if (a.shape === 'shield') {
+    // A heater-shield crest with a white chevron.
+    const crest = (k) => {
+      c.beginPath();
+      c.moveTo(m, m - S * 0.44 * k);
+      c.quadraticCurveTo(m + S * 0.26 * k, m - S * 0.34 * k, m + S * 0.4 * k, m - S * 0.36 * k);
+      c.quadraticCurveTo(m + S * 0.42 * k, m + S * 0.14 * k, m, m + S * 0.46 * k);
+      c.quadraticCurveTo(m - S * 0.42 * k, m + S * 0.14 * k, m - S * 0.4 * k, m - S * 0.36 * k);
+      c.quadraticCurveTo(m - S * 0.26 * k, m - S * 0.34 * k, m, m - S * 0.44 * k);
+      c.closePath();
+    };
+    crest(1); c.fillStyle = a.rim; c.fill(); c.stroke();
+    crest(0.8); c.fillStyle = body; c.fill();
+    c.strokeStyle = a.core; c.lineWidth = Math.max(1.5, S * 0.08);
+    c.beginPath(); c.moveTo(m - S * 0.17, m - S * 0.02); c.lineTo(m, m + S * 0.16); c.lineTo(m + S * 0.17, m - S * 0.02); c.stroke();
+  } else if (a.shape === 'badge') {
+    // A gold star badge stamped "2×".
+    poly(c, m, m, S * 0.46, 12, 0);
+    c.fillStyle = a.rim; c.fill(); c.stroke();
+    star(c, m, m, S * 0.44);
+    c.fillStyle = body; c.fill();
+    c.beginPath(); c.arc(m, m, S * 0.24, 0, Math.PI * 2);
+    c.fillStyle = '#fff7cc'; c.fill();
+    c.strokeStyle = a.rim; c.lineWidth = line; c.stroke();
+    c.fillStyle = a.core;
+    c.font = `900 ${Math.max(6, Math.round(S * 0.25))}px Orbitron, sans-serif`;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('2×', m, m + S * 0.015);
   } else {
     // NOS canister: a capsule with a nozzle and a white band carrying an "N".
     const w = S * 0.46, h = S * 0.78;
@@ -258,4 +308,51 @@ export function drawHint(ctx, rw, rh, kind, side, segs, t) {
   }
   ctx.stroke();
   ctx.globalAlpha = 1;
+}
+
+// ── Power-up HUD (0177): a countdown ring per active power-up and the shield bubble ─────────
+const RING_ORDER = ['MAGNET', 'SHIELD', 'DOUBLER'];
+
+/**
+ * Draw the active power-ups' timer rings (left edge, stacked) and, while the shield is up, a
+ * bubble around the car at (carX, carY). `st` is src/powerups.js state; nothing allocates.
+ */
+export function drawPowerHud(ctx, rw, rh, st, carX, carY, t, still) {
+  if (!st || !st.on) return;
+  const r = Math.max(13, Math.min(rw, rh) * 0.042);
+  const x = Math.round(r + Math.max(10, rw * 0.02));
+  let y = Math.round(rh * 0.34);
+  for (let i = 0; i < RING_ORDER.length; i++) {
+    const k = RING_ORDER[i];
+    const left = st.t[k];
+    if (!(left > 0)) continue;
+    const frac = Math.max(0, Math.min(1, left / (st.dur[k] || 1)));
+    const ending = left < 2 && !still && Math.sin(t * 18) > 0; // blinks for the last two seconds
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = 'rgba(8,10,28,0.78)';
+    ctx.beginPath(); ctx.arc(x, y, r * 1.12, 0, Math.PI * 2); ctx.fill();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(2, r * 0.2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath(); ctx.arc(x, y, r * 0.95, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = ART[k].body;
+    ctx.globalAlpha = ending ? 0.45 : 1;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.95, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    drawPickup(ctx, k, x, y, r * 1.25, 0, 0, true);
+    y += Math.round(r * 2.6);
+  }
+  if (st.t.SHIELD > 0) {
+    const R = Math.max(30, rw * 0.085);
+    const pulse = still ? 0 : Math.sin(t * 5) * 0.06;
+    const g = ctx.createRadialGradient(carX, carY, R * 0.55, carX, carY, R * (1.05 + pulse));
+    g.addColorStop(0, 'rgba(56,189,248,0)');
+    g.addColorStop(0.8, 'rgba(56,189,248,0.16)');
+    g.addColorStop(1, 'rgba(186,230,253,0.55)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(carX, carY, R * (1.05 + pulse), R * 0.72 * (1.05 + pulse), 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = st.t.SHIELD < 2 && !still && Math.sin(t * 18) > 0 ? 'rgba(186,230,253,0.25)' : 'rgba(186,230,253,0.8)';
+    ctx.lineWidth = Math.max(1.5, R * 0.035);
+    ctx.stroke();
+  }
 }

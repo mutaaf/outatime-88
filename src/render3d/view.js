@@ -564,7 +564,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
           case 'ARCH_HW': placeProp('ARCH_HW', x, y - 1, z, yaw); break;
           case 'OVERHEAD_GATE': case 'BEST_GATE': placeProp('OVERHEAD_GATE', x, y, z, yaw); break;
           case 'MC_FLARE_GREEN': placeProp('MC_FLARE_GREEN', x, y, z, 0); break;
-          case 'HW_COIN': case 'PLUTONIUM': case 'REPAIR_WRENCH': case 'NOS_CAN': {
+          case 'HW_COIN': case 'PLUTONIUM': case 'REPAIR_WRENCH': case 'NOS_CAN': case 'MAGNET': case 'SHIELD': case 'DOUBLER': {
             const bob = 1.4 + Math.sin(t * 3 + (it.phase || 0)) * 0.25;
             placeProp(it.type, x, y + bob, z, yaw, 1, t * 3 + (it.phase || 0));
             placeProp('PICKUP_GLOW', x, y + bob, z, 0, it.type === 'HW_COIN' ? 0.9 : 1.3);

@@ -16,6 +16,11 @@ export const PICKUPS = {
   PLUTONIUM: { pts: 500, coins: 8, flux: 'plutonium', combo: true, reach: 0.44, magnet: true, cue: 'coin', power: true, color: '#22d3ee' },
   REPAIR_WRENCH: { pts: 400, heal: 25, combo: false, reach: 0.42, magnet: false, cue: 'repair', power: true, color: '#10b981' },
   NOS_CAN: { pts: 0, nos: 'canister', combo: false, reach: 0.44, magnet: true, cue: 'nos', power: true, color: '#3b82f6' },
+  // Runner power-ups (0177, Endless solo only; effects in src/powerups.js). No points: the
+  // reward is the effect, so scores and the server's checks are unchanged.
+  MAGNET: { pts: 0, powerup: true, combo: false, reach: 0.46, magnet: false, cue: 'power', power: true, color: '#f43f5e' },
+  SHIELD: { pts: 0, powerup: true, combo: false, reach: 0.46, magnet: false, cue: 'power', power: true, color: '#38bdf8' },
+  DOUBLER: { pts: 0, powerup: true, combo: false, reach: 0.46, magnet: false, cue: 'power', power: true, color: '#facc15' },
 };
 
 export const isPickup = (type) => Object.prototype.hasOwnProperty.call(PICKUPS, type);
@@ -57,6 +62,29 @@ export function kindAt(i, patternType = '') {
   return null;
 }
 
+// Power-up slots (0177): one candidate every `every` segments (fewer segments apart each tier),
+// kept only where nothing else sits within PICKUP.gap, and a seeded coin-flip decides whether it
+// shows and which of the three it is. Off (level 0) outside Endless solo runs.
+export const POWER_SPAWN = { from: 60, every: 160, perTier: 10, minEvery: 90, chance: 0.55, chancePerTier: 0.05, kinds: ['MAGNET', 'SHIELD', 'DOUBLER'] };
+
+function hash01(seed, i) {
+  let t = (Math.imul(seed | 0, 0x9e3779b1) ^ Math.imul(i + 0x632be5ab, 0x85ebca6b)) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), 0x2c1b3c6d) >>> 0;
+  return ((t ^ (t >>> 13)) >>> 0) / 4294967296;
+}
+
+/** The power-up (if any) at segment `i` for Endless tier `level` (0 = off) and track `seed`. Pure. */
+export function powerupAt(i, level, seed = 0) {
+  const S = POWER_SPAWN;
+  if (!(level > 0) || i < S.from) return null;
+  const every = Math.max(S.minEvery, S.every - S.perTier * (level - 1));
+  if (i % every !== every >> 1) return null;
+  for (let d = -PICKUP.gap; d <= PICKUP.gap; d++) if (kindAt(i + d)) return null;
+  const r = hash01(seed, i);
+  if (r >= Math.min(0.85, S.chance + S.chancePerTier * (level - 1))) return null;
+  return S.kinds[Math.floor(hash01(seed + 7, i) * S.kinds.length)];
+}
+
 /**
  * Lateral spot for a pickup on segment `seg` at track Z `z`: the clean line, nudged toward the
  * inside of a bend (the apex) but never more than LINE_HUG off it, and inside the lanes.
@@ -71,8 +99,8 @@ export function pickupOffset(line, z, curve) {
  * Put this segment's pickup (if the rhythm has one) on it. `add` is track.js addItem.
  * Set pieces (except booster gates) and checkpoints stay clear; callers skip those segments.
  */
-export function placePickup(seg, i, patternType, line, add) {
-  const kind = kindAt(i, patternType);
+export function placePickup(seg, i, patternType, line, add, power = 0, seed = 0) {
+  const kind = kindAt(i, patternType) || powerupAt(i, power, seed);
   if (!kind) return null;
   return add(seg, pickupOffset(line, seg.p1.world.z, seg.curve), kind, true, i * 0.8);
 }
