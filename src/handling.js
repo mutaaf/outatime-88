@@ -49,6 +49,21 @@
 //     grinding along a wall scrubs speed continuously (wallContact).
 //   - `load` (−1..1) is the share of lateral grip in use, for the drivetrain's circle and
 //     the body roll.
+//
+// v4 (ticket 0181), realism:
+//   - Tyre curve (Pacejka-lite, `tyreCurve`): the yaw the tyres deliver is linear in what you
+//     ask up to ~75% of grip, then rounds over smoothly to the peak and falls away a little
+//     past it, instead of a hard ceiling. You feel the limit coming (`slip` starts early and
+//     small), and overdriving a corner gives *less* turn, the way a pushing front end does:
+//     ease off the wheel and the grip comes back.
+//   - Weight transfer has inertia: pass `weight` (the chassis pitch, + = nose down) and the
+//     brake turn-in, trail-brake rotation and throttle push follow the car's pitch, building
+//     over ~0.1 s as the body settles, instead of switching with the pedal.
+//   - Counter-steer catches a slide: steering against the car's rotation shrinks the tail-out
+//     angle (by `catchAt` lock it's gone) instead of flinging the tail the other way; hold it
+//     too long and the rotation itself reverses, like a real pendulum.
+//   - Surface grip (`p.surface`, 1 = dry asphalt): the era's road. Dusty canyon and wet neon
+//     streets slide a little earlier.
 
 export const STEER = {
   rampIn: 4.2,        // lock per second while a key is held (≈0.22 s to full lock)
@@ -91,7 +106,27 @@ export const LATERAL = {
   throttlePush: 0.08, // yaw gain lost at full throttle (weight on the rear)
   airControl: 0.12,   // share of the yaw ask you get with the wheels off the road
   airYawDamp: 0.6,    // 1/s; the yaw rate fades slowly in the air
+  catchAt: 0.5,       // lock of counter-steer that fully catches a slide's tail (v4)
 };
+
+/** Tyre curve (v4): share of peak grip delivered for a demand of `x` × peak. */
+export const TYRE = {
+  linear: 0.75,       // fully linear (what you ask is what you get) up to this share of grip
+  fallFrom: 1.25,     // past the peak, grip falls away from here …
+  fallTo: 2.5,        // … reaching its slide level here
+  fall: 0.1,          // share of peak grip lost in a full slide
+};
+
+/** 0..~1: the lateral grip the tyres deliver for a demand `x` (in multiples of their peak). */
+export function tyreCurve(x) {
+  const a = Math.abs(x), k = TYRE.linear;
+  let g = a <= k ? a : k + (1 - k) * Math.tanh((a - k) / (1 - k));
+  if (a > TYRE.fallFrom) {
+    const t = Math.min(1, (a - TYRE.fallFrom) / (TYRE.fallTo - TYRE.fallFrom));
+    g *= 1 - TYRE.fall * t * t * (3 - 2 * t);
+  }
+  return g;
+}
 
 export const WALL = {
   restitution: 0.3,   // share of sideways speed kept as a bounce
@@ -184,19 +219,26 @@ export function createLateral(x = 0) {
  * @param {number} [p.use] share of grip the pedals are using (src/drivetrain.js `use`); when
  *   given it replaces the old fixed brake/throttle grip factors with the friction circle
  * @param {boolean} [p.airborne] wheels off the road
+ * @param {number} [p.weight] longitudinal weight transfer, −1..1 (+ = on the front: the
+ *   chassis pitch). When given, it drives brake turn-in, trail-brake rotation and throttle push
+ * @param {number} [p.surface=1] road surface grip (the era's road)
  */
 export function stepLateral(lt, steer, dt, p) {
   const v = Math.max(0, p.speedMph) / 88;
   const h = p.h;
   const U = Math.max(LATERAL.minFwd, LATERAL.fwd * v);
-  const base = LATERAL.grip * h.grip * (p.gripBonus || 1) * (1 + LATERAL.downforce * v * v);
+  const base = LATERAL.grip * h.grip * (p.gripBonus || 1) * (p.surface || 1) * (1 + LATERAL.downforce * v * v);
   let grip = base;
   let gain = LATERAL.yawGain;
   let brakeUse = 0;
   if (p.use != null) {
     const u = clamp(p.use, 0, 0.95);
     grip *= Math.max(LATERAL.circleFloor, Math.sqrt(1 - u * u));
-    if (p.braking) { brakeUse = u; gain *= 1 + LATERAL.brakeTurnIn * u; } else if (p.throttle) gain *= 1 - LATERAL.throttlePush * u;
+    if (p.weight != null) {
+      // v4: the load follows the body's pitch, so it builds and fades with the chassis.
+      const w = clamp(p.weight, -1, 1);
+      if (w > 0) { brakeUse = w; gain *= 1 + LATERAL.brakeTurnIn * w; } else gain *= 1 + LATERAL.throttlePush * w;
+    } else if (p.braking) { brakeUse = u; gain *= 1 + LATERAL.brakeTurnIn * u; } else if (p.throttle) gain *= 1 - LATERAL.throttlePush * u;
   } else if (p.braking) grip *= LATERAL.brakeGrip;
   else if (p.throttle) grip *= LATERAL.throttleGrip;
   if (p.drifting) { grip *= LATERAL.driftGrip; gain *= LATERAL.driftLat; }
@@ -220,8 +262,11 @@ export function stepLateral(lt, steer, dt, p) {
     lt.slip = 0;
     lt.r += (ask * LATERAL.airControl - LATERAL.airYawDamp * lt.r) * dt;
   } else {
-    const r = clamp(ask, -rMax, rMax);
-    lt.slip = Math.abs(ask) > rMax ? (Math.abs(ask) - rMax) / rMax : 0;
+    // v4: the tyre curve rounds the limit over (progressive), rather than a hard clamp.
+    const x = ask / rMax;
+    const g = tyreCurve(x);
+    const r = Math.sign(ask) * rMax * g;
+    lt.slip = Math.max(0, Math.abs(x) - g);
     // The car's yaw rate lags the ask by the car's response time.
     lt.r += (r - lt.r) * (1 - Math.exp(-dt / Math.max(0.02, h.tau)));
   }
@@ -245,9 +290,15 @@ export function stepLateral(lt, steer, dt, p) {
   lt.load = air ? 0 : clamp(U * lt.r / base, -1, 1);
   // The drift kick replaces the understeer slide rather than stacking on it; trail-braking
   // lets the tail step out a little on top (ticket 0131).
+  // v4: the tail steps out the way the car is rotating. Steering against that rotation is a
+  // counter-steer: it catches the slide (shrinks the tail-out) rather than flinging the tail
+  // across; only once the rotation itself reverses does the tail follow it.
+  const spin = Math.sign(lt.r || steer || 0);
+  const counter = steer * spin < 0;
+  const tail = counter ? spin * Math.max(0, 1 - Math.abs(steer) / LATERAL.catchAt) : dir;
   lt.beta = load * LATERAL.loadBeta + (p.drifting
-    ? dir * LATERAL.driftBeta * Math.min(1, Math.abs(steer) / 0.6) * slipMult
-    : dir * LATERAL.slipBeta * Math.min(1, lt.slip) * slipMult) +
+    ? tail * LATERAL.driftBeta * Math.min(1, counter ? 1 : Math.abs(steer) / 0.6) * slipMult
+    : tail * LATERAL.slipBeta * Math.min(1, lt.slip) * slipMult) +
     (brakeUse > 0 ? Math.sign(lt.r) * LATERAL.brakeBeta * brakeUse * Math.min(1, Math.abs(load) * 2) * slipMult : 0);
   const w = 2 * Math.PI * LATERAL.bodyHz;
   const acc = w * w * (heading + lt.beta - lt.yaw) - 2 * LATERAL.bodyDamp * w * lt.yawVel;

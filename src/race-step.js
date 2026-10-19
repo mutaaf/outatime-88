@@ -1000,6 +1000,9 @@ export function updateGame(rawDt) {
   latParams.drifting = GameState.isDrifting && Boolean(braking);
   latParams.gripBonus = GameState.zoneTimer > 0 ? 1.25 : 1;
   latParams.use = drive.use; // friction circle (ticket 0131)
+  // Weight transfer follows the chassis pitch (ticket 0181): + = nose down, about 7° at full brakes.
+  latParams.weight = Math.max(-1, Math.min(1, (GameState.chassisPitch || 0) / 7));
+  latParams.surface = ERAS[GameState.eraIndex].grip || 1; // the era's road (dusty canyon, wet neon)
   latParams.airborne = GameState.playerY > 4;
   stepLateral(lateral, steerInput, rawDt, latParams);
   GameState.playerX = lateral.x;

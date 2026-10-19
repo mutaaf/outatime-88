@@ -1,6 +1,6 @@
 // Handling v3 (ticket 0131): friction circle, weight transfer, airborne yaw, walls, landings.
 import { describe, it, expect } from 'vitest';
-import { LATERAL, WALL, SETPIECE, handlingFor, createLateral, stepLateral, wallContact, landingKeep } from '../../src/handling.js';
+import { LATERAL, WALL, SETPIECE, TYRE, handlingFor, createLateral, stepLateral, wallContact, landingKeep } from '../../src/handling.js';
 
 const DT = 1 / 120;
 const base = { gripMult: 1, slipMult: 1, massKg: 1300 };
@@ -23,7 +23,8 @@ describe('friction circle', () => {
     const v = 150 / 88;
     const U = LATERAL.fwd * v;
     const grip = LATERAL.grip * (1 + LATERAL.downforce * v * v);
-    expect(U * Math.abs(lt.r)).toBeGreaterThanOrEqual(grip * LATERAL.circleFloor * 0.98);
+    // Overdriven this hard the tyres are sliding, so they give their slide level (v4 tyre curve).
+    expect(U * Math.abs(lt.r)).toBeGreaterThanOrEqual(grip * LATERAL.circleFloor * (1 - TYRE.fall) * 0.98);
   });
   it('without `use` the old fixed brake/throttle factors still apply (older callers)', () => {
     // At the limit the old +8% brake bite shows; the circle with no pedal load gives plain grip.

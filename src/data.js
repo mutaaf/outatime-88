@@ -95,6 +95,7 @@ export const ERAS = [
     trackB: '#d54203',
     railColor: '#ffaa00',
     wetReflection: true,
+    grip: 0.96,         // wet neon street (ticket 0181)
     sunStyle: 'synthwave-sun'
   },
   {
@@ -113,6 +114,7 @@ export const ERAS = [
     trackB: '#d84405',
     railColor: '#ffb700',
     wetReflection: true,
+    grip: 0.96,         // wet neon street (ticket 0181)
     sunStyle: 'pixel-moon'
   },
   {
@@ -131,6 +133,7 @@ export const ERAS = [
     trackB: '#d14206',
     railColor: '#f59e0b',
     wetReflection: false,
+    grip: 0.9,          // dusty canyon road: slides earlier (ticket 0181)
     sunStyle: 'western-sun'
   },
   {
@@ -149,6 +152,7 @@ export const ERAS = [
     trackB: '#d14004',
     railColor: '#ff9900',
     wetReflection: true,
+    grip: 0.96,         // wet neon street (ticket 0181)
     sunStyle: 'holo-globe'
   },
   {
@@ -167,6 +171,7 @@ export const ERAS = [
     trackB: '#d43f06',
     railColor: '#ffaa00',
     wetReflection: true,
+    grip: 0.96,         // wet neon street (ticket 0181)
     sunStyle: 'synthwave-sun'
   },
   {
