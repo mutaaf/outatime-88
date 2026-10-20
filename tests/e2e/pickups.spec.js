@@ -76,3 +76,46 @@ test('2D at 2× device pixels: pickups come from the crisp icon cache', async ({
   expect(problems).toEqual([]);
   await ctx.close();
 });
+
+// Ticket 0114: pickup labels hang above the car on a dark plate, never on it, never on each
+// other, never cut off by the canvas edge. Reads the layout the lazy pickup art just drew.
+for (const [w, h] of [[1280, 720], [390, 844]]) {
+  test(`labels at ${w}x${h}: above the car, apart, on screen`, async ({ browser }, info) => {
+    test.setTimeout(90000);
+    const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+    const page = await ctx.newPage();
+    const problems = watchPage(page);
+    await race(page);
+    await page.waitForFunction(() => window.__OT.pickupArt());
+    const seen = await page.evaluate(() => new Promise((resolve) => {
+      const OT = window.__OT;
+      OT.pickup('REPAIR_WRENCH');
+      setTimeout(() => OT.pickup('HW_COIN'), 150);
+      setTimeout(() => OT.pickup('NOS_CAN'), 280);
+      const t0 = performance.now();
+      let best = null;
+      (function tick() {
+        const s = OT.pickupArt();
+        if (s.labels > (best ? best.rects.length : 0)) {
+          const rects = [];
+          for (let i = 0; i < s.labels; i++) { const o = i * 7; rects.push([s.slots[o], s.slots[o + 1], s.slots[o] + s.slots[o + 2], s.slots[o + 1] + s.slots[o + 3]]); }
+          best = { rects, box: { ...s.box }, rw: s.rw, rh: s.rh };
+        }
+        if ((best && best.rects.length >= 3) || performance.now() - t0 > 8000) { OT.pause(); resolve(best); } else requestAnimationFrame(tick);
+      })();
+    }));
+    expect(seen).not.toBeNull();
+    expect(seen.rects.length).toBeGreaterThanOrEqual(2);
+    const { box, rw, rh } = seen;
+    expect(box.y1).toBeGreaterThan(box.y0);
+    const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    for (const r of seen.rects) {
+      expect(hit(r, [box.x0, box.y0, box.x1, box.y1])).toBe(false);
+      expect(r[0] >= 0 && r[1] >= 0 && r[2] <= rw && r[3] <= rh).toBe(true);
+    }
+    for (let i = 0; i < seen.rects.length; i++) for (let j = i + 1; j < seen.rects.length; j++) expect(hit(seen.rects[i], seen.rects[j])).toBe(false);
+    await info.attach(`labels-${w}x${h}`, { body: await page.screenshot(), contentType: 'image/png' });
+    expect(problems).toEqual([]);
+    await ctx.close();
+  });
+}

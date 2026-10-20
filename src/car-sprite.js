@@ -70,7 +70,7 @@ export function frameOf(shape) {
   if (!f) {
     const S = shapeOf(shape);
     const across = Math.max(BASE_ACROSS, S.W * 1.05 + S.L * 0.3);
-    f = { across, tall: Math.max(across * SPRITE_ASPECT, topOf(S) + 0.62 + BELOW) };
+    f = { across, tall: Math.max(across * SPRITE_ASPECT, topOf(S) + 0.62 + BELOW), roof: topOf(S) + 0.62 };
     frames.set(shape, f);
   }
   return f;
@@ -178,13 +178,14 @@ export function setSpriteScale(k) { pxScale = k > 0 ? k : 1; }
 
 /** Reusable thrust anchors for drawCarAt → drawThrust (one per caller, no allocation). */
 export function createThrust() {
-  return { n: 0, x: new Float32Array(MAX_TIPS), y: new Float32Array(MAX_TIPS), r: new Float32Array(MAX_TIPS), kind: 'exhaust', pn: 0, px: new Float32Array(4), py: new Float32Array(4), w: 0 };
+  return { n: 0, x: new Float32Array(MAX_TIPS), y: new Float32Array(MAX_TIPS), r: new Float32Array(MAX_TIPS), kind: 'exhaust', pn: 0, px: new Float32Array(4), py: new Float32Array(4), w: 0, top: 0 };
 }
 
 /**
  * Draws a car standing on the road at (x, groundY), sized so a typical 1.9 m wide car spans
  * `carW` px (a van comes out wider, a light-cycle narrower). Fills `out` (createThrust())
- * with this car's exhaust tips and hover pads in the same coordinates. Returns the height drawn.
+ * with this car's exhaust tips and hover pads in the same coordinates, and `top`, the highest the
+ * body (roof, wing, fin) can reach on screen. Returns the height drawn.
  */
 export function drawCarAt(ctx, look, x, groundY, carW, o, out) {
   const fr = frameOf(look.shape);
@@ -201,6 +202,7 @@ export function drawCarAt(ctx, look, x, groundY, carW, o, out) {
     out.pn = spr.padN || 0;
     for (let i = 0; i < out.pn; i++) { out.px[i] = left + spr.padX[i] * k; out.py[i] = top + spr.padY[i] * k; }
     out.w = dw;
+    out.top = groundY - fr.roof * (dw / fr.across);
   }
   return dh;
 }

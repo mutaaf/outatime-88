@@ -106,6 +106,10 @@ describe('car painter + thrust anchors (workstream J)', () => {
     }
     // Symmetric twin pairs about the car's centre when it points straight ahead.
     expect(out.x[0] + out.x[3]).toBeCloseTo(1000, 0);
+    // The roofline (0114): above the ground, inside the sprite (the frame's empty headroom excluded).
+    const dh = drawCarAt(ctx, { shape: 'MUSCLE', body: '#111827', cabin: '#475569' }, 500, 400, 100, { yaw: 0 }, out);
+    expect(out.top).toBeLessThan(400 - 30);
+    expect(out.top).toBeGreaterThanOrEqual(400 - dh);
     drawCarAt(ctx, { shape: 'ROADSTER', body: '#c8102e', cabin: '#111827' }, 500, 400, 100, { yaw: 0 }, out);
     expect(out.kind).toBe('cold'); // electric: cold-gas puffs, never fire
     expect(() => drawThrust(ctx, out, { nos: 1, plume: 1, t: 1 })).not.toThrow();

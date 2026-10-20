@@ -1,12 +1,12 @@
 ---
 id: 0114
 title: Pickup and score popups read cleanly — never stacked on the player car or each other
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-18
-pr:
+pr: 132
 ---
 
 ## Why
@@ -27,11 +27,11 @@ nothing is drawn half off-edge. Touches the pickup draw code in `src/main.js` (o
 renderer module); keep the change size-neutral for the main bundle (see 0115).
 
 ## Acceptance criteria
-- [ ] A pickup label never overlaps the player car's bounding box (unit test on the anchor maths)
-- [ ] Two labels spawned within 300 ms do not overlap each other
-- [ ] Label text is fully inside the canvas at 390x844 and 1280x720
-- [ ] Screenshot at both sizes during a pickup shows the label above the car, legible
-- [ ] No frame-time regression, no per-frame allocation added
+- [x] A pickup label never overlaps the player car's bounding box (unit test on the anchor maths)
+- [x] Two labels spawned within 300 ms do not overlap each other
+- [x] Label text is fully inside the canvas at 390x844 and 1280x720
+- [x] Screenshot at both sizes during a pickup shows the label above the car, legible
+- [x] No frame-time regression, no per-frame allocation added
 
 ## Test plan
 Pure anchor/queue helper with a unit test; e2e screenshot-free assertion that no label
