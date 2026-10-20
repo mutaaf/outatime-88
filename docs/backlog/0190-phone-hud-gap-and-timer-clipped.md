@@ -1,7 +1,7 @@
 ---
 id: 0190
 title: Phone race HUD — the "ahead" gap pill and the timer are cut off at 390 px
-status: proposed
+status: ready
 priority: P1
 size: S
 lens: player-feel
