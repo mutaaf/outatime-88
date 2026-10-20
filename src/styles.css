@@ -133,6 +133,11 @@ html, body {
 [data-hud="compact"] #coachIcon, [data-hud="compact"] #coachTitle { display: none; }
 [data-hud="compact"] #coachDesc { font-size: 12px; line-height: 1.25; margin-top: 0; }
 [data-hud="compact"] #coachCard { background: rgba(2, 6, 23, 0.78); }
+/* Keyboard/mouse on a full HUD (0194): the tip docks top-left under the place card, clear of
+   the road ahead where traffic appears. Touch screens keep the centred lane their controls avoid. */
+:root[data-hud="full"]:not(.touch-ui) #interactiveCoachBanner { justify-content: flex-start; padding-left: max(16px, env(safe-area-inset-left)); }
+:root[data-hud="full"]:not(.touch-ui) #coachCard { max-width: min(300px, 26vw); }
+:root[data-hud="full"]:not(.touch-ui) #btnDismissCoach { white-space: nowrap; }
 [data-hud="compact"] #forkChoiceBanner > div { font-size: 10px !important; padding: 3px 7px !important; max-width: 32vw; }
 /* The branch you are lined up for leans forward (scale, never transform: see LESSONS). */
 .fork-cue { scale: 0.92; opacity: 0.85; transition: scale 120ms ease-out, opacity 120ms ease-out; }

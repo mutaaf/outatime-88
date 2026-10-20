@@ -1,7 +1,7 @@
 ---
 id: 0194
 title: The desktop tip card must not sit over the road ahead
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
@@ -16,10 +16,10 @@ Scout play-through at 1280x720 (level 1, first 10 s): the coach TIP card ("Draft
 Dock the desktop/tablet tip to a screen edge outside the road's vanishing region (for example bottom-left above the steer chip, or the top-left under the place panel), at most ~320 px wide, same copy, same once-only order. Touch behaviour is untouched (0166 owns phones). Touches `src/styles.css`, `src/layout.js` slots, and the tip element in `index.html`.
 
 ## Acceptance criteria
-- [ ] At 1280x720 and 1024x768 the tip's rect does not intersect the central 40% of the viewport width between y = 15% and y = 70%
-- [ ] The tip still shows once, in the same order, and clears on use or GOT IT
-- [ ] The zero-overlap layout e2e stays green at all viewports
-- [ ] No per-frame DOM writes added
+- [x] At 1280x720 and 1024x768 the tip's rect does not intersect the central 40% of the viewport width between y = 15% and y = 70%
+- [x] The tip still shows once, in the same order, and clears on use or GOT IT
+- [x] The zero-overlap layout e2e stays green at all viewports
+- [x] No per-frame DOM writes added
 
 ## Test plan
 Extend the layout e2e: start a race at 1280x720 and 1024x768, wait for a tip, assert its bounding box against the centre band and the HUD rects (`hudRects()`).
