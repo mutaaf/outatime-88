@@ -110,6 +110,7 @@ describe('speed and space', () => {
     expect(passedBy(30, 10, 0.3)).toBe(0);
     expect(passedBy(30, -5, 1.4)).toBe(0);
     expect(passedBy(undefined, -5, 0)).toBe(0);
+    expect(passedBy(-1e6, 16000, 0)).toBe(0); // a parked car placed ahead in a formation (0027)
     expect(passByGain(80, 0.2)).toBeGreaterThan(passByGain(20, 0.2));
     expect(passByGain(5, 0)).toBe(0);
   });

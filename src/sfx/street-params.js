@@ -102,6 +102,9 @@ export function dopplerRatio(closingMph) {
   return c / (c - v);
 }
 
+/** A jump bigger than this between two frames is a recycled car, not one going past. */
+export const PASS_TELEPORT = 2500;
+
 /**
  * Did a car just go past? `prevDz`/`dz` = its Z minus yours before and after this frame, `lat`
  * the lane gap. Passing it (+ → −) or being passed (− → +), close enough to hear.
@@ -109,6 +112,7 @@ export function dopplerRatio(closingMph) {
 export function passedBy(prevDz, dz, lat) {
   if (!Number.isFinite(prevDz) || !Number.isFinite(dz)) return 0;
   if (Math.abs(lat) > 1.1) return 0;
+  if (Math.abs(dz - prevDz) > PASS_TELEPORT) return 0; // recycled traffic jumping ahead, not a pass
   if (prevDz > 0 && dz <= 0) return 1;   // you passed it
   if (prevDz < 0 && dz >= 0) return -1;  // it passed you
   return 0;
