@@ -112,3 +112,68 @@ test('NEXT takes you to the next open level', async ({ page }) => {
   expect(await gs(page, 'levelIndex')).toBe(1);
   expect(await gs(page, 'status')).toBe('PLAYING');
 });
+
+// Ticket 0111: the grid speaks the input in hand, says it once, and keeps the road in view.
+const rocketPrompts = (page) => page.evaluate(() => (document.body.innerText.match(/ROCKET START/g) || []).length);
+const gridShare = async (page) => {
+  await expect(page.locator('#rcGrid')).toBeVisible();
+  const box = await page.locator('#rcGrid').boundingBox();
+  return box.height / page.viewportSize().height;
+};
+
+test('keyboard: the grid names Space and Enter, never TAP, once, in a slim line-up', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug&intro`);
+  await ready(page);
+  await page.evaluate(() => { const k = 'outatime_cruisn_88_save_v2'; const d = JSON.parse(localStorage.getItem(k) || '{}'); d.lineupsSeen = []; localStorage.setItem(k, JSON.stringify(d)); });
+  await page.keyboard.press('KeyM');
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+  await expect(page.locator('#rcSkip')).toHaveText('PRESS ENTER TO SKIP ▶▶');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#rcLights')).toBeVisible({ timeout: 1500 });
+  await expect(page.locator('#rcHint')).toHaveText('PRESS SPACE RIGHT ON GREEN FOR A ROCKET START');
+  expect(await rocketPrompts(page)).toBe(1);
+  expect(await page.locator('#raceStage').innerText()).not.toMatch(/TAP/);
+  expect(await gridShare(page)).toBeLessThanOrEqual(0.12);
+  // The grid sits above the lights: nothing of the line-up is over the car at the bottom.
+  const grid = await page.locator('#rcGrid').boundingBox();
+  const lights = await page.locator('#rcLights').boundingBox();
+  expect(grid.y + grid.height).toBeLessThanOrEqual(lights.y);
+  expect(problems).toEqual([]);
+});
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test('touch keeps the ⚡ wording, once, and the line-up stays slim', async ({ page }) => {
+    const problems = watchPage(page);
+    await page.goto(`${APP}?debug&intro`);
+    await ready(page);
+    await page.touchscreen.tap(5, 5);
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+    await expect(page.locator('#rcSkip')).toHaveText('TAP TO SKIP ▶▶');
+    await page.locator('#rcSkip').tap();
+    await expect(page.locator('#rcHint')).toHaveText('TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', { timeout: 1500 });
+    expect(await rocketPrompts(page)).toBe(1);
+    expect(await gridShare(page)).toBeLessThanOrEqual(0.12);
+    expect(problems).toEqual([]);
+  });
+});
+
+test('gamepad: the grid names the pad button, and X skips the line-up', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.addInitScript(() => {
+    const btn = (i) => ({ get pressed() { return window.__padDown === i; }, get value() { return window.__padDown === i ? 1 : 0; } });
+    const pad = { connected: true, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, (_, i) => btn(i)) };
+    navigator.getGamepads = () => [pad];
+  });
+  await page.goto(`${APP}?debug&intro`);
+  await ready(page);
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+  await expect(page.locator('#rcCard')).toBeVisible();
+  await page.evaluate(() => { window.__padDown = 2; }); // X goes down: the pad is the input in hand
+  await expect(page.locator('#rcLights')).toBeVisible({ timeout: 3000 });
+  await page.evaluate(() => { window.__padDown = -1; });
+  await expect(page.locator('#rcHint')).toHaveText('PRESS X OR RB RIGHT ON GREEN FOR A ROCKET START');
+  expect(await rocketPrompts(page)).toBe(1);
+  expect(problems).toEqual([]);
+});

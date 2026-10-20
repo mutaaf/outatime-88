@@ -579,8 +579,7 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .rc-portrait.has-car { background: radial-gradient(circle at 50% 70%, var(--c1), #0b0620 62%, #05050d 100%); }
 .rc-car-art { width: 100%; height: auto; image-rendering: auto; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); }
 .rc-spec { margin-top: 3px; font-size: clamp(10px, 1.6vmin, 14px); font-weight: 800; letter-spacing: 0.08em; color: #fde047; }
-.rc-chip-car { width: 36px; height: auto; flex-shrink: 0; }
-.rc-mycar { grid-column: 1 / -1; justify-self: center; margin-top: 4px; padding: 4px 12px; border-radius: 999px; font-size: clamp(10px, 1.6vmin, 14px); font-weight: 700;
+.rc-mycar { flex-basis: 100%; margin: 0 auto; padding: 3px 12px; border-radius: 999px; font-size: clamp(10px, 1.5vmin, 13px); font-weight: 700; text-align: center;
   color: #e2e8f0; background: rgba(2, 6, 23, 0.86); border: 1px solid #ff8800; }
 .rc-mycar b { color: #fde047; }
 .pod-carbox { display: grid; place-items: center; width: 40px; height: 28px; }
@@ -591,11 +590,13 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .rc-name { font-size: clamp(24px, 5.4vmin, 56px); font-weight: 900; font-style: italic; line-height: 1.05; color: #fff;
   text-shadow: 0 0 18px rgba(255, 255, 255, 0.4), 0 3px 0 #ff007f; overflow-wrap: anywhere; }
 .rc-car { margin-top: 4px; font-family: 'Inter', sans-serif; font-size: clamp(12px, 1.9vmin, 18px); font-weight: 700; color: #cbd5e1; }
-.rc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; width: min(92vw, 520px); }
-.rc-chip { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 12px; font-size: clamp(11px, 1.8vmin, 16px); font-weight: 800;
-  color: #fff; background: rgba(2, 6, 23, 0.86); border-left: 6px solid var(--c1); }
+/* The grid (ticket 0111): one compact row of six chips above the lights, ≤12% of the screen. */
+.rc-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; width: min(96vw, 640px); }
+.rc-chip { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 3px 4px; border-radius: 8px;
+  font-size: clamp(10px, 1.6vmin, 14px); font-weight: 800; white-space: nowrap; overflow: hidden;
+  color: #fff; background: rgba(2, 6, 23, 0.86); border-left: 5px solid var(--c1); }
 .rc-chip b { color: #fde047; }
-.rc-chip-you { border: 2px solid #ff8800; border-left-width: 6px; }
+.rc-chip-you { border: 2px solid #ff8800; border-left-width: 5px; }
 .rc-lights { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 26px; border-radius: 24px; background: rgba(2, 6, 23, 0.82); border: 2px solid #334155; }
 .rc-bulbs { display: flex; gap: clamp(10px, 2vmin, 20px); }
 .rc-bulbs i { width: clamp(38px, 8vmin, 78px); height: clamp(38px, 8vmin, 78px); border-radius: 9999px; background: #1f1f2e; border: 3px solid #0f172a; box-shadow: inset 0 0 12px #000; }

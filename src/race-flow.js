@@ -490,7 +490,7 @@ export const startHooks = {
   field: () => gridOrder(),
   announceLevel() {
     const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
-    triggerAnnouncement(GameState.daily ? `📅 DAILY: ${GameState.daily.modifier.name}` : `🏁 ${lvl.name} 🏁`, 'TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', 2400, 1);
+    triggerAnnouncement(GameState.daily ? `📅 DAILY: ${GameState.daily.modifier.name}` : `🏁 ${lvl.name} 🏁`, '', 2400, 1); // the rocket-start prompt lives in the lights card only (0111)
   },
   go() {
     GameState.racePhase = 'RACING';

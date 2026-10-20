@@ -710,7 +710,14 @@ let driftBoxEl = null, driftShownTier = -1, driftShownAt = 0, tintShown = null;
 export function updateGame(rawDt) {
   if (GameState.status !== 'PLAYING') return;
   // Grid lineup and start lights (ticket 0052): the world waits for GO.
-  if (GameState.racePhase === 'START') { if (RS.startSeq) RF.updateRaceStart(rawDt); return; }
+  if (GameState.racePhase === 'START') {
+    // The pad's boost button skips the lineup and times the rocket start, like Space and ⚡ (0111).
+    const gp = pollGamepad();
+    if (gp.boost && !RS.gpBoost) InputState.boostPressed = true;
+    RS.gpBoost = gp.boost;
+    if (RS.startSeq) RF.updateRaceStart(rawDt);
+    return;
+  }
   RF.updateRaceCeremony(rawDt);
 
   // Apply ZONE Bullet-Time or Takedown Slow-Mo time dilation to world while keeping player responsive
