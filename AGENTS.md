@@ -178,6 +178,9 @@ src/sfx/tuner.js    Lazy (0193): the street-tuner layer, all synthesized — tur
                       limiter, overrun pops, launch burble, NOS click/hiss/whoosh + purge, squeal layer, drift tone,
                       Doppler pass-bys, wind, tunnel reverb, crunch by Δv, bass drops, stingers; SoundEngine.updateEngine
                       calls frame() once per frame. Rules: src/sfx/street-params.js (pure, unit-tested)
+src/street-score.js Lazy (0193): street tracks (phonk / trap / EDM / grid build / title loop) and the music director
+                      (createMusic): picks synthwave or street per bar from Settings → MUSIC STYLE, intensity from
+                      speed/tier/NOS/Patrol, musicIn → musicLP (mood filter) → musicDuck → musicBus, fades out off the road
 src/input.js        InputState + pollGamepad() (deadzone + response curve, analog RT/LT pedals, one reused result; 0183)
 src/onefilter.js    Lazy (loads when tilt turns on): One Euro filter, steady at rest, lag-free on a swerve (0183)
 src/forcefeel.js    Lazy: gamepad dual rumble + phone pulses from tyre slip, wheelspin, walls, landings (0183)

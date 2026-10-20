@@ -3,8 +3,9 @@
 // every sound keeps its synth voice as the fallback until (or unless) its sample decodes.
 // Graph (ticket 0006): musicBus / sfxBus / engineBus → compressor → limiter → masterGain →
 // destination, so stacked crashes and warps duck under a limiter instead of clipping over the
-// music. The street-tuner layer (src/sfx/tuner.js, ticket 0193) is a lazy chunk, fully
-// synthesized; updateEngine drives it once per frame.
+// music. Ticket 0193 adds two lazy chunks, both fully synthesized: the street-tuner layer
+// (src/sfx/tuner.js) and the street score + music director (src/street-score.js), which plays
+// through musicIn → musicLP (NOS-tunnel / slow-mo mood filter) → musicDuck → musicBus.
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { ERAS } from './data.js';
@@ -18,6 +19,9 @@ export function loadMusic() {
   if (!musicLoading) musicLoading = import('./music.js').then((m) => (music = m), (e) => { musicLoading = null; throw e; });
   return musicLoading;
 }
+// The street score and the director that picks synthwave or street (0193); synthwave alone if it fails.
+let score = null;
+const loadScore = () => import('./street-score.js').then((m) => (score = m), () => null);
 
 const MUSIC_LEVEL = 0.55;
 const SFX_LEVEL = 0.9;
@@ -41,6 +45,7 @@ export const SoundEngine = {
   // Music and SFX levels from the settings panel (ticket 0050), on top of the master volume.
   musicMix: normalizeSettings(SaveStore.data.settings).musicVolume,
   sfxMix: normalizeSettings(SaveStore.data.settings).sfxVolume,
+  musicStyle: normalizeSettings(SaveStore.data.settings).musicStyle,
   tuner: null,
   shape: 'GULLWING',
   carName: '',
@@ -222,9 +227,12 @@ export const SoundEngine = {
     if (!this.ctx || !this.engineOsc) return;
     this.engineFrame(speedMph, playing);
     this.tuner?.frame(GameState, playing, hooks.world);
+    // The title gets its calm loop once sound is unlocked (the director plays it, 0193).
+    if (!this.musicTimer && !this.musicPending && !this.titleLoopOff && !this.muted && this.ctx.state === 'running' && GameState.status === 'TITLE') this.startMusicLoop();
   },
   /** A hit's Δv (world Z/s, src/rigid.js): a metal crunch scaled by it. */
   crunch(dv) { this.tuner?.crunch(dv); },
+  setMusicStyle(style) { this.musicStyle = style; },
   engineFrame(speedMph, playing) {
     const t = this.ctx.currentTime;
     const b = this.bank;
@@ -347,9 +355,15 @@ export const SoundEngine = {
   // audio clock; this interval only wakes the scheduler, so main-thread jank can't smear timing.
   startMusicLoop() {
     if (!this.ctx || !this.musicBus) return;
-    if (!music) { loadMusic().then(() => this.startMusicLoop(), () => {}); return; }
+    if (!music || !this.scoreTried) {
+      if (this.musicPending) return;
+      this.musicPending = true;
+      Promise.all([loadMusic(), loadScore()]).then(() => { this.scoreTried = true; this.musicPending = false; this.startMusicLoop(); },
+        () => { this.musicPending = false; this.titleLoopOff = true; });
+      return;
+    }
     if (!this.scheduler) {
-      this.scheduler = music.createScheduler(this.ctx, this.musicBus, () => ({
+      this.scheduler = score ? score.createMusic(this, GameState, music) : music.createScheduler(this.ctx, this.musicBus, () => ({
         playing: GameState.status === 'PLAYING' && !this.muted,
         speed: GameState.speed,
         eraId: (ERAS[GameState.eraIndex] || ERAS[0]).id,

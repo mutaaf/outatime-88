@@ -142,6 +142,7 @@ function applyAll() {
   const s = settings();
   applyMotion();
   SoundEngine.setMix(s.musicVolume, s.sfxVolume);
+  SoundEngine.setMusicStyle(s.musicStyle);
   if (panel) panel.sync();
 }
 

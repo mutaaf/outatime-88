@@ -35,7 +35,7 @@ export function reset() {
   S.idx = 0; S.nextZ = 0; S.met.length = 0; S.last = ''; S.list.length = 0;
   S.lastZ = G.trackPos + ROAD_CFG.playerZOffset; S.lastT = G.raceTime || 0;
   S.fuel = FUEL.max; S.fuelOn = false; S.dry = false; S.dryT = 0; S.lowWarned = false; S.cores = G.fuelCores | 0;
-  S.heat = 0; S.hotWarned = false; S.stall = 0; S.patrol.t = 0; S.slowT = 0; S.slowSpell = false; S.grindT = 0; S.sinceSlip = 9;
+  S.heat = 0; S.hotWarned = false; S.stall = 0; S.patrol.t = 0; G.patrolOn = false; S.slowT = 0; S.slowSpell = false; S.grindT = 0; S.sinceSlip = 9;
   S.cp.on = false; S.cp.left = 0; S.boltT = 3; S.bolt = 0;
   S.dying = null; S.cause = ''; S.cue = ''; S.cueT = 0; S.bell = 0;
   G.noGas = false; G.hzFall = 0;
@@ -232,6 +232,7 @@ export function step(dt) {
     if (r === 'on') { triggerAnnouncement('🚨 THE PATROL IS ON YOU!', `NO MORE SLIPS FOR ${Math.round(S.patrol.dur)}s`, 1500, 3); SoundEngine.playTone(620, 'triangle', 0.6, 0.08, 980); }
     else if (r === 'lost') { triggerAnnouncement('😎 LOST THE PATROL', '', 900); }
     else if (r === 'caught') { fail('PATROL'); return; }
+    G.patrolOn = S.patrol.t > 0; // the music director leans in while it's on you (0193)
   }
 
   // Checkpoints.
@@ -267,7 +268,7 @@ export function onContinue() {
   for (const h of S.list) if ((h.kind === 'WRONGWAY' ? h.carZ : h.z0) < clear) h.spent = true;
   if (S.nextZ && S.nextZ < clear) S.nextZ = clear;
   S.fuel = Math.max(S.fuel, FUEL.refill); S.dry = false; S.dryT = 0; G.noGas = false;
-  S.heat = 0; S.stall = 0; S.patrol.t = 0; S.slowT = 0; S.boltT = 4;
+  S.heat = 0; S.stall = 0; S.patrol.t = 0; G.patrolOn = false; S.slowT = 0; S.boltT = 4;
   if (S.cp.on) S.cp.left = Math.max(S.cp.left, 12);
   S.dying = null; G.hzFall = 0;
 }

@@ -124,13 +124,17 @@ test('the results/leaderboard UI and the music score are lazy chunks (ticket 011
   expect(gz(results[0])).toBeLessThan(6);
 });
 
-test('the street sound layer is a small lazy chunk (ticket 0193)', () => {
+test('the street sound layer and the street score are small lazy chunks (ticket 0193)', () => {
   const files = readdirSync(DIR);
   const tuner = files.filter((f) => /^tuner-.*\.js$/.test(f));
+  const score = files.filter((f) => /^street-score-.*\.js$/.test(f));
   expect(tuner.length).toBe(1);
+  expect(score.length).toBe(1);
   expect(gz(tuner[0])).toBeLessThan(6); // today ~4.2 kB: every voice synthesized, no samples
+  expect(gz(score[0])).toBeLessThan(4); // today ~2.7 kB
   const start = startup();
   expect(start).not.toContain(tuner[0]);
+  expect(start).not.toContain(score[0]);
   for (const f of start) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('blowOff');
 });
 

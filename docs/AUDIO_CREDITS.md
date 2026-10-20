@@ -44,12 +44,15 @@ Total size: about 372 kB. It loads after the first tap or key; the service worke
 
 ## Street sound (ticket 0193): synthesized, no files
 
-The street-tuner layer adds **no recordings at all** (0 kB of new samples). Every voice is made on the device with Web Audio oscillators, filtered noise and a
+The street-tuner layer and the street score add **no recordings at all** (0 kB of new
+samples). Every voice is made on the device with Web Audio oscillators, filtered noise and a
 generated reverb impulse:
 - `src/sfx/tuner.js` (rules in `src/sfx/street-params.js`): turbo spool, blow-off valve,
   shift chirp, rev limiter, overrun crackle and pops, launch burble, the NOS click → hiss →
   whoosh and purge puff, the tuner squeal layer, the drift-hold tone, Doppler pass-bys, wind,
   tunnel reverb, metal crunch, bass drops and the countdown / GO / level-up / run-over
   stingers.
+- `src/street-score.js`: the drift phonk, trap, EDM, pre-race build and title loops, written
+  as original pattern tables. They have no vocals and borrow no melody.
 
 Nothing to credit, nothing to license.

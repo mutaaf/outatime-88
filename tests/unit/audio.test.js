@@ -39,6 +39,18 @@ describe('SoundEngine graph (ticket 0006)', () => {
     expect(masterGain.outputs).toEqual([ctx.destination]);
   });
 
+  it('the scores play through the mood filter and the ducker into the music bus (0193)', async () => {
+    const { SoundEngine } = await import('../../src/audio.js');
+    const score = await import('../../src/street-score.js');
+    const music = await import('../../src/music.js');
+    SoundEngine.init();
+    score.createMusic(SoundEngine, { status: 'TITLE', eraIndex: 0 }, music);
+    const { musicIn, musicLP, musicDuck, musicBus } = SoundEngine;
+    expect(musicIn.outputs).toEqual([musicLP]);
+    expect(musicLP.type).toBe('lowpass');
+    expect(musicLP.outputs).toEqual([musicDuck]);
+    expect(musicDuck.outputs).toEqual([musicBus]);
+  });
 
   it('one-shot SFX land on the sfx bus, not straight on master', async () => {
     const { SoundEngine } = await import('../../src/audio.js');

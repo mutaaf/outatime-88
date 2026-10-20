@@ -1,11 +1,12 @@
 ---
 id: 0193
 title: Street sound — a synthesized tuner layer (turbo, BOV, crackle, NOS, Doppler, crunch) and an adaptive street score with a MUSIC STYLE setting
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-19
+pr: 128
 ---
 
 ## Why
@@ -31,16 +32,16 @@ tense.
   - A director picks one per bar, with intensity layers from speed, tier, NOS and the Patrol.
   - The music ducks under big moments and fades out on results and pause.
   - Settings → MUSIC STYLE: AUTO, SYNTHWAVE or STREET.
-- **Delivery:** two PRs, SFX first, then music and mix.
+- **Delivery:** two PRs, SFX first (#127), then music and mix (#128).
 - **Rules:** no samples, nothing borrowed, instrumental only (docs/EASTER_EGGS.md, docs/AUDIO_CREDITS.md).
 
 ## Acceptance criteria
 - [x] Every new sound is synthesized: 0 kB of new samples, no third-party hosts.
 - [x] Parameter mappings are unit-tested: rpm/boost → spool, slip → squeal, speed → wind, Δv → crunch, style rules.
-- [x] An e2e test drives a race (start → NOS → drift) and checks the layer reacts with no console errors (the director in the music PR).
-- [ ] MUSIC STYLE is saved; AUTO is synthwave in the '88 eras and street in modern and future eras, plus Endless from tier 3.
+- [x] An e2e test drives a race (start → NOS → drift) and checks the layer and the director react with no console errors.
+- [x] MUSIC STYLE is saved; AUTO is synthwave in the '88 eras and street in modern and future eras, plus Endless from tier 3.
 - [x] The main bundle stays under 59 kB; the new code is in lazy chunks; the offline precache picks it up.
-- [ ] Street cues are level-matched to the synthwave score (rendered offline).
+- [x] Street cues are level-matched to the synthwave score (rendered offline).
 
 ## Test plan
 - Unit: `tests/unit/street-params.test.js`, `tuner.test.js`, `street-score.test.js`, `audio.test.js` (limiter and music chain).
