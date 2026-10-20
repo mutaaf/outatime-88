@@ -68,7 +68,7 @@ export function createFormationStream({ rand, line, clear, avoid = null, shoulde
     return true;
   };
   const stream = {
-    /** Formations placed so far, newest last: { id, want, placed } (the e2e and ?debug read it). */
+    /** Formations placed so far, newest last: { id, want, placed, cars: [[z, offset, halfW, halfL]] } (e2e, ?debug). */
     log: [],
 
     /** Cars the next formation needs (draws it for this wave if none is waiting). */
@@ -130,7 +130,7 @@ export function createFormationStream({ rand, line, clear, avoid = null, shoulde
         cur.offsets[ci] = o;
         if (o !== null) out.push({ body, z, offset: o, mph, id: f.id });
       }
-      stream.log.push({ id: f.id, want: f.cars.length, placed: out.length });
+      stream.log.push({ id: f.id, want: f.cars.length, placed: out.length, cars: out.map((p) => [p.z, p.offset, p.body.halfW, p.body.halfL]) });
       if (stream.log.length > 32) stream.log.shift();
       return out;
     },
