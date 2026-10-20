@@ -11,9 +11,10 @@ import { mulberry32 } from '../../src/daily.js';
 import { raceLengthFor } from '../../src/raceflow.js';
 
 const PLAYER_HALF_W = 0.14, PLAYER_HALF_L = 105, WALL = 0.72;
-const TRAFFIC = [ // matches LiveTraffic.init
+const TRAFFIC = [ // matches LiveTraffic.init: four on the road, two parked for formations (0027)
   { halfW: 0.16, halfL: 160, mph: 38 }, { halfW: 0.13, halfL: 105, mph: 42 },
   { halfW: 0.13, halfL: 105, mph: 46 }, { halfW: 0.13, halfL: 105, mph: 50 },
+  { halfW: 0.16, halfL: 160, mph: 54, idle: true }, { halfW: 0.13, halfL: 105, mph: 58, idle: true },
 ];
 
 /** Simulate one race at a constant player speed; returns the hazard snapshot per Z step. */
@@ -38,25 +39,26 @@ function runRace(seed, level, { mph = 90, pace = 0.46, step = 200, trafficOnly =
   }
   const traffic = TRAFFIC.map((t, i) => {
     const z = 4800 + i * 5200;
-    return { ...t, z, offset: planner.trafficLane(i, z, wave, t.halfW, t.halfL) };
+    return { ...t, z: t.idle ? -1e6 : z, offset: planner.trafficLane(i, z, wave, t.halfW, t.halfL) };
   });
   const props = [];
   let nextPropZ = 9000;
   const frames = [];
   const dt = step / vp;
   for (let pz = 0; pz <= raceZ; pz += step) {
-    formations.advance(dt, s2w);
+    // Formations (ticket 0027), as LiveTraffic places them: whole, once enough cars are parked.
+    const parked = traffic.filter((t) => t.idle);
+    if (parked.length && parked.length >= formations.next(wave)) {
+      const maxT = Math.max(pz + 12000, ...traffic.filter((t) => !t.idle).map((t) => t.z));
+      for (const s of formations.place(parked, maxT)) Object.assign(s.body, { idle: false, z: s.z, offset: s.offset, mph: s.mph });
+    }
     for (let i = 0; i < traffic.length; i++) {
       const tr = traffic[i];
+      if (tr.idle) continue;
       tr.z += tr.mph * s2w * dt;
       const target = planner.trafficTarget(tr.z, tr.offset, tr.halfW, tr.halfL);
       tr.offset += Math.max(-TRAFFIC_LATERAL * dt, Math.min(TRAFFIC_LATERAL * dt, target - tr.offset));
-      if (tr.z - pz < -800) {
-        // Formations (ticket 0027), as LiveTraffic respawns them.
-        const maxT = Math.max(pz + 12000, ...traffic.map((t) => t.z));
-        const spot = formations.spawn({ aheadZ: maxT, minZ: pz + 12000, wave, halfW: tr.halfW, halfL: tr.halfL });
-        tr.z = spot.z; tr.offset = spot.offset; tr.mph = spot.mph;
-      }
+      if (tr.z - pz < -800) { tr.idle = true; tr.z = -1e6; }
     }
     for (let i = 0; i < obstacles.length; i++) {
       if (obstacles[i].z - pz < -600) {

@@ -1,7 +1,7 @@
-// Traffic formations (ticket 0027): readable patterns that escalate by wave, drawn from the
-// race's traffic RNG, and never closing the racing line.
+// Traffic formations (ticket 0027): readable patterns that escalate by wave, placed whole,
+// drawn from the race's traffic RNG, and never closing the racing line.
 import { describe, it, expect } from 'vitest';
-import { FORMATIONS, FORMATION_LANES, ROW_DZ, formationsFor, createFormationStream } from '../../src/formations.js';
+import { FORMATIONS, FORMATION_LANES, ROW_DZ, formationsFor, formationSpan, createFormationStream } from '../../src/formations.js';
 import { createLine, createHazardPlanner } from '../../src/cleanline.js';
 import { mulberry32 } from '../../src/daily.js';
 
@@ -9,29 +9,39 @@ const CAR = { halfW: 0.13, halfL: 105 };
 const TRUCK = { halfW: 0.16, halfL: 160 };
 const S2W = (11000 * 0.46) / 88;
 
-/** Drive a planner's formation stream like LiveTraffic: a 4-car pool recycled as it is passed. */
-function drive(seed, wave, { steps = 2500, playerMph = 100 } = {}) {
+/**
+ * Drive a formation stream like LiveTraffic: six cars (four on the road, two parked), a car
+ * parks once it's passed, and the next formation goes down whole once enough are parked.
+ * `onStep(live)` sees the cars on the road after every step.
+ */
+function drive(seed, wave, { steps = 2500, playerMph = 100, avoid = null, onStep = null } = {}) {
   const line = createLine(seed);
-  const planner = createHazardPlanner({ line, rand: mulberry32(seed) });
+  const planner = createHazardPlanner({ line, rand: mulberry32(seed), avoid });
   const stream = createFormationStream({ rand: planner.rand, line, clear: planner.trafficClear, avoid: planner.avoid });
-  const pool = [TRUCK, CAR, CAR, CAR].map((b, i) => ({ ...b, z: 4800 + i * 5200, offset: planner.trafficLane(i, 4800 + i * 5200, wave, b.halfW, b.halfL), mph: 40 }));
-  const spawns = [];
+  const pool = [TRUCK, CAR, CAR, CAR, TRUCK, CAR].map((b, i) => ({
+    ...b, idle: i >= 4, z: i >= 4 ? -1e6 : 4800 + i * 5200, mph: 40,
+    offset: planner.trafficLane(i, 4800 + i * 5200, wave, b.halfW, b.halfL),
+  }));
+  const placed = [];
   const dt = 1 / 30;
   let pz = 0;
   for (let n = 0; n < steps; n++) {
     pz += playerMph * S2W * dt;
-    stream.advance(dt, S2W);
-    for (const t of pool) {
-      t.z += t.mph * S2W * dt;
-      if (t.z - pz < -800) {
-        const maxT = Math.max(pz + 12000, ...pool.map((u) => u.z));
-        const s = stream.spawn({ aheadZ: maxT, minZ: pz + 12000, wave, halfW: t.halfW, halfL: t.halfL });
-        t.z = s.z; t.offset = s.offset; t.mph = s.mph;
-        spawns.push({ ...s, halfW: t.halfW, halfL: t.halfL });
-      }
+    const parked = pool.filter((t) => t.idle);
+    if (parked.length && parked.length >= stream.next(wave)) {
+      const maxT = Math.max(pz + 12000, ...pool.filter((t) => !t.idle).map((t) => t.z));
+      const spots = stream.place(parked, maxT);
+      for (const s of spots) Object.assign(s.body, { idle: false, z: s.z, offset: s.offset, mph: s.mph });
+      placed.push(spots.map((s) => ({ id: s.id, z: s.z, offset: s.offset, halfW: s.body.halfW, halfL: s.body.halfL, minZ: pz + 12000 })));
     }
+    for (const t of pool) {
+      if (t.idle) continue;
+      t.z += t.mph * S2W * dt;
+      if (t.z - pz < -800) { t.idle = true; t.z = -1e6; }
+    }
+    if (onStep) onStep(pool.filter((t) => !t.idle), pz);
   }
-  return { spawns, line, planner, stream, pool };
+  return { placed, line, planner, stream, pool };
 }
 
 describe('traffic formations (0027)', () => {
@@ -55,63 +65,86 @@ describe('traffic formations (0027)', () => {
     expect(formationsFor(9).length).toBe(FORMATIONS.length);
     for (let seed = 1; seed <= 20; seed++) {
       const { stream } = drive(seed, 1, { steps: 1500 });
-      for (const id of stream.log) expect(['SOLO', 'STAGGER']).toContain(id);
+      expect(stream.log.length).toBeGreaterThan(3);
+      for (const e of stream.log) expect(['SOLO', 'STAGGER']).toContain(e.id);
     }
   });
 
-  it('placed cars keep the racing line open and never sit on top of a row mate', () => {
-    for (let seed = 1; seed <= 60; seed++) {
-      const wave = 1 + (seed % 5);
-      const { spawns, line, planner } = drive(seed * 97, wave);
-      expect(spawns.length).toBeGreaterThan(10);
-      for (const s of spawns) expect(planner.trafficClear(s.z, s.offset, s.halfW, s.halfL), `seed ${seed} z=${s.z}`).toBe(true);
-      for (let i = 0; i < spawns.length; i++) {
-        for (let j = i + 1; j < spawns.length; j++) {
-          const a = spawns[i], b = spawns[j];
-          if (Math.abs(a.z - b.z) < a.halfL + b.halfL) expect(Math.abs(a.offset - b.offset), `seed ${seed}`).toBeGreaterThanOrEqual(a.halfW + b.halfW);
-        }
+  it('formations go down whole, beyond the spawn horizon, and every pattern shows up by wave 4', () => {
+    const seen = new Set();
+    let want = 0, got = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const { placed } = drive(seed * 13, 4);
+      for (const group of placed) {
+        seen.add(group[0].id);
+        for (const c of group) expect(c.z).toBeGreaterThan(c.minZ);
       }
-      expect(line.centreAt(0)).toBe(0);
+      const { stream } = drive(seed * 13, 4);
+      for (const e of stream.log) { want += e.want; got += e.placed; }
+    }
+    expect([...seen].sort()).toEqual(FORMATIONS.map((f) => f.id).sort());
+    // Only a follow car whose lead's lane closes up can be left out: nearly every car is placed.
+    expect(got / want).toBeGreaterThan(0.97);
+  });
+
+  it('a gate and a wall are side by side: one row, cars on both sides of the line', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const { placed, line } = drive(seed * 31, 4);
+      for (const group of placed) {
+        if (group[0].id !== 'GATE' && group[0].id !== 'WALL') continue;
+        expect(group.length).toBeGreaterThanOrEqual(2);
+        const c = line.centreAt(group[0].z);
+        expect(group.every((g) => g.z === group[0].z)).toBe(true);
+        expect(group.some((g) => g.offset < c) && group.some((g) => g.offset > c)).toBe(true);
+      }
+    }
+  });
+
+  it('cars on the road keep the racing line open and never sit on top of each other', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const wave = 1 + (seed % 5);
+      const { placed, planner } = drive(seed * 97, wave, {
+        onStep(live) {
+          for (let i = 0; i < live.length; i++) {
+            for (let j = i + 1; j < live.length; j++) {
+              const a = live[i], b = live[j];
+              if (Math.abs(a.z - b.z) < a.halfL + b.halfL) expect(Math.abs(a.offset - b.offset), `seed ${seed}`).toBeGreaterThanOrEqual(a.halfW + b.halfW);
+            }
+          }
+        },
+      });
+      for (const group of placed) for (const s of group) expect(planner.trafficClear(s.z, s.offset, s.halfW, s.halfL), `seed ${seed} z=${s.z}`).toBe(true);
+    }
+  });
+
+  it('no formation lands in a set piece', () => {
+    const pieces = [[30000, 34000], [52000, 60000], [90000, 91000]];
+    const avoid = (z0, z1) => pieces.some(([a, b]) => z1 > a && z0 < b);
+    for (let seed = 1; seed <= 30; seed++) {
+      const { placed } = drive(seed, 4, { avoid, steps: 1500 });
+      for (const group of placed) {
+        const head = group[0].z;
+        const f = FORMATIONS.find((x) => x.id === group[0].id);
+        expect(avoid(head - 600, head + formationSpan(f) + 600), `seed ${seed} ${f.id} at ${head}`).toBe(false);
+      }
     }
   });
 
   it('the same seed yields the same sequence (daily challenge), another seed differs', () => {
     const a = drive(2026, 4), b = drive(2026, 4), c = drive(2027, 4);
-    expect(a.spawns).toEqual(b.spawns);
+    expect(a.placed).toEqual(b.placed);
     expect(a.stream.log).toEqual(b.stream.log);
-    expect(c.spawns).not.toEqual(a.spawns);
+    expect(c.placed).not.toEqual(a.placed);
   });
 
-  it('a gate puts two cars side by side, one each side of the line', () => {
-    const line = { centreAt: () => 0 };
-    const clear = (z, o) => Math.abs(o) > 0.3;
-    const stream = createFormationStream({ rand: () => 0.99, line, clear });
-    // rand 0.99 draws the last formation of the wave: GATE at wave 3.
-    const a = stream.spawn({ aheadZ: 10000, minZ: 0, wave: 3, ...CAR });
-    const b = stream.spawn({ aheadZ: 10000, minZ: 0, wave: 3, ...CAR });
-    expect(a.id).toBe('GATE');
-    expect(b.z).toBe(a.z);
-    expect(Math.sign(a.offset)).toBe(-Math.sign(b.offset));
-  });
-
-  it('a convoy follows its leader lane, and the head moves with the traffic', () => {
+  it('a convoy follows its leader lane, the whole pattern at one speed', () => {
     const line = { centreAt: () => 0 };
     const stream = createFormationStream({ rand: () => 0.5, line, clear: (z, o) => Math.abs(o) > 0.3 });
-    const a = stream.spawn({ aheadZ: 0, minZ: 0, wave: 2, ...CAR }); // 0.5 of 4 → CONVOY
-    expect(a.id).toBe('CONVOY');
-    stream.advance(1, S2W);
-    const b = stream.spawn({ aheadZ: 0, minZ: 0, wave: 2, ...CAR });
-    expect(b.offset).toBe(a.offset);
-    expect(b.z).toBeCloseTo(a.z + 700 + 40 * S2W, 6);
-  });
-
-  it('a formation that would pop in under the horizon is dropped for a fresh one', () => {
-    const line = { centreAt: () => 0 };
-    const stream = createFormationStream({ rand: () => 0.5, line, clear: (z, o) => Math.abs(o) > 0.3 });
-    const a = stream.spawn({ aheadZ: 0, minZ: 0, wave: 2, ...CAR });
-    const b = stream.spawn({ aheadZ: 50000, minZ: 40000, wave: 2, ...CAR });
-    expect(b.z).toBeGreaterThan(50000);
-    expect(stream.log.length).toBe(2);
-    expect(a.z).toBeLessThan(40000);
+    expect(stream.next(2)).toBe(3); // 0.5 of four wave-2 patterns → CONVOY
+    const spots = stream.place([CAR, CAR, CAR].map((c) => ({ ...c })), 0);
+    expect(spots.map((s) => s.id)).toEqual(['CONVOY', 'CONVOY', 'CONVOY']);
+    expect(new Set(spots.map((s) => s.offset)).size).toBe(1);
+    expect(new Set(spots.map((s) => s.mph)).size).toBe(1);
+    expect(spots[1].z - spots[0].z).toBe(700);
   });
 });

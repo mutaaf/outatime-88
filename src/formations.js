@@ -4,9 +4,9 @@
 //
 // A formation is a list of cars, each `dz` sim units ahead of the formation's head and on a
 // `side` of the racing line (-1 left, +1 right, 0 either), or `follow`ing an earlier car's lane.
-// The stream hands formations out one car at a time as traffic slots free (LiveTraffic has a
-// fixed pool), and its head moves with the traffic so the shape holds. Every car must be clear
-// of the racing line (src/cleanline.js), so the line is always the open lane.
+// LiveTraffic parks each car it passes; once enough cars are parked for the next formation,
+// the stream places the whole formation at once, a gap beyond the farthest traffic. Every car
+// must be clear of the racing line (src/cleanline.js), so the line is always the open lane.
 
 export const FORMATION_LANES = [-0.48, -0.2, 0.2, 0.48];
 
@@ -50,84 +50,84 @@ export function formationSpan(f) {
  * halfW, halfL)` says a traffic car there keeps the line clear, `avoid(z0, z1)` marks set pieces.
  */
 export function createFormationStream({ rand, line, clear, avoid = null, shoulder = 0.84 }) {
-  let cur = null;
+  let pending = null; // the next formation, drawn ahead so the caller knows how many cars it needs
+  let cur = null;     // the formation being placed
+  /** Lane o works for car ci: on its side of the line, clear of it, and not touching a row mate. */
+  const fits = (ci, o, side, c, z, halfW, halfL) => {
+    if ((side < 0 && o >= c) || (side > 0 && o <= c) || !clear(z, o, halfW, halfL)) return false;
+    for (let j = 0; j < ci; j++) {
+      const mate = cur.offsets[j];
+      if (mate == null || Math.abs(cur.f.cars[j].dz - cur.f.cars[ci].dz) >= ROW_DZ) continue;
+      if (Math.abs(mate - o) < halfW + WIDEST + ROW_AIR) return false;
+    }
+    return true;
+  };
   const stream = {
-    /** Formations started so far, newest last (ids; the e2e and ?debug read it). */
+    /** Formations placed so far, newest last: { id, want, placed } (the e2e and ?debug read it). */
     log: [],
-    get current() { return cur; },
 
-    /** Move the pending formation's head with its traffic (they cruise at mph + mphBonus). */
-    advance(dt, speedToWorld, mphBonus = 0) { if (cur) cur.z += (cur.f.mph + mphBonus) * speedToWorld * dt; },
-
-    /** Start a formation at or after headZ. */
-    start(headZ, wave) {
-      const f = pickFormation(rand, wave);
-      const mirror = rand() < 0.5 ? -1 : 1;
-      const span = formationSpan(f);
-      let z = headZ;
-      for (let k = 0; k < 20 && avoid && avoid(z - 600, z + span + 600); k++) z += 2000;
-      cur = { f, mirror, z, next: 0, offsets: [] };
-      stream.log.push(f.id);
-      if (stream.log.length > 32) stream.log.shift();
-      return cur;
+    /** Cars the next formation needs (draws it for this wave if none is waiting). */
+    next(wave = 1) {
+      if (!pending) pending = { f: pickFormation(rand, wave), mirror: rand() < 0.5 ? -1 : 1 };
+      return pending.f.cars.length;
     },
 
-    /** Lane for car `ci` of the current formation at z, or null if none fits. */
+    /** Lane for car `ci` of the formation at z, or null if none fits. */
     laneFor(ci, z, halfW, halfL) {
       const car = cur.f.cars[ci];
+      const c = line.centreAt(z);
+      let side = car.side * cur.mirror;
       if (car.follow != null) {
         const o = cur.offsets[car.follow];
         if (o != null && clear(z, o, halfW, halfL)) return o;
-        return null;
+        if (o == null) return null;
+        side = o >= c ? 1 : -1; // the lead's lane closed up: stay on its side of the line
       }
-      const c = line.centreAt(z);
-      const side = car.side * cur.mirror;
       let n = 0;
       let pick = null;
       for (let k = 0; k < FORMATION_LANES.length; k++) {
         const o = FORMATION_LANES[k];
-        if (side < 0 && o >= c) continue;
-        if (side > 0 && o <= c) continue;
-        if (!clear(z, o, halfW, halfL)) continue;
-        let ok = true;
-        for (let j = 0; j < ci; j++) {
-          const mate = cur.offsets[j];
-          if (mate == null || Math.abs(cur.f.cars[j].dz - car.dz) >= ROW_DZ) continue;
-          if (Math.abs(mate - o) < halfW + WIDEST + ROW_AIR) { ok = false; break; }
-        }
-        if (!ok) continue;
+        if (!fits(ci, o, side, c, z, halfW, halfL)) continue;
         // Reservoir pick among the lanes that fit, drawn from the race's seeded RNG.
         n++;
         if (pick === null || rand() * n < 1) pick = o;
       }
-      // No lane on that side of the line: the shoulder keeps the shape (traffic may use it).
-      if (pick === null && side !== 0) {
-        const o = side * shoulder;
-        if ((o - c) * side > 0 && clear(z, o, halfW, halfL)) pick = o;
+      // No lane there: the shoulder keeps the shape (traffic may use it; the line never gets there).
+      if (pick === null) {
+        const away = c >= 0 ? -1 : 1;
+        for (let k = 0; k < 2 && pick === null; k++) {
+          const sd = side || (k === 0 ? away : -away);
+          if (fits(ci, sd * shoulder, sd, c, z, halfW, halfL)) pick = sd * shoulder;
+        }
       }
       return pick;
     },
 
     /**
-     * Where the next freed traffic car goes: { z, offset, mph, id }. `aheadZ` is the farthest
-     * traffic ahead (or the spawn horizon), `minZ` the nearest a car may appear without popping in.
+     * Place the waiting formation on `cars` (parked bodies with halfW/halfL, at least next()
+     * of them): its head goes a gap beyond `aheadZ` (the farthest traffic) and past any set
+     * piece. Returns [{ body, z, offset, mph, id }]; a car with no room is left out.
      */
-    spawn({ aheadZ, minZ, wave = 1, halfW, halfL, gapScale = 1 }) {
-      for (let tries = 0; tries < 3; tries++) {
-        if (!cur || cur.next >= cur.f.cars.length || cur.z + cur.f.cars[cur.next].dz < minZ) {
-          stream.start(aheadZ + (4800 + rand() * 2200) * gapScale, wave);
-        }
-        while (cur.next < cur.f.cars.length) {
-          const ci = cur.next++;
-          const z = cur.z + cur.f.cars[ci].dz;
-          const o = stream.laneFor(ci, z, halfW, halfL);
-          cur.offsets[ci] = o;
-          if (o !== null) return { z, offset: o, mph: cur.f.mph, id: cur.f.id };
-        }
+    place(cars, aheadZ, gapScale = 1) {
+      if (!pending) return [];
+      const { f, mirror } = pending;
+      pending = null;
+      const span = formationSpan(f);
+      const mph = f.mph + Math.floor(rand() * 3) * 3; // one speed for the whole pattern, so it holds its shape
+      let head = aheadZ + (4800 + rand() * 2200) * gapScale;
+      for (let k = 0; k < 20 && avoid && avoid(head - 600, head + span + 600); k++) head += 2000;
+      cur = { f, mirror, offsets: [] };
+      const out = [];
+      for (let ci = 0; ci < f.cars.length && out.length < cars.length; ci++) {
+        const body = cars[out.length];
+        const z = head + f.cars[ci].dz;
+        const o = stream.laneFor(ci, z, body.halfW, body.halfL);
+        cur.offsets[ci] = o;
+        if (o !== null) out.push({ body, z, offset: o, mph, id: f.id });
       }
-      // Nothing fits (a narrow stretch): park on the shoulder away from the line, as before.
-      const z = cur.z;
-      return { z, offset: line.centreAt(z) >= 0 ? -shoulder : shoulder, mph: cur.f.mph, id: cur.f.id };
+      stream.log.push({ id: f.id, want: f.cars.length, placed: out.length });
+      if (stream.log.length > 32) stream.log.shift();
+      return out;
     },
   };
   return stream;

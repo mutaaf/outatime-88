@@ -249,10 +249,10 @@ export const LiveTraffic = {
     this.seatDrivers();
     this.updateStandings(0, playerZ0, this.speedToWorld());
 
-    // ONLY 4 Well-Spaced Highway Traffic Vehicles (Spaced 5,200 Z-units apart!)
+    // 4 well-spaced highway cars on the road, 2 parked: passed cars come back as formations (0027).
     this.traffic = [];
     const styles = ['SEMI_TRUCK', 'SEDAN', 'TAXI', 'SUV'];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) {
       const st = styles[i % styles.length];
       const isTruck = (st === 'SEMI_TRUCK');
       const tz = 4800 + i * 5200;
@@ -271,8 +271,11 @@ export const LiveTraffic = {
         oncoming: false,
         mph: 38 + i * 4,
         vz: (38 + i * 4) * this.speedToWorld(), // already cruising (the rigid world drives it from here)
-        bodyColor: ['#334155', '#eab308', '#e2e8f0', '#1e3a8a'][i % 4]
+        bodyColor: ['#334155', '#eab308', '#e2e8f0', '#1e3a8a', '#7c2d12', '#0f766e'][i]
       }));
+      const tr = this.traffic[i];
+      tr.idle = i >= 4;
+      if (tr.idle) { tr.takenDown = true; tr.active = false; tr.vz = 0; tr.worldZ = tr.prevZ = -1e6; }
     }
 
     // Four recycled obstacles, placed off the racing line with rhythm (sprint 4).

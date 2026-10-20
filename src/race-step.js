@@ -1605,15 +1605,9 @@ export const LiveTrafficMethods = {
     }
 
     const waveTrafficMphBonus = Math.min(16, (GameState.waveTier - 1) * 2.0);
-    // Traffic formations (ticket 0027), one stream per race's planner.
-    if (!this.formations || this.formations.planner !== this.planner) {
-      const p = this.planner;
-      this.formations = createFormationStream({ rand: p.rand, line: p.line, clear: p.trafficClear, avoid: p.avoid });
-      this.formations.planner = p;
-    }
-    this.formations.advance(dt, speedToWorld, waveTrafficMphBonus);
     for (let i = 0; i < this.traffic.length; i++) {
       const tr = this.traffic[i];
+      if (tr.idle) continue; // parked, waiting for its formation (ticket 0027)
       // Cruise control: traffic pulls back up to its speed gently after a knock (src/rigid.js).
       tr.driveVz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
       tr.driveAccel = 900;
@@ -1708,25 +1702,46 @@ export const LiveTrafficMethods = {
     }
     this.updateStandings(rawDt, playerZ, speedToWorld);
 
+    // Traffic formations (ticket 0027): once enough passed cars are parked, the next pattern
+    // goes down whole, a gap beyond the farthest traffic. One stream per race's planner.
+    if (!this.formations || this.formations.planner !== this.planner) {
+      const p = this.planner;
+      this.formations = createFormationStream({ rand: p.rand, line: p.line, clear: p.trafficClear, avoid: p.avoid });
+      this.formations.planner = p;
+    }
+    const parked = this.parked || (this.parked = []);
+    parked.length = 0;
+    let maxT = playerZ + 12000;
+    for (let k = 0; k < this.traffic.length; k++) {
+      const t = this.traffic[k];
+      if (t.idle) parked.push(t);
+      else if (t.worldZ > maxT) maxT = t.worldZ;
+    }
+    if (parked.length && parked.length >= this.formations.next(GameState.waveTier || 1)) {
+      const spots = this.formations.place(parked, maxT, GameState.trafficGapScale);
+      for (let k = 0; k < spots.length; k++) {
+        const tr = spots[k].body;
+        tr.idle = false; tr.takenDown = false; tr.active = true;
+        tr.mph = spots[k].mph;
+        tr.vz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
+        tr.worldZ = tr.prevZ = spots[k].z;
+        tr.offset = tr.prevOffset = spots[k].offset;
+        tr.nearMissed = false;
+      }
+    }
+
     // 4. Player ↔ Civilian Traffic Swept 3D Rigid-Body Solver
     for (let i = 0; i < this.traffic.length; i++) {
       const tr = this.traffic[i];
+      if (tr.idle) continue;
       const relZ = tr.worldZ - playerZ;
       // Traffic doesn't drive loops, corkscrews or gaps (sprint 4): it peels off and rejoins ahead.
       const trF = featureAt(tr.worldZ);
       if (relZ < -800 || tr.takenDown || (trF && trF.kind !== 'BOOSTER')) {
-        tr.takenDown = false;
         tr.y = 0; tr.vy = 0; tr.vx = 0; tr.rot = 0; tr.vRot = 0; tr.yaw = 0; tr.vYaw = 0; tr.stun = 0;
-        // The next car of the current formation (ticket 0027): patterns, not random spawns.
-        let maxT = playerZ + 12000;
-        for (let k = 0; k < this.traffic.length; k++) if (this.traffic[k].worldZ > maxT) maxT = this.traffic[k].worldZ;
-        const spot = this.formations.spawn({ aheadZ: maxT, minZ: playerZ + 12000, wave: GameState.waveTier || 1, halfW: tr.halfW, halfL: tr.halfL, gapScale: GameState.trafficGapScale });
-        tr.mph = spot.mph;
-        tr.vz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
-        tr.worldZ = spot.z;
-        for (let k = 0; k < 20 && hasSetPieceBetween(tr.worldZ - 600, tr.worldZ + 600); k++) tr.worldZ += 2000;
-        tr.prevZ = tr.worldZ;
-        tr.offset = spot.offset;
+        // Parked until its formation goes down (ticket 0027): out of the world and out of sight.
+        tr.idle = true; tr.takenDown = true; tr.active = false;
+        tr.vz = 0; tr.worldZ = tr.prevZ = -1e6;
         tr.nearMissed = false;
         continue;
       }
