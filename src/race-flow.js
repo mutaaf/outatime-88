@@ -103,6 +103,7 @@ export function updateInteractiveCoach(currentSegIdx) {
 export let raceHud = null;
 
 export let hudNextAt = 0;
+const phonePortrait = typeof matchMedia === 'function' ? matchMedia('(max-width: 599px) and (orientation: portrait)') : null;
 
 export function updateRaceHud(force) {
   const now = performance.now();
@@ -117,6 +118,7 @@ export function updateRaceHud(force) {
   hudView.timeLeft = GameState.timeLeft;
   hudView.clockUrgent = GameState.finalStretch || GameState.timeLeft < 10;
   hudView.infinite = GameState.mode === 'INFINITE';
+  hudView.compact = Boolean(phonePortrait && phonePortrait.matches); // same query as the phone HUD's CSS (0190)
   hudView.mph = GameState.speed;
   hudView.flux = GameState.fluxCharge;
   hudView.nos = GameState.nosFill || 0;

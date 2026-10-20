@@ -416,12 +416,14 @@ body.on-title #levelUpBanner, body.on-title #stormGlow, body.on-title #hudStorm,
 
 /* Phones in portrait: times beside the cards, the track strip gets its own full row. */
 @media (max-width: 599px) and (min-aspect-ratio: 0/1) and (orientation: portrait) {
-  .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "pos times speed gear" "track track track track"; }
+  .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "pos times speed gear" "track track track track"; column-gap: 4px; }
   .hud-times { flex-direction: column; gap: 3px; align-items: stretch; text-align: center; }
   .hud-track { margin: 0 14px 0 6px; }
   .hud-pos { min-width: 0; }
   .hud-speed { min-width: 0; }
-  .gap { font-size: 10px; padding: 1px 6px; }
+  .gap { font-size: 10px; padding: 1px 4px; text-align: center; }
+  /* 0190: the clock drops under the race time when the column is too narrow for both. */
+  .hud-clockbox { flex-wrap: wrap; justify-content: center; column-gap: 6px; row-gap: 0; padding: 2px 6px; border-radius: 12px; }
 }
 /* Short landscape screens (phones on their side): one slim row. */
 @media (max-height: 520px) and (orientation: landscape) {

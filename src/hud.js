@@ -106,8 +106,11 @@ export function createHud(doc = document) {
       const me = field[i];
       const a = field[i - 1];
       const b = field[i + 1];
-      text(el.ahead, 'ahead', a && me ? `▲ ${a.nemesis ? '😈' : ''}${a.short} +${formatGap(gapSeconds(a.progress - me.progress, s.mph))}` : (me ? '★ LEADING' : ''));
-      text(el.behind, 'behind', b && me ? `▼ ${b.nemesis ? '😈' : ''}${b.short} −${formatGap(gapSeconds(me.progress - b.progress, s.mph))}` : '');
+      // Compact (phones in portrait, ticket 0190): no initials, so the seconds always fit;
+      // the track strip's dots still say who is where.
+      const who = (e) => `${e.nemesis ? '😈' : ''}${s.compact ? '' : `${e.short} `}`;
+      text(el.ahead, 'ahead', a && me ? `▲ ${who(a)}+${formatGap(gapSeconds(a.progress - me.progress, s.mph))}` : (me ? (s.compact ? '★ LEAD' : '★ LEADING') : ''));
+      text(el.behind, 'behind', b && me ? `▼ ${who(b)}−${formatGap(gapSeconds(me.progress - b.progress, s.mph))}` : '');
 
       // Track strip: one dot per racer at its share of the race (endless: relative to you).
       syncDots(field);
