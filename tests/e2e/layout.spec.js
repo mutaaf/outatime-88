@@ -138,7 +138,7 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
 // screens keep the centred lane (their controls avoid it; see src/touch/touch-ui.js).
 test.describe('desktop tip card', () => {
   test.use({ hasTouch: false });
-  for (const vp of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }]) {
+  for (const vp of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 1920, height: 1080 }]) {
     test(`the tip stays off the road ahead at ${vp.width}x${vp.height}`, async ({ page }) => {
       const problems = watchPage(page);
       await page.setViewportSize(vp);
@@ -156,6 +156,13 @@ test.describe('desktop tip card', () => {
       expect(tip.x).toBeGreaterThanOrEqual(0);
       expect(tip.y + tip.height).toBeLessThanOrEqual(vp.height);
       for (const sel of PANELS) if (all[sel]) expect(overlap(tip, all[sel]), `tip overlaps ${sel}`).toBeFalsy();
+      // The ±N HP pop drops from under the place card (scaled 1.25, drifting 14 px): the tip
+      // sits below its whole path, so a hit or a repair always reads.
+      const popBottom = await page.evaluate(() => {
+        const card = document.getElementById('hudPosCard').getBoundingClientRect();
+        return card.bottom + parseFloat(getComputedStyle(document.getElementById('hudHpPop')).fontSize) * 1.25 + 14;
+      });
+      expect(tip.y, 'tip under the HP pop').toBeGreaterThanOrEqual(popBottom);
       // GOT IT still clears it for the rest of the race.
       await page.evaluate(() => { window.__OT.GameState.status = 'PLAYING'; });
       await page.locator('#btnDismissCoach').click();

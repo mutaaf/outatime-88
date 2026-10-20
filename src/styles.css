@@ -136,7 +136,8 @@ html, body {
 /* Keyboard/mouse on a full HUD (0194): the tip docks top-left under the place card, clear of
    the road ahead where traffic appears. Touch screens keep the centred lane their controls avoid. */
 :root[data-hud="full"]:not(.touch-ui) #interactiveCoachBanner { justify-content: flex-start; padding-left: max(16px, env(safe-area-inset-left)); }
-:root[data-hud="full"]:not(.touch-ui) #coachCard { max-width: min(300px, 26vw); }
+/* 32px down: clear of the ±N HP pop that drops from under the place card (≤ 20px + 14px drift). */
+:root[data-hud="full"]:not(.touch-ui) #coachCard { max-width: min(300px, 26vw); margin-top: 32px; }
 :root[data-hud="full"]:not(.touch-ui) #btnDismissCoach { white-space: nowrap; }
 [data-hud="compact"] #forkChoiceBanner > div { font-size: 10px !important; padding: 3px 7px !important; max-width: 32vw; }
 /* The branch you are lined up for leans forward (scale, never transform: see LESSONS). */
