@@ -157,6 +157,8 @@ src/hazards.js      Endless hazards (0186): pure rules — run-ending road hazar
                       the race step; the race step calls step/reset/onContinue/noteEnd through RS.hz) and src/hazard-art.js (2D art + HUD)
 src/powerups.js     Runner power-ups (0177): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
                       Road placement is pickups.js powerupAt (track.power = Endless tier, 0 off)
+src/popups.js       Floating pickup / score labels (0114), pure layout: above the car's roofline (GameState.carBox from
+                      drawPlayerCar), stacked newest-nearest, clamped to the canvas; drawn by the lazy src/pickup-art.js
 src/scoring.js      Penalty rules (hits, wall scrapes) + the run log the Worker recomputes
 src/cars.js         Car ratings (same 30-point budget each), unlock rules, carParams() → the physics
                       numbers a car drives with; career counters. Balance is unit-tested.

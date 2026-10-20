@@ -3,7 +3,10 @@
 // its native size, so a coin is never a blurry upscaled bitmap. Silhouettes are shape-coded
 // (coin = disc + star, flux core = hexagon + bolt, repair = rounded square + cross, NOS =
 // capsule canister) so they read without relying on colour. Also here: a pooled collect burst
-// and the power-up hint arrow. Nothing allocates per frame once the cache is warm.
+// and the power-up hint arrow, and the floating pickup / score labels (src/popups.js). Nothing
+// allocates per frame once the cache is warm.
+
+import { LABEL, labelSlots, layoutLabels, fallbackBox } from './popups.js';
 
 // Shape-coded art per kind: coin = disc + star, flux core = hexagon + bolt, repair = rounded
 // square + cross, NOS = capsule canister.
@@ -22,7 +25,7 @@ const STEP = 1.12;          // size buckets grow 12% at a time
 const PAD = 1.7;            // icon canvas = size × PAD (room for the glow)
 const CACHE_MAX = 160;
 const cache = new Map();    // `${kind}:${bucket}` → canvas
-export const stats = { icons: 0, built: 0, bursts: 0 };
+export const stats = { icons: 0, built: 0, bursts: 0, labels: 0, rw: 0, rh: 0, box: { x0: 0, y0: 0, x1: 0, y1: 0 }, slots: null };
 
 function makeCanvas(w, h) {
   if (typeof OffscreenCanvas === 'function') return new OffscreenCanvas(w, h);
@@ -355,4 +358,47 @@ export function drawPowerHud(ctx, rw, rh, st, carX, carY, t, still) {
     ctx.lineWidth = Math.max(1.5, R * 0.035);
     ctx.stroke();
   }
+}
+
+const slots = labelSlots();
+stats.slots = slots;
+const LABEL_FONT = `bold ${LABEL.font}px Orbitron, sans-serif`;
+let measureCtx = null;
+const measure = (text) => measureCtx.measureText(text).width;
+
+/**
+ * The floating labels of `list` (GameState.hitShockwaves) on a dark plate, clear of the car:
+ * `box` is the car's screen box from drawPlayerCar, or null to use the fallback (3D view).
+ */
+export function drawLabels(ctx, rw, rh, list, box) {
+  if (!list.length) { stats.labels = 0; return; }
+  const b = box && box.y1 > box.y0 ? box : fallbackBox(rw, rh, stats.box);
+  if (b !== stats.box) { stats.box.x0 = b.x0; stats.box.y0 = b.y0; stats.box.x1 = b.x1; stats.box.y1 = b.y1; }
+  stats.rw = rw; stats.rh = rh;
+  ctx.save();
+  ctx.font = LABEL_FONT;
+  measureCtx = ctx;
+  const n = layoutLabels(list, b, rw, rh, measure, slots);
+  stats.labels = n;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < n; i++) {
+    const o = i * LABEL.stride;
+    const x = slots[o], y = slots[o + 1], w = slots[o + 2], h = slots[o + 3], s = slots[o + 6];
+    const e = list[slots[o + 5]];
+    ctx.globalAlpha = slots[o + 4];
+    ctx.fillStyle = 'rgba(6,8,20,0.86)';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = e.color || '#ffd000';
+    ctx.fillRect(x, y + h - Math.max(1, 2 * s), w, Math.max(1, 2 * s));
+    ctx.fillStyle = '#ffffff';
+    if (s < 1) {
+      ctx.translate(x + w * 0.5, y + h * 0.5);
+      ctx.scale(s, s);
+      ctx.fillText(e.label, 0, 0);
+      ctx.scale(1 / s, 1 / s);
+      ctx.translate(-(x + w * 0.5), -(y + h * 0.5));
+    } else ctx.fillText(e.label, x + w * 0.5, y + h * 0.5);
+  }
+  ctx.restore();
 }

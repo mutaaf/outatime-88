@@ -1382,15 +1382,9 @@ function drawCarFx(ctx, rw, rh, over3d) {
     ctx.beginPath();
     ctx.ellipse(sx, sy, sw.radius, sw.radius * 0.42, 0, 0, Math.PI * 2);
     ctx.stroke();
-
-    if (sw.label) {
-      ctx.fillStyle = sw.color;
-      ctx.font = 'bold 11px Orbitron, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(sw.label, sx, sy - 24 - (1 - alpha) * 38);
-    }
     ctx.restore();
   }
+  if (pickupArt) pickupArt.drawLabels(ctx, rw, rh, GameState.hitShockwaves, over3d || GameState.loopRide || GameState.cameraMode === 2 ? null : GameState.carBox);
 
   // 5.4 Render 3D Spinning Debris Shards Bouncing off the Orange Toy-Track!
   for (let i = 0; i < GameState.debrisShards.length; i++) {
@@ -1652,6 +1646,10 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
   }
 
   ctx.restore();
+  // The car's screen box (surge pulse and roll included), for floating labels to stay clear of (0114).
+  const half = carW * 0.55, lift = Math.abs(Math.sin(rollRad)) * half, b = GameState.carBox;
+  b.x0 = cx - half - lift; b.x1 = cx + half + lift;
+  b.y0 = cy - carH * 0.5 + (carArt ? playerThrust.top : -carH * 0.52) * 1.1 - lift; b.y1 = cy + carH * 0.1 + lift;
 }
 
 // --- WORLD TOUR LEVEL SELECTOR & DUB GARAGE UI ---

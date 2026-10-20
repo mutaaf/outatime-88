@@ -95,6 +95,7 @@ export const GameState = {
   // 2026 3D Animated Power-Up & Obstacle Impact FX
   pickupAnimations: [], // Magnetic fly-to-car animations when acquiring powerups!
   hitShockwaves: [],    // Expanding 3D shockwave rings & floating badges on hit/acquire!
+  carBox: { x0: 0, y0: 0, x1: 0, y1: 0 }, // the player car on screen (drawPlayerCar), for labels (0114)
   debrisShards: [],     // 3D spinning shards when smashing obstacles/crates/rivals!
   carSurgeTimer: 0,
   carJoltY: 0,
