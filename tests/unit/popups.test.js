@@ -19,7 +19,11 @@ function rects(out, n) {
 }
 
 const hit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
-const inside = (r, rw, rh) => r.x0 >= 0 && r.y0 >= 0 && r.x1 <= rw && r.y1 <= rh;
+// Inside what reaches the screen at the deepest FOV crop (main.js blit at full speed + NOS).
+const inside = (r, rw, rh) => {
+  const c = 1 - 1 / LABEL.fovMax;
+  return r.x0 >= rw * c * 0.5 && r.y0 >= rh * c * 0.46 && r.x1 <= rw * (1 - c * 0.5) && r.y1 <= rh * (1 - c * 0.54);
+};
 
 // Buffer sizes the 2D road draws at (viewW / pixelScale): phone and desktop, sharp and chunky.
 const SIZES = [[390, 844], [260, 563], [1280, 720], [640, 360], [240, 520]];
@@ -101,6 +105,15 @@ describe('layoutLabels', () => {
     expect(n).toBe(1);
     expect(out[5]).toBe(1);
     expect(out[4]).toBeLessThan(0.1);
+  });
+
+  it('reduced motion: labels hold still', () => {
+    const out = labelSlots();
+    const box = fallbackBox(1280, 720, { x0: 0, y0: 0, x1: 0, y1: 0 });
+    const ys = [0.05, 0.3, 0.6].map((age) => { layoutLabels(wave(['X'], [age]), box, 1280, 720, measure, out, true); return out[1]; });
+    expect(new Set(ys).size).toBe(1);
+    layoutLabels(wave(['X'], [0.6]), box, 1280, 720, measure, out, false);
+    expect(out[1]).toBeLessThan(ys[0]);
   });
 
   it('measures each label once (cached on the entry)', () => {

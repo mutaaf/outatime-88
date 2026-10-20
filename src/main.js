@@ -1384,7 +1384,7 @@ function drawCarFx(ctx, rw, rh, over3d) {
     ctx.stroke();
     ctx.restore();
   }
-  if (pickupArt) pickupArt.drawLabels(ctx, rw, rh, GameState.hitShockwaves, over3d || GameState.loopRide || GameState.cameraMode === 2 ? null : GameState.carBox);
+  if (pickupArt) pickupArt.drawLabels(ctx, rw, rh, GameState.hitShockwaves, over3d || GameState.loopRide || GameState.cameraMode === 2 ? null : GameState.carBox, GameState.reducedMotion);
 
   // 5.4 Render 3D Spinning Debris Shards Bouncing off the Orange Toy-Track!
   for (let i = 0; i < GameState.debrisShards.length; i++) {
@@ -1647,9 +1647,10 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
 
   ctx.restore();
   // The car's screen box (surge pulse and roll included), for floating labels to stay clear of (0114).
-  const half = carW * 0.55, lift = Math.abs(Math.sin(rollRad)) * half, b = GameState.carBox;
+  // The sprite's frame width covers yaw; the AGRO ring reaches above the roof.
+  const half = Math.max(carW * 0.55, carArt ? playerThrust.w * 0.55 : 0), lift = Math.abs(Math.sin(rollRad)) * half, b = GameState.carBox;
   b.x0 = cx - half - lift; b.x1 = cx + half + lift;
-  b.y0 = cy - carH * 0.5 + (carArt ? playerThrust.top : -carH * 0.52) * 1.1 - lift; b.y1 = cy + carH * 0.1 + lift;
+  b.y0 = cy - carH * 0.5 + Math.min((carArt ? playerThrust.top : -carH * 0.52) * 1.1, GameState.agroTimer > 0 ? -carW * 0.7 : 0) - lift; b.y1 = cy + carH * 0.1 + lift;
 }
 
 // --- WORLD TOUR LEVEL SELECTOR & DUB GARAGE UI ---

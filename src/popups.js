@@ -1,7 +1,8 @@
 // Floating pickup / score labels (ticket 0114), pure layout. Labels hang from an anchor above
 // the car's roofline (never on the car), newest nearest the car and older ones stacked above it,
 // at most LABEL.max at once, clamped to the canvas and shrunk to fit a narrow one. With no room
-// above (the car high in the air) they stack beside the car instead. Drawn by src/pickup-art.js.
+// above (the car high in the air) they stack beside the car instead. The margins allow for the
+// FOV push-in crop at full speed + NOS, so a label is whole on screen too. Drawn by src/pickup-art.js.
 
 export const LABEL = {
   font: 11,     // px on the road buffer
@@ -9,6 +10,7 @@ export const LABEL = {
   padY: 4,
   gap: 4,       // between a label and the car, and between labels
   margin: 6,    // from the canvas edge
+  fovMax: 1.115, // main.js crops the road buffer by up to this at 88+ with NOS (speedFeel + nosFeel)
   rise: 12,     // px a label floats up over its life
   max: 3,
   stride: 7,    // per slot in the output: x0, y0, w, h, alpha, source index, scale
@@ -30,10 +32,15 @@ export function fallbackBox(rw, rh, out) {
 /**
  * Lays out the labelled entries of `list` ({ label, life, maxLife }, oldest first) around the
  * car `box` ({ x0, y0, x1, y1 }) on a rw×rh canvas. `measure(text)` gives the text width at
- * LABEL.font; it is called once per entry (cached on it). Writes `out` slots, returns the count.
+ * LABEL.font; it is called once per entry (cached on it). `still` (reduced motion) stops the
+ * float. Writes `out` slots, returns the count.
  */
-export function layoutLabels(list, box, rw, rh, measure, out) {
-  const { padX, padY, gap, margin: m, rise, max, stride } = LABEL;
+export function layoutLabels(list, box, rw, rh, measure, out, still) {
+  const { padX, padY, gap, margin, max, stride } = LABEL;
+  const rise = still ? 0 : LABEL.rise;
+  // The part of the buffer that reaches the screen at the deepest FOV crop.
+  const crop = 1 - 1 / LABEL.fovMax;
+  const m = margin + rw * crop * 0.5, top0 = margin + rh * crop * 0.46, bottom = rh - margin - rh * crop * 0.54;
   const h0 = LABEL.font + padY * 2;
   const cx = (box.x0 + box.x1) * 0.5;
   const rightRoom = rw - m - (box.x1 + gap), leftRoom = box.x0 - gap - m;
@@ -48,15 +55,15 @@ export function layoutLabels(list, box, rw, rh, measure, out) {
     let x, y;
     if (!side) {
       y = Math.min(box.y0 - gap - t * rise, top - gap) - h;
-      if (y >= m) { x = Math.min(rw - m - w, Math.max(m, cx - w * 0.5)); top = y; }
-      else { side = true; sideY = Math.max(m, Math.min(box.y0, rh - m - h)) - gap; }
+      if (y >= top0) { x = Math.min(rw - m - w, Math.max(m, cx - w * 0.5)); top = y; }
+      else { side = true; sideY = Math.max(top0, Math.min(box.y0, bottom - h)) - gap; }
     }
     if (side) {
       const room = Math.max(rightRoom, leftRoom);
       if (room < 24) break;
       if (w > room) { const k = room / w; s *= k; w = room; h *= k; }
       y = sideY + gap;
-      if (y + h > rh - m) break;
+      if (y + h > bottom) break;
       x = rightRoom >= leftRoom ? box.x1 + gap : box.x0 - gap - w;
       sideY = y + h;
     }

@@ -369,8 +369,9 @@ const measure = (text) => measureCtx.measureText(text).width;
 /**
  * The floating labels of `list` (GameState.hitShockwaves) on a dark plate, clear of the car:
  * `box` is the car's screen box from drawPlayerCar, or null to use the fallback (3D view).
+ * `still`: reduced motion (labels don't float).
  */
-export function drawLabels(ctx, rw, rh, list, box) {
+export function drawLabels(ctx, rw, rh, list, box, still) {
   if (!list.length) { stats.labels = 0; return; }
   const b = box && box.y1 > box.y0 ? box : fallbackBox(rw, rh, stats.box);
   if (b !== stats.box) { stats.box.x0 = b.x0; stats.box.y0 = b.y0; stats.box.x1 = b.x1; stats.box.y1 = b.y1; }
@@ -378,7 +379,7 @@ export function drawLabels(ctx, rw, rh, list, box) {
   ctx.save();
   ctx.font = LABEL_FONT;
   measureCtx = ctx;
-  const n = layoutLabels(list, b, rw, rh, measure, slots);
+  const n = layoutLabels(list, b, rw, rh, measure, slots, still);
   stats.labels = n;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
