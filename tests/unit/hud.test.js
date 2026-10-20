@@ -94,3 +94,32 @@ describe('score readout', () => {
     expect(el.classList.contains('is-neg')).toBe(false);
   });
 });
+
+// Ticket 0190: on a phone in portrait the times column is ~60–90 px wide, so the gap pills
+// drop the rival's initials (the track strip's dots say who) and keep the seconds whole.
+describe('compact gap pills on phones (ticket 0190)', () => {
+  it('shows only the arrow and the seconds when compact, initials when wide', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    hud.update(view({ compact: true }));
+    expect(doc.getElementById('hudGapAhead').textContent).toBe('▲ +1.1s');
+    expect(doc.getElementById('hudGapBehind').textContent).toBe('▼ −1.0s');
+    hud.update(view({ compact: false }));
+    expect(doc.getElementById('hudGapAhead').textContent).toBe('▲ RIN +1.1s');
+    expect(doc.getElementById('hudGapBehind').textContent).toBe('▼ VEX −1.0s');
+  });
+
+  it('stays short in the worst case: a nemesis a minute away, or leading', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    hud.update(view({ compact: true, mph: 30, position: 2, field: [
+      { id: 'c', short: 'RIN', progress: 1200 + 30 * 65.3, nemesis: true },
+      { id: 'YOU', short: 'YOU', progress: 1200, isPlayer: true },
+    ] }));
+    const ahead = doc.getElementById('hudGapAhead').textContent;
+    expect(ahead).toBe('▲ 😈+1:05.3');
+    expect([...ahead].length).toBeLessThanOrEqual(10);
+    hud.update(view({ compact: true, position: 1, field: [{ id: 'YOU', short: 'YOU', progress: 5000, isPlayer: true }, { id: 'a', short: 'KAI', progress: 4000 }] }));
+    expect(doc.getElementById('hudGapAhead').textContent).toBe('★ LEAD');
+  });
+});

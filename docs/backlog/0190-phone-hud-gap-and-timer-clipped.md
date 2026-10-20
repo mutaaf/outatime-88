@@ -1,12 +1,12 @@
 ---
 id: 0190
 title: Phone race HUD — the "ahead" gap pill and the timer are cut off at 390 px
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-20
-pr:
+pr: 134
 ---
 
 ## Why
@@ -21,10 +21,10 @@ under the timer, or shorten to "▲ +1.2s" (initials only on wider screens). Tou
 `src/hud.js` (text), `index.html` (`#hudGapAhead`), `src/styles.css` (`.gap`, `.gap-ahead`).
 
 ## Acceptance criteria
-- [ ] At 390x844 mid-race neither the timer nor `#hudGapAhead` has `scrollWidth > clientWidth` (no ellipsis)
-- [ ] The gap still reads as rival + seconds at 1280x720
-- [ ] No overlap with the position card, speed card or progress strip (zero-overlap spec still green)
-- [ ] No new per-frame DOM writes beyond the existing `text()` change guard
+- [x] At 390x844 mid-race neither the timer nor `#hudGapAhead` has `scrollWidth > clientWidth` (no ellipsis)
+- [x] The gap still reads as rival + seconds at 1280x720
+- [x] No overlap with the position card, speed card or progress strip (zero-overlap spec still green)
+- [x] No new per-frame DOM writes beyond the existing `text()` change guard
 
 ## Test plan
 Extend the zero-overlaps / phone HUD e2e: start a race at 390x844, wait on `racing`, assert

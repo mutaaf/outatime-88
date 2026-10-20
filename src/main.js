@@ -518,7 +518,7 @@ export function hideCoach(banner) {
 
 export const hudView = {
   position: 1, total: 1, progress: 0, length: 0, raceTime: 0, timeLeft: 0, clockUrgent: false,
-  infinite: false, mph: 0, flux: 0, nos: 0, nosOn: false, hpFrac: 1, score: 0, field: LiveTraffic.fieldEntries,
+  infinite: false, compact: false, mph: 0, flux: 0, nos: 0, nosOn: false, hpFrac: 1, score: 0, field: LiveTraffic.fieldEntries,
 };
 
 export const ghostRace = createGhostRace();

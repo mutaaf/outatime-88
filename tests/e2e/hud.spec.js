@@ -1,6 +1,6 @@
 // Readability (ticket 0002): one message lane, and a phone HUD that leaves the road visible.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, racing, simWait } from './helpers.js';
 
 const intersects = (a, b) => a && b && a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
@@ -116,3 +116,69 @@ test('a race that ends on a fork does not carry the cue into the next start', as
   expect(await page.evaluate(() => document.getElementById('forkChoiceBanner').classList.contains('hidden'))).toBe(true);
   expect(problems).toEqual([]);
 });
+
+// Ticket 0190: the gap to the car ahead and the race clock are the numbers a racer reads most;
+// on a phone they used to be cut to "▲ RI…" and "0:06." between the position and speed cards.
+const TIMES_TEXT = ['#hudGapAhead', '#hudGapBehind', '#hudTime', '#hudClockWrap', '#hudTimes .hud-clockbox', '#hudTimes'];
+const readTimes = (page) => page.evaluate((sels) => {
+  const box = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+  const shown = (el) => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
+  return {
+    parts: sels.map((s) => document.querySelector(s)).filter(shown)
+      .map((el) => ({ id: el.id || el.className, text: el.textContent.trim(), clip: el.scrollWidth - el.clientWidth, box: box(el) })),
+    cards: ['#hudPosCard', '#hudSpeedCard', '#hudTrack'].map((s) => box(document.querySelector(s))),
+    ahead: document.getElementById('hudGapAhead').textContent,
+  };
+}, TIMES_TEXT);
+
+for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { width: 844, height: 390 }, { width: 1280, height: 720 }]) {
+  test(`gap pills and race clock are whole, never cut off, at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' })); // a timed race: the clock shows too
+    await racing(page, { minTime: 0.5 });
+    await page.waitForFunction(() => document.getElementById('hudGapAhead').textContent !== '');
+    for (let i = 0; i < 4; i++) {
+      await simWait(page, 0.4);
+      const t = await readTimes(page);
+      expect(t.parts.map((p) => p.id)).toContain('hudClockWrap');
+      for (const p of t.parts) {
+        expect(p.clip, `${p.id} "${p.text}" is cut off`).toBeLessThanOrEqual(0);
+        for (const c of t.cards) expect(intersects(p.box, c), `${p.id} overlaps a HUD card`).toBeFalsy();
+      }
+      // Wide screens keep who you are chasing; phones may drop the initials, never the seconds.
+      expect(t.ahead).toMatch(/[+]\d|LEAD/);
+      if (vp.width >= 1280) expect(t.ahead).toMatch(/^(▲ \S*[A-Z]{2,} \+\d|★ LEADING)/);
+    }
+    expect(problems).toEqual([]);
+  });
+}
+
+// 0190 worst case: a nemesis ahead, a rival behind, a long race and the clock all at once.
+// The race is paused so the HUD holds the forced text while we measure it.
+for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { width: 600, height: 960 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1280, height: 720 }]) {
+  test(`worst-case gap pills and clock still fit at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+    await racing(page, { minTime: 0.5 });
+    await page.evaluate(() => {
+      window.__OT.pause();
+      const compact = matchMedia('(max-width: 599px) and (orientation: portrait)').matches;
+      document.getElementById('hudGapAhead').textContent = compact ? '▲ 😈+9.9s' : '▲ 😈RIN +9.9s';
+      document.getElementById('hudGapBehind').textContent = compact ? '▼ −9.9s' : '▼ VEX −9.9s';
+      document.getElementById('hudTime').textContent = '9:59.9';
+      document.getElementById('hudClock').textContent = '60';
+    });
+    await page.waitForTimeout(200); // the HUD would overwrite the text within a tick if it were still running
+    const t = await readTimes(page);
+    expect(t.ahead).toContain('9.9');
+    for (const p of t.parts) {
+      expect(p.clip, `${p.id} "${p.text}" is cut off`).toBeLessThanOrEqual(0);
+      for (const c of t.cards) expect(intersects(p.box, c), `${p.id} overlaps a HUD card`).toBeFalsy();
+    }
+    expect(problems).toEqual([]);
+  });
+}

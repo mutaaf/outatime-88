@@ -352,13 +352,14 @@ body.on-title #levelUpBanner, body.on-title #stormGlow, body.on-title #hudStorm,
 .hud-dot-you { z-index: 2; width: auto; height: auto; padding: 1px 6px; border-radius: 8px; font-size: clamp(8px, 1.3vmin, 13px);
   font-weight: 900; color: #05050d; background: #fff; border: 2px solid #ff8800; box-shadow: 0 0 10px #ff8800; }
 
-.hud-times { grid-area: times; display: flex; align-items: center; justify-content: center; gap: clamp(6px, 1.4vmin, 16px); min-width: 0; }
+/* 0190: when the row is too narrow (portrait tablets), a gap pill wraps to its own line rather than shrinking into an ellipsis. */
+.hud-times { grid-area: times; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px clamp(6px, 1.4vmin, 16px); min-width: 0; }
 .hud-clockbox { display: inline-flex; align-items: baseline; gap: clamp(6px, 1.2vmin, 12px); padding: 2px clamp(8px, 1.4vmin, 14px);
   border-radius: 9999px; background: rgba(2, 6, 23, 0.85); border: 1px solid rgba(148, 163, 184, 0.35); }
 .hud-time { font-size: clamp(13px, 2.4vmin, 26px); font-weight: 900; font-variant-numeric: tabular-nums; color: #f8fafc; }
 .hud-clock { font-size: clamp(11px, 2vmin, 20px); font-weight: 800; color: #fcd34d; }
 .hud-clock.hidden { display: none; }
-.gap { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 9999px;
+.gap { flex: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 9999px;
   font-size: clamp(10px, 1.7vmin, 17px); font-weight: 800; background: rgba(2, 6, 23, 0.8); }
 .gap:empty { display: none; }
 .gap-ahead { color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.45); }
@@ -416,17 +417,19 @@ body.on-title #levelUpBanner, body.on-title #stormGlow, body.on-title #hudStorm,
 
 /* Phones in portrait: times beside the cards, the track strip gets its own full row. */
 @media (max-width: 599px) and (min-aspect-ratio: 0/1) and (orientation: portrait) {
-  .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "pos times speed gear" "track track track track"; }
-  .hud-times { flex-direction: column; gap: 3px; align-items: stretch; text-align: center; }
+  .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "pos times speed gear" "track track track track"; column-gap: 4px; }
+  .hud-times { flex-direction: column; flex-wrap: nowrap; gap: 3px; align-items: stretch; text-align: center; }
   .hud-track { margin: 0 14px 0 6px; }
   .hud-pos { min-width: 0; }
   .hud-speed { min-width: 0; }
-  .gap { font-size: 10px; padding: 1px 6px; }
+  .gap { font-size: 10px; padding: 1px 3px; text-align: center; }
+  /* 0190: the clock drops under the race time when the column is too narrow for both. */
+  .hud-clockbox { flex-wrap: wrap; justify-content: center; column-gap: 6px; row-gap: 0; padding: 2px 6px; border-radius: 12px; }
 }
 /* Short landscape screens (phones on their side): one slim row. */
 @media (max-height: 520px) and (orientation: landscape) {
   .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto auto; grid-template-areas: "pos track times speed gear"; align-items: center; }
-  .hud-times { flex-direction: column; gap: 2px; }
+  .hud-times { flex-direction: column; flex-wrap: nowrap; gap: 2px; }
   .gap-behind { display: none; }
   .pos-num { font-size: 30px; }
   .spd-num { font-size: 26px; }
