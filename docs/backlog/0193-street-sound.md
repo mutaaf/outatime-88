@@ -1,11 +1,12 @@
 ---
 id: 0193
 title: Street sound — a synthesized tuner layer (turbo, BOV, crackle, NOS, Doppler, crunch) and an adaptive street score with a MUSIC STYLE setting
-status: in-progress
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-19
+pr: 128
 ---
 
 ## Why
@@ -31,7 +32,7 @@ tense.
   - A director picks one per bar, with intensity layers from speed, tier, NOS and the Patrol.
   - The music ducks under big moments and fades out on results and pause.
   - Settings → MUSIC STYLE: AUTO, SYNTHWAVE or STREET.
-- **Delivery:** two PRs, SFX first (#127), then music and mix.
+- **Delivery:** two PRs, SFX first (#127), then music and mix (#128).
 - **Rules:** no samples, nothing borrowed, instrumental only (docs/EASTER_EGGS.md, docs/AUDIO_CREDITS.md).
 
 ## Acceptance criteria
