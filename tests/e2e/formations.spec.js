@@ -10,10 +10,11 @@ test('traffic comes back in whole formations for the wave, never on the racing l
   await racing(page);
   await page.evaluate(() => { window.__OT.GameState.waveTier = 4; });
   await page.keyboard.down('ArrowUp');
-  // Passing traffic parks it; the next pattern goes down once enough cars are parked.
+  // Passing traffic parks it; the next pattern goes down once enough cars are parked, and a
+  // multi-car one comes along soon (two cars start parked, so only SOLO can come first).
   await page.waitForFunction(() => {
     const f = window.__OT.traffic().formations;
-    return f && f.log.length >= 2;
+    return f && f.log.length >= 2 && f.log.some((e) => e.placed > 1);
   }, null, { timeout: 40000 });
   const r = await page.evaluate(() => {
     const T = window.__OT.traffic();
@@ -22,7 +23,7 @@ test('traffic comes back in whole formations for the wave, never on the racing l
       log: T.formations.log.slice(),
       pool: T.traffic.length,
       parkedVisible: T.traffic.filter((t) => t.idle && (t.active || !t.takenDown)).length,
-      onLine: live.filter((t) => !T.planner.line.isClear(t.worldZ, t.offset, t.halfW)).length,
+      onLine: live.filter((t) => !T.planner.line.isClear(t.worldZ, t.offset, t.halfW, t.halfL)).length,
       status: window.__OT.GameState.status,
     };
   });

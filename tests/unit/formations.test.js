@@ -1,7 +1,7 @@
 // Traffic formations (ticket 0027): readable patterns that escalate by wave, placed whole,
 // drawn from the race's traffic RNG, and never closing the racing line.
 import { describe, it, expect } from 'vitest';
-import { FORMATIONS, FORMATION_LANES, ROW_DZ, formationsFor, formationSpan, createFormationStream } from '../../src/formations.js';
+import { FORMATIONS, FORMATION_LANES, FORMATION_MPH, ROW_DZ, formationsFor, formationSpan, createFormationStream } from '../../src/formations.js';
 import { createLine, createHazardPlanner } from '../../src/cleanline.js';
 import { mulberry32 } from '../../src/daily.js';
 
@@ -19,7 +19,7 @@ function drive(seed, wave, { steps = 2500, playerMph = 100, avoid = null, onStep
   const planner = createHazardPlanner({ line, rand: mulberry32(seed), avoid });
   const stream = createFormationStream({ rand: planner.rand, line, clear: planner.trafficClear, avoid: planner.avoid });
   const pool = [TRUCK, CAR, CAR, CAR, TRUCK, CAR].map((b, i) => ({
-    ...b, idle: i >= 4, z: i >= 4 ? -1e6 : 4800 + i * 5200, mph: 40,
+    ...b, idle: i >= 4, z: i >= 4 ? -1e6 : 4800 + i * 5200, mph: 38 + i * 4, // LiveTraffic.init speeds
     offset: planner.trafficLane(i, 4800 + i * 5200, wave, b.halfW, b.halfL),
   }));
   const placed = [];
@@ -74,12 +74,11 @@ describe('traffic formations (0027)', () => {
     const seen = new Set();
     let want = 0, got = 0;
     for (let seed = 1; seed <= 40; seed++) {
-      const { placed } = drive(seed * 13, 4);
+      const { placed, stream } = drive(seed * 13, 4);
       for (const group of placed) {
         seen.add(group[0].id);
         for (const c of group) expect(c.z).toBeGreaterThan(c.minZ);
       }
-      const { stream } = drive(seed * 13, 4);
       for (const e of stream.log) { want += e.want; got += e.placed; }
     }
     expect([...seen].sort()).toEqual(FORMATIONS.map((f) => f.id).sort());
@@ -100,10 +99,11 @@ describe('traffic formations (0027)', () => {
     }
   });
 
-  it('cars on the road keep the racing line open and never sit on top of each other', () => {
+  it('cars on the road keep the racing line open and never run into each other (slow and fast drivers)', () => {
     for (let seed = 1; seed <= 40; seed++) {
       const wave = 1 + (seed % 5);
       const { placed, planner } = drive(seed * 97, wave, {
+        playerMph: seed % 2 ? 60 : 110,
         onStep(live) {
           for (let i = 0; i < live.length; i++) {
             for (let j = i + 1; j < live.length; j++) {
@@ -144,7 +144,7 @@ describe('traffic formations (0027)', () => {
     const spots = stream.place([CAR, CAR, CAR].map((c) => ({ ...c })), 0);
     expect(spots.map((s) => s.id)).toEqual(['CONVOY', 'CONVOY', 'CONVOY']);
     expect(new Set(spots.map((s) => s.offset)).size).toBe(1);
-    expect(new Set(spots.map((s) => s.mph)).size).toBe(1);
+    expect(spots.every((s) => s.mph === FORMATION_MPH)).toBe(true);
     expect(spots[1].z - spots[0].z).toBe(700);
   });
 });

@@ -9,14 +9,19 @@
 // must be clear of the racing line (src/cleanline.js), so the line is always the open lane.
 
 export const FORMATION_LANES = [-0.48, -0.2, 0.2, 0.48];
+/**
+ * Every formation cruises at this speed: the fastest of the starting traffic (src/main.js), so
+ * no car behind a formation is ever faster than it and patterns never run into each other.
+ */
+export const FORMATION_MPH = 50;
 
 export const FORMATIONS = [
-  { id: 'SOLO', wave: 1, mph: 42, cars: [{ dz: 0, side: 0 }] },
-  { id: 'STAGGER', wave: 1, mph: 42, cars: [{ dz: 0, side: -1 }, { dz: 1600, side: 1 }] },
-  { id: 'CONVOY', wave: 2, mph: 40, cars: [{ dz: 0, side: 0 }, { dz: 700, follow: 0 }, { dz: 1400, follow: 0 }] },
-  { id: 'SLALOM', wave: 2, mph: 44, cars: [{ dz: 0, side: -1 }, { dz: 1500, side: 1 }, { dz: 3000, side: -1 }] },
-  { id: 'GATE', wave: 3, mph: 44, cars: [{ dz: 0, side: -1 }, { dz: 0, side: 1 }] },
-  { id: 'WALL', wave: 4, mph: 40, cars: [{ dz: 0, side: -1 }, { dz: 0, side: 1 }, { dz: 0, side: 0 }] },
+  { id: 'SOLO', wave: 1, cars: [{ dz: 0, side: 0 }] },
+  { id: 'STAGGER', wave: 1, cars: [{ dz: 0, side: -1 }, { dz: 1600, side: 1 }] },
+  { id: 'CONVOY', wave: 2, cars: [{ dz: 0, side: 0 }, { dz: 700, follow: 0 }, { dz: 1400, follow: 0 }] },
+  { id: 'SLALOM', wave: 2, cars: [{ dz: 0, side: -1 }, { dz: 1500, side: 1 }, { dz: 3000, side: -1 }] },
+  { id: 'GATE', wave: 3, cars: [{ dz: 0, side: -1 }, { dz: 0, side: 1 }] },
+  { id: 'WALL', wave: 4, cars: [{ dz: 0, side: -1 }, { dz: 0, side: 1 }, { dz: 0, side: 0 }] },
 ];
 
 /** Cars closer than this in Z share a row: side by side, not one behind the other. */
@@ -113,7 +118,7 @@ export function createFormationStream({ rand, line, clear, avoid = null, shoulde
       const { f, mirror } = pending;
       pending = null;
       const span = formationSpan(f);
-      const mph = f.mph + Math.floor(rand() * 3) * 3; // one speed for the whole pattern, so it holds its shape
+      const mph = FORMATION_MPH;
       let head = aheadZ + (4800 + rand() * 2200) * gapScale;
       for (let k = 0; k < 20 && avoid && avoid(head - 600, head + span + 600); k++) head += 2000;
       cur = { f, mirror, offsets: [] };

@@ -1717,8 +1717,10 @@ export const LiveTrafficMethods = {
       if (t.idle) parked.push(t);
       else if (t.worldZ > maxT) maxT = t.worldZ;
     }
-    if (parked.length && parked.length >= this.formations.next(GameState.waveTier || 1)) {
+    // A pattern with no room at all waits until the traffic ahead has moved on.
+    if (parked.length && maxT !== this.formWaitZ && parked.length >= this.formations.next(GameState.waveTier || 1)) {
       const spots = this.formations.place(parked, maxT, GameState.trafficGapScale);
+      this.formWaitZ = spots.length ? null : maxT;
       for (let k = 0; k < spots.length; k++) {
         const tr = spots[k].body;
         tr.idle = false; tr.takenDown = false; tr.active = true;
