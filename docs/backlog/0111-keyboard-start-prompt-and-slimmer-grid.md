@@ -1,12 +1,12 @@
 ---
 id: 0111
 title: Grid screen speaks keyboard — no "TAP ⚡" wording for keyboard players, and a slimmer line-up card
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-18
-pr:
+pr: 130
 ---
 
 ## Why
@@ -23,14 +23,14 @@ lights card only. Lay the line-up out as one compact row of six chips (initials 
 above the lights instead of a 2x3 block, so the car and road stay visible.
 
 ## Acceptance criteria
-- [ ] Keyboard/mouse start shows no "TAP" text and names the real boost key, exactly once
-- [ ] The line-up cards' "TAP TO SKIP ▶▶" pill reads "PRESS ENTER TO SKIP" (or the pad button) for keyboard/gamepad (seen again 2026-10-19 at 1280x720)
-- [ ] Touch start keeps today's wording; gamepad shows the pad button
-- [ ] Line-up block height ≤ 12% of the viewport at 1280x720 and 390x844; player car and road centre stay unobstructed
-- [ ] Zero-overlap layout e2e still green at all viewports
+- [x] Keyboard/mouse start shows no "TAP" text and names the real boost key, exactly once
+- [x] The line-up cards' "TAP TO SKIP ▶▶" pill reads "PRESS ENTER TO SKIP" (or the pad button) for keyboard/gamepad (seen again 2026-10-19 at 1280x720)
+- [x] Touch start keeps today's wording; gamepad shows the pad button
+- [x] Line-up block height ≤ 12% of the viewport at 1280x720 and 390x844; player car and road centre stay unobstructed
+- [x] Zero-overlap layout e2e still green at all viewports
 
 ## Test plan
-Unit test for the hint chooser (input mode → string). Extend `tests/e2e/race-start.spec.js`
+Unit test for the hint chooser (input mode → string). Extend `tests/e2e/ceremony.spec.js`
 with a keyboard run asserting the hint text and a bounding-box check on the line-up.
 
 ## Out of scope

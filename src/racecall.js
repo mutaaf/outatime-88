@@ -10,6 +10,19 @@ export const START = Object.freeze({
   goHold: 0.8,      // GO! stays up this long after green
 });
 
+/**
+ * The rocket-start prompt and the lineup's skip pill, worded for the input in hand (ticket
+ * 0111): keyboard names the real keys, a gamepad its button, a paired TV phone its BOOST
+ * button, touch the ⚡ button. `kind` is InputState.lastInput; `fallback` is used before any input.
+ */
+export const START_HINTS = Object.freeze({
+  keys: Object.freeze({ launch: 'PRESS SPACE RIGHT ON GREEN FOR A ROCKET START', skip: 'PRESS ENTER TO SKIP ▶▶' }),
+  pad: Object.freeze({ launch: 'PRESS X OR RB RIGHT ON GREEN FOR A ROCKET START', skip: 'PRESS X TO SKIP ▶▶' }),
+  phone: Object.freeze({ launch: 'HIT BOOST RIGHT ON GREEN FOR A ROCKET START', skip: 'HIT BOOST TO SKIP ▶▶' }),
+  touch: Object.freeze({ launch: 'TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', skip: 'TAP TO SKIP ▶▶' }),
+});
+export const startHint = (kind, fallback = 'touch') => START_HINTS[kind] || START_HINTS[fallback] || START_HINTS.touch;
+
 /** Launch timing relative to green: tap boost just before or at GO for a rocket start. */
 export const LAUNCH = Object.freeze({ early: -0.35, perfectEnd: 0.12, goodEnd: 0.45 });
 

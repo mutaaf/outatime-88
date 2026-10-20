@@ -454,6 +454,10 @@ export function beginRaceStart(lvl, { ceremony }) {
   RS.lapStartedAt = 0;
   RS.lapNow = 1;
   RS.launchPressAt = null;
+  // A press from the menus or while the ceremony chunk loaded is not a launch (0111): the pad's
+  // boost must be released and pressed again, and a stale Space is dropped.
+  RS.gpBoost = true;
+  InputState.boostPressed = false;
   RS.launchJudged = false;
   RS.skipRequested = false;
   GameState.launchStall = 0;
@@ -490,7 +494,7 @@ export const startHooks = {
   field: () => gridOrder(),
   announceLevel() {
     const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
-    triggerAnnouncement(GameState.daily ? `📅 DAILY: ${GameState.daily.modifier.name}` : `🏁 ${lvl.name} 🏁`, 'TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', 2400, 1);
+    triggerAnnouncement(GameState.daily ? `📅 DAILY: ${GameState.daily.modifier.name}` : `🏁 ${lvl.name} 🏁`, '', 2400, 1); // the rocket-start prompt lives in the lights card only (0111)
   },
   go() {
     GameState.racePhase = 'RACING';

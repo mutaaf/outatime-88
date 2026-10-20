@@ -710,6 +710,12 @@ let driftBoxEl = null, driftShownTier = -1, driftShownAt = 0, tintShown = null;
 export function updateGame(rawDt) {
   if (GameState.status !== 'PLAYING') return;
   // Grid lineup and start lights (ticket 0052): the world waits for GO.
+  // The pad, polled once per step. Its boost button going down (not held, 0180) counts like
+  // Space and ⚡: on the grid it skips the lineup and times the rocket start, including the late
+  // window just after green (0111); while racing it boosts.
+  const gp = pollGamepad();
+  if (gp.boost && !RS.gpBoost && (RS.startSeq || GameState.racePhase !== 'START')) InputState.boostPressed = true;
+  RS.gpBoost = gp.boost;
   if (GameState.racePhase === 'START') { if (RS.startSeq) RF.updateRaceStart(rawDt); return; }
   RF.updateRaceCeremony(rawDt);
 
@@ -791,7 +797,6 @@ export function updateGame(rawDt) {
   const isOnBooster = currentSeg && currentSeg.trackType === 'BOOSTER';
   const targetMaxSpeed = (GameState.warpActiveTimer > 0 || GameState.agroTimer > 0 || isOnBooster) ? warpMaxMph : baseMaxMph;
 
-  const gp = pollGamepad();
   if (steerModes) steerModes.gamepad(gp);
   const accelerating = !GameState.noGas && (GameState.autoGas || InputState.up || InputState.touchUp || gp.gas); // no gas: out of fuel (0186)
   const braking = InputState.down || InputState.touchDown || gp.brake;
@@ -1275,9 +1280,7 @@ export function updateGame(rawDt) {
   GameState.fluxCharge = Math.min(100, GameState.fluxCharge + passiveFluxRate(GameState.speed, upg.flux) * carP.fluxMult * rawDt);
   GameState.sinceWarp += rawDt;
 
-  const gpBoost = gp.boost && !RS.gpBoost; // the pad button going down, not held (0180)
-  RS.gpBoost = gp.boost;
-  if (InputState.boostPressed || gpBoost) {
+  if (InputState.boostPressed) { // Space, ⚡, the pad's boost (folded in at the top of the step)
     InputState.boostPressed = false;
     if (GameState.playerY > 38) {
       if (takeTrick(RS.fair, GameState.playerY)) { // a barrel roll uses one of the air's trick slots

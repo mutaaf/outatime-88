@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { START, judgeLaunch, LAUNCH_EFFECT, createStartSequence, lineupCall, createCallouts, finishResults, resultHeadline } from '../../src/racecall.js';
+import { START, startHint, judgeLaunch, LAUNCH_EFFECT, createStartSequence, lineupCall, createCallouts, finishResults, resultHeadline } from '../../src/racecall.js';
 
 const run = (seq, seconds, step = 0.05) => {
   const out = [];
@@ -117,5 +117,25 @@ describe('results', () => {
     expect(resultHeadline(4, 6, { beatBy: 0.4 }).line).toMatch(/So close/);
     expect(resultHeadline(6, 6, { beatBy: 3 }).title).toBe('6TH PLACE');
     expect(resultHeadline(3, 6, { outcome: 'wrecked' }).title).toBe('WRECKED!');
+  });
+});
+
+describe('start prompt worded for the input in hand (ticket 0111)', () => {
+  it('keyboard names the real keys and never says TAP', () => {
+    const h = startHint('keys');
+    expect(h.launch).toMatch(/SPACE/);
+    expect(h.skip).toMatch(/ENTER/);
+    expect(h.launch + h.skip).not.toMatch(/TAP/);
+  });
+  it('a gamepad names the pad button, touch keeps the ⚡ wording, a paired phone its BOOST button', () => {
+    expect(startHint('pad').launch).toMatch(/\bX\b/);
+    expect(startHint('pad').skip).toMatch(/\bX\b/);
+    expect(startHint('pad').launch + startHint('pad').skip).not.toMatch(/TAP|SPACE|ENTER/);
+    expect(startHint('touch')).toEqual({ launch: 'TAP ⚡ RIGHT ON GREEN FOR A ROCKET START', skip: 'TAP TO SKIP ▶▶' });
+    expect(startHint('phone').launch).toMatch(/BOOST/);
+  });
+  it('an unknown input falls back to the touch wording, or keys when told it is a desktop', () => {
+    expect(startHint(undefined)).toEqual(startHint('touch'));
+    expect(startHint('', 'keys')).toEqual(startHint('keys'));
   });
 });

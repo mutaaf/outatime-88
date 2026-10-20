@@ -6,6 +6,7 @@ export const InputState = {
   up: false,
   down: false,
   boostPressed: false,
+  lastInput: '',       // 'keys' | 'pad' | 'phone' | 'touch': the input in hand, for prompts (0111)
   nosHeld: false,      // NOS (ticket 0122): Shift / N while racing, gamepad LB, touch NOS
   touchNos: false,
   hoverPressed: false,
@@ -63,7 +64,7 @@ const padOut = { steer: 0, gas: false, brake: false, gasAmt: 0, brakeAmt: 0, boo
 export const PhonePad = { on: false, steer: 0, gas: false, brake: false, gasAmt: 1, brakeAmt: 1, boost: false, hover: false, nos: false, back: false, l3: false };
 
 export function pollGamepad() {
-  if (PhonePad.on) return PhonePad;
+  if (PhonePad.on) { InputState.lastInput = 'phone'; return PhonePad; }
   if (!navigator.getGamepads) return NO_PAD;
   try {
     const pads = navigator.getGamepads();
@@ -84,6 +85,7 @@ export function pollGamepad() {
         padOut.nos = pressed(p, 4);
         padOut.back = pressed(p, 8); // BACK / SELECT / VIEW: steering mode
         padOut.l3 = pressed(p, 10);  // left-stick click: co-pilot
+        if (steer || gasAmt || brakeAmt || padOut.boost || padOut.nos) InputState.lastInput = 'pad';
         return padOut;
       }
     }

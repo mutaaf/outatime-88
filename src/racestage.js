@@ -3,7 +3,8 @@
 import { SoundEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
-import { finishResults, resultHeadline, lineupCall } from './racecall.js';
+import { InputState } from './input.js';
+import { finishResults, resultHeadline, lineupCall, startHint } from './racecall.js';
 import { carPortrait } from './car-sprite.js';
 
 const $ = (id) => document.getElementById(id);
@@ -23,6 +24,13 @@ export function say(text) {
     synth.speak(u);
   } catch (e) { /* speech is a bonus, never an error */ }
 }
+
+// The input in hand (ticket 0111): the last key, mouse or touch wins (gamepads are noted by
+// pollGamepad). Mouse counts as keyboard: a desktop player's hands are on the keys.
+window.addEventListener('keydown', () => { InputState.lastInput = 'keys'; }, true);
+window.addEventListener('pointerdown', (e) => { InputState.lastInput = e.pointerType === 'mouse' ? 'keys' : 'touch'; }, true);
+window.addEventListener('gamepadconnected', () => { InputState.lastInput = 'pad'; });
+const hint = () => startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
 
 const beep = (hz, len = 0.16, vol = 0.16, type = 'square') => { try { SoundEngine.playTone(hz, type, len, vol); } catch (e) {} };
 
@@ -77,6 +85,7 @@ export const stage = {
       </span>`;
     void el.offsetWidth; // restart the pop-in animation (once per card, not per frame)
     el.classList.add('rc-pop');
+    $('rcSkip').textContent = hint().skip;
     $('rcSkip').classList.remove('hidden');
   },
   /** Everyone together before the lights. */
@@ -85,7 +94,8 @@ export const stage = {
     $('rcSkip').classList.add('hidden');
     const el = $('rcGrid');
     const me = field.find((r) => r.isPlayer);
-    el.innerHTML = field.map((r, i) => `<span class="rc-chip${r.isPlayer ? ' rc-chip-you' : ''}" style="--c1:${esc(r.color)}">${carImg(lookOf(r), 72, 'rc-chip-car')}<b>P${i + 1}</b> ${esc(r.isPlayer ? 'YOU' : r.short)}</span>`).join('')
+    // One compact row of six chips (ticket 0111): place, initials and colour, the road stays in view.
+    el.innerHTML = field.map((r, i) => `<span class="rc-chip${r.isPlayer ? ' rc-chip-you' : ''}" style="--c1:${esc(r.color)}"><b>P${i + 1}</b> ${esc(r.isPlayer ? 'YOU' : r.short)}</span>`).join('')
       + (me && me.cls ? `<span class="rc-mycar">${esc(me.car || '')} · <b>${esc(me.cls)}</b>${me.specLine ? ` · ${esc(me.specLine)}` : ''}</span>` : '');
     el.classList.remove('hidden');
   },
@@ -96,6 +106,7 @@ export const stage = {
     const el = $('rcLights');
     el.classList.remove('hidden');
     el.dataset.state = n === 'go' ? 'go' : String(n);
+    if (n === 3) $('rcHint').textContent = hint().launch;
     $('rcCount').textContent = n === 'go' ? 'GO!' : String(n);
   },
   /** Chequered flag with your place. */
