@@ -124,6 +124,16 @@ test('the results/leaderboard UI and the music score are lazy chunks (ticket 011
   expect(gz(results[0])).toBeLessThan(6);
 });
 
+test('the street sound layer is a small lazy chunk (ticket 0193)', () => {
+  const files = readdirSync(DIR);
+  const tuner = files.filter((f) => /^tuner-.*\.js$/.test(f));
+  expect(tuner.length).toBe(1);
+  expect(gz(tuner[0])).toBeLessThan(6); // today ~4.2 kB: every voice synthesized, no samples
+  const start = startup();
+  expect(start).not.toContain(tuner[0]);
+  for (const f of start) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('blowOff');
+});
+
 test('recorded sound effects stay small and out of the main bundle (ticket 0133)', () => {
   const files = readdirSync(DIR).filter((f) => /\.(mp3|wav)$/.test(f));
   const total = files.reduce((t, f) => t + readFileSync(`${DIR}/${f}`).length, 0) / 1024;

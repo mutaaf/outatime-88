@@ -98,7 +98,8 @@ function startNewRace(opts) {
   return startWait;
 }
 
-setAudioHooks({ syncAudioUI, triggerAnnouncement });
+// The street sound layer (0193) hears the road: cars rushing past, tunnels around you.
+setAudioHooks({ syncAudioUI, triggerAnnouncement, world: { bodies: () => LiveTraffic.bodies, playerZ: () => GameState.trackPos + ROAD_CFG.playerZOffset, seg: (z) => track.seg(Math.floor(z / ROAD_CFG.segLength)) } });
 
 SaveStore.load();
 
@@ -1684,7 +1685,7 @@ function selectCharacterByIndex(idx) {
   if (!isOwned(SaveStore.data, POP_CULTURE_ROSTER[want].id)) return false;
   GameState.selectedCharIdx = want;
   const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx];
-  SoundEngine.setEngineVoice(c.shape);
+  SoundEngine.setEngineVoice(c.shape, c.car);
   if (SaveStore.data.garage.selected !== c.id) {
     SaveStore.data.garage.selected = c.id;
     SaveStore.save();

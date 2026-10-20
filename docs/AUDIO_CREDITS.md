@@ -41,3 +41,15 @@ Total size: about 372 kB. It loads after the first tap or key; the service worke
 - **Synthesized:** the tyre squeal and the wall scrub are made in `src/sfx/bank.js`. No CC0 tyre-screech recording we could verify was available on the allowed sources.
 - **Unchanged:** the music score and fanfares stay procedural (`src/music.js`, `src/racestage.js`).
 - **Fallback:** every recorded sound falls back to its old synth voice if its file can't be fetched or decoded.
+
+## Street sound (ticket 0193): synthesized, no files
+
+The street-tuner layer adds **no recordings at all** (0 kB of new samples). Every voice is made on the device with Web Audio oscillators, filtered noise and a
+generated reverb impulse:
+- `src/sfx/tuner.js` (rules in `src/sfx/street-params.js`): turbo spool, blow-off valve,
+  shift chirp, rev limiter, overrun crackle and pops, launch burble, the NOS click → hiss →
+  whoosh and purge puff, the tuner squeal layer, the drift-hold tone, Doppler pass-bys, wind,
+  tunnel reverb, metal crunch, bass drops and the countdown / GO / level-up / run-over
+  stingers.
+
+Nothing to credit, nothing to license.

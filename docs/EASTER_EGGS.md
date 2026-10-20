@@ -59,3 +59,13 @@ combination is the most recognisable reference there is. The operator asked for 
 this kind of reference ("a clock tower struck by lightning at 10:04 silhouette, a … town
 square under a different name"), so 1955 now has it. The line that still holds: no names,
 logos, likenesses, stills or quotes; everything above is drawn from scratch.
+
+## Street sound (ticket 0193)
+
+The street sound and music take their feel from the street-tuner racing-film genre: turbo
+whistles, blow-off valves, NOS, drift phonk, trap and EDM race beats. It is a genre, not a
+film. The line:
+- **No borrowed audio:** no audio from any film, trailer or soundtrack, and no samples of anyone's recordings. Every sound is synthesized on the device (docs/AUDIO_CREDITS.md).
+- **No soundalikes:** no imitation of a specific song, melody, riff or theme. The pattern tables in `src/street-score.js` are original, and a reviewer should be able to hum none of them as someone else's tune.
+- **Instrumental only:** no vocals, so there are no lyrics and nothing explicit; it stays kid-safe.
+- **No names:** no franchise names, logos, character names or quotes in code, docs or UI. The setting is just MUSIC STYLE: STREET.
