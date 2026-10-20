@@ -6,6 +6,7 @@ import { openLayoutEditor } from './editor.js';
 
 export { openLayoutEditor };
 import { ICONS } from './icons.js';
+import { placeTips } from './guide-tips.js';
 
 const MOVEMENT_INFO = {
   dynamic: { name: 'Thumbstick', tag: 'Roblox', hint: 'Appears wherever your thumb lands.' },
@@ -185,13 +186,51 @@ export function showThumbGuide({ settings, save, controls, done }) {
   const swipe = mv === 'dynamic' || mv === 'floating' || mv === 'fixed';
   const stickLabel = mv === 'dpad' ? 'TAP ◀ ▶ TO STEER' : mv === 'tilt' ? 'TILT TO STEER' : 'DRAG TO STEER';
   const g = h('div', { id: 'tcGuide', class: 'tc-guide', 'aria-hidden': 'true' });
-  const tag = (it, text, cls) => `<div class="tc-guide-ring ${cls}" style="left:${it.x}px;top:${it.y}px;width:${it.d + 18}px;height:${it.d + 18}px"><i>${text}</i></div>`;
+  const ring = (it, cls) => `<div class="tc-guide-ring ${cls}" style="left:${it.x}px;top:${it.y}px;width:${it.d + 18}px;height:${it.d + 18}px"></div>`;
+  // The bubbles go beside their pads, never on one and never off the screen (0166); see placeTips.
+  // The steering control as drawn: the D-pad and the tilt badge are sized off the stick's slot.
+  const sd = mv === 'dpad' ? Math.round(s.d * 1.12) : mv === 'tilt' ? Math.max(64, Math.round(s.d * 0.62)) : s.d;
+  const steer = { x: s.x, y: s.y, d: sd };
+  const tips = [[steer, stickLabel, 'tc-guide-tip-steer']];
+  if (b && !b.hidden) tips.push([b, 'WARP', 'tc-guide-tip-warp']);
+  if (n && !n.hidden) tips.push([n, 'HOLD = NOS', 'tc-guide-tip-nos']);
   g.innerHTML = `
     <div class="tc-guide-thumb${swipe ? ' tc-guide-swipe' : ''}" style="left:${s.x}px;top:${s.y}px">${ICONS.recenter}</div>
-    <div class="tc-guide-label" style="left:${s.x}px;top:${s.y - s.d / 2 - 20}px">${stickLabel}</div>
-    ${b && !b.hidden ? tag(b, 'WARP', 'tc-guide-warp') : ''}
-    ${n && !n.hidden ? tag(n, 'HOLD = NOS', 'tc-guide-nos') : ''}`;
+    ${b && !b.hidden ? ring(b, 'tc-guide-warp') : ''}
+    ${n && !n.hidden ? ring(n, 'tc-guide-nos') : ''}
+    ${tips.map(([, text, cls]) => `<i class="tc-guide-tip ${cls}">${text}</i>`).join('')}`;
   document.body.appendChild(g);
+  // The guide's steer bubble says what the first-race steer hint says: one of them at a time.
+  document.body.classList.add('tc-guiding');
+  const els = g.querySelectorAll('.tc-guide-tip');
+  const pads = Object.values(items).filter((it) => it && !it.hidden && it !== s)
+    .map((it) => ({ x: it.x, y: it.y, d: it.d, ring: (it === b || it === n) }));
+  pads.push(steer);
+  const view = { l: env.safe.l, t: env.top, r: env.vw - env.safe.r, b: env.vh - env.safe.b };
+  // Placed on the font the bubbles will show in: Orbitron is wider than the fallback.
+  const place = () => {
+    if (!g.isConnected) return;
+    // The layout moved on (a rotation) before the font landed: these spots are stale, so no bubbles.
+    const stale = controls.layoutNow().items !== items;
+    const size = (el) => el.getBoundingClientRect();
+    const spots = stale ? tips.map(() => null)
+      : placeTips(tips.map(([it], i) => ({ x: it.x, y: it.y, d: it.d, w: Math.ceil(size(els[i]).width), h: Math.ceil(size(els[i]).height) })), pads, view);
+    for (const old of g.querySelectorAll('.tc-guide-lead')) old.remove();
+    spots.forEach((at, i) => {
+      const el = els[i];
+      el.style.visibility = at ? 'visible' : 'hidden';
+      if (!at) return;
+      el.style.left = `${at.x}px`;
+      el.style.top = `${at.y}px`;
+      if (!at.lead) return;
+      const { x1, y1, x2, y2 } = at.lead;
+      const line = h('div', { class: `tc-guide-lead ${tips[i][2]}` });
+      line.style.cssText = `left:${x1}px;top:${y1}px;width:${Math.hypot(x2 - x1, y2 - y1)}px;transform:rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
+      g.insertBefore(line, g.firstChild);
+    });
+  };
+  place();
+  if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(place);
   const t0 = performance.now();
   let closing = false;
   const close = () => {
@@ -200,7 +239,10 @@ export function showThumbGuide({ settings, save, controls, done }) {
     settings.coachSeen = true;
     save();
     g.classList.add('tc-guide-out');
-    setTimeout(() => g.remove(), 400);
+    setTimeout(() => {
+      g.remove();
+      if (!document.getElementById('tcGuide')) document.body.classList.remove('tc-guiding');
+    }, 400);
   };
   const tick = () => {
     if (closing || !g.isConnected) return;

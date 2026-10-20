@@ -80,3 +80,50 @@ for (const [width, height] of VIEWPORTS) {
     await ctx.close();
   });
 }
+
+// Ticket 0166: the first-race thumb guide's bubbles sit beside the pads they teach, never on a pad
+// and never off the screen.
+const boxHits = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+const GUIDE_CASES = [
+  [390, 844, {}], [844, 390, {}], [768, 1024, {}],
+  [390, 844, { movement: 'dpad' }], [390, 844, { preset: 'lefty' }], [844, 390, { preset: 'claw' }], [1366, 1024, { preset: 'tablet' }],
+];
+for (const [width, height, controls] of GUIDE_CASES) {
+  const label = Object.values(controls).join('+') || 'default';
+  test(`thumb guide bubbles stay on screen and off the pads at ${width}x${height} (${label})`, async ({ browser }, testInfo) => {
+    const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, isMobile: true });
+    const page = await ctx.newPage();
+    const problems = watchPage(page);
+    await page.addInitScript((c) => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ controls: c })), controls);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace());
+    await expect(page.locator('#tcGuide')).toBeVisible();
+    await page.waitForTimeout(900); // the first-race steer hint is up by now too
+    const r = await page.evaluate(() => {
+      const box = (el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
+      const shown = (el) => { const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden' && el.getBoundingClientRect().width > 0; };
+      const bubbles = [...document.querySelectorAll('#tcGuide .tc-guide-tip')]
+        .filter(shown).map((el) => ({ text: el.textContent, ...box(el) }));
+      const pads = {};
+      const hint = document.getElementById('steerHint');
+      if (hint && shown(hint)) bubbles.push({ text: 'steer hint (a second steer text)', ...box(hint) });
+      for (const el of document.querySelectorAll('#touchControlsLayer > .tc-btn:not(.tc-hidden), #tcStick:not(.tc-hidden), #tcDpad:not(.tc-hidden), #tcTilt:not(.tc-hidden)')) if (shown(el)) pads[`#${el.id}`] = box(el);
+      return { bubbles, pads };
+    });
+    const where = `${width}x${height} ${label}`;
+    expect(r.bubbles.length, `${where}: bubbles shown`).toBeGreaterThanOrEqual(2);
+    for (const b of r.bubbles) {
+      expect(b.x, `${where} "${b.text}" left`).toBeGreaterThanOrEqual(0);
+      expect(b.y, `${where} "${b.text}" top`).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width, `${where} "${b.text}" right`).toBeLessThanOrEqual(width);
+      expect(b.y + b.height, `${where} "${b.text}" bottom`).toBeLessThanOrEqual(height);
+      for (const [id, p] of Object.entries(r.pads)) expect(boxHits(b, p), `${where}: "${b.text}" covers ${id}`).toBeFalsy();
+    }
+    for (let i = 0; i < r.bubbles.length; i++) {
+      for (let j = i + 1; j < r.bubbles.length; j++) expect(boxHits(r.bubbles[i], r.bubbles[j]), `${where}: "${r.bubbles[i].text}" on "${r.bubbles[j].text}"`).toBeFalsy();
+    }
+    await testInfo.attach(`thumb-guide-${width}x${height}-${label}.png`, { body: await page.screenshot(), contentType: 'image/png' });
+    expect(problems).toEqual([]);
+    await ctx.close();
+  });
+}

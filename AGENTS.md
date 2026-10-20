@@ -242,7 +242,8 @@ src/touch/          Touch controls (ticket 0061), Roblox/Fortnite style:
                       (SaveStore.data.controls, normalised when the kit loads) · mirror.js (2D
                       rear-view mirror) · bridge.js (the kit's entry: game hooks, race start,
                       back-gesture pause) · panel.js + editor.js (Controls panel, HUD layout
-                      editor, thumb guide; lazy). The whole kit is one lazy chunk, loaded only
+                      editor, thumb guide; lazy) · guide-tips.js (pure: where the thumb guide's
+                      bubbles go — beside their pad, on screen, on no pad; 0166). The whole kit is one lazy chunk, loaded only
                       on touch devices or on a first touch.
 src/worker/         Edge Worker for /outatime/api/* only (operator-owned, frozen):
                       index.js (routing) · scores.js (run tokens, submit, boards on D1)
