@@ -174,6 +174,10 @@ src/ghost-codec.js  Compact ghost traces (distance + lane at 5 Hz), shared with 
 src/ghost.js        Ghost recorder (every race) and ghost racing on the HUD strip (0092)
 src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks;
                       the score (src/music.js) is a lazy chunk, loadMusic() preloads it after boot
+src/sfx/tuner.js    Lazy (0193): the street-tuner layer, all synthesized — turbo spool, blow-off, shift chirp,
+                      limiter, overrun pops, launch burble, NOS click/hiss/whoosh + purge, squeal layer, drift tone,
+                      Doppler pass-bys, wind, tunnel reverb, crunch by Δv, bass drops, stingers; SoundEngine.updateEngine
+                      calls frame() once per frame. Rules: src/sfx/street-params.js (pure, unit-tested)
 src/input.js        InputState + pollGamepad() (deadzone + response curve, analog RT/LT pedals, one reused result; 0183)
 src/onefilter.js    Lazy (loads when tilt turns on): One Euro filter, steady at rest, lag-free on a swerve (0183)
 src/forcefeel.js    Lazy: gamepad dual rumble + phone pulses from tyre slip, wheelspin, walls, landings (0183)

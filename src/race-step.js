@@ -1670,7 +1670,7 @@ export const LiveTrafficMethods = {
               // it spins them (a PIT); a heavier car barely notices a light one.
               GameState.trackPos = r.worldZ - ROAD_CFG.playerZOffset - (playerHalfL + r.halfL + 6);
               P.worldZ = GameState.trackPos + ROAD_CFG.playerZOffset;
-              carHit(P, r, 0, 1, e);
+              SoundEngine.crunch(carHit(P, r, 0, 1, e) * P.invMass); // metal by Δv (0193)
               playerAfterHit(P, speedToWorld, 24);
               r.mph = Math.max(0, r.vz) / speedToWorld;
               GameState.suspVel -= 160;
@@ -1686,7 +1686,7 @@ export const LiveTrafficMethods = {
               GameState.playerX += dir * overlapX * share;
               r.offset -= dir * overlapX * (1 - share);
               P.offset = GameState.playerX;
-              carHit(P, r, -dir, 0, e);
+              SoundEngine.crunch(carHit(P, r, -dir, 0, e) * P.invMass); // metal by Δv (0193)
               // Doors spring apart a little even at a crawl, so you're never glued together.
               P.vx += dir * 0.2 * share * 2;
               playerAfterHit(P, speedToWorld, 0);
@@ -1757,7 +1757,7 @@ export const LiveTrafficMethods = {
               GameState.trackPos = tr.worldZ - ROAD_CFG.playerZOffset - (playerHalfL + tr.halfL + 8);
               P.worldZ = GameState.trackPos + ROAD_CFG.playerZOffset;
               P.vz = Math.max(P.vz, tr.vz + 5 * speedToWorld); // a hit is always a hit
-              carHit(P, tr, 0, 1, e);
+              SoundEngine.crunch(carHit(P, tr, 0, 1, e) * P.invMass); // metal by Δv (0193)
               playerAfterHit(P, speedToWorld, 22);
             } else {
               const dir = GameState.playerX < tr.offset ? -1 : 1;
@@ -1768,7 +1768,7 @@ export const LiveTrafficMethods = {
               P.offset = GameState.playerX;
               // Side-swiping traffic: a real sideways impulse (a semi throws you, a sedan
               // gives), door friction, and the crumple costs a share of your speed.
-              carHit(P, tr, -dir, 0, e);
+              SoundEngine.crunch(carHit(P, tr, -dir, 0, e) * P.invMass); // metal by Δv (0193)
               P.vx += dir * (0.25 + 0.4 * (1 - share));
               playerAfterHit(P, speedToWorld, 26);
               GameState.speed = Math.max(26, GameState.speed * 0.9);

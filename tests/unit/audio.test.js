@@ -25,16 +25,20 @@ const reachesDestination = (ctx, node, seen = new Set()) => {
 };
 
 describe('SoundEngine graph (ticket 0006)', () => {
-  it('routes music, sfx and engine buses through one compressor into master → destination', async () => {
+  it('routes music, sfx and engine buses through one compressor and a limiter into master → destination', async () => {
     const { SoundEngine } = await import('../../src/audio.js');
     SoundEngine.init();
     const ctx = created[0];
-    const { musicBus, sfxBus, engineBus, compressor, masterGain } = SoundEngine;
+    const { musicBus, sfxBus, engineBus, compressor, limiter, masterGain } = SoundEngine;
     for (const bus of [musicBus, sfxBus, engineBus]) expect(bus.outputs).toEqual([compressor]);
     expect(compressor.kind).toBe('compressor');
-    expect(compressor.outputs).toEqual([masterGain]);
+    expect(compressor.outputs).toEqual([limiter]);
+    expect(limiter.kind).toBe('compressor');
+    expect(limiter.ratio.value).toBeGreaterThanOrEqual(12);
+    expect(limiter.outputs).toEqual([masterGain]);
     expect(masterGain.outputs).toEqual([ctx.destination]);
   });
+
 
   it('one-shot SFX land on the sfx bus, not straight on master', async () => {
     const { SoundEngine } = await import('../../src/audio.js');

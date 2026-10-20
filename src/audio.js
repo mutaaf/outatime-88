@@ -1,8 +1,10 @@
 // Audio engine (Web Audio): engine voice, SFX, procedural synthwave score. Recorded CC0 samples,
 // the sampled engine and the tyre squeal live in a lazy chunk (src/sfx/bank.js, ticket 0133);
 // every sound keeps its synth voice as the fallback until (or unless) its sample decodes.
-// Graph (ticket 0006): musicBus / sfxBus / engineBus → compressor → masterGain → destination,
-// so stacked crashes and warps duck under a limiter instead of clipping over the music.
+// Graph (ticket 0006): musicBus / sfxBus / engineBus → compressor → limiter → masterGain →
+// destination, so stacked crashes and warps duck under a limiter instead of clipping over the
+// music. The street-tuner layer (src/sfx/tuner.js, ticket 0193) is a lazy chunk, fully
+// synthesized; updateEngine drives it once per frame.
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { ERAS } from './data.js';
@@ -39,6 +41,9 @@ export const SoundEngine = {
   // Music and SFX levels from the settings panel (ticket 0050), on top of the master volume.
   musicMix: normalizeSettings(SaveStore.data.settings).musicVolume,
   sfxMix: normalizeSettings(SaveStore.data.settings).sfxVolume,
+  tuner: null,
+  shape: 'GULLWING',
+  carName: '',
   musicTimer: null,
   scheduler: null,
   musicBus: null,
@@ -69,7 +74,11 @@ export const SoundEngine = {
         this.engineBus = ctx.createGain();
         this.engineBus.gain.setValueAtTime(0.0001, ctx.currentTime);
         for (const bus of [this.musicBus, this.sfxBus, this.engineBus]) bus.connect(this.compressor);
-        this.compressor.connect(this.masterGain);
+        // A fast, high-ratio stage after the glue compressor: nothing past it ever clips.
+        const lim = this.limiter = ctx.createDynamicsCompressor();
+        lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.08;
+        this.compressor.connect(lim);
+        lim.connect(this.masterGain);
         this.masterGain.connect(ctx.destination);
         this.buildEngineVoice();
         this.loadBank();
@@ -145,6 +154,7 @@ export const SoundEngine = {
   /** Fetch the recorded samples in the background once there's an AudioContext. */
   loadBank() {
     if (this.bankLoading || !this.ctx) return;
+    import('./sfx/tuner.js').then((m) => { this.tuner = m.createTuner(this.ctx, this); this.tuner.setCharacter(this.shape, this.carName); }, () => {});
     this.bankLoading = import('./sfx/bank.js').then((m) => {
       this.bank = m.createBank(this.ctx, { sfx: this.sfxBus, engine: this.engineBus });
       m.bindUiClicks(document, () => { if (GameState.status !== 'PLAYING') this.sample('click', 0.95 + Math.random() * 0.1); });
@@ -162,6 +172,7 @@ export const SoundEngine = {
   },
   /** Start lights (go = the green light). */
   playBeep(go) {
+    this.tuner?.beep(go);
     if (!this.sample('beep', go ? 2 : 1, go ? 1.1 : 0.9)) this.playTone(go ? 880 : 440, 'square', go ? 0.5 : 0.22, go ? 0.2 : 0.17);
   },
   playLand() { if (!this.sample('land')) this.playCrash(); },
@@ -189,7 +200,10 @@ export const SoundEngine = {
   enginePitch: 1,
   engineGrowl: 1,
   /** Each roster car sounds like itself: a van rumbles low, a light-cycle whines high. */
-  setEngineVoice(shape) {
+  setEngineVoice(shape, carName = '') {
+    this.shape = shape;
+    this.carName = carName;
+    this.tuner?.setCharacter(shape, carName);
     const v = ENGINE_VOICES[shape] || ENGINE_VOICES.GULLWING;
     this.enginePitch = v[0];
     this.engineGrowl = v[1];
@@ -203,9 +217,15 @@ export const SoundEngine = {
     this.engineOsc.type = this.electric ? 'sine' : 'sawtooth';
     this.engineSub.type = this.electric ? 'triangle' : 'square';
   },
-  /** Called every frame; cheap (three param targets, no allocation). */
+  /** Called every frame; cheap (param targets, no allocation). */
   updateEngine(speedMph, playing) {
     if (!this.ctx || !this.engineOsc) return;
+    this.engineFrame(speedMph, playing);
+    this.tuner?.frame(GameState, playing, hooks.world);
+  },
+  /** A hit's Δv (world Z/s, src/rigid.js): a metal crunch scaled by it. */
+  crunch(dv) { this.tuner?.crunch(dv); },
+  engineFrame(speedMph, playing) {
     const t = this.ctx.currentTime;
     const b = this.bank;
     if (b) {
@@ -269,6 +289,7 @@ export const SoundEngine = {
     setTimeout(() => this.playTone(880, 'square', 0.15, 0.13), 65);
   },
   playTakedown() {
+    this.tuner?.duck(0.5, 0.4);
     if (this.sample('takedown')) { this.sample('crash2', 0.85); return; }
     // Visceral takedown crunch + rising power chord!
     this.playTone(95, 'sawtooth', 0.35, 0.24, 42);
@@ -296,6 +317,7 @@ export const SoundEngine = {
   },
   /** Endless tier up (ticket 0150): a bright rising arpeggio over the checkpoint chime. */
   playLevelUp() {
+    this.tuner?.levelUp();
     if (this.sample('checkpoint', 1.25)) { this.sample('whoosh', 0.8, 0.6); return; }
     [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => setTimeout(() => this.playTone(n, 'square', 0.16, 0.13), i * 70));
   },

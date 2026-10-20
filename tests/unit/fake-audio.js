@@ -39,6 +39,9 @@ export class FakeAudioContext {
   }
   createBuffer(ch, len) { return { length: len, getChannelData: () => new Float32Array(len) }; }
   createBufferSource() { const n = new Source(this, 'buffer'); n.buffer = null; n.playbackRate = new Param(1); return n; }
+  createConvolver() { const n = new Node(this, 'convolver'); n.buffer = null; return n; }
+  createStereoPanner() { const n = new Node(this, 'panner'); n.pan = new Param(0); return n; }
+  createWaveShaper() { const n = new Node(this, 'shaper'); n.curve = null; return n; }
   resume() { this.state = 'running'; return Promise.resolve(); }
   suspend() { this.state = 'suspended'; return Promise.resolve(); }
 }
