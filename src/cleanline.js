@@ -91,6 +91,8 @@ const TRAFFIC_LANES = [-0.48, 0.48, -0.2, 0.2];
 export function createHazardPlanner({ line, rand = Math.random, level = 0, avoid = null }) {
   // `avoid(z0, z1)` → true where set pieces (loops, gaps, ramps, half-pipes) live: no hazards there.
   const blocked = (z0, z1) => Boolean(avoid && avoid(z0, z1));
+  const trafficClear = (z, offset, halfW, halfL) =>
+    line.isClear(z, offset, halfW, halfL) && line.isClear(z + 2500, offset, halfW, halfL);
   return {
     line,
     /** Base spacing between the recycled obstacles, before density. */
@@ -166,9 +168,10 @@ export function createHazardPlanner({ line, rand = Math.random, level = 0, avoid
       return c >= 0 ? -LINE.shoulder : LINE.shoulder;
     },
 
-    trafficClear(z, offset, halfW, halfL) {
-      return line.isClear(z, offset, halfW, halfL) && line.isClear(z + 2500, offset, halfW, halfL);
-    },
+    // Respawns go through traffic formations (src/formations.js, ticket 0027), built on this.
+    trafficClear,
+    rand,
+    avoid: blocked,
 
     /**
      * Where a traffic car at (z, offset) should steer: stay put while clear, otherwise the

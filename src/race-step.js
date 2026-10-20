@@ -23,6 +23,7 @@ const {
   rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, setTrackPowerups, stepDrive, stepLateral, stepNos,
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, wallContact, warpReady
 } = RACE_DEPS;
+import { createFormationStream } from './formations.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
@@ -1604,6 +1605,13 @@ export const LiveTrafficMethods = {
     }
 
     const waveTrafficMphBonus = Math.min(16, (GameState.waveTier - 1) * 2.0);
+    // Traffic formations (ticket 0027), one stream per race's planner.
+    if (!this.formations || this.formations.planner !== this.planner) {
+      const p = this.planner;
+      this.formations = createFormationStream({ rand: p.rand, line: p.line, clear: p.trafficClear, avoid: p.avoid });
+      this.formations.planner = p;
+    }
+    this.formations.advance(dt, speedToWorld, waveTrafficMphBonus);
     for (let i = 0; i < this.traffic.length; i++) {
       const tr = this.traffic[i];
       // Cruise control: traffic pulls back up to its speed gently after a knock (src/rigid.js).
@@ -1709,12 +1717,16 @@ export const LiveTrafficMethods = {
       if (relZ < -800 || tr.takenDown || (trF && trF.kind !== 'BOOSTER')) {
         tr.takenDown = false;
         tr.y = 0; tr.vy = 0; tr.vx = 0; tr.rot = 0; tr.vRot = 0; tr.yaw = 0; tr.vYaw = 0; tr.stun = 0;
+        // The next car of the current formation (ticket 0027): patterns, not random spawns.
+        let maxT = playerZ + 12000;
+        for (let k = 0; k < this.traffic.length; k++) if (this.traffic[k].worldZ > maxT) maxT = this.traffic[k].worldZ;
+        const spot = this.formations.spawn({ aheadZ: maxT, minZ: playerZ + 12000, wave: GameState.waveTier || 1, halfW: tr.halfW, halfL: tr.halfL, gapScale: GameState.trafficGapScale });
+        tr.mph = spot.mph;
         tr.vz = (tr.mph + waveTrafficMphBonus) * speedToWorld;
-        const maxT = Math.max(playerZ + 12000, ...this.traffic.map(t => t.worldZ));
-        tr.worldZ = maxT + (4800 + RS.trafficRand() * 2200) * GameState.trafficGapScale;
+        tr.worldZ = spot.z;
         for (let k = 0; k < 20 && hasSetPieceBetween(tr.worldZ - 600, tr.worldZ + 600); k++) tr.worldZ += 2000;
         tr.prevZ = tr.worldZ;
-        tr.offset = this.planner.trafficLane(i, tr.worldZ, GameState.waveTier || 1, tr.halfW, tr.halfL);
+        tr.offset = spot.offset;
         tr.nearMissed = false;
         continue;
       }

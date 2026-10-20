@@ -5,6 +5,7 @@
 // clean path a slow-steering car can actually drive.
 import { describe, it, expect } from 'vitest';
 import { createLine, createHazardPlanner, densityAt, LINE, TRAFFIC_LATERAL } from '../../src/cleanline.js';
+import { createFormationStream } from '../../src/formations.js';
 import { materialFor } from '../../src/materials.js';
 import { mulberry32 } from '../../src/daily.js';
 import { raceLengthFor } from '../../src/raceflow.js';
@@ -16,14 +17,14 @@ const TRAFFIC = [ // matches LiveTraffic.init
 ];
 
 /** Simulate one race at a constant player speed; returns the hazard snapshot per Z step. */
-function runRace(seed, level, { mph = 90, pace = 0.46, step = 200, trafficOnly = false } = {}) {
+function runRace(seed, level, { mph = 90, pace = 0.46, step = 200, trafficOnly = false, wave = 1 } = {}) {
   const rand = mulberry32(seed);
   const line = createLine(seed);
   const planner = createHazardPlanner({ line, rand, level });
+  const formations = createFormationStream({ rand: planner.rand, line, clear: planner.trafficClear, avoid: planner.avoid });
   const s2w = (11000 * pace) / 88;
   const vp = mph * s2w;
   const raceZ = raceLengthFor(level) * s2w;
-  const wave = 1;
   // Initial obstacles and traffic, as LiveTraffic.init places them.
   const obstacles = [];
   const statics = []; // every obstacle and prop ever placed
@@ -44,15 +45,17 @@ function runRace(seed, level, { mph = 90, pace = 0.46, step = 200, trafficOnly =
   const frames = [];
   const dt = step / vp;
   for (let pz = 0; pz <= raceZ; pz += step) {
+    formations.advance(dt, s2w);
     for (let i = 0; i < traffic.length; i++) {
       const tr = traffic[i];
       tr.z += tr.mph * s2w * dt;
       const target = planner.trafficTarget(tr.z, tr.offset, tr.halfW, tr.halfL);
       tr.offset += Math.max(-TRAFFIC_LATERAL * dt, Math.min(TRAFFIC_LATERAL * dt, target - tr.offset));
       if (tr.z - pz < -800) {
+        // Formations (ticket 0027), as LiveTraffic respawns them.
         const maxT = Math.max(pz + 12000, ...traffic.map((t) => t.z));
-        tr.z = maxT + 4800 + rand() * 2200;
-        tr.offset = planner.trafficLane(i, tr.z, wave, tr.halfW, tr.halfL);
+        const spot = formations.spawn({ aheadZ: maxT, minZ: pz + 12000, wave, halfW: tr.halfW, halfL: tr.halfL });
+        tr.z = spot.z; tr.offset = spot.offset; tr.mph = spot.mph;
       }
     }
     for (let i = 0; i < obstacles.length; i++) {
@@ -129,7 +132,7 @@ describe('the clean line (sprint 4)', () => {
   it('500 seeds × every level: nothing that costs points ever touches the line', () => {
     for (let level = 0; level < 5; level++) {
       for (let seed = 1; seed <= 500; seed++) {
-        const { frames, statics, line } = runRace(seed * 7919 + level, level, { mph: seed % 2 ? 60 : 110, trafficOnly: true });
+        const { frames, statics, line } = runRace(seed * 7919 + level, level, { mph: seed % 2 ? 60 : 110, trafficOnly: true, wave: 1 + (seed % 4) });
         // Obstacles, cones and barrels: the line keeps clear of them over their whole length.
         for (const h of statics) {
           const m = materialFor(h.type);
@@ -149,7 +152,7 @@ describe('the clean line (sprint 4)', () => {
     for (let level = 0; level < 5; level++) {
       for (let seed = 1; seed <= 40; seed++) {
         for (const mph of [55, 95, 135]) {
-          const res = cleanPathExists(runRace(seed * 31 + level, level, { mph }).frames);
+          const res = cleanPathExists(runRace(seed * 31 + level, level, { mph, wave: 1 + ((seed + level) % 4) }).frames);
           expect(res, `seed ${seed} level ${level} ${mph} mph`).toEqual({ ok: true });
         }
       }

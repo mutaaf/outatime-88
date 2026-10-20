@@ -147,6 +147,9 @@ src/era-palettes.js ERA_PALETTES: sky/horizon/fog/sun/ground + weather per era �
 src/garage-ui.js    Garage showroom + NEW CAR reveal (lazy chunk with car-art.js turntable and garage.css)
 src/missions.js     Run missions (0026): three distinct contracts per run (seeded on dailies), today's tally in the save
                       (solo/daily finishes; live rooms pay completions but have their own results)
+src/formations.js   Traffic formations (0027), pure: SOLO/STAGGER → CONVOY/SLALOM → GATE → WALL unlocked by wave, a seeded
+                      stream that hands them out one freed traffic car at a time (race step), every car clear of the
+                      racing line (src/cleanline.js trafficClear), so the line is always the open lane
 src/hazards.js      Endless hazards (0186): pure rules — run-ending road hazards (bridge, wrong-way, low overpass,
                       crumbling lanes, train, missing guardrail, storm lightning), fuel, NOS heat, stall, the Patrol,
                       checkpoints, deaths by cause (save.endless.hz). Lazy, with src/hazard-run.js (glue, loaded by main after
