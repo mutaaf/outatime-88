@@ -592,8 +592,8 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .rc-car { margin-top: 4px; font-family: 'Inter', sans-serif; font-size: clamp(12px, 1.9vmin, 18px); font-weight: 700; color: #cbd5e1; }
 /* The grid (ticket 0111): one compact row of six chips above the lights, ≤12% of the screen. */
 .rc-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; width: min(96vw, 640px); }
-.rc-chip { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 3px 4px; border-radius: 8px;
-  font-size: clamp(10px, 1.6vmin, 14px); font-weight: 800; white-space: nowrap; overflow: hidden;
+.rc-chip { flex: 1 1 0; min-width: 0; display: block; text-align: center; padding: 3px 2px; border-radius: 8px;
+  font-size: clamp(10px, 1.6vmin, 14px); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   color: #fff; background: rgba(2, 6, 23, 0.86); border-left: 5px solid var(--c1); }
 .rc-chip b { color: #fde047; }
 .rc-chip-you { border: 2px solid #ff8800; border-left-width: 5px; }

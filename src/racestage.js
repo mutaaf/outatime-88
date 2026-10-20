@@ -29,6 +29,7 @@ export function say(text) {
 // pollGamepad). Mouse counts as keyboard: a desktop player's hands are on the keys.
 window.addEventListener('keydown', () => { InputState.lastInput = 'keys'; }, true);
 window.addEventListener('pointerdown', (e) => { InputState.lastInput = e.pointerType === 'mouse' ? 'keys' : 'touch'; }, true);
+window.addEventListener('gamepadconnected', () => { InputState.lastInput = 'pad'; });
 const hint = () => startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
 
 const beep = (hz, len = 0.16, vol = 0.16, type = 'square') => { try { SoundEngine.playTone(hz, type, len, vol); } catch (e) {} };

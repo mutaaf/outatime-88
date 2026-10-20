@@ -148,7 +148,9 @@ test.describe('on a phone', () => {
     const problems = watchPage(page);
     await page.goto(`${APP}?debug&intro`);
     await ready(page);
-    await page.touchscreen.tap(5, 5);
+    // A finger on the screen (not the title's one-tap start) makes touch the input in hand.
+    await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch' })));
+    expect(await page.evaluate(() => window.__OT.InputState.lastInput)).toBe('touch');
     await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
     await expect(page.locator('#rcSkip')).toHaveText('TAP TO SKIP ▶▶');
     await page.locator('#rcSkip').tap();
@@ -159,21 +161,44 @@ test.describe('on a phone', () => {
   });
 });
 
+const fakePad = (page) => page.addInitScript(() => {
+  const btn = (i) => ({ get pressed() { return window.__padDown === i; }, get value() { return window.__padDown === i ? 1 : 0; } });
+  const pad = { connected: true, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, (_, i) => btn(i)) };
+  navigator.getGamepads = () => [pad];
+});
+
 test('gamepad: the grid names the pad button, and X skips the line-up', async ({ page }) => {
   const problems = watchPage(page);
-  await page.addInitScript(() => {
-    const btn = (i) => ({ get pressed() { return window.__padDown === i; }, get value() { return window.__padDown === i ? 1 : 0; } });
-    const pad = { connected: true, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, (_, i) => btn(i)) };
-    navigator.getGamepads = () => [pad];
-  });
+  await fakePad(page);
   await page.goto(`${APP}?debug&intro`);
   await ready(page);
+  await page.evaluate(() => window.dispatchEvent(new Event('gamepadconnected'))); // a pad's first press
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
-  await expect(page.locator('#rcCard')).toBeVisible();
-  await page.evaluate(() => { window.__padDown = 2; }); // X goes down: the pad is the input in hand
+  await expect(page.locator('#rcSkip')).toHaveText('PRESS X TO SKIP ▶▶');
+  await page.evaluate(() => { window.__padDown = 2; }); // X goes down
   await expect(page.locator('#rcLights')).toBeVisible({ timeout: 3000 });
   await page.evaluate(() => { window.__padDown = -1; });
   await expect(page.locator('#rcHint')).toHaveText('PRESS X OR RB RIGHT ON GREEN FOR A ROCKET START');
   expect(await rocketPrompts(page)).toBe(1);
+  expect(problems).toEqual([]);
+});
+
+test('gamepad: X right on green is a rocket start, like Space', async ({ page }) => {
+  const problems = watchPage(page);
+  await fakePad(page);
+  await page.goto(`${APP}?debug&intro`);
+  await ready(page);
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+  await page.locator('#rcSkip').click();
+  await expect(page.locator('#rcLights')).toHaveAttribute('data-state', '1');
+  // Press as the light turns green (game time, not the wall clock: see the Space test above).
+  await page.evaluate(() => new Promise((done) => {
+    const el = document.getElementById('rcLights');
+    const press = () => { window.__padDown = 2; done(); };
+    if (el.dataset.state === 'go') { press(); return; }
+    new MutationObserver((_, obs) => { if (el.dataset.state === 'go') { obs.disconnect(); press(); } }).observe(el, { attributes: true });
+  }));
+  await expect.poll(() => gs(page, 'launchResult')).toMatch(/perfect|good/);
+  await page.evaluate(() => { window.__padDown = -1; });
   expect(problems).toEqual([]);
 });
