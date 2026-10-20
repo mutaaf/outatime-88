@@ -154,3 +154,31 @@ for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { wi
     expect(problems).toEqual([]);
   });
 }
+
+// 0190 worst case: a nemesis ahead, a rival behind, a long race and the clock all at once.
+// The race is paused so the HUD holds the forced text while we measure it.
+for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { width: 600, height: 960 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1280, height: 720 }]) {
+  test(`worst-case gap pills and clock still fit at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+    await racing(page, { minTime: 0.5 });
+    await page.evaluate(() => {
+      window.__OT.pause();
+      const compact = matchMedia('(max-width: 599px) and (orientation: portrait)').matches;
+      document.getElementById('hudGapAhead').textContent = compact ? '▲ 😈+9.9s' : '▲ 😈RIN +9.9s';
+      document.getElementById('hudGapBehind').textContent = compact ? '▼ −9.9s' : '▼ VEX −9.9s';
+      document.getElementById('hudTime').textContent = '9:59.9';
+      document.getElementById('hudClock').textContent = '60';
+    });
+    await page.waitForTimeout(200); // the HUD would overwrite the text within a tick if it were still running
+    const t = await readTimes(page);
+    expect(t.ahead).toContain('9.9');
+    for (const p of t.parts) {
+      expect(p.clip, `${p.id} "${p.text}" is cut off`).toBeLessThanOrEqual(0);
+      for (const c of t.cards) expect(intersects(p.box, c), `${p.id} overlaps a HUD card`).toBeFalsy();
+    }
+    expect(problems).toEqual([]);
+  });
+}

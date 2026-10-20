@@ -118,7 +118,7 @@ export function updateRaceHud(force) {
   hudView.timeLeft = GameState.timeLeft;
   hudView.clockUrgent = GameState.finalStretch || GameState.timeLeft < 10;
   hudView.infinite = GameState.mode === 'INFINITE';
-  hudView.compact = Boolean(phonePortrait && phonePortrait.matches); // same query as the phone HUD's CSS (0190)
+  hudView.compact = Boolean(phonePortrait && phonePortrait.matches); // the phone-portrait HUD layout in styles.css (0190)
   hudView.mph = GameState.speed;
   hudView.flux = GameState.fluxCharge;
   hudView.nos = GameState.nosFill || 0;
