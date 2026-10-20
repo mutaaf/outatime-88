@@ -132,3 +132,44 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
     expect(problems).toEqual([]);
   });
 }
+
+// Ticket 0194: with keyboard/mouse on a full HUD the coach's tip docks top-left, under the
+// place card, so the road ahead (where traffic appears and you draft) stays clear. Touch
+// screens keep the centred lane (their controls avoid it; see src/touch/touch-ui.js).
+test.describe('desktop tip card', () => {
+  test.use({ hasTouch: false });
+  for (const vp of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 1920, height: 1080 }]) {
+    test(`the tip stays off the road ahead at ${vp.width}x${vp.height}`, async ({ page }) => {
+      const problems = watchPage(page);
+      await page.setViewportSize(vp);
+      await page.goto(`${APP}?debug`);
+      await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+      // The coach shows its first tip by itself once the start is over.
+      await page.waitForFunction(() => document.getElementById('interactiveCoachBanner').style.opacity === '1', null, { timeout: 30_000 });
+      await page.evaluate(() => window.__OT.pause());
+      const all = await boxes(page, [...PANELS, '#coachCard']);
+      const tip = all['#coachCard'];
+      expect(tip, 'tip visible').toBeTruthy();
+      expect(tip.width, 'tip width').toBeLessThanOrEqual(320);
+      const band = { x: vp.width * 0.3, y: vp.height * 0.15, width: vp.width * 0.4, height: vp.height * 0.55 };
+      expect(overlap(tip, band), 'tip over the road ahead').toBeFalsy();
+      expect(tip.x).toBeGreaterThanOrEqual(0);
+      expect(tip.y + tip.height).toBeLessThanOrEqual(vp.height);
+      for (const sel of PANELS) if (all[sel]) expect(overlap(tip, all[sel]), `tip overlaps ${sel}`).toBeFalsy();
+      // The ±N HP pop drops from under the place card (scaled 1.25, drifting 14 px): the tip
+      // sits below its whole path, so a hit or a repair always reads.
+      const popBottom = await page.evaluate(() => {
+        const card = document.getElementById('hudPosCard').getBoundingClientRect();
+        return card.bottom + parseFloat(getComputedStyle(document.getElementById('hudHpPop')).fontSize) * 1.25 + 14;
+      });
+      expect(tip.y, 'tip under the HP pop').toBeGreaterThanOrEqual(popBottom);
+      // GOT IT still clears it for the rest of the race.
+      await page.evaluate(() => { window.__OT.GameState.status = 'PLAYING'; });
+      await page.locator('#btnDismissCoach').click();
+      await expect.poll(() => page.evaluate(() => document.getElementById('interactiveCoachBanner').style.opacity)).toBe('0');
+      await page.waitForTimeout(300);
+      expect(await page.evaluate(() => document.getElementById('interactiveCoachBanner').style.opacity)).toBe('0');
+      expect(problems).toEqual([]);
+    });
+  }
+});
