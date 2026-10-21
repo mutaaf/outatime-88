@@ -320,6 +320,7 @@ const RING_ORDER = ['MAGNET', 'SHIELD', 'DOUBLER'];
  * Draw the active power-ups' timer rings (left edge, stacked) and, while the shield is up, a
  * bubble around the car at (carX, carY). `st` is src/powerups.js state; nothing allocates.
  */
+let shieldGrad = null;
 export function drawPowerHud(ctx, rw, rh, st, carX, carY, t, still) {
   if (!st || !st.on) return;
   const r = Math.max(13, Math.min(rw, rh) * 0.042);
@@ -348,12 +349,17 @@ export function drawPowerHud(ctx, rw, rh, st, carX, carY, t, still) {
   if (st.t.SHIELD > 0) {
     const R = Math.max(30, rw * 0.085);
     const pulse = still ? 0 : Math.sin(t * 5) * 0.06;
-    const g = ctx.createRadialGradient(carX, carY, R * 0.55, carX, carY, R * (1.05 + pulse));
-    g.addColorStop(0, 'rgba(56,189,248,0)');
-    g.addColorStop(0.8, 'rgba(56,189,248,0.16)');
-    g.addColorStop(1, 'rgba(186,230,253,0.55)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.ellipse(carX, carY, R * (1.05 + pulse), R * 0.72 * (1.05 + pulse), 0, 0, Math.PI * 2); ctx.fill();
+    const k = R * (1.05 + pulse);
+    if (!shieldGrad) {
+      // One gradient (outer radius 1), scaled onto the ring at fill time (ticket 0005). The pulse
+      // breathes the inner edge with the outer one instead of holding it still: ±6% of a fade.
+      shieldGrad = ctx.createRadialGradient(0, 0, 0.55 / 1.05, 0, 0, 1);
+      shieldGrad.addColorStop(0, 'rgba(56,189,248,0)');
+      shieldGrad.addColorStop(0.8, 'rgba(56,189,248,0.16)');
+      shieldGrad.addColorStop(1, 'rgba(186,230,253,0.55)');
+    }
+    ctx.beginPath(); ctx.ellipse(carX, carY, k, R * 0.72 * (1.05 + pulse), 0, 0, Math.PI * 2);
+    ctx.save(); ctx.translate(carX, carY); ctx.scale(k, k); ctx.fillStyle = shieldGrad; ctx.fill(); ctx.restore();
     ctx.strokeStyle = st.t.SHIELD < 2 && !still && Math.sin(t * 18) > 0 ? 'rgba(186,230,253,0.25)' : 'rgba(186,230,253,0.8)';
     ctx.lineWidth = Math.max(1.5, R * 0.035);
     ctx.stroke();
