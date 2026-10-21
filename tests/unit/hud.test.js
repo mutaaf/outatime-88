@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createHud } from '../../src/hud.js';
+import { createHud, scoreText } from '../../src/hud.js';
+import { breakdown, createPenaltyLog, logHit, penaltyPoints } from '../../src/scoring.js';
 
 /** A tiny DOM stand-in that counts writes, so we can prove the HUD only writes on change. */
 function fakeDoc() {
@@ -82,16 +83,57 @@ describe('race HUD (ticket 0051)', () => {
 });
 
 describe('score readout', () => {
-  it('labels the score as points and marks a negative one, so it never reads as flux', () => {
+  it('labels the score as points, so it never reads as flux', () => {
     const doc = fakeDoc();
     const hud = createHud(doc);
-    hud.update(view({ score: -4877 }));
-    const el = doc.getElementById('hudScore');
-    expect(el.textContent).toBe(`${(-4877).toLocaleString()} PTS`);
-    expect(el.classList.contains('is-neg')).toBe(true);
     hud.update(view({ score: 12345 }));
+    const el = doc.getElementById('hudScore');
     expect(el.textContent).toBe(`${(12345).toLocaleString()} PTS`);
-    expect(el.classList.contains('is-neg')).toBe(false);
+    expect(el.classList.contains('is-pen')).toBe(false);
+  });
+
+  // Ticket 0199: penalties can push the running total below zero, but the final score is
+  // max(0, earned − penalty), so the pill shows 0 with a PENALTY tag and never a minus sign.
+  it('shows 0 PTS with the penalty tag when penalties outweigh what was earned', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    hud.update(view({ score: -23516 }));
+    const el = doc.getElementById('hudScore');
+    expect(el.textContent).toBe('0 PTS');
+    expect(el.textContent).not.toMatch(/[-−]/);
+    expect(el.classList.contains('is-pen')).toBe(true);
+    hud.update(view({ score: 500 }));
+    expect(el.textContent).toBe(`${(500).toLocaleString()} PTS`);
+    expect(el.classList.contains('is-pen')).toBe(false);
+  });
+});
+
+describe('scoreText (ticket 0199)', () => {
+  it('clamps at zero and rounds the way the final score does', () => {
+    expect(scoreText(-23516)).toBe('0 PTS');
+    expect(scoreText(-0.4)).toBe('0 PTS');
+    expect(scoreText(0)).toBe('0 PTS');
+    expect(scoreText(1234567.6)).toBe(`${(1234568).toLocaleString()} PTS`);
+    expect(scoreText(NaN)).toBe('0 PTS');
+  });
+
+  it('equals the results card final score for the same run', () => {
+    const log = createPenaltyLog();
+    logHit(log, 'traffic', 120);
+    logHit(log, 'obstacle', 90);
+    for (const live of [-30000.7, -0.6, 0, 812.5, 99999.4]) {
+      const final = breakdown(Math.round(live) + penaltyPoints(log), log).final;
+      expect(scoreText(live)).toBe(`${final.toLocaleString()} PTS`);
+    }
+  });
+
+  it('a fraction of a point below zero is not a penalty', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    hud.update(view({ score: -0.4 }));
+    const el = doc.getElementById('hudScore');
+    expect(el.textContent).toBe('0 PTS');
+    expect(el.classList.contains('is-pen')).toBe(false);
   });
 });
 

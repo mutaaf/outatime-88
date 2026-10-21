@@ -136,13 +136,22 @@ export function createHud(doc = document) {
       const ready = s.flux >= 95;
       text(el.fluxLabel, 'fluxLabel', ready ? '⚡ WARP READY' : 'FLUX');
       flag(el.speedCard, 'ready', 'is-ready', ready);
-      // The score sits under the FLUX meter; label it so a post-penalty negative never reads as flux.
-      const pts = Math.floor(s.score);
-      text(el.score, 'score', `${pts.toLocaleString()} PTS`);
-      flag(el.score, 'scoreNeg', 'is-neg', pts < 0);
+      // The score sits under the FLUX meter; labelled as points so it never reads as flux.
+      // Ticket 0199: never below 0 (see scoreText); a negative total is tagged PENALTY instead.
+      const pts = Math.round(s.score);
+      text(el.score, 'score', scoreText(pts));
+      flag(el.score, 'scorePen', 'is-pen', pts < 0);
     },
   };
 }
+
+/**
+ * The live score pill (ticket 0199). Penalties are charged live, so the running total can dip
+ * below zero, but the final score is max(0, earned − penalty) (src/scoring.js): show what the
+ * run would pay now, rounded as the results card rounds it. The HUD tags a negative total
+ * PENALTY (CSS) instead of printing a minus sign.
+ */
+export const scoreText = (score) => `${Math.max(0, Math.round(score) || 0).toLocaleString()} PTS`;
 
 /** Screen rects of every HUD block (for no-overlap checks by other UI, e.g. touch controls). */
 export function hudRects(doc = document) {

@@ -182,3 +182,79 @@ for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { wi
     expect(problems).toEqual([]);
   });
 }
+
+// Ticket 0199: penalties charged live can push the running total below zero, but the run pays
+// max(0, earned − penalty). The pill holds at 0 with a dim PENALTY tag, never a minus sign,
+// stays whole inside the speed card beside the longest flux label, and is no wider than the
+// pill of an ordinary ~1M-point race (the tag sits under the number), so the card never grows
+// sideways because of it and the race-time column beside it keeps its room.
+for (const vp of [{ width: 390, height: 844, touch: true }, { width: 360, height: 740, touch: true }, { width: 844, height: 390, touch: true }, { width: 1280, height: 720 }]) {
+  test.describe(`${vp.width}x${vp.height}`, () => {
+    test.use({ hasTouch: Boolean(vp.touch), viewport: { width: vp.width, height: vp.height } });
+    test(`a penalty-heavy run shows 0 PTS and a PENALTY tag, never a minus, at ${vp.width}x${vp.height}`, async ({ page }) => {
+      const problems = watchPage(page);
+      await page.goto(`${APP}?debug`);
+      await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+      await racing(page, { minTime: 0.5 });
+      await page.evaluate(() => { window.__OT.GameState.score = -23516; });
+      await page.waitForFunction(() => document.getElementById('hudScore').classList.contains('is-pen'));
+      // What the HUD itself wrote, read before anything below touches the pill.
+      const shown = await page.evaluate(() => {
+        window.__OT.pause();
+        const el = document.getElementById('hudScore');
+        const after = getComputedStyle(el, '::after');
+        const rgb = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+        const lum = (c) => { const v = rgb(c).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        const card = lum('rgb(8, 10, 24)'); // the lighter end of the card's dark gradient
+        return {
+          text: el.textContent, tag: after.content, tagOpacity: Number(after.opacity),
+          tagPx: parseFloat(after.fontSize), tagContrast: (lum(after.color) + 0.05) / (card + 0.05),
+        };
+      });
+      expect(shown.text).toBe('0 PTS');
+      expect(shown.text).not.toMatch(/[-−]/);
+      expect(shown.tag).toContain('PENALTY');
+      expect(shown.tagOpacity).toBe(1);
+      expect(shown.tagPx).toBeGreaterThanOrEqual(9);
+      expect(shown.tagContrast, 'PENALTY tag contrast on the HUD card').toBeGreaterThanOrEqual(4.5);
+      const pill = await page.evaluate(() => {
+        const box = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right }; };
+        const el = document.getElementById('hudScore');
+        const card = document.getElementById('hudSpeedCard');
+        const times = document.getElementById('hudTimes');
+        const timesClip = times.scrollWidth - times.clientWidth; // with the FLUX label the race starts with
+        // The same column beside an ordinary mid-race score.
+        el.classList.remove('is-pen');
+        el.textContent = (99999).toLocaleString() + ' PTS';
+        const plainClip = times.scrollWidth - times.clientWidth;
+        document.getElementById('hudFluxLabel').textContent = '⚡ WARP READY'; // the longest label it sits beside
+        // The same card with an ordinary big score in the pill instead.
+        el.classList.remove('is-pen');
+        el.textContent = (1234567).toLocaleString() + ' PTS';
+        const plainCard = card.getBoundingClientRect().width;
+        el.classList.add('is-pen');
+        el.textContent = '0 PTS';
+        return {
+          box: box(el), label: box(document.getElementById('hudFluxLabel')),
+          card: box(card), plainCard, timesClip, plainClip, foot: el.parentElement.scrollWidth - el.parentElement.clientWidth,
+        };
+      });
+      expect(pill.foot, 'score row overflows the speed card').toBeLessThanOrEqual(0);
+      expect(pill.box.right).toBeLessThanOrEqual(pill.card.right + 0.5);
+      expect(intersects(pill.box, pill.label), 'PENALTY tag runs into the flux label').toBeFalsy();
+      expect(pill.card.width, 'the PENALTY tag widened the speed card').toBeLessThanOrEqual(pill.plainCard + 0.5);
+      expect(pill.timesClip, 'the PENALTY tag squeezed the race-time column').toBeLessThanOrEqual(Math.max(0, pill.plainClip));
+      // Every other HUD block (the same set src/hud.js hudRects() returns).
+      const others = await page.evaluate(() => [...document.querySelectorAll('[data-hud-rect]')]
+        .filter((n) => n.id !== 'hudSpeedCard').map((n) => { const r = n.getBoundingClientRect(); return { id: n.id, x: r.x, y: r.y, width: r.width, height: r.height }; })
+        .filter((r) => r.width && r.height));
+      expect(others.length).toBeGreaterThan(0);
+      for (const r of others) expect(intersects(pill.box, r), `score pill overlaps ${r.id}`).toBeFalsy();
+      await page.screenshot({ path: test.info().outputPath(`penalty-pill-${vp.width}.png`) });
+      // The finish pays exactly what the pill showed.
+      await page.evaluate(() => window.__OT.finishRun());
+      await expect(page.locator('#endScoreText')).toHaveText('0');
+      expect(problems).toEqual([]);
+    });
+  });
+}

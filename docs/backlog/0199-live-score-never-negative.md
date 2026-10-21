@@ -1,12 +1,12 @@
 ---
 id: 0199
 title: The live score pill never shows a negative number
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-21
-pr:
+pr: 142
 ---
 
 ## Why
@@ -23,10 +23,10 @@ dim `PENALTY` tag in the same pill (no new element, no second announcement chann
 Single formatting helper, pure and unit-tested.
 
 ## Acceptance criteria
-- [ ] With earned < penalty the pill shows `0 PTS` and the tag, never a minus sign
-- [ ] Pill value equals the results-card final score at the finish
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse; pill does not widen or overlap `hudRects()`
-- [ ] No frame-time regression (change-only DOM writes kept)
+- [x] With earned < penalty the pill shows `0 PTS` and the tag, never a minus sign
+- [x] Pill value equals the results-card final score at the finish
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse; pill does not widen or overlap `hudRects()`
+- [x] No frame-time regression (change-only DOM writes kept)
 
 ## Test plan
 Unit test for the formatter (negative, zero, large). E2E: force `GameState` score and penalty
