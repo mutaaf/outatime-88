@@ -1,7 +1,7 @@
 ---
 id: 0197
 title: Slipstream charge you can see and hear building to the slingshot
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
@@ -16,11 +16,11 @@ Drafting is a core skill (the coach even teaches "draft the green wake"), but th
 While `GameState.draftingCar` is set, tie a rising tone (audio clock, pitch from `draftCharge`) and speed-line intensity/tint to `draftCharge` (0-100) so the slingshot is anticipated; at >= 80% add a distinct "about to fire" pulse. Silent and still when not drafting. Touches `src/race-step.js` (read-only of `draftCharge`), `src/fx.js`/`src/smoke2d.js` speed lines, `src/audio.js` or `src/sfx/`. Reduced motion: keep the audio, drop the pulse (static tint only). No new per-frame allocations.
 
 ## Acceptance criteria
-- [ ] Unit test: the cue chooser maps `draftCharge` 0..100 to a monotonic tone pitch and a line intensity; returns "off" when not drafting
-- [ ] The tone starts only while drafting and stops within 200 ms of leaving the wake; muted = no oscillator started
-- [ ] Under `reducedMotion: 'reduce'` no pulse animation runs, static tint only
-- [ ] Zero-overlap HUD e2e still green at 390x844 and 1280x720; perf probe no worse than `docs/PERF.md`
-- [ ] Main JS budget held (cue lives in a lazy sfx/fx module)
+- [x] Unit test: the cue chooser maps `draftCharge` 0..100 to a monotonic tone pitch and a line intensity; returns "off" when not drafting
+- [x] The tone starts only while drafting and stops within 200 ms of leaving the wake; muted = no oscillator started
+- [x] Under `reducedMotion: 'reduce'` no pulse animation runs, static tint only
+- [x] Zero-overlap HUD e2e still green at 390x844 and 1280x720; perf probe no worse than `docs/PERF.md`
+- [x] Main JS budget held (cue lives in a lazy sfx/fx module)
 
 ## Test plan
 Unit test for the mapping; e2e forces `draftingCar` and `draftCharge` and asserts the cue state; screenshot at charge 90.
