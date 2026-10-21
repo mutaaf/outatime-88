@@ -1976,8 +1976,10 @@ function bindAllControls() {
       startNewRace(titleStart || { mode: 'INFINITE' });
       return;
     }
-    if (['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(e.code)) RS.onboarding.steer();
-    if (['ArrowLeft', 'KeyA'].includes(e.code)) {
+    // Rebound keys (0013, src/keybinds.js) arrive as the default key their action answers to.
+    const c = InputState.keyMap?.[e.code] ?? e.code;
+    if (['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(c)) RS.onboarding.steer();
+    if (['ArrowLeft', 'KeyA'].includes(c)) {
       if (!InputState.left) {
         if (GameState.playerY > 10) {
           performHumanTrick('LEFT');
@@ -1989,7 +1991,7 @@ function bindAllControls() {
       }
       InputState.left = true;
     }
-    if (['ArrowRight', 'KeyD'].includes(e.code)) {
+    if (['ArrowRight', 'KeyD'].includes(c)) {
       if (!InputState.right) {
         if (GameState.playerY > 10) {
           performHumanTrick('RIGHT');
@@ -2001,39 +2003,40 @@ function bindAllControls() {
       }
       InputState.right = true;
     }
-    if (['ArrowUp', 'KeyW'].includes(e.code)) {
+    if (['ArrowUp', 'KeyW'].includes(c)) {
       if (GameState.playerY > 10 && !e.repeat) performHumanTrick('UP');
       InputState.up = true;
     }
     const racing = GameState.status === 'PLAYING';
-    if (e.code === 'KeyN' && !racing) selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
-    if (['ShiftLeft', 'ShiftRight'].includes(e.code) || (e.code === 'KeyN' && racing)) InputState.nosHeld = true;
-    if (['ArrowDown', 'KeyS'].includes(e.code)) { if (GameState.playerY > 12 && !e.repeat) performHumanTrick('DOWN'); InputState.down = true; }
-    if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) InputState.boostPressed = true; }
-    if (['KeyH', 'KeyE'].includes(e.code) && !e.repeat) { if (GameState.playerY > 12) performHumanTrick('UP'); else InputState.hoverPressed = true; }
-    if (e.code === 'KeyZ') InputState.zonePressed = true;
-    if (e.code === 'KeyX') InputState.agroPressed = true;
-    if (e.code === 'KeyR') InputState.roarPressed = true;
-    if (e.code === 'KeyQ') InputState.twoWheelPressed = true;
-    if (e.code === 'KeyF') InputState.slamPressed = true;
-    if (e.code === 'KeyB') fireUnibeam();
-    if (e.code === 'KeyI') cycleJarvisMode();
-    if (e.code === 'KeyK' && steerModes) steerModes.cycleMode(e.shiftKey ? -1 : 1);
-    if (e.code === 'KeyJ') toggleJarvisArHud();
-    if (e.code === 'KeyG') cyclePaceMode();
-    if (e.code === 'KeyC') cycleCameraMode();
-    if (e.code === 'KeyV') cycleVisualMode();
-    if (e.code === 'KeyT') toggleRenderMode();
-    if (e.code === 'KeyM') SoundEngine.toggleMute();
-    if (['KeyP', 'Escape'].includes(e.code)) toggleGarageModal();
+    if (c === 'KeyN' && !racing) selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
+    if (['ShiftLeft', 'ShiftRight'].includes(c) || (c === 'KeyN' && racing)) InputState.nosHeld = true;
+    if (['ArrowDown', 'KeyS'].includes(c)) { if (GameState.playerY > 12 && !e.repeat) performHumanTrick('DOWN'); InputState.down = true; }
+    if (c === 'Space') { e.preventDefault(); if (!e.repeat) InputState.boostPressed = true; }
+    if (['KeyH', 'KeyE'].includes(c) && !e.repeat) { if (GameState.playerY > 12) performHumanTrick('UP'); else InputState.hoverPressed = true; }
+    if (c === 'KeyZ') InputState.zonePressed = true;
+    if (c === 'KeyX') InputState.agroPressed = true;
+    if (c === 'KeyR') InputState.roarPressed = true;
+    if (c === 'KeyQ') InputState.twoWheelPressed = true;
+    if (c === 'KeyF') InputState.slamPressed = true;
+    if (c === 'KeyB') fireUnibeam();
+    if (c === 'KeyI') cycleJarvisMode();
+    if (c === 'KeyK' && steerModes) steerModes.cycleMode(e.shiftKey ? -1 : 1);
+    if (c === 'KeyJ') toggleJarvisArHud();
+    if (c === 'KeyG') cyclePaceMode();
+    if (c === 'KeyC') cycleCameraMode();
+    if (c === 'KeyV') cycleVisualMode();
+    if (c === 'KeyT') toggleRenderMode();
+    if (c === 'KeyM') SoundEngine.toggleMute();
+    if (['KeyP', 'Escape'].includes(c)) toggleGarageModal();
   });
 
   window.addEventListener('keyup', (e) => {
-    if (['ArrowLeft', 'KeyA'].includes(e.code)) InputState.left = false;
-    if (['ArrowRight', 'KeyD'].includes(e.code)) InputState.right = false;
-    if (['ArrowUp', 'KeyW'].includes(e.code)) InputState.up = false;
-    if (['ArrowDown', 'KeyS'].includes(e.code)) InputState.down = false;
-    if (['ShiftLeft', 'ShiftRight', 'KeyN'].includes(e.code)) InputState.nosHeld = false;
+    const c = InputState.keyMap?.[e.code] ?? e.code;
+    if (['ArrowLeft', 'KeyA'].includes(c)) InputState.left = false;
+    if (['ArrowRight', 'KeyD'].includes(c)) InputState.right = false;
+    if (['ArrowUp', 'KeyW'].includes(c)) InputState.up = false;
+    if (['ArrowDown', 'KeyS'].includes(c)) InputState.down = false;
+    if (['ShiftLeft', 'ShiftRight', 'KeyN'].includes(c)) InputState.nosHeld = false;
   });
 
   const wheel = document.getElementById('virtualWheel');

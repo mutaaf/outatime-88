@@ -7,6 +7,9 @@ export const InputState = {
   down: false,
   boostPressed: false,
   lastInput: '',       // 'keys' | 'pad' | 'phone' | 'touch': the input in hand, for prompts (0111)
+  // keyMap (rebound keys, 0013: e.code → the default code main.js acts on) and boostKey (the
+  // rebound BOOST key's name for prompts) are set by src/keybinds.js applyKeys; unset = defaults
+  // (left out here so the startup bundle stays in budget).
   nosHeld: false,      // NOS (ticket 0122): Shift / N while racing, gamepad LB, touch NOS
   touchNos: false,
   hoverPressed: false,

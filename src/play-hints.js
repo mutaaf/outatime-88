@@ -10,4 +10,14 @@ export const PLAY_HINTS = Object.freeze({
   pad: Object.freeze({ coachFlux: 'Hold 88 mph — or press X / RB — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR X!', ramp: 'PRESS X OR Y FOR A MID-AIR TRICK!' }),
   phone: Object.freeze({ coachFlux: 'Hold 88 mph — or hit BOOST — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR BOOST!', ramp: 'HIT BOOST OR HOVER FOR A MID-AIR TRICK!' }),
 });
-export const playHint = (kind) => PLAY_HINTS[kind] || PLAY_HINTS.keys;
+let rebound = null;
+/** `boostKey`: the rebound BOOST key's name (0013, InputState.boostKey); the keyboard words then name it instead of SPACE. */
+export function playHint(kind, boostKey = '') {
+  const h = PLAY_HINTS[kind] || PLAY_HINTS.keys;
+  if (!boostKey || h !== PLAY_HINTS.keys) return h;
+  if (!rebound || rebound.key !== boostKey) {
+    rebound = { key: boostKey };
+    for (const k of Object.keys(h)) rebound[k] = h[k].replace('SPACE', boostKey);
+  }
+  return rebound;
+}

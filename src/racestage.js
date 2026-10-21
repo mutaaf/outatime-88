@@ -4,7 +4,7 @@ import { SoundEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState, setLastInput, padGone } from './input.js';
-import { finishResults, resultHeadline, lineupCall, startHint } from './racecall.js';
+import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS } from './racecall.js';
 import { carPortrait } from './car-sprite.js';
 
 const $ = (id) => document.getElementById(id);
@@ -107,7 +107,10 @@ export const stage = {
     const el = $('rcLights');
     el.classList.remove('hidden');
     el.dataset.state = n === 'go' ? 'go' : String(n);
-    if (n === 3) $('rcHint').textContent = hint().launch;
+    if (n === 3) {
+      const h = hint(); // a rebound BOOST key is named instead of SPACE (0013)
+      $('rcHint').textContent = h === START_HINTS.keys && InputState.boostKey ? h.launch.replace('SPACE', InputState.boostKey) : h.launch;
+    }
     $('rcCount').textContent = n === 'go' ? 'GO!' : String(n);
   },
   /** Chequered flag with your place. */

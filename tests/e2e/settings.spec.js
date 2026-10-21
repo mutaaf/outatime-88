@@ -120,3 +120,96 @@ test.describe('on a touch tablet', () => {
     expect(problems).toEqual([]);
   });
 });
+
+// Ticket 0013: rebindable keyboard keys. Tap an action, press its key; conflicts are refused;
+// the binding survives a reload and drives the car; the arrows always steer too.
+test('a rebound key persists across a reload and drives the action', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug`);
+  await page.locator('#btnOpenSettings').click();
+  const left = page.locator('[data-key-action="left"]');
+  const right = page.locator('[data-key-action="right"]');
+  const boost = page.locator('[data-key-action="boost"]');
+  await expect(left).toHaveText('A');
+  await expect(boost).toHaveText('SPACE');
+  for (const b of await page.locator('#setKeys button, #setKeysReset').all()) {
+    const box = await b.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+  }
+
+  await left.click();
+  await expect(left).toHaveText(/PRESS A KEY/);
+  await page.keyboard.press('KeyL');
+  await expect(left).toHaveText('L');
+  await expect(page.locator('#setKeysNote')).toContainText('STEER LEFT is L');
+  // A conflict is refused and changes nothing.
+  await right.click();
+  await page.keyboard.press('KeyL');
+  await expect(page.locator('#setKeysNote')).toContainText('L is already STEER LEFT');
+  await page.keyboard.press('KeyM');
+  await expect(page.locator('#setKeysNote')).toContainText('M is a game key');
+  await right.click(); // a second tap cancels
+  await expect(right).toHaveText('D');
+  // BOOST on O: Space's keyup must not click the button and start capturing again.
+  await boost.click();
+  await page.keyboard.press('KeyO');
+  await expect(boost).toHaveText('O');
+  await expect(boost).toHaveAttribute('aria-pressed', 'false');
+  expect((await saved(page)).settings.keys).toMatchObject({ left: 'KeyL', right: 'KeyD', boost: 'KeyO' });
+  // Keyboard only: Enter on a key button captures; Shift+Tab leaves the row without binding Shift.
+  await page.locator('[data-key-action="up"]').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-key-action="up"]')).toHaveText(/PRESS A KEY/);
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('[data-key-action="up"]')).toHaveText('W');
+  expect((await saved(page)).settings.keys.up).toBe('KeyW');
+  // Shift alone binds on release.
+  await page.locator('[data-key-action="nos"]').click();
+  await page.keyboard.press('KeyU');
+  await page.locator('[data-key-action="up"]').click();
+  await page.keyboard.press('ShiftLeft');
+  await expect(page.locator('[data-key-action="up"]')).toHaveText('L-SHIFT');
+  await page.locator('[data-key-action="up"]').click();
+  await page.keyboard.press('KeyW');
+  await expect(page.locator('[data-key-action="up"]')).toHaveText('W');
+  await page.locator('#btnSettingsDone').click();
+
+  await page.reload();
+  await page.waitForFunction(() => window.__OT.InputState.keyMap && window.__OT.InputState.keyMap.KeyL === 'KeyA');
+  await page.evaluate(() => window.__OT.startRace());
+  await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING');
+  const input = () => page.evaluate(() => ({ left: window.__OT.InputState.left, boost: window.__OT.InputState.boostPressed }));
+  await page.keyboard.down('KeyL');
+  expect((await input()).left).toBe(true);
+  await page.keyboard.up('KeyL');
+  expect((await input()).left).toBe(false);
+  await page.keyboard.down('KeyA'); // the old key is free now
+  expect((await input()).left).toBe(false);
+  await page.keyboard.up('KeyA');
+  await page.keyboard.down('ArrowLeft'); // the arrows always steer
+  expect((await input()).left).toBe(true);
+  await page.keyboard.up('ArrowLeft');
+  expect(await page.evaluate(() => window.__OT.InputState.boostKey)).toBe('O');
+  // A rebound key and the freed Space lose their browser default.
+  expect(await page.evaluate(() => ['KeyL', 'Space', 'KeyD'].map((code) => {
+    const e = new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true });
+    document.body.dispatchEvent(e);
+    document.body.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true }));
+    return e.defaultPrevented;
+  }))).toEqual([true, true, false]);
+
+  // Back to the defaults from the panel; A steers again.
+  await page.locator('#btnHudSettings').click();
+  await expect(page.locator('[data-key-action="left"]')).toHaveText('L');
+  await page.locator('#setKeysReset').click();
+  await expect(page.locator('[data-key-action="left"]')).toHaveText('A');
+  expect((await saved(page)).settings.keys).toBeNull();
+  expect(await page.evaluate(() => window.__OT.InputState.keyMap)).toBeNull();
+  await page.locator('#btnSettingsDone').click();
+  await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING' && !document.querySelector('#settingsModal').contains(document.activeElement));
+  await page.keyboard.down('KeyA');
+  expect((await input()).left).toBe(true);
+  await page.keyboard.up('KeyA');
+  expect(problems).toEqual([]);
+});

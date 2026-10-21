@@ -28,7 +28,7 @@ const {
 } = RACE_DEPS;
 
 /** The control prompts for the input in hand right now (ticket 0007). */
-export const hintNow = () => playHint(InputState.lastInput);
+export const hintNow = () => playHint(InputState.lastInput, InputState.boostKey);
 
 // Slipstream cue (0197): main's speed lines call this once per frame for the wake's tint and lines.
 RS.wake = (c, W, H) => wakeFrame(c, W, H, GameState, RS.fxClock);
