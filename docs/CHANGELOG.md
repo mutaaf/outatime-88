@@ -117,3 +117,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-21 · 0199 · Crash through enough traffic and the live score pill now holds at 0 PTS with a dim PENALTY tag instead of showing a negative number, matching the score you are paid at the finish
 2026-10-21 · 0200 · A truck or car sliding past right beside you no longer walls off half the screen: it fades see-through and shrinks as it goes by, so the road edge and the traffic ahead stay in view (cars up the road look exactly as before)
 2026-10-21 · 0013 · Rebind your keyboard: Settings → KEYBOARD lets you pick the key for steer, accelerate, brake, BOOST and NOS (the arrows always work too)
+2026-10-21 · 0015 · Under the hood: the 2D race renderer moved out of the game's main file into its own modules, so new visual features can land side by side (the race looks exactly the same)
