@@ -1,8 +1,8 @@
 ---
 id: 0192
 title: Title screen — keep the hero car clear of the big grey vehicle slab
-status: proposed
-priority: P2
+status: ready
+priority: P1
 size: S
 lens: content
 created: 2026-10-20
