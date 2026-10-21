@@ -198,8 +198,26 @@ for (const vp of [{ width: 390, height: 844, touch: true }, { width: 360, height
       await racing(page, { minTime: 0.5 });
       await page.evaluate(() => { window.__OT.GameState.score = -23516; });
       await page.waitForFunction(() => document.getElementById('hudScore').classList.contains('is-pen'));
-      const pill = await page.evaluate(() => {
+      // What the HUD itself wrote, read before anything below touches the pill.
+      const shown = await page.evaluate(() => {
         window.__OT.pause();
+        const el = document.getElementById('hudScore');
+        const after = getComputedStyle(el, '::after');
+        const rgb = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+        const lum = (c) => { const v = rgb(c).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        const card = lum('rgb(8, 10, 24)'); // the lighter end of the card's dark gradient
+        return {
+          text: el.textContent, tag: after.content, tagOpacity: Number(after.opacity),
+          tagPx: parseFloat(after.fontSize), tagContrast: (lum(after.color) + 0.05) / (card + 0.05),
+        };
+      });
+      expect(shown.text).toBe('0 PTS');
+      expect(shown.text).not.toMatch(/[-−]/);
+      expect(shown.tag).toContain('PENALTY');
+      expect(shown.tagOpacity).toBe(1);
+      expect(shown.tagPx).toBeGreaterThanOrEqual(9);
+      expect(shown.tagContrast, 'PENALTY tag contrast on the HUD card').toBeGreaterThanOrEqual(4.5);
+      const pill = await page.evaluate(() => {
         const box = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right }; };
         const el = document.getElementById('hudScore');
         const card = document.getElementById('hudSpeedCard');
@@ -212,17 +230,11 @@ for (const vp of [{ width: 390, height: 844, touch: true }, { width: 360, height
         const plainCard = card.getBoundingClientRect().width;
         el.classList.add('is-pen');
         el.textContent = '0 PTS';
-        const after = getComputedStyle(el, '::after');
         return {
-          text: el.textContent, tag: after.content, tagOpacity: Number(after.opacity),
           box: box(el), label: box(document.getElementById('hudFluxLabel')),
           card: box(card), plainCard, timesClip, foot: el.parentElement.scrollWidth - el.parentElement.clientWidth,
         };
       });
-      expect(pill.text).toBe('0 PTS');
-      expect(pill.text).not.toMatch(/[-−]/);
-      expect(pill.tag).toContain('PENALTY');
-      expect(pill.tagOpacity).toBeLessThan(1);
       expect(pill.foot, 'score row overflows the speed card').toBeLessThanOrEqual(0);
       expect(pill.box.right).toBeLessThanOrEqual(pill.card.right + 0.5);
       expect(intersects(pill.box, pill.label), 'PENALTY tag runs into the flux label').toBeFalsy();
@@ -235,6 +247,9 @@ for (const vp of [{ width: 390, height: 844, touch: true }, { width: 360, height
       expect(others.length).toBeGreaterThan(0);
       for (const r of others) expect(intersects(pill.box, r), `score pill overlaps ${r.id}`).toBeFalsy();
       await page.screenshot({ path: test.info().outputPath(`penalty-pill-${vp.width}.png`) });
+      // The finish pays exactly what the pill showed.
+      await page.evaluate(() => window.__OT.finishRun());
+      await expect(page.locator('#endScoreText')).toHaveText('0');
       expect(problems).toEqual([]);
     });
   });

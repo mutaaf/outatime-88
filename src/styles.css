@@ -395,7 +395,8 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-score { color: #e2e8f0; font-variant-numeric: tabular-nums; }
 /* Penalties outweigh the points (ticket 0199): the pill holds at 0 with a dim tag, never a minus. */
 .hud-score.is-pen { color: #fca5a5; }
-.hud-score.is-pen::after { content: ' PENALTY'; font-size: .75em; opacity: .6; }
+/* Dimmed by size and the label grey (≈7:1 on the card), never by opacity: it must stay legible. */
+.hud-score.is-pen::after { content: ' PENALTY'; font-size: max(.75em, 9px); color: #94a3b8; }
 .hud-speed.is-ready { border-color: #fde047; }
 .hud-speed.is-ready #hudFluxLabel { color: #fde047; }
 .hud-gearcol { grid-area: gear; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
