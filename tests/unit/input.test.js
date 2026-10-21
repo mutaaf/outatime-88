@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { pollGamepad, PAD } from '../../src/input.js';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import { pollGamepad, PAD, InputState, setLastInput, padGone } from '../../src/input.js';
 
 const btn = (pressed, value) => ({ pressed, value: value == null ? (pressed ? 1 : 0) : value });
 function pad({ axes = [0, 0], pressed = [], values = {} } = {}) {
@@ -76,5 +76,52 @@ describe('pollGamepad', () => {
   it('never throws if getGamepads throws', () => {
     vi.stubGlobal('navigator', { getGamepads: () => { throw new Error('blocked'); } });
     expect(pollGamepad()).toEqual(NEUTRAL);
+  });
+});
+
+// Ticket 0007: the input in hand drives the prompts; a pad leaving drops back to the defaults.
+describe('setLastInput / padGone', () => {
+  beforeEach(() => { InputState.lastInput = ''; });
+  afterEach(() => { vi.unstubAllGlobals(); InputState.lastInput = ''; });
+  const fakeBody = () => {
+    const set = new Set();
+    vi.stubGlobal('document', { body: { classList: { toggle: (c, on) => (on ? set.add(c) : set.delete(c)), contains: (c) => set.has(c) } } });
+    return set;
+  };
+
+  it('marks the body while a pad is the input in hand, and only then', () => {
+    const cls = fakeBody();
+    setLastInput('pad');
+    expect(InputState.lastInput).toBe('pad');
+    expect(cls.has('input-pad')).toBe(true);
+    setLastInput('keys');
+    expect(cls.has('input-pad')).toBe(false);
+  });
+
+  it('a pad press makes the pad the input in hand', () => {
+    fakeBody();
+    setLastInput('keys');
+    poll(pad({ pressed: [0] }));
+    expect(InputState.lastInput).toBe('pad');
+  });
+
+  it('a disconnect reverts to the default words unless another pad is still in', () => {
+    const cls = fakeBody();
+    setLastInput('pad');
+    vi.stubGlobal('navigator', { getGamepads: () => [null, pad()] });
+    padGone();
+    expect(InputState.lastInput).toBe('pad');
+    vi.stubGlobal('navigator', { getGamepads: () => [null, null] });
+    padGone();
+    expect(InputState.lastInput).toBe('');
+    expect(cls.has('input-pad')).toBe(false);
+  });
+
+  it('a disconnect never overrides keyboard or touch', () => {
+    fakeBody();
+    setLastInput('touch');
+    vi.stubGlobal('navigator', { getGamepads: () => [] });
+    padGone();
+    expect(InputState.lastInput).toBe('touch');
   });
 });

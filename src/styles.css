@@ -228,6 +228,10 @@ body.on-title #levelUpBanner, body.on-title #stormGlow, body.on-title #hudStorm,
 .steer-hint .hint-keys { display: none; }
 @media (pointer: fine) { .steer-hint .hint-touch { display: none; } .steer-hint .hint-keys { display: inline; } }
 .touch-ui .steer-hint .hint-touch { display: inline; } .touch-ui .steer-hint .hint-keys { display: none; }
+.steer-hint .hint-pad { display: none; }
+/* A pad in hand (ticket 0007, setLastInput in src/input.js) names the stick, whatever the screen. */
+body.input-pad .steer-hint .hint-touch, body.input-pad .steer-hint .hint-keys { display: none; }
+body.input-pad .steer-hint .hint-pad { display: inline; }
 @media (max-height: 520px) {
   .title-screen { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(10px, env(safe-area-inset-bottom)); }
   .title-screen .wordmark { font-size: 2.4rem; }

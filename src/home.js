@@ -10,7 +10,7 @@ import './home.css';
 import { HOME_IDLE_MS, PITCH, homeHooks, isFirstVisit, noteNewsSeen } from './home-hooks.js';
 import { POP_CULTURE_ROSTER, ROAD_CFG } from './data.js';
 import { frameTitle } from './title-frame.js';
-import { InputState } from './input.js';
+import { InputState, setLastInput } from './input.js';
 
 /**
  * h: { state (GameState), save (SaveStore), goHome(), play(), daily(), garage(carId), ranks(),
@@ -210,7 +210,7 @@ export function createHome(h) {
       a = a || !!(p.buttons[0] && p.buttons[0].pressed) || !!(p.buttons[9] && p.buttons[9].pressed);
       b = b || !!(p.buttons[1] && p.buttons[1].pressed);
     }
-    if (a || b) InputState.lastInput = 'pad'; // the grid's prompts name the pad's buttons (0111)
+    if (a || b) setLastInput('pad'); // the grid's prompts name the pad's buttons (0111)
     if (padPrev) {
       if (a && !padPrev.a) { if (onResults) clickIf('btnPlayAgain'); else h.play(); }
       else if (b && !padPrev.b && onResults) goHome();

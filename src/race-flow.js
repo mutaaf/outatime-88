@@ -13,6 +13,7 @@ import {
 } from './main.js';
 import { createFair, fairPayload } from './fairplay.js';
 import { wakeFrame } from './slipstream.js';
+import { playHint } from './play-hints.js';
 import {
   endlessSolo, nearMisses, cashAcc, earnCash, resetRunner, steerWheel, resetNos, showForkCue,
   ghostRecorder
@@ -25,6 +26,9 @@ const {
   pickMissions, preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace,
   resetBackdrop, utcDay
 } = RACE_DEPS;
+
+/** The control prompts for the input in hand right now (ticket 0007). */
+export const hintNow = () => playHint(InputState.lastInput);
 
 // Slipstream cue (0197): main's speed lines call this once per frame for the wake's tint and lines.
 RS.wake = (c, W, H) => wakeFrame(c, W, H, GameState, RS.fxClock);
@@ -91,7 +95,7 @@ export function updateInteractiveCoach(currentSegIdx) {
     }
   } else if (GameState.fluxCharge >= 95 && GameState.timeWarps === 0) {
     iconEl.textContent = '⚡'; titleEl.textContent = 'FLUX FULL';
-    descEl.textContent = 'Hold 88 mph — or hit SPACE / ⚡ — to jump eras';
+    descEl.textContent = hintNow().coachFlux;
   } else if (GameState.distance < 300) { // just after the green light
     iconEl.textContent = '🎓'; titleEl.textContent = 'TIP';
     descEl.textContent = 'Draft the green wake behind rivals for a slingshot';
@@ -225,7 +229,7 @@ export function updateLiveHud(forceHud) {
       fluxHint.textContent = '🔴 AGRO RAM SHIELD ACTIVE!';
       fluxHint.className = 'text-[7px] font-arcade text-orange-300 font-bold truncate';
     } else if (GameState.fluxCharge >= 95) {
-      fluxHint.textContent = '⚡ FLUX READY! HIT 88 MPH OR SPACE!';
+      fluxHint.textContent = hintNow().flux;
       fluxHint.className = 'text-[7px] font-arcade text-yellow-300 font-bold truncate';
     } else {
       fluxHint.textContent = 'DRIFT, DRAFT & SLAM RIVALS!';
