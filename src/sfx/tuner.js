@@ -8,7 +8,8 @@
 //   low-pass on the music while it burns and a purge puff when it ends · a tuner squeal over
 //   the screech · a drift-hold tone · Doppler pass-bys · wind rush · tunnel reverb · metal
 //   crunch by impact · slow-mo bass drops · countdown heartbeat, GO hit, level-up and run-over
-//   stingers · music ducking under the big moments.
+//   stingers · music ducking under the big moments · the slipstream charge tone (0197): it
+//   rises with draftCharge while you sit in a wake and ticks from READY until the slingshot.
 //
 // The per-frame work is param targets on a fixed set of nodes (no allocation). One-shots build
 // a handful of short-lived nodes, like SoundEngine.playTone, and are capped by `live`.
@@ -17,8 +18,10 @@ import {
   crackleRate, squealLayer, driftTone, windFor, dopplerRatio, passedBy, passByGain, crunchFor,
   reverbFor, musicCutoff, BIG_AIR_S,
 } from './street-params.js';
+import { draftCue, inWake } from '../slipstream.js';
 
-const MAX_LIVE = 14; // one-shots alive at once; past this, new ones are dropped
+const MAX_LIVE = 14;
+const DRAFT_HOLD = 0.06; // s a wake may drop out before the slipstream tone lets go // one-shots alive at once; past this, new ones are dropped
 
 /**
  * @param {AudioContext} ctx
@@ -155,7 +158,56 @@ export function createTuner(ctx, se) {
     prevStatus: '', passCool: 0, active: false,
     // This frame's voice levels (read by tests and ?debug): spool, squeal, drift, wind, reverb.
     spool: 0, squeal: 0, drift: 0, wind: 0, wet: 0, passes: 0, nosOpens: 0,
+    // Slipstream tone (0197): on, its gain and pitch this frame, READY ticks played, tones started.
+    draftOn: false, draft: 0, draftHz: 0, draftTicks: 0, draftStarts: 0, tickAcc: 0, draftGone: 0,
   };
+  const cue = {};
+  // The slipstream tone exists only while you are in a wake: built on entry, stopped on exit.
+  let dv = null;
+  function draftVoice(t) {
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.connect(se.sfxBus);
+    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(cue.hz, t);
+    const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.setValueAtTime(cue.hz * 2, t);
+    const g2 = ctx.createGain(); g2.gain.value = 0.35;
+    o.connect(g); o2.connect(g2); g2.connect(g);
+    o.start(t); o2.start(t);
+    st.draftStarts++;
+    return { g, o, o2 };
+  }
+  function draftOff(t) {
+    if (dv) {
+      dv.g.gain.cancelScheduledValues(t);
+      dv.g.gain.setTargetAtTime(0, t, 0.025); // ~1% by 115 ms
+      dv.o.stop(t + 0.12); dv.o2.stop(t + 0.12);
+      dv = null;
+    }
+    st.draftOn = false; st.draft = 0; st.draftHz = 0; st.tickAcc = 0;
+  }
+  /**
+   * Slipstream: tone pitch and level follow the charge; from READY a tick every 0.2 s. A wake
+   * that drops out for under DRAFT_HOLD s (a jittery lane edge) keeps the tone rather than
+   * re-attacking it; past that it fades out, gone by 200 ms after you left.
+   */
+  function slipstream(G, t, dt) {
+    draftCue(inWake(G), G.draftCharge, G.reducedMotion, t, cue);
+    if (quiet()) { draftOff(t); return; }
+    if (!cue.on) {
+      st.draftGone += dt;
+      if (dv && st.draftGone < DRAFT_HOLD) return;
+      draftOff(t);
+      return;
+    }
+    st.draftGone = 0;
+    if (!dv) dv = draftVoice(t);
+    dv.o.frequency.setTargetAtTime(cue.hz, t, 0.05);
+    dv.o2.frequency.setTargetAtTime(cue.hz * 2, t, 0.05);
+    dv.g.gain.setTargetAtTime(cue.gain * se.sfxMix, t, 0.06);
+    st.draftOn = true; st.draft = cue.gain; st.draftHz = cue.hz;
+    if (cue.ready) {
+      if (st.tickAcc <= 0) { tone(t, 0.06, 0.07, 'square', cue.hz * 3, cue.hz * 4); st.draftTicks++; st.tickAcc += 0.2; }
+      st.tickAcc -= dt;
+    } else st.tickAcc = 0;
+  }
 
   const tuner = {
     get live() { return live; },
@@ -273,6 +325,7 @@ export function createTuner(ctx, se) {
       st.prevStatus = G.status;
 
       if (!playing) {
+        if (dv || st.draftOn) draftOff(t);
         if (st.active) {
           st.active = false;
           if (v) for (const g of [v.spoolG, v.windG, v.sqG, v.driftG]) g.gain.setTargetAtTime(0, t, 0.08);
@@ -335,6 +388,8 @@ export function createTuner(ctx, se) {
       if (dtn.hz) { v.drift.frequency.setTargetAtTime(dtn.hz, t, 0.2); v.drift5.frequency.setTargetAtTime(dtn.hz * 1.5, t, 0.2); }
       v.driftG.gain.setTargetAtTime(dtn.gain * fx, t, dtn.gain ? 0.15 : 0.2);
       st.drift = dtn.gain;
+
+      slipstream(G, t, dt);
 
       // Wind.
       const w = windFor(mph);

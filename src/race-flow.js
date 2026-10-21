@@ -12,6 +12,7 @@ import {
   withResults
 } from './main.js';
 import { createFair, fairPayload } from './fairplay.js';
+import { wakeFrame } from './slipstream.js';
 import {
   endlessSolo, nearMisses, cashAcc, earnCash, resetRunner, steerWheel, resetNos, showForkCue,
   ghostRecorder
@@ -24,6 +25,9 @@ const {
   pickMissions, preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace,
   resetBackdrop, utcDay
 } = RACE_DEPS;
+
+// Slipstream cue (0197): main's speed lines call this once per frame for the wake's tint and lines.
+RS.wake = (c, W, H) => wakeFrame(c, W, H, GameState, RS.fxClock);
 
 // Coach (ticket 0002): teaches only what you haven't learned yet, in one short line, and
 // always yields to the announcer so two messages never stack.
@@ -358,6 +362,7 @@ export function startNewRace(opts) {
   if (smoke2d) smoke2d.clear();
   nearMisses.reset();
   GameState.draftCharge = 0;
+  GameState.draftingCar = null;
   GameState.specialCharges = 3;
   GameState.zoneTimer = 0;
   GameState.agroTimer = 0;

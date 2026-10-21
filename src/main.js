@@ -1415,8 +1415,8 @@ function drawFinishLine(ctx, x1, y1, w1, x2, y2, w2) {
 }
 
 // Speed-line colours by alpha in 1/50 steps, built once (no string per line per frame; 0182).
-const LINE_RGB = ['255,190,110', '200,245,255'];
-const lineColors = [[], []];
+const LINE_RGB = ['255,190,110', '200,245,255', '110,255,170'];
+const lineColors = [[], [], []];
 function lineColor(k, a) {
   const q = Math.max(0, Math.min(50, Math.round(a * 50)));
   return lineColors[k][q] || (lineColors[k][q] = `rgba(${LINE_RGB[k]},${q / 50})`);
@@ -1424,6 +1424,10 @@ function lineColor(k, a) {
 
 function drawSpeedLines(c, intensity) {
   GameState.fxLinesDrawn = 0;
+  // Slipstream wake (0197): the lazy cue tints the edges, then lifts and greens these lines.
+  const w = RS.wake && RS.wake(c, viewW, viewH);
+  const wl = w && w.on ? w.lines : 0;
+  if (wl > intensity) intensity = wl;
   if (intensity <= 0) return;
   const W = viewW, H = viewH;
   const cx = W * 0.5, cy = H * 0.44;
@@ -1440,7 +1444,7 @@ function drawSpeedLines(c, intensity) {
     const x0 = cx + Math.cos(ang) * r0, y0 = cy + Math.sin(ang) * r0 * 0.75;
     const x1 = cx + Math.cos(ang) * r1, y1 = cy + Math.sin(ang) * r1 * 0.75;
     const fade = 1 - phase * 0.7;
-    c.strokeStyle = i % 3 === 0 ? 'rgba(255,190,110,' + (0.5 * intensity * fade) + ')' : 'rgba(200,245,255,' + (0.6 * intensity * fade) + ')';
+    c.strokeStyle = i % 3 === 0 ? lineColor(0, 0.5 * intensity * fade) : lineColor(wl ? 2 : 1, 0.6 * intensity * fade);
     c.lineWidth = (1.5 + 3 * intensity) * (W / 1280);
     c.beginPath();
     c.moveTo(x0, y0);

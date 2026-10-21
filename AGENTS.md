@@ -212,6 +212,8 @@ src/perf/           Graphics quality (ticket 0041), render-only — the sim is i
                       with hysteresis) · gfx.js (the controller both renderers read) ·
                       gfx-boot.js (lazy: Settings → GRAPHICS, ?debug overlay). See § Graphics tiers.
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
+src/slipstream.js   Slipstream charge cue (0197), lazy (race flow + tuner): draftCharge → rising tone, greener speed
+                      lines, an eased edge tint and a 2 Hz READY pulse; main only calls RS.wake from drawSpeedLines
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/home-hooks.js   Home screen hooks (0185), pure: ranked, true reasons to play (best/next tier, daily +
                       real countdown + streak, next car, goals, rival, news, TV) and the first-visit test
