@@ -157,6 +157,22 @@ test('a rebound key persists across a reload and drives the action', async ({ pa
   await expect(boost).toHaveText('O');
   await expect(boost).toHaveAttribute('aria-pressed', 'false');
   expect((await saved(page)).settings.keys).toMatchObject({ left: 'KeyL', right: 'KeyD', boost: 'KeyO' });
+  // Keyboard only: Enter on a key button captures; Shift+Tab leaves the row without binding Shift.
+  await page.locator('[data-key-action="up"]').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-key-action="up"]')).toHaveText(/PRESS A KEY/);
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('[data-key-action="up"]')).toHaveText('W');
+  expect((await saved(page)).settings.keys.up).toBe('KeyW');
+  // Shift alone binds on release.
+  await page.locator('[data-key-action="nos"]').click();
+  await page.keyboard.press('KeyU');
+  await page.locator('[data-key-action="up"]').click();
+  await page.keyboard.press('ShiftLeft');
+  await expect(page.locator('[data-key-action="up"]')).toHaveText('L-SHIFT');
+  await page.locator('[data-key-action="up"]').click();
+  await page.keyboard.press('KeyW');
+  await expect(page.locator('[data-key-action="up"]')).toHaveText('W');
   await page.locator('#btnSettingsDone').click();
 
   await page.reload();
@@ -175,6 +191,13 @@ test('a rebound key persists across a reload and drives the action', async ({ pa
   expect((await input()).left).toBe(true);
   await page.keyboard.up('ArrowLeft');
   expect(await page.evaluate(() => window.__OT.InputState.boostKey)).toBe('O');
+  // A rebound key and the freed Space lose their browser default.
+  expect(await page.evaluate(() => ['KeyL', 'Space', 'KeyD'].map((code) => {
+    const e = new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true });
+    document.body.dispatchEvent(e);
+    document.body.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true }));
+    return e.defaultPrevented;
+  }))).toEqual([true, true, false]);
 
   // Back to the defaults from the panel; A steers again.
   await page.locator('#btnHudSettings').click();

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { ACTIONS, DEFAULT_KEYS, RESERVED, applyKeys, bindKey, isBindable, isDefault, keyName, normalizeKeys, remapFor } from '../../src/keybinds.js';
+import { ACTIONS, DEFAULT_KEYS, RESERVED, applyKeys, bindKey, blocksDefault, isBindable, isDefault, keyName, normalizeKeys, remapFor } from '../../src/keybinds.js';
 import { playHint, PLAY_HINTS } from '../../src/play-hints.js';
 import { normalizeSettings, SETTINGS_DEFAULTS } from '../../src/settings.js';
 
@@ -38,10 +38,10 @@ describe('keyboard bindings (ticket 0013)', () => {
   });
 
   it('rejects game hotkeys and keys that would fire browser shortcuts', () => {
-    for (const code of ['KeyM', 'KeyP', 'Escape', 'Enter', 'KeyN', 'KeyK', 'Tab']) expect(bindKey(null, 'left', code)).toMatchObject({ ok: false, reason: 'reserved' });
+    for (const code of ['KeyM', 'KeyP', 'Escape', 'Enter', 'KeyN', 'KeyK', 'Tab', 'KeyY', 'Digit1', 'Digit7']) expect(bindKey(null, 'left', code)).toMatchObject({ ok: false, reason: 'reserved' });
     for (const code of ['ControlLeft', 'AltLeft', 'MetaLeft', 'F5', 'CapsLock', '', undefined]) expect(bindKey(null, 'left', code)).toMatchObject({ ok: false, reason: 'invalid' });
     expect(bindKey(null, 'jump', 'KeyL')).toMatchObject({ ok: false });
-    for (const code of ['KeyL', 'KeyO', 'KeyU', 'KeyY', 'Digit4', 'Numpad8', 'Semicolon', 'Slash', 'ShiftLeft', 'Space']) expect(isBindable(code)).toBe(true);
+    for (const code of ['KeyL', 'KeyO', 'KeyU', 'Digit8', 'Digit0', 'Numpad8', 'Semicolon', 'Slash', 'ShiftLeft', 'Space']) expect(isBindable(code)).toBe(true);
   });
 
   it('every key main.js answers to that is not a driving default is reserved', () => {
@@ -52,6 +52,11 @@ describe('keyboard bindings (ticket 0013)', () => {
     expect(codes.size).toBeGreaterThan(20);
     const driving = new Set(ACTIONS.flatMap((a) => [a.def, ...a.fixed]));
     for (const code of codes) expect(driving.has(code) || RESERVED.includes(code), code).toBe(true);
+    // The live race's quick chat: Y toggles the tray, 1–7 send emotes.
+    const live = readFileSync(new URL('../../src/live/controller.js', import.meta.url), 'utf8');
+    expect(live).toContain("e.code === 'KeyY'");
+    expect(live).toMatch(/Digit\(\[1-7\]\)/);
+    for (const code of ['KeyY', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7']) expect(RESERVED).toContain(code);
     // main.js translates every driving key through InputState.keyMap, keydown and keyup.
     expect(src.match(/const c = InputState\.keyMap\?\.\[e\.code\] \?\? e\.code;/g)).toHaveLength(2);
   });
@@ -108,5 +113,16 @@ describe('keyboard bindings (ticket 0013)', () => {
     expect(h.coachFlux).not.toContain('SPACE');
     expect(playHint('keys', 'O')).toBe(h); // cached: the HUD asks every frame
     expect(playHint('pad', 'O')).toBe(PLAY_HINTS.pad);
+  });
+
+  it('a rebound key loses its browser default (quick find, scrolling), never while typing', () => {
+    const map = remapFor({ ...DEFAULT_KEYS, left: 'Slash', boost: 'KeyO' });
+    expect(blocksDefault(map, 'Slash', { tagName: 'BODY' })).toBe(true);
+    expect(blocksDefault(map, 'KeyA', { tagName: 'BODY' })).toBe(true); // freed: does nothing at all
+    expect(blocksDefault(map, 'Space', { tagName: 'BUTTON' })).toBe(true); // Space keeps main.js's guard
+    expect(blocksDefault(map, 'KeyD', { tagName: 'BODY' })).toBe(false);
+    expect(blocksDefault(map, 'Slash', { tagName: 'INPUT' })).toBe(false);
+    expect(blocksDefault(map, 'Slash', { tagName: 'DIV', isContentEditable: true })).toBe(false);
+    expect(blocksDefault(null, 'Slash', { tagName: 'BODY' })).toBe(false);
   });
 });

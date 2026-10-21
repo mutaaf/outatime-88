@@ -18,11 +18,13 @@ export const ACTIONS = Object.freeze([
 
 export const DEFAULT_KEYS = Object.freeze(Object.fromEntries(ACTIONS.map((a) => [a.id, a.def])));
 
-/** Every other key main.js's keydown handler answers to: never bindable (tests/unit/keybinds.test.js reads main.js). */
+/** Every other key the race answers to: main.js's hotkeys and the live race's quick chat (Y, 1–7,
+ *  src/live/controller.js). Never bindable; tests/unit/keybinds.test.js reads both files. */
 export const RESERVED = Object.freeze([
   'Enter', 'NumpadEnter', 'Escape', 'Tab', 'Backspace',
   'KeyN', 'KeyH', 'KeyE', 'KeyZ', 'KeyX', 'KeyR', 'KeyQ', 'KeyF', 'KeyB', 'KeyI', 'KeyK',
   'KeyJ', 'KeyG', 'KeyC', 'KeyV', 'KeyT', 'KeyM', 'KeyP',
+  'KeyY', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7',
 ]);
 
 // Keys a player may pick: letters, digits, the numpad, punctuation, Shift and Space. No
@@ -102,10 +104,27 @@ export function keyName(code) {
   return code.replace(/(Left|Right)$/, ' $1').toUpperCase();
 }
 
+/**
+ * Whether a keydown should lose its browser default: a rebound key drives the car, so a Slash
+ * must not open Firefox's quick find (focus would leave the page with the key held) and a Page
+ * Down must not scroll; Space keeps the guard main.js gave it even after BOOST moves off it.
+ * Never while typing in a field.
+ */
+export function blocksDefault(map, code, target) {
+  if (!map || !(code in map || code === 'Space')) return false;
+  const tag = target && target.tagName;
+  return !(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (target && target.isContentEditable));
+}
+
+let guarded = false;
 /** Applies saved bindings to the game: main.js's key translation and the boost key prompts name. */
 export function applyKeys(input, saved) {
   const k = normalizeKeys(saved);
   input.keyMap = remapFor(k);
   input.boostKey = k.boost === DEFAULT_KEYS.boost ? '' : keyName(k.boost);
+  if (!guarded && typeof window !== 'undefined') {
+    guarded = true;
+    window.addEventListener('keydown', (e) => { if (blocksDefault(input.keyMap, e.code, e.target)) e.preventDefault(); });
+  }
   return k;
 }

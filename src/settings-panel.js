@@ -67,6 +67,7 @@ export function createPanel(ctx) {
   const keysBox = $('setKeys');
   const keysNote = $('setKeysNote');
   let capturing = '';
+  let pendingShift = ''; // Shift binds on release, so Shift+Tab (leaving the row) never binds it
   let swallowUp = ''; // the key just bound: its keyup must not also click the focused button (Space does)
   const note = (text) => { if (keysNote) keysNote.textContent = text; };
   function renderKeys() {
@@ -95,29 +96,42 @@ export function createPanel(ctx) {
       const b = e.target.closest('[data-key-action]');
       if (!b) return;
       capturing = capturing === b.dataset.keyAction ? '' : b.dataset.keyAction; // a second tap cancels
+      pendingShift = '';
       note(capturing ? 'Press a key. Tap the button again to cancel.' : '');
       renderKeys();
+      // Safari and Firefox on macOS don't focus a clicked button; the key must land here.
+      if (capturing) b.focus({ preventScroll: true });
     });
-    keysBox.addEventListener('keyup', (e) => { if (e.code === swallowUp) { e.preventDefault(); swallowUp = ''; } });
+    keysBox.addEventListener('keyup', (e) => {
+      if (capturing && e.code === pendingShift) { pendingShift = ''; capture(e.code); }
+      if (e.code === swallowUp) { e.preventDefault(); swallowUp = ''; }
+    });
     keysBox.addEventListener('focusout', () => { if (capturing) { capturing = ''; note(''); renderKeys(); } });
     keysBox.addEventListener('keydown', (e) => {
-      if (!capturing || e.code === 'Tab') return;
+      if (!capturing) return;
+      if (e.code === 'Tab') { pendingShift = ''; return; }
       e.preventDefault();
       if (e.repeat) return;
-      swallowUp = e.code;
-      const a = ACTIONS.find((x) => x.id === capturing);
-      const r = bindKey(settings().keys, a.id, e.code);
-      if (r.ok) {
-        setKeys(r.keys);
-        capturing = '';
-        note(`${a.label} is ${keyName(e.code)} now.`);
-      } else {
-        note(r.reason === 'taken' ? `${keyName(e.code)} is already ${r.by}. Pick another key.`
-          : r.reason === 'reserved' ? `${keyName(e.code)} is a game key. Pick another key.`
-            : `${keyName(e.code)} can't drive. Try a letter, a number or Shift.`);
-      }
-      renderKeys();
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { pendingShift = e.code; return; }
+      pendingShift = '';
+      capture(e.code);
     });
+  }
+  /** Binds the pressed key to the action being captured, or says why it can't. */
+  function capture(code) {
+    swallowUp = code;
+    const a = ACTIONS.find((x) => x.id === capturing);
+    const r = bindKey(settings().keys, a.id, code);
+    if (r.ok) {
+      setKeys(r.keys);
+      capturing = '';
+      note(`${a.label} is ${keyName(code)} now.`);
+    } else {
+      note(r.reason === 'taken' ? `${keyName(code)} is already ${r.by}. Pick another key.`
+        : r.reason === 'reserved' ? `${keyName(code)} is a game key. Pick another key.`
+          : `${keyName(code)} can't drive. Try a letter, a number or Shift.`);
+    }
+    renderKeys();
   }
   const keysReset = $('setKeysReset');
   if (keysReset) keysReset.addEventListener('click', () => { setKeys(null); capturing = ''; note('Default keys back.'); renderKeys(); });
