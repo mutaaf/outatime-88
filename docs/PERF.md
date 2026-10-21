@@ -39,3 +39,19 @@ Headless Chromium on Apple Silicon with SwiftShader, mid-race, driving with weav
 A CPU profile shows `drawImage` (the software-rastered upscale blit) at ~53% and GC at 0.3%. On
 CI the frame interval is raster-bound, so `frames.spec.js` gates the game's JS time and garbage,
 not the interval.
+
+### No per-frame gradients (ticket 0005), measured 2026-10-21
+
+Cloud sandbox, headless shell 1194 + SwiftShader, `perf.spec.js` probe at 1280×720, two runs each.
+Gradients built on the frame's canvases per 60 racing frames: 87 (headlight beam every frame,
+rival plume bloom + flame) → 0 once caches are warm (`steady-state frames create no canvas
+gradients` gates it; a first-use cache build may land in up to 3 frames).
+
+| Build | Median frame interval | JS p50 |
+|---|---|---|
+| main (2760014) | 33.3–33.4 ms | 21.2–27.9 ms |
+| 0005 | 33.3 ms | 20.9–24.0 ms |
+
+The interval is raster-bound here (vsync-locked 30 fps); the win is garbage, not raster time.
+Still building gradients per frame, out of scope: loop-ride world and the reduced-motion loop
+cutaway (`src/setpieces-2d.js`, only during a LOOP set piece).

@@ -211,20 +211,50 @@ const NOS_STOPS = ['rgba(255,255,255,0.95)', 'rgba(96,165,250,0.9)', 'rgba(168,8
 const COLD_STOPS = ['rgba(255,255,255,0.95)', 'rgba(224,242,254,0.75)', 'rgba(186,230,253,0.25)'];
 const JET_STOPS = ['rgba(255,255,255,0.95)', 'rgba(255,179,92,0.9)', 'rgba(255,77,0,0.5)'];
 
-function flame(ctx, x, y, wd, len, stops) {
-  const g = ctx.createLinearGradient(x, y, x, y + len);
-  g.addColorStop(0, stops[0]);
-  g.addColorStop(0.25, stops[1]);
-  g.addColorStop(0.7, stops[2]);
-  g.addColorStop(1, 'rgba(0,0,0,0)');
+// Gradients are built once in a unit space and placed by the transform at fill time (ticket
+// 0005): a path is fixed when it is traced and fill() maps only the fill style, so the pixels
+// match a gradient built at (x, y) with that size, and a frame of flames allocates nothing.
+const flameGrads = new Map(); // stops → linear (0,0)→(0,1)
+const bloomGrads = new Map(); // colour → radial, radius 0→1
+let hoverGrad = null;
+
+function fillPlaced(ctx, g, x, y, sx, sy) {
+  if (!(sx > 0 && sy > 0)) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(sx, sy);
   ctx.fillStyle = g;
+  ctx.fill();
+  ctx.restore();
+}
+
+function flame(ctx, x, y, wd, len, stops) {
+  let g = flameGrads.get(stops);
+  if (!g) {
+    g = ctx.createLinearGradient(0, 0, 0, 1);
+    g.addColorStop(0, stops[0]);
+    g.addColorStop(0.25, stops[1]);
+    g.addColorStop(0.7, stops[2]);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    flameGrads.set(stops, g);
+  }
   ctx.beginPath();
   ctx.moveTo(x - wd, y);
   ctx.quadraticCurveTo(x - wd * 0.7, y + len * 0.55, x, y + len);
   ctx.quadraticCurveTo(x + wd * 0.7, y + len * 0.55, x + wd, y);
   ctx.arc(x, y, wd, 0, Math.PI, true);
   ctx.closePath();
-  ctx.fill();
+  fillPlaced(ctx, g, x, y, 1, len);
+}
+
+function bloomGrad(ctx, color) {
+  let g = bloomGrads.get(color);
+  if (!g) {
+    g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+    bloomGrads.set(color, g);
+  }
+  return g;
 }
 
 const plumeStops = new Map();
@@ -253,10 +283,12 @@ export function drawThrust(ctx, a, s) {
   if (s.hover) {
     for (let i = 0; i < a.pn; i++) {
       const r = Math.max(2, a.w * 0.07);
-      const g = ctx.createRadialGradient(a.px[i], a.py[i], 0, a.px[i], a.py[i], r * 2.2);
-      g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.3, 'rgba(0,240,255,0.75)'); g.addColorStop(1, 'rgba(0,240,255,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.ellipse(a.px[i], a.py[i], r * 2.2, r * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+      if (!hoverGrad) {
+        hoverGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+        hoverGrad.addColorStop(0, 'rgba(255,255,255,0.9)'); hoverGrad.addColorStop(0.3, 'rgba(0,240,255,0.75)'); hoverGrad.addColorStop(1, 'rgba(0,240,255,0)');
+      }
+      ctx.beginPath(); ctx.ellipse(a.px[i], a.py[i], r * 2.2, r * 0.9, 0, 0, Math.PI * 2);
+      fillPlaced(ctx, hoverGrad, a.px[i], a.py[i], r * 2.2, r * 2.2);
     }
   }
   const nos = Math.max(0, Math.min(1, s.nos || 0)), plume = Math.max(0, Math.min(1, s.plume || 0));
@@ -274,11 +306,9 @@ export function drawThrust(ctx, a, s) {
       const stops = nos > 0 ? NOS_STOPS : a.kind === 'jet' ? JET_STOPS : stopsFor(s.color);
       const big = a.kind === 'jet' ? 1.35 : 1;
       // A soft bloom round the tip, then the flame itself.
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3 * big);
-      g.addColorStop(0, stops[1]); g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
       ctx.globalAlpha = 0.6 * power;
-      ctx.beginPath(); ctx.arc(x, y, r * 3 * big, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, r * 3 * big, 0, Math.PI * 2);
+      fillPlaced(ctx, bloomGrad(ctx, stops[1]), x, y, r * 3 * big, r * 3 * big);
       ctx.globalAlpha = 1;
       flame(ctx, x, y, r * 1.05 * big, r * (3.5 + 9 * power) * fl * big, stops);
     }

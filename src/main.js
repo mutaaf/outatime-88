@@ -1321,22 +1321,30 @@ function drawNosFlames(ctx, rw, rh) {
   const calm = GameState.reducedMotion;
   const y = rh * 0.885;
   const len = rh * (calm ? 0.05 : 0.07 + 0.025 * Math.sin(RS.fxClock * 47));
+  if (!nosFlameGrad) {
+    // Built once from (0,0) to (0,1) and stretched over each flame at fill time (ticket 0005).
+    nosFlameGrad = ctx.createLinearGradient(0, 0, 0, 1);
+    nosFlameGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    nosFlameGrad.addColorStop(0.25, 'rgba(96,165,250,0.9)');
+    nosFlameGrad.addColorStop(0.7, 'rgba(168,85,247,0.6)');
+    nosFlameGrad.addColorStop(1, 'rgba(168,85,247,0)');
+  }
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  for (const side of [-1, 1]) {
+  ctx.fillStyle = nosFlameGrad;
+  for (let side = -1; side <= 1; side += 2) {
     const x = rw * 0.5 + side * rw * 0.045;
-    const g = ctx.createLinearGradient(x, y, x, y + len);
-    g.addColorStop(0, 'rgba(255,255,255,0.95)');
-    g.addColorStop(0.25, 'rgba(96,165,250,0.9)');
-    g.addColorStop(0.7, 'rgba(168,85,247,0.6)');
-    g.addColorStop(1, 'rgba(168,85,247,0)');
-    ctx.fillStyle = g;
     ctx.beginPath();
     ctx.ellipse(x, y + len * 0.5, rw * 0.012, len * 0.5, 0, 0, Math.PI * 2);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, len);
     ctx.fill();
+    ctx.restore();
   }
   ctx.restore();
 }
+let nosFlameGrad = null;
 
 function drawCarFx(ctx, rw, rh, over3d) {
   if (!over3d && !carArt) drawNosFlames(ctx, rw, rh);
@@ -1487,6 +1495,7 @@ function drawSparks(c, rw, rh) {
 const playerLook = { shape: '', body: '', cabin: '', glow: '' };
 let playerThrust = null, rivalThrust = null;
 const thrustState = { nos: 0, plume: 0, color: '', t: 0, calm: false, hover: false };
+let beamGrad = null, beamGradH = -1;
 function drawPlayerCar(ctx, rw, rh, eraCfg) {
   const carW = Math.max(58, Math.floor(rw * 0.22));
   const carH = Math.max(32, Math.floor(carW * 0.54));
@@ -1535,9 +1544,12 @@ function drawPlayerCar(ctx, rw, rh, eraCfg) {
 
   // Dual Xenon Headlight Beams Projected Forward onto the Night Asphalt
   if (GameState.playerY < 60) {
-    const beamGrad = ctx.createLinearGradient(0, -carH * 0.2, 0, -carH * 2.8);
-    beamGrad.addColorStop(0, 'rgba(224, 242, 254, 0.24)');
-    beamGrad.addColorStop(1, 'rgba(224, 242, 254, 0)');
+    if (beamGradH !== carH) { // carH only changes on resize (ticket 0005: no per-frame gradients)
+      beamGradH = carH;
+      beamGrad = ctx.createLinearGradient(0, -carH * 0.2, 0, -carH * 2.8);
+      beamGrad.addColorStop(0, 'rgba(224, 242, 254, 0.24)');
+      beamGrad.addColorStop(1, 'rgba(224, 242, 254, 0)');
+    }
     ctx.fillStyle = beamGrad;
     ctx.beginPath();
     ctx.moveTo(-carW * 0.38, -carH * 0.2);
