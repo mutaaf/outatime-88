@@ -136,12 +136,27 @@ export function createHud(doc = document) {
       const ready = s.flux >= 95;
       text(el.fluxLabel, 'fluxLabel', ready ? '⚡ WARP READY' : 'FLUX');
       flag(el.speedCard, 'ready', 'is-ready', ready);
-      // The score sits under the FLUX meter; label it so a post-penalty negative never reads as flux.
-      const pts = Math.floor(s.score);
-      text(el.score, 'score', `${pts.toLocaleString()} PTS`);
-      flag(el.score, 'scoreNeg', 'is-neg', pts < 0);
+      // The score sits under the FLUX meter; labelled as points so it never reads as flux.
+      // Formatted only when the rounded total moves, so a steady score allocates nothing.
+      const pts = Math.round(Number(s.score) || 0);
+      if (last.scorePts !== pts) {
+        last.scorePts = pts;
+        const pill = scorePill(pts);
+        text(el.score, 'score', pill.text);
+        flag(el.score, 'scorePen', 'is-pen', pill.penalty);
+      }
     },
   };
+}
+
+/**
+ * The live score pill (ticket 0199). Penalties are charged live, so the running total can dip
+ * below zero, but the final score is max(0, earned − penalty) (src/scoring.js): show what the
+ * run would pay now, rounded as the results card rounds it, and flag that penalties ate it.
+ */
+export function scorePill(score) {
+  const pts = Math.round(Number(score) || 0);
+  return { text: `${Math.max(0, pts).toLocaleString()} PTS`, penalty: pts < 0 };
 }
 
 /** Screen rects of every HUD block (for no-overlap checks by other UI, e.g. touch controls). */
