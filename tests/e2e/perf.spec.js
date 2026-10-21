@@ -54,8 +54,8 @@ test('steady-state frames create no canvas gradients', async ({ page }) => {
   await page.keyboard.down('ArrowUp');
   await page.evaluate(() => { window.__OT.GameState.invulnTimer = 60; });
   await simWait(page, 1.5);
-  const count = async () => {
-    await nextFrames(page, 20); // let anything new (a power-up ring, a flame) build its cache first
+  const count = async (warm = 20) => {
+    await nextFrames(page, warm); // let anything new (a power-up ring, a flame) build its cache first
     return page.evaluate(() => new Promise((done) => {
       const log = window.__grads;
       log.n = 0; log.where = {}; log.on = true;
@@ -67,19 +67,23 @@ test('steady-state frames create no canvas gradients', async ({ page }) => {
       })();
     }));
   };
-  const expectSteady = async (what) => {
-    const r = await count();
-    expect(r.frames, `${what}: ${r.n} gradients from ${JSON.stringify(r.where)}`).toBeLessThanOrEqual(3);
+  const expectSteady = async (what, warm) => {
+    const r = await count(warm);
+    const msg = `${what}: ${r.n} gradients from ${JSON.stringify(r.where)}`;
+    expect(r.frames, msg).toBeLessThanOrEqual(3);
+    // A cache builds once per key (a new plume colour, a shield pulse step), never repeatedly.
+    for (const n of Object.values(r.where)) expect(n, msg).toBeLessThanOrEqual(3);
     return r;
   };
   await expectSteady('racing');
   await page.keyboard.down('Shift');
   await page.waitForFunction(() => window.__OT.GameState.nosBurning);
-  expect((await expectSteady('NOS')).burn, 'NOS burned through the window').toBeGreaterThan(10);
+  // The tank holds ~1.3 s of burn and a slow runner's sim runs up to 0.1 s a frame: count at once.
+  expect((await expectSteady('NOS', 1)).burn, 'NOS burned in the window').toBeGreaterThan(3);
   await page.keyboard.up('Shift');
   await page.evaluate(() => window.__OT.pickup('SHIELD'));
   await page.waitForFunction(() => window.__OT.GameState.power && window.__OT.GameState.power.t.SHIELD > 0);
-  await expectSteady('shield');
+  await expectSteady('shield', 90); // a full pulse cycle (1.26 s) builds its 9 steps first
   expect(await page.evaluate(() => window.__OT.GameState.power.t.SHIELD)).toBeGreaterThan(0);
   await page.keyboard.up('ArrowUp');
 });
