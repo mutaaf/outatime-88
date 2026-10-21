@@ -3,7 +3,7 @@
 import { SoundEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
-import { InputState } from './input.js';
+import { InputState, setLastInput, padGone } from './input.js';
 import { finishResults, resultHeadline, lineupCall, startHint } from './racecall.js';
 import { carPortrait } from './car-sprite.js';
 
@@ -27,9 +27,10 @@ export function say(text) {
 
 // The input in hand (ticket 0111): the last key, mouse or touch wins (gamepads are noted by
 // pollGamepad). Mouse counts as keyboard: a desktop player's hands are on the keys.
-window.addEventListener('keydown', () => { InputState.lastInput = 'keys'; }, true);
-window.addEventListener('pointerdown', (e) => { InputState.lastInput = e.pointerType === 'mouse' ? 'keys' : 'touch'; }, true);
-window.addEventListener('gamepadconnected', () => { InputState.lastInput = 'pad'; });
+window.addEventListener('keydown', () => setLastInput('keys'), true);
+window.addEventListener('pointerdown', (e) => setLastInput(e.pointerType === 'mouse' ? 'keys' : 'touch'), true);
+window.addEventListener('gamepadconnected', () => setLastInput('pad'));
+window.addEventListener('gamepaddisconnected', padGone); // back to the keyboard/touch words (0007)
 const hint = () => startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
 
 const beep = (hz, len = 0.16, vol = 0.16, type = 'square') => { try { SoundEngine.playTone(hz, type, len, vol); } catch (e) {} };

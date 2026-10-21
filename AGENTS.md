@@ -215,6 +215,8 @@ src/layout.js       Compact/full HUD decision + measured overlay slots (zero-ove
 src/slipstream.js   Slipstream charge cue (0197), lazy (race flow + tuner): draftCharge → rising tone, greener speed
                       lines, an eased edge tint and a 2 Hz READY pulse; main only calls RS.wake from drawSpeedLines
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
+src/play-hints.js   In-race prompts worded for the input in hand (0007), pure: pad X/RB/Y, phone BOOST, else keys;
+                      InputState.lastInput is set only through setLastInput (src/input.js), which keeps body.input-pad
 src/home-hooks.js   Home screen hooks (0185), pure: ranked, true reasons to play (best/next tier, daily +
                       real countdown + streak, next car, goals, rival, news, TV) and the first-visit test
 src/home.js         Home flow (0185), lazy chunk + home.css: draws the hooks or the 3-beat pitch, the

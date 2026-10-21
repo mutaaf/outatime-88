@@ -57,6 +57,25 @@ const trigger = (b) => {
 };
 const pressed = (p, i) => Boolean(p.buttons[i] && p.buttons[i].pressed);
 
+/**
+ * The input in hand changed (ticket 0007): prompts read InputState.lastInput, and the steer
+ * prompt's CSS reads `body.input-pad`. Touches the DOM only when the kind changes.
+ */
+export function setLastInput(kind) {
+  if (InputState.lastInput === kind) return;
+  InputState.lastInput = kind;
+  if (typeof document !== 'undefined' && document.body) document.body.classList.toggle('input-pad', kind === 'pad');
+}
+
+/** A pad went away: drop back to the keyboard/touch words unless another pad is still in. */
+export function padGone() {
+  if (InputState.lastInput !== 'pad') return;
+  let left = false;
+  try { const pads = navigator.getGamepads ? navigator.getGamepads() : []; for (let i = 0; i < pads.length; i++) left = left || !!(pads[i] && pads[i].connected); } catch (e) {}
+  if (!left) setLastInput('');
+}
+
+let padWasActive = false;
 const padOut = { steer: 0, gas: false, brake: false, gasAmt: 0, brakeAmt: 0, boost: false, hover: false, nos: false, back: false, l3: false };
 
 // TV mode (ticket 0175, src/tv/tv.js): a paired phone drives through the gamepad path. Its
@@ -64,7 +83,8 @@ const padOut = { steer: 0, gas: false, brake: false, gasAmt: 0, brakeAmt: 0, boo
 export const PhonePad = { on: false, steer: 0, gas: false, brake: false, gasAmt: 1, brakeAmt: 1, boost: false, hover: false, nos: false, back: false, l3: false };
 
 export function pollGamepad() {
-  if (PhonePad.on) { InputState.lastInput = 'phone'; return PhonePad; }
+  if (PhonePad.on) { setLastInput('phone'); return PhonePad; }
+  if (InputState.lastInput === 'phone') setLastInput(''); // the phone unpaired: default words (0007)
   if (!navigator.getGamepads) return NO_PAD;
   try {
     const pads = navigator.getGamepads();
@@ -85,7 +105,10 @@ export function pollGamepad() {
         padOut.nos = pressed(p, 4);
         padOut.back = pressed(p, 8); // BACK / SELECT / VIEW: steering mode
         padOut.l3 = pressed(p, 10);  // left-stick click: co-pilot
-        if (steer || gasAmt || brakeAmt || padOut.boost || padOut.nos) InputState.lastInput = 'pad';
+        // A fresh pad press takes over the prompts (0007); a held stick doesn't fight the keys.
+        const active = Boolean(steer || gasAmt || brakeAmt || padOut.boost || padOut.nos || padOut.hover);
+        if (active && !padWasActive) setLastInput('pad');
+        padWasActive = active;
         return padOut;
       }
     }

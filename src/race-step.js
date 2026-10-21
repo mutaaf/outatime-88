@@ -1178,7 +1178,7 @@ export function updateGame(rawDt) {
   if (currentSeg && currentSeg.trackType === 'JUMP_RAMP' && GameState.playerY <= 2 && GameState.speed > 52) {
     GameState.playerVY = 560 + GameState.speed * 3.6;
     SoundEngine.playStunt();
-    triggerAnnouncement('MEGA TOY-TRACK LAUNCH!', 'PRESS SPACE OR HOVER FOR MID-AIR TRICK!', 1500);
+    triggerAnnouncement('MEGA TOY-TRACK LAUNCH!', RF.hintNow().ramp, 1500); // worded for the input in hand (0007)
   }
 
   // Fair play (0180): a press (or a pad button going down) queues a jump; it fires from the
