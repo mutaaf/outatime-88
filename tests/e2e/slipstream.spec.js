@@ -21,11 +21,16 @@ const holdWake = (page, charge) => page.evaluate((charge) => {
     if (charge != null) g.draftCharge = charge;
   }, 10);
 }, charge);
-const leaveWake = (page) => page.evaluate(() => {
-  clearInterval(window.__wake);
-  const car = window.__OT.traffic().traffic[0];
-  car.worldZ = window.__OT.GameState.trackPos + 60000;
-});
+/** Leave the wake: the car goes far ahead and you drop under the 50 mph a wake needs. */
+const leaveWake = async (page) => {
+  await page.evaluate(() => {
+    clearInterval(window.__wake);
+    const g = window.__OT.GameState;
+    window.__OT.traffic().traffic[0].worldZ = g.trackPos + 60000;
+    window.__slow = setInterval(() => { g.speed = 30; }, 10);
+  });
+};
+const release = (page) => page.evaluate(() => clearInterval(window.__slow));
 const cue = (page) => page.evaluate(() => ({ ...window.__OT.GameState.wakeCue, lines: window.__OT.GameState.fxLinesDrawn }));
 
 for (const size of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
@@ -52,6 +57,7 @@ for (const size of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) 
     await leaveWake(page);
     await page.waitForFunction(() => !window.__OT.GameState.wakeCue.on, null, { timeout: 5000 });
     await expect.poll(() => page.evaluate(() => window.__OT.audio().tuner.st.draftOn), { timeout: 5000 }).toBe(false);
+    await release(page);
     expect(problems).toEqual([]);
   });
 }
@@ -70,6 +76,7 @@ test('calm mode: a steady tint, no speed lines, no pulse', async ({ page }) => {
     expect(c.tint).toBeGreaterThan(0.8);
   }
   await leaveWake(page);
+  await release(page);
   expect(problems).toEqual([]);
 });
 
@@ -82,6 +89,10 @@ test('muted: no slipstream tone is started', async ({ page }) => {
   await nextFrames(page, 10);
   const t = await page.evaluate(() => { const s = window.__OT.audio().tuner.st; return { starts: s.draftStarts, ticks: s.draftTicks }; });
   expect(t).toEqual({ starts: 0, ticks: 0 });
+  // Unmuted, the same wake sounds: the layer was live all along.
+  await page.evaluate(() => window.__OT.audio().setMuted(false));
+  await expect.poll(() => page.evaluate(() => window.__OT.audio().tuner.st.draftStarts), { timeout: 5000 }).toBeGreaterThan(0);
   await leaveWake(page);
+  await release(page);
   expect(problems).toEqual([]);
 });

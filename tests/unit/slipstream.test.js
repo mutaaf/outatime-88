@@ -1,7 +1,7 @@
 // Slipstream charge cue (ticket 0197): the mapping, the edge tint, and the tone in the tuner layer.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FakeAudioContext } from './fake-audio.js';
-import { draftCue, wakeFrame, DRAFT_READY, TONE_LO, TONE_HI, PULSE_HZ } from '../../src/slipstream.js';
+import { draftCue, wakeFrame, DRAFT_READY, TONE_LO, TONE_HI, PULSE_HZ, TINT_FADE } from '../../src/slipstream.js';
 import { createTuner } from '../../src/sfx/tuner.js';
 
 describe('draftCue', () => {
@@ -83,7 +83,7 @@ describe('wakeFrame (the edge tint)', () => {
     const { c, calls } = fakeCanvas();
     const g = G({ draftCharge: 90 });
     for (let i = 0; i < 30; i++) wakeFrame(c, 1280, 720, g, i / 60);
-    expect(calls.fills).toBe(30);
+    expect(calls.fills).toBeGreaterThanOrEqual(29); // the first frame starts the fade-in
     expect(calls.gradients).toBe(1);
     expect(g.wakeCue.on).toBe(true);
     expect(g.wakeCue.ready).toBe(true);
@@ -91,11 +91,34 @@ describe('wakeFrame (the edge tint)', () => {
     expect(calls.gradients).toBe(2);
   });
 
-  it('holds a steady tint in calm mode', () => {
+  it('holds a steady tint in calm mode, whatever the charge', () => {
     const { c, calls } = fakeCanvas();
-    const g = G({ draftCharge: 95, reducedMotion: true });
-    for (let i = 0; i < 30; i++) wakeFrame(c, 1280, 720, g, i / 60);
-    expect(new Set(calls.alpha).size).toBe(1);
+    const g = G({ reducedMotion: true });
+    for (let i = 0; i < 60; i++) { g.draftCharge = 20 + i; wakeFrame(c, 1280, 720, g, 10 + i / 60); }
+    expect(new Set(calls.alpha.slice(-40)).size).toBe(1); // after the fade-in
+  });
+
+  it('a wake that flickers on and off every frame never flashes the screen', () => {
+    const { c, calls } = fakeCanvas();
+    const g = G({ draftCharge: 95, draftingCar: null });
+    for (let i = 0; i < 30; i++) wakeFrame(c, 1280, 720, g, 20 + i / 60); // settle: no tint
+    for (let i = 30; i < 150; i++) { g.draftingCar = i % 2 ? null : {}; wakeFrame(c, 1280, 720, g, 20 + i / 60); }
+    const maxA = 0.08 + 0.2 + 0.1;
+    let prev = 0, worst = 0;
+    for (const a of calls.alpha) { worst = Math.max(worst, Math.abs(a - prev)); prev = a; }
+    expect(worst).toBeLessThanOrEqual(maxA * (1 / 60) / TINT_FADE + 0.11); // the fade, plus the 2 Hz swell
+  });
+
+  it('fades the tint out over TINT_FADE after the wake ends', () => {
+    const { c, calls } = fakeCanvas();
+    const g = G({ draftCharge: 50 });
+    for (let i = 0; i < 30; i++) wakeFrame(c, 1280, 720, g, 30 + i / 60);
+    g.draftingCar = null;
+    const n = calls.fills;
+    for (let i = 30; i < 60; i++) wakeFrame(c, 1280, 720, g, 30 + i / 60);
+    const tail = calls.fills - n;
+    expect(tail).toBeGreaterThan(0);
+    expect(tail).toBeLessThanOrEqual(Math.ceil(TINT_FADE * 60));
   });
 });
 
@@ -116,7 +139,7 @@ describe('the slipstream tone (tuner layer)', () => {
       draftingCar: null, draftCharge: 0, reducedMotion: false,
     };
     const step = (n = 1) => { for (let i = 0; i < n; i++) { ctx.currentTime += 1 / 60; tuner.frame(G, true, null); } };
-    return { ctx, tuner, G, step };
+    return { ctx, se, tuner, G, step };
   }
   const oscs = (ctx) => ctx.started.filter((s) => s.node.kind === 'osc').length;
 
@@ -140,8 +163,9 @@ describe('the slipstream tone (tuner layer)', () => {
     const gain = voice.outputs[0];
     const stop = vi.spyOn(voice, 'stop');
     r.G.draftingCar = null;
-    const left = r.ctx.currentTime + 1 / 60;
-    r.step(1);
+    const left = r.ctx.currentTime;
+    let n = 0;
+    while (r.tuner.st.draftOn && n < 60) { r.step(1); n++; }
     expect(r.tuner.st.draftOn).toBe(false);
     const ev = gain.gain.events[gain.gain.events.length - 1];
     expect(ev[0]).toBe('target');
@@ -149,6 +173,37 @@ describe('the slipstream tone (tuner layer)', () => {
     expect(Math.exp(-0.2 / ev[3])).toBeLessThan(0.01); // < 1% of its level by 200 ms
     expect(stop).toHaveBeenCalled();
     expect(stop.mock.calls[0][0] - left).toBeLessThanOrEqual(0.2);
+  });
+
+  it('a wake that drops out for a frame keeps one voice; every voice made is stopped', () => {
+    const r = rig();
+    r.step(2); // the layer's own continuous voices are built first
+    const made = [];
+    const mk = r.ctx.createOscillator.bind(r.ctx);
+    r.ctx.createOscillator = () => { const o = mk(); o.stopped = 0; o.stop = () => { o.stopped++; }; made.push(o); return o; };
+    r.G.draftCharge = 50;
+    for (let i = 0; i < 40; i++) { r.G.draftingCar = i % 3 === 2 ? null : {}; r.step(1); }
+    expect(r.tuner.st.draftStarts).toBe(1);
+    for (let cycle = 0; cycle < 3; cycle++) {
+      r.G.draftingCar = null; r.step(20);
+      r.G.draftingCar = {}; r.step(10);
+    }
+    r.G.draftingCar = null; r.step(20);
+    expect(r.tuner.st.draftStarts).toBe(4);
+    expect(made.length).toBe(8); // two oscillators per voice
+    for (const o of made) expect(o.stopped).toBe(1);
+  });
+
+  it('turning the volume down mid-wake drops the tone at once', () => {
+    const r = rig();
+    r.G.draftingCar = {}; r.G.draftCharge = 50;
+    r.step(5);
+    expect(r.tuner.st.draftOn).toBe(true);
+    r.se.volume = 0;
+    r.step(1);
+    expect(r.tuner.st.draftOn).toBe(false);
+    r.step(10);
+    expect(r.tuner.st.draftStarts).toBe(1);
   });
 
   it('ticks from READY until the slingshot fires', () => {

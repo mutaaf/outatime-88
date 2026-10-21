@@ -55,16 +55,30 @@ function edgeGlow(c, W, H) {
   return g;
 }
 
+/** Seconds the tint takes to come up or go away: a wake edge that flickers never flashes. */
+export const TINT_FADE = 0.15;
+const tint = { env: 0, a: 0, last: -1 };
+
+/** Edge-tint alpha for this frame's cue: a steady level in calm mode, a 2 Hz swell at READY. */
+export function tintAlpha(cue, reduced) {
+  if (!cue.on) return 0;
+  return reduced ? 0.22 : 0.08 + 0.2 * cue.tint + 0.1 * cue.pulse;
+}
+
 /**
  * Once per frame from main's speed lines (RS.wake): work out the cue into G.wakeCue, draw the
- * edge tint, and return the cue so the lines can take its intensity and colour.
+ * edge tint (eased in and out over TINT_FADE), and return the cue for the lines.
  */
 export function wakeFrame(c, W, H, G, clock) {
   const cue = draftCue(inWake(G), G.draftCharge, G.reducedMotion, clock, G.wakeCue || (G.wakeCue = {}));
-  if (!cue.on) return cue;
-  const a = 0.08 + 0.2 * cue.tint + 0.1 * cue.pulse;
+  const dt = tint.last < 0 ? 0 : Math.max(0, Math.min(0.1, clock - tint.last));
+  tint.last = clock;
+  const step = dt / TINT_FADE;
+  tint.env = cue.on ? Math.min(1, tint.env + step) : Math.max(0, tint.env - step);
+  if (cue.on) tint.a = tintAlpha(cue, G.reducedMotion);
+  if (tint.env <= 0) return cue;
   c.save();
-  c.globalAlpha = a;
+  c.globalAlpha = tint.a * tint.env;
   c.fillStyle = edgeGlow(c, W, H);
   c.fillRect(0, 0, W, H);
   c.restore();

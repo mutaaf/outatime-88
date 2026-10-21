@@ -362,6 +362,7 @@ export function startNewRace(opts) {
   if (smoke2d) smoke2d.clear();
   nearMisses.reset();
   GameState.draftCharge = 0;
+  GameState.draftingCar = null;
   GameState.specialCharges = 3;
   GameState.zoneTimer = 0;
   GameState.agroTimer = 0;
