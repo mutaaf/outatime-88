@@ -1057,9 +1057,7 @@ function renderScene() {
       if (carArt) {
         // Everyone in their own car: rivals and friends in their roster cars, traffic as
         // sedans, taxis, SUVs and semis, all painted by the same car painter (src/car-paint.js).
-        const look = mv.look || (mv.look = isTruck
-          ? { shape: 'SEMI_TRUCK', body: '#cbd5e1', cabin: '#94a3b8', glow: '' }
-          : { shape: mv.shape || mv.style || 'SEDAN', body: mv.bodyColor || '#334155', cabin: mv.accentColor || '#64748b', glow: mv.underglow || '' });
+        const look = carArt.lookOf(mv);
         // Seen from the chase cam, a car turns with the road under it and with where it sits
         // across your view (one to your right shows you its left flank).
         const p2 = seg.p2.screen;
@@ -1067,7 +1065,7 @@ function renderScene() {
         const spin = mv.yaw ? Math.atan2(Math.sin(mv.yaw), Math.cos(mv.yaw)) : 0; // fishtail / spin-out, wrapped
         const yawApp = Math.max(-0.7, Math.min(0.7, spin + heading - Math.atan((cx - rw * 0.5) / (rw * 0.43)) * 0.4));
         if (!rivalThrust) rivalThrust = carArt.createThrust();
-        carArt.drawCarAt(ctx, look, cx, roadYifted, Math.max(10, roadW * 0.32), { yaw: yawApp }, rivalThrust);
+        carArt.drawNear(ctx, look, cx, roadYifted, Math.max(10, roadW * 0.32), { yaw: yawApp }, rivalThrust);
         if (mv.nosActive) {
           thrustState.nos = 1; thrustState.plume = 0; thrustState.hover = false;
           thrustState.t = RS.fxClock + m; thrustState.calm = GameState.reducedMotion;

@@ -12,6 +12,7 @@
 import { buildCarModel, drawModel } from './car-art.js';
 import { shapeOf, topOf } from './car-shapes.js';
 import { projectLast } from './car-paint.js';
+import { nearFade, nearAlpha, nearScale } from './near-fade.js';
 
 export const YAW_STEPS = 15;       // body yaw from -YAW_MAX to +YAW_MAX, in equal steps
 export const YAW_MAX = 0.7;        // radians (GameState.carYaw is clamped to this)
@@ -152,6 +153,15 @@ export function carSprite(look, w, o = {}) {
     c.padN = pads.length;
     c.padX = new Float32Array(pads.length); c.padY = new Float32Array(pads.length);
     pads.forEach(([x, z], i) => { projectLast(x, 0.16, z, pt); c.padX[i] = pt.x; c.padY[i] = pt.y; });
+    // How wide the body really is in this view (its box's corners, projected): a semi seen
+    // side-on fills far more of its frame than a car seen from behind (ticket 0200).
+    let lo = bw, hi = 0;
+    for (let i = 0; i < 8; i++) {
+      projectLast(i & 1 ? S.W / 2 : -S.W / 2, i & 2 ? topOf(S) : 0, i & 4 ? S.L / 2 : -S.L / 2, pt);
+      if (pt.x < lo) lo = pt.x;
+      if (pt.x > hi) hi = pt.x;
+    }
+    c.body = Math.max(0, Math.min(bw, hi) - Math.max(0, lo)) / bw;
   }
   c.gy = gy;
   c.thrust = shapeOf(look.shape).thrust;
@@ -178,7 +188,7 @@ export function setSpriteScale(k) { pxScale = k > 0 ? k : 1; }
 
 /** Reusable thrust anchors for drawCarAt → drawThrust (one per caller, no allocation). */
 export function createThrust() {
-  return { n: 0, x: new Float32Array(MAX_TIPS), y: new Float32Array(MAX_TIPS), r: new Float32Array(MAX_TIPS), kind: 'exhaust', pn: 0, px: new Float32Array(4), py: new Float32Array(4), w: 0, top: 0 };
+  return { n: 0, x: new Float32Array(MAX_TIPS), y: new Float32Array(MAX_TIPS), r: new Float32Array(MAX_TIPS), kind: 'exhaust', pn: 0, px: new Float32Array(4), py: new Float32Array(4), w: 0, top: 0, alpha: 1 };
 }
 
 /**
@@ -188,13 +198,48 @@ export function createThrust() {
  * body (roof, wing, fin) can reach on screen. Returns the height drawn.
  */
 export function drawCarAt(ctx, look, x, groundY, carW, o, out) {
+  return place(ctx, look, x, groundY, carW, o, out, false);
+}
+
+/** The look a rival, friend, ghost or traffic car is painted with, made once (kept on mv.look). */
+export function lookOf(mv) {
+  return mv.look || (mv.look = mv.style === 'SEMI_TRUCK'
+    ? { shape: 'SEMI_TRUCK', body: '#cbd5e1', cabin: '#94a3b8', glow: '' }
+    : { shape: mv.shape || mv.style || 'SEDAN', body: mv.bodyColor || '#334155', cabin: mv.accentColor || '#64748b', glow: mv.underglow || '' });
+}
+
+/**
+ * drawCarAt for everyone else on the road (rivals, friends, ghosts, traffic): a car passing
+ * beside the camera is eased down to a quarter of the view's width and faded to 35%
+ * (src/near-fade.js, ticket 0200). Render-only; the simulation never sees it.
+ */
+export function drawNear(ctx, look, x, groundY, carW, o, out) {
+  return place(ctx, look, x, groundY, carW, o, out, true);
+}
+
+function place(ctx, look, x, groundY, carW, o, out, near) {
   const fr = frameOf(look.shape);
-  const dw = carW * (fr.across / CAR_METRES);
+  let dw = carW * (fr.across / CAR_METRES);
   const spr = carSprite(look, dw * pxScale, o);
+  let a = 1;
+  if (near) {
+    // The road buffer is the view's width × pxScale, so this is the view width in drawing units.
+    const vw = ctx.canvas.width / pxScale;
+    const t = vw > 0 ? nearFade(carW / vw) : 0;
+    if (t > 0) {
+      dw *= nearScale(dw * (spr.body || 1) / vw, t);
+      a = nearAlpha(t);
+    }
+  }
   const k = dw / spr.width;
   const dh = spr.height * k;
   const left = x - dw / 2, top = groundY - spr.gy * k;
-  ctx.drawImage(spr, left, top, dw, dh);
+  if (a < 1) {
+    const a0 = ctx.globalAlpha;
+    ctx.globalAlpha = a0 * a;
+    ctx.drawImage(spr, left, top, dw, dh);
+    ctx.globalAlpha = a0;
+  } else ctx.drawImage(spr, left, top, dw, dh);
   if (out) {
     out.n = spr.tipN || 0;
     for (let i = 0; i < out.n; i++) { out.x[i] = left + spr.tipX[i] * k; out.y[i] = top + spr.tipY[i] * k; out.r[i] = spr.tipR[i] * k; }
@@ -202,6 +247,7 @@ export function drawCarAt(ctx, look, x, groundY, carW, o, out) {
     out.pn = spr.padN || 0;
     for (let i = 0; i < out.pn; i++) { out.px[i] = left + spr.padX[i] * k; out.py[i] = top + spr.padY[i] * k; }
     out.w = dw;
+    out.alpha = a; // drawThrust fades the flames with the car (ticket 0200)
     out.top = groundY - fr.roof * (dw / fr.across);
   }
   return dh;
@@ -279,6 +325,8 @@ export function drawThrust(ctx, a, s) {
   if (!a) return;
   const t = s.t || 0;
   ctx.save();
+  const fade = a.alpha < 1 ? a.alpha : 1; // a car fading past the camera fades its flames too (0200)
+  if (fade < 1) ctx.globalAlpha *= fade;
   ctx.globalCompositeOperation = 'lighter';
   if (s.hover) {
     for (let i = 0; i < a.pn; i++) {
@@ -306,10 +354,10 @@ export function drawThrust(ctx, a, s) {
       const stops = nos > 0 ? NOS_STOPS : a.kind === 'jet' ? JET_STOPS : stopsFor(s.color);
       const big = a.kind === 'jet' ? 1.35 : 1;
       // A soft bloom round the tip, then the flame itself.
-      ctx.globalAlpha = 0.6 * power;
+      ctx.globalAlpha = 0.6 * power * fade;
       ctx.beginPath(); ctx.arc(x, y, r * 3 * big, 0, Math.PI * 2);
       fillPlaced(ctx, bloomGrad(ctx, stops[1]), x, y, r * 3 * big, r * 3 * big);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = fade;
       flame(ctx, x, y, r * 1.05 * big, r * (3.5 + 9 * power) * fl * big, stops);
     }
   }

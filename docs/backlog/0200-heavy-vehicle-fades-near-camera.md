@@ -1,12 +1,12 @@
 ---
 id: 0200
 title: A heavy vehicle beside the camera must not wall off half the screen
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-10-21
-pr:
+pr: 143
 ---
 
 ## Why
@@ -23,10 +23,10 @@ road stays readable. Render-only: never touch sim state (sim/render rule). Honou
 3D view too if it shows the same behaviour.
 
 ## Acceptance criteria
-- [ ] A vehicle passing at near-plane distance covers no more than 25% of the canvas width and is translucent
-- [ ] Collision and takedown behaviour unchanged (unit/e2e sim tests still green)
-- [ ] Screenshots at 1280x720 and 390x844 with a forced near-pass show the road edge and traffic ahead
-- [ ] Zero new per-frame allocations; perf probe within budget
+- [x] A vehicle passing at near-plane distance covers no more than 25% of the canvas width and is translucent
+- [x] Collision and takedown behaviour unchanged (unit/e2e sim tests still green)
+- [x] Screenshots at 1280x720 and 390x844 with a forced near-pass show the road edge and traffic ahead
+- [x] Zero new per-frame allocations; perf probe within budget
 
 ## Test plan
 Pure helper `nearFade(depth)` unit-tested (monotonic, bounds). E2E forces a heavy van beside
