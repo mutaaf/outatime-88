@@ -188,6 +188,9 @@ src/street-score.js Lazy (0193): street tracks (phonk / trap / EDM / grid build 
                       (createMusic): picks synthwave or street per bar from Settings → MUSIC STYLE, intensity from
                       speed/tier/NOS/Patrol, musicIn → musicLP (mood filter) → musicDuck → musicBus, fades out off the road
 src/input.js        InputState + pollGamepad() (deadzone + response curve, analog RT/LT pedals, one reused result; 0183)
+src/keybinds.js     Rebindable keys (0013), pure, in the lazy settings-panel chunk: one rebindable key per driving
+                      action + fixed arrows, conflicts refused; applyKeys sets InputState.keyMap (e.code → the default
+                      code main.js acts on) and .boostKey; settings-ui loads the panel chunk at boot only when keys are rebound
 src/onefilter.js    Lazy (loads when tilt turns on): One Euro filter, steady at rest, lag-free on a swerve (0183)
 src/forcefeel.js    Lazy: gamepad dual rumble + phone pulses from tyre slip, wheelspin, walls, landings (0183)
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound, static/sleep, reset() for pools)

@@ -17,6 +17,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   graphics: 'auto',       // 'auto' (device-picked tier, src/perf/) | 'low' | 'medium' | 'high' | 'ultra'
   steer: '',              // steering mode (src/steermode.js): '' = this device's natural one
   assist: '',             // co-pilot: 'off' | 'assist' | 'auto'; '' = the touch kit's old switch
+  keys: null,             // rebound keyboard keys { left: 'KeyJ', … } (0013, src/keybinds.js); null = defaults
 });
 
 export const DIFFICULTY = Object.freeze({
