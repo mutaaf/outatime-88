@@ -75,6 +75,7 @@ export function padGone() {
   if (!left) setLastInput('');
 }
 
+let padWasActive = false;
 const padOut = { steer: 0, gas: false, brake: false, gasAmt: 0, brakeAmt: 0, boost: false, hover: false, nos: false, back: false, l3: false };
 
 // TV mode (ticket 0175, src/tv/tv.js): a paired phone drives through the gamepad path. Its
@@ -83,6 +84,7 @@ export const PhonePad = { on: false, steer: 0, gas: false, brake: false, gasAmt:
 
 export function pollGamepad() {
   if (PhonePad.on) { setLastInput('phone'); return PhonePad; }
+  if (InputState.lastInput === 'phone') setLastInput(''); // the phone unpaired: default words (0007)
   if (!navigator.getGamepads) return NO_PAD;
   try {
     const pads = navigator.getGamepads();
@@ -103,7 +105,10 @@ export function pollGamepad() {
         padOut.nos = pressed(p, 4);
         padOut.back = pressed(p, 8); // BACK / SELECT / VIEW: steering mode
         padOut.l3 = pressed(p, 10);  // left-stick click: co-pilot
-        if (steer || gasAmt || brakeAmt || padOut.boost || padOut.nos) setLastInput('pad');
+        // A fresh pad press takes over the prompts (0007); a held stick doesn't fight the keys.
+        const active = Boolean(steer || gasAmt || brakeAmt || padOut.boost || padOut.nos || padOut.hover);
+        if (active && !padWasActive) setLastInput('pad');
+        padWasActive = active;
         return padOut;
       }
     }

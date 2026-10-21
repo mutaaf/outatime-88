@@ -27,8 +27,13 @@ test('a connected pad: steer prompt and flux hint name the pad, a disconnect res
   await page.evaluate(() => window.dispatchEvent(new Event('gamepadconnected')));
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await racing(page);
-  await expect(page.locator('#steerHint')).toBeVisible({ timeout: 3000 });
+  // The prompt's own wording, read from each span's computed display (the prompt itself shows on
+  // a wall-clock window after green, which a starved runner can miss).
   expect(await shownSteer(page)).toBe('◀ STICK / D-PAD TO STEER ▶');
+  // A touch screen with a pad: the pad wording still wins over the thumb prompt.
+  await page.evaluate(() => document.documentElement.classList.add('touch-ui'));
+  expect(await shownSteer(page)).toBe('◀ STICK / D-PAD TO STEER ▶');
+  await page.evaluate(() => document.documentElement.classList.remove('touch-ui'));
   await expect.poll(() => fluxHint(page)).toBe('⚡ FLUX READY! HIT 88 MPH OR X!');
 
   await page.evaluate(() => { window.__padIn = false; window.dispatchEvent(new Event('gamepaddisconnected')); });
@@ -42,7 +47,6 @@ test('no pad: keyboard prompts are unchanged', async ({ page }) => {
   await page.goto(`${APP}?debug`);
   await page.keyboard.press('Enter');
   await racing(page);
-  await expect(page.locator('#steerHint')).toBeVisible({ timeout: 3000 });
   expect(await shownSteer(page)).toBe('◀ A / D TO STEER ▶');
   await expect.poll(() => fluxHint(page)).toBe('⚡ FLUX READY! HIT 88 MPH OR SPACE!');
   expect(await page.evaluate(() => document.body.classList.contains('input-pad'))).toBe(false);

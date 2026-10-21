@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { pollGamepad, PAD, InputState, setLastInput, padGone } from '../../src/input.js';
+import { pollGamepad, PAD, PhonePad, InputState, setLastInput, padGone } from '../../src/input.js';
 
 const btn = (pressed, value) => ({ pressed, value: value == null ? (pressed ? 1 : 0) : value });
 function pad({ axes = [0, 0], pressed = [], values = {} } = {}) {
@@ -98,11 +98,26 @@ describe('setLastInput / padGone', () => {
     expect(cls.has('input-pad')).toBe(false);
   });
 
-  it('a pad press makes the pad the input in hand', () => {
+  it('a fresh pad press (Y too) makes the pad the input in hand; a held one does not fight the keys', () => {
     fakeBody();
+    poll(pad());
     setLastInput('keys');
-    poll(pad({ pressed: [0] }));
+    poll(pad({ pressed: [3] }));
     expect(InputState.lastInput).toBe('pad');
+    setLastInput('keys');
+    poll(pad({ pressed: [3] }));
+    expect(InputState.lastInput).toBe('keys');
+  });
+
+  it('a TV phone unpairing drops the BOOST words', () => {
+    fakeBody();
+    PhonePad.on = true;
+    pollGamepad();
+    expect(InputState.lastInput).toBe('phone');
+    PhonePad.on = false;
+    vi.stubGlobal('navigator', { getGamepads: () => [] });
+    pollGamepad();
+    expect(InputState.lastInput).toBe('');
   });
 
   it('a disconnect reverts to the default words unless another pad is still in', () => {

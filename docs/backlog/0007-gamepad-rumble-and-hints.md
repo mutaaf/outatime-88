@@ -25,7 +25,8 @@ pad press), and go back to the keyboard/touch words on `gamepaddisconnected`.
 ## Acceptance criteria
 - [x] e2e: dispatching a synthetic `gamepadconnected` event swaps the steer prompt and the flux hint
   to pad wording, and `gamepaddisconnected` restores them (`tests/e2e/pad-hints.spec.js`)
-- [x] Keyboard/touch hints unchanged with no pad
+- [x] Keyboard/touch hints unchanged with no pad (the wording table keeps the original words for keys,
+  touch and no input; the e2e checks keyboard; a pad on a touch screen still shows the pad wording)
 
 ## Test plan
 `tests/unit/play-hints.test.js` (wording table), `tests/unit/input.test.js` (setLastInput / padGone),
