@@ -1,7 +1,7 @@
 ---
 id: 0200
 title: A heavy vehicle beside the camera must not wall off half the screen
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: player-feel
