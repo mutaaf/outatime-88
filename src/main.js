@@ -2702,7 +2702,7 @@ window.onload = () => {
     state: GameState, save: SaveStore, goHome: showTitle, play: () => startNewRace(titleStart || { mode: 'INFINITE' }),
     daily: () => startNewRace({ daily: true }), garage: openGarageModal, ranks: () => openLeaderboard(), pause: openGarageModal,
     tv: () => { location.href = `${import.meta.env.BASE_URL}?tv`; }, leaveLive: () => live.leave(), touchActive: () => !!touch,
-    bigScreen: !coarsePointer,
+    bigScreen: !coarsePointer, road: LiveTraffic,
   }); }).catch(() => {}), 0);
   bindRaceStageSkip();
   if (/[?&]track=/.test(location.search)) loadShareUi().catch(() => {});

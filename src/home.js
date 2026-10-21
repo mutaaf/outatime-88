@@ -8,12 +8,13 @@
 // main.js owns the state change itself (showTitle); this module only decides when and draws.
 import './home.css';
 import { HOME_IDLE_MS, PITCH, homeHooks, isFirstVisit, noteNewsSeen } from './home-hooks.js';
-import { POP_CULTURE_ROSTER } from './data.js';
+import { POP_CULTURE_ROSTER, ROAD_CFG } from './data.js';
+import { frameTitle } from './title-frame.js';
 import { InputState } from './input.js';
 
 /**
  * h: { state (GameState), save (SaveStore), goHome(), play(), daily(), garage(carId), ranks(),
- *      tv(), pause(), leaveLive(), bigScreen, touchActive() }
+ *      tv(), pause(), leaveLive(), bigScreen, touchActive(), road (LiveTraffic) }
  */
 export function createHome(h) {
   const $ = (id) => document.getElementById(id);
@@ -100,10 +101,18 @@ export function createHome(h) {
 
   // ---------- the attract road: an AI driver ----------
   // Only on the home screen; every race start resets playerX/carYaw, so the sim never sees it.
-  let t = 0, x = 0, vx = 0;
+  // The road's bodies cruise along, clear of the hero car (src/title-frame.js, ticket 0192).
+  let t = 0, x = 0, vx = 0, lastPos = -1;
   function attract(dt) {
-    if (S.status !== 'TITLE') { t = 0; return; }
+    if (S.status !== 'TITLE') { t = 0; lastPos = -1; return; }
     t += dt;
+    if (h.road) {
+      // Back from a race (attract doesn't run mid-race) the step is the whole race: count it as 0.
+      const step = S.trackPos - lastPos;
+      const dz = lastPos < 0 || step < 0 || step > 4000 ? 0 : step;
+      lastPos = S.trackPos;
+      frameTitle(h.road, S.trackPos + ROAD_CFG.playerZOffset, dz);
+    }
     // A lazy weave across the lanes, two sine waves so it never looks like a metronome.
     const target = reduced() ? 0 : 0.42 * Math.sin(t * 0.55) + 0.16 * Math.sin(t * 1.37 + 1.1);
     const ax = (target - x) * 6 - vx * 3.2;

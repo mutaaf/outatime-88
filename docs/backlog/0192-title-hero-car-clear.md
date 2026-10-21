@@ -1,12 +1,12 @@
 ---
 id: 0192
 title: Title screen — keep the hero car clear of the big grey vehicle slab
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: content
 created: 2026-10-20
-pr:
+pr: 137
 ---
 
 ## Why
@@ -20,9 +20,9 @@ keep scenery or traffic out of the hero car's framing, for example by spawn lane
 camera-safe zone in the title scene. Touches the title scene code only.
 
 ## Acceptance criteria
-- [ ] Across 20 seeded title loads at 1280x720 and 390x844, no prop/vehicle covers more than 15% of the screen area to the right of the hero car (a unit test on the spawn rule)
-- [ ] Screenshots at both sizes attached to the PR
-- [ ] Reduced motion keeps the same framing
+- [x] Across 20 seeded title loads at 1280x720 and 390x844, no prop/vehicle covers more than 15% of the screen area to the right of the hero car (a unit test on the spawn rule)
+- [x] Screenshots at both sizes attached to the PR
+- [x] Reduced motion keeps the same framing
 
 ## Test plan
 Unit test on the spawn/keep-out rule; a title e2e screenshot (not pixel-diffed).
