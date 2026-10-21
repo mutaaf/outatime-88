@@ -74,14 +74,14 @@ for (const size of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) 
     expect(ahead.length).toBeGreaterThan(0);
     for (const d of ahead) expect(d.alpha).toBe(1);
 
-    // Level with you it has started to fade.
-    const level = await semiAt(page, 1250);
-    expect(level.length).toBeGreaterThan(0);
-    for (const d of level) expect(d.alpha).toBeLessThan(0.9);
-    await page.screenshot({ path: info.outputPath(`semi-level-${size.width}x${size.height}.png`) });
+    // Just behind you, on its way past the camera, it has started to fade.
+    const behind = await semiAt(page, 1120);
+    expect(behind.length).toBeGreaterThan(0);
+    for (const d of behind) expect(d.alpha).toBeLessThan(1);
+    await page.screenshot({ path: info.outputPath(`semi-behind-${size.width}x${size.height}.png`) });
 
     // Passing the camera: at most a quarter of the canvas, and translucent.
-    const near = await semiAt(page, 1000);
+    const near = await semiAt(page, 950);
     expect(near.length).toBeGreaterThan(0);
     for (const d of near) {
       expect(d.body).toBeLessThanOrEqual(0.25);

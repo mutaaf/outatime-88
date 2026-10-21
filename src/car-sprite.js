@@ -188,7 +188,7 @@ export function setSpriteScale(k) { pxScale = k > 0 ? k : 1; }
 
 /** Reusable thrust anchors for drawCarAt → drawThrust (one per caller, no allocation). */
 export function createThrust() {
-  return { n: 0, x: new Float32Array(MAX_TIPS), y: new Float32Array(MAX_TIPS), r: new Float32Array(MAX_TIPS), kind: 'exhaust', pn: 0, px: new Float32Array(4), py: new Float32Array(4), w: 0, top: 0 };
+  return { n: 0, x: new Float32Array(MAX_TIPS), y: new Float32Array(MAX_TIPS), r: new Float32Array(MAX_TIPS), kind: 'exhaust', pn: 0, px: new Float32Array(4), py: new Float32Array(4), w: 0, top: 0, alpha: 1 };
 }
 
 /**
@@ -247,6 +247,7 @@ function place(ctx, look, x, groundY, carW, o, out, near) {
     out.pn = spr.padN || 0;
     for (let i = 0; i < out.pn; i++) { out.px[i] = left + spr.padX[i] * k; out.py[i] = top + spr.padY[i] * k; }
     out.w = dw;
+    out.alpha = a; // drawThrust fades the flames with the car (ticket 0200)
     out.top = groundY - fr.roof * (dw / fr.across);
   }
   return dh;
@@ -324,6 +325,8 @@ export function drawThrust(ctx, a, s) {
   if (!a) return;
   const t = s.t || 0;
   ctx.save();
+  const fade = a.alpha < 1 ? a.alpha : 1; // a car fading past the camera fades its flames too (0200)
+  if (fade < 1) ctx.globalAlpha *= fade;
   ctx.globalCompositeOperation = 'lighter';
   if (s.hover) {
     for (let i = 0; i < a.pn; i++) {
@@ -351,10 +354,10 @@ export function drawThrust(ctx, a, s) {
       const stops = nos > 0 ? NOS_STOPS : a.kind === 'jet' ? JET_STOPS : stopsFor(s.color);
       const big = a.kind === 'jet' ? 1.35 : 1;
       // A soft bloom round the tip, then the flame itself.
-      ctx.globalAlpha = 0.6 * power;
+      ctx.globalAlpha = 0.6 * power * fade;
       ctx.beginPath(); ctx.arc(x, y, r * 3 * big, 0, Math.PI * 2);
       fillPlaced(ctx, bloomGrad(ctx, stops[1]), x, y, r * 3 * big, r * 3 * big);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = fade;
       flame(ctx, x, y, r * 1.05 * big, r * (3.5 + 9 * power) * fl * big, stops);
     }
   }

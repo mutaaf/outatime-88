@@ -4,11 +4,12 @@
 // Depth comes from what the 2D renderer already knows: a car's road-scaled width over the view
 // width (`q`). It doesn't depend on the screen's shape (about 0.16 a few car lengths ahead,
 // 0.26 level with the player, 0.33+ at the near plane, at 1280x720, 390x844 and 844x390 alike).
-// Cars ahead of you are never touched: they are what you have to read and dodge.
+// Cars ahead of or level with you are never touched: they are what you read, dodge and slam.
 
 export const NEAR = {
-  from: 0.22,  // q where the fade starts: about two car lengths ahead of level with you
-  to: 0.30,    // q where it is complete: just behind you, on the way past the camera
+  from: 0.27,  // q where the fade starts: level with you or just behind (a car you are
+               // side-slamming stays solid)
+  to: 0.31,    // q where it is complete: on the way past the camera
   alpha: 0.35, // opacity from there to the near plane
   cover: 0.22, // widest a car's body may be from there on, as a share of the view width
                // (under the 25% the ticket allows: wheels and shading spill past the box)

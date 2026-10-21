@@ -9,6 +9,7 @@ describe('nearFade / nearAlpha / nearScale', () => {
   it('is 0 ahead of the zone, 1 past it, and never goes back the other way', () => {
     expect(nearFade(0)).toBe(0);
     expect(nearFade(0.16)).toBe(0);           // a few car lengths ahead
+    expect(nearFade(0.26)).toBe(0);           // level with you: a side-slam target stays solid
     expect(nearFade(NEAR.from)).toBe(0);
     expect(nearFade(NEAR.to)).toBe(1);
     expect(nearFade(0.4)).toBe(1);            // the near plane
@@ -70,7 +71,7 @@ describe('drawNear (2D traffic)', () => {
       drawNear(ctx, SEMI, vw * 0.8, 600, vw * 0.36, { yaw: -0.4 });
       const d = ctx.draws.pop();
       expect(d.dw * d.img.body / vw).toBeLessThanOrEqual(0.25);
-      expect(d.alpha).toBeCloseTo(0.35, 5);
+        expect(d.alpha).toBeCloseTo(0.35, 5);
       expect(ctx.globalAlpha).toBe(1); // restored
     });
   }
@@ -96,11 +97,31 @@ describe('drawNear (2D traffic)', () => {
 
   it('honours the backing scale: the same view at 2x device pixels fades the same', () => {
     const one = roadCtx(1280), two = roadCtx(2560);
-    drawNear(one, SEDAN, 900, 600, 1280 * 0.27, { yaw: -0.2 });
+    drawNear(one, SEDAN, 900, 600, 1280 * 0.29, { yaw: -0.2 });
     setSpriteScale(2);
-    drawNear(two, SEDAN, 900, 600, 1280 * 0.27, { yaw: -0.2 });
+    drawNear(two, SEDAN, 900, 600, 1280 * 0.29, { yaw: -0.2 });
     expect(two.draws[0].alpha).toBeCloseTo(one.draws[0].alpha, 6);
     expect(two.draws[0].alpha).toBeLessThan(1);
+  });
+
+  it('NOS flames fade with the car, and full-size cars keep opaque flames', async () => {
+    const { drawThrust } = await import('../../src/car-sprite.js');
+    const out = { n: 0, x: new Float32Array(4), y: new Float32Array(4), r: new Float32Array(4), px: new Float32Array(4), py: new Float32Array(4) };
+    const seen = [];
+    const ctx = roadCtx(1280);
+    Object.assign(ctx, { _s: [], save() { this._s.push(this.globalAlpha); }, restore() { this.globalAlpha = this._s.pop(); }, beginPath() {}, moveTo() {}, lineTo() {}, quadraticCurveTo() {}, arc() {}, ellipse() {}, closePath() {}, translate() {}, scale() {}, fillRect() {},
+      fill() { seen.push(this.globalAlpha); }, createLinearGradient: () => ({ addColorStop() {} }), createRadialGradient: () => ({ addColorStop() {} }) });
+    drawNear(ctx, SEDAN, 900, 600, 1280 * 0.4, { yaw: 0 }, out);
+    expect(out.alpha).toBeCloseTo(0.35, 5);
+    drawThrust(ctx, out, { nos: 1, t: 0 });
+    expect(seen.length).toBeGreaterThan(0);
+    for (const a of seen) expect(a).toBeLessThanOrEqual(0.35 + 1e-9);
+    expect(ctx.globalAlpha).toBe(1);
+    seen.length = 0;
+    drawNear(ctx, SEDAN, 900, 600, 1280 * 0.18, { yaw: 0 }, out);
+    expect(out.alpha).toBe(1);
+    drawThrust(ctx, out, { nos: 1, t: 0 });
+    expect(Math.max(...seen)).toBe(1); // the flame itself is opaque, as before
   });
 
   it('keeps the thrust anchors on the shrunken car', () => {
