@@ -1,12 +1,12 @@
 ---
 id: 0007
 title: Gamepad rumble on impacts and button prompts when a pad is connected
-status: in-progress
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-16
-pr:
+pr: 141
 ---
 
 ## Why
