@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createHud, scorePill } from '../../src/hud.js';
+import { createHud, scoreText } from '../../src/hud.js';
 import { breakdown, createPenaltyLog, logHit, penaltyPoints } from '../../src/scoring.js';
 
 /** A tiny DOM stand-in that counts writes, so we can prove the HUD only writes on change. */
@@ -108,13 +108,13 @@ describe('score readout', () => {
   });
 });
 
-describe('scorePill (ticket 0199)', () => {
-  it('clamps at zero and flags the penalty, matching the final score rounding', () => {
-    expect(scorePill(-23516)).toEqual({ text: '0 PTS', penalty: true });
-    expect(scorePill(-0.4)).toEqual({ text: '0 PTS', penalty: false });
-    expect(scorePill(0)).toEqual({ text: '0 PTS', penalty: false });
-    expect(scorePill(1234567.6)).toEqual({ text: `${(1234568).toLocaleString()} PTS`, penalty: false });
-    expect(scorePill(NaN)).toEqual({ text: '0 PTS', penalty: false });
+describe('scoreText (ticket 0199)', () => {
+  it('clamps at zero and rounds the way the final score does', () => {
+    expect(scoreText(-23516)).toBe('0 PTS');
+    expect(scoreText(-0.4)).toBe('0 PTS');
+    expect(scoreText(0)).toBe('0 PTS');
+    expect(scoreText(1234567.6)).toBe(`${(1234568).toLocaleString()} PTS`);
+    expect(scoreText(NaN)).toBe('0 PTS');
   });
 
   it('equals the results card final score for the same run', () => {
@@ -123,8 +123,17 @@ describe('scorePill (ticket 0199)', () => {
     logHit(log, 'obstacle', 90);
     for (const live of [-30000.7, -0.6, 0, 812.5, 99999.4]) {
       const final = breakdown(Math.round(live) + penaltyPoints(log), log).final;
-      expect(scorePill(live).text).toBe(`${final.toLocaleString()} PTS`);
+      expect(scoreText(live)).toBe(`${final.toLocaleString()} PTS`);
     }
+  });
+
+  it('a fraction of a point below zero is not a penalty', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    hud.update(view({ score: -0.4 }));
+    const el = doc.getElementById('hudScore');
+    expect(el.textContent).toBe('0 PTS');
+    expect(el.classList.contains('is-pen')).toBe(false);
   });
 });
 

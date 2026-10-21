@@ -186,8 +186,8 @@ for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { wi
 // Ticket 0199: penalties charged live can push the running total below zero, but the run pays
 // max(0, earned − penalty). The pill holds at 0 with a dim PENALTY tag, never a minus sign,
 // stays whole inside the speed card beside the longest flux label, and is no wider than the
-// pill of an ordinary ~1M-point race, so the card never grows because of it. On phones in
-// portrait the tag drops under the number, so the race-time column beside it stays whole.
+// pill of an ordinary ~1M-point race (the tag sits under the number), so the card never grows
+// sideways because of it and the race-time column beside it keeps its room.
 for (const vp of [{ width: 390, height: 844, touch: true }, { width: 360, height: 740, touch: true }, { width: 844, height: 390, touch: true }, { width: 1280, height: 720 }]) {
   test.describe(`${vp.width}x${vp.height}`, () => {
     test.use({ hasTouch: Boolean(vp.touch), viewport: { width: vp.width, height: vp.height } });
@@ -223,6 +223,10 @@ for (const vp of [{ width: 390, height: 844, touch: true }, { width: 360, height
         const card = document.getElementById('hudSpeedCard');
         const times = document.getElementById('hudTimes');
         const timesClip = times.scrollWidth - times.clientWidth; // with the FLUX label the race starts with
+        // The same column beside an ordinary mid-race score.
+        el.classList.remove('is-pen');
+        el.textContent = (99999).toLocaleString() + ' PTS';
+        const plainClip = times.scrollWidth - times.clientWidth;
         document.getElementById('hudFluxLabel').textContent = '⚡ WARP READY'; // the longest label it sits beside
         // The same card with an ordinary big score in the pill instead.
         el.classList.remove('is-pen');
@@ -232,14 +236,14 @@ for (const vp of [{ width: 390, height: 844, touch: true }, { width: 360, height
         el.textContent = '0 PTS';
         return {
           box: box(el), label: box(document.getElementById('hudFluxLabel')),
-          card: box(card), plainCard, timesClip, foot: el.parentElement.scrollWidth - el.parentElement.clientWidth,
+          card: box(card), plainCard, timesClip, plainClip, foot: el.parentElement.scrollWidth - el.parentElement.clientWidth,
         };
       });
       expect(pill.foot, 'score row overflows the speed card').toBeLessThanOrEqual(0);
       expect(pill.box.right).toBeLessThanOrEqual(pill.card.right + 0.5);
       expect(intersects(pill.box, pill.label), 'PENALTY tag runs into the flux label').toBeFalsy();
       expect(pill.card.width, 'the PENALTY tag widened the speed card').toBeLessThanOrEqual(pill.plainCard + 0.5);
-      expect(pill.timesClip, 'the PENALTY tag squeezed the race-time column').toBeLessThanOrEqual(0);
+      expect(pill.timesClip, 'the PENALTY tag squeezed the race-time column').toBeLessThanOrEqual(Math.max(0, pill.plainClip));
       // Every other HUD block (the same set src/hud.js hudRects() returns).
       const others = await page.evaluate(() => [...document.querySelectorAll('[data-hud-rect]')]
         .filter((n) => n.id !== 'hudSpeedCard').map((n) => { const r = n.getBoundingClientRect(); return { id: n.id, x: r.x, y: r.y, width: r.width, height: r.height }; })

@@ -395,8 +395,9 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-score { color: #e2e8f0; font-variant-numeric: tabular-nums; }
 /* Penalties outweigh the points (ticket 0199): the pill holds at 0 with a dim tag, never a minus. */
 .hud-score.is-pen { color: #fca5a5; }
-/* Dimmed by size and the label grey (≈7:1 on the card), never by opacity: it must stay legible. */
-.hud-score.is-pen::after { content: ' PENALTY'; font-size: max(.75em, 9px); color: #94a3b8; }
+/* The tag sits under the number, so it never widens the card. It is dimmed by size and the
+   label grey (≈7:1 on the card), never by opacity: it must stay legible. */
+.hud-score.is-pen::after { content: 'PENALTY'; display: block; font-size: max(.75em, 9px); color: #94a3b8; }
 .hud-speed.is-ready { border-color: #fde047; }
 .hud-speed.is-ready #hudFluxLabel { color: #fde047; }
 .hud-gearcol { grid-area: gear; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
@@ -438,8 +439,6 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   .gap { font-size: 10px; padding: 1px 3px; text-align: center; }
   /* 0190: the clock drops under the race time when the column is too narrow for both. */
   .hud-clockbox { flex-wrap: wrap; justify-content: center; column-gap: 6px; row-gap: 0; padding: 2px 6px; border-radius: 12px; }
-  /* 0199: the PENALTY tag drops under "0 PTS" so it never squeezes the times column. */
-  .hud-score.is-pen::after { display: block; }
 }
 /* Short landscape screens (phones on their side): one slim row. */
 @media (max-height: 520px) and (orientation: landscape) {

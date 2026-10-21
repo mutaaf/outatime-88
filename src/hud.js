@@ -137,14 +137,10 @@ export function createHud(doc = document) {
       text(el.fluxLabel, 'fluxLabel', ready ? '⚡ WARP READY' : 'FLUX');
       flag(el.speedCard, 'ready', 'is-ready', ready);
       // The score sits under the FLUX meter; labelled as points so it never reads as flux.
-      // Formatted only when the rounded total moves, so a steady score allocates nothing.
-      const pts = Math.round(Number(s.score) || 0);
-      if (last.scorePts !== pts) {
-        last.scorePts = pts;
-        const pill = scorePill(pts);
-        text(el.score, 'score', pill.text);
-        flag(el.score, 'scorePen', 'is-pen', pill.penalty);
-      }
+      // Ticket 0199: never below 0 (see scoreText); a negative total is tagged PENALTY instead.
+      const pts = Math.round(s.score);
+      text(el.score, 'score', scoreText(pts));
+      flag(el.score, 'scorePen', 'is-pen', pts < 0);
     },
   };
 }
@@ -152,12 +148,10 @@ export function createHud(doc = document) {
 /**
  * The live score pill (ticket 0199). Penalties are charged live, so the running total can dip
  * below zero, but the final score is max(0, earned − penalty) (src/scoring.js): show what the
- * run would pay now, rounded as the results card rounds it, and flag that penalties ate it.
+ * run would pay now, rounded as the results card rounds it. The HUD tags a negative total
+ * PENALTY (CSS) instead of printing a minus sign.
  */
-export function scorePill(score) {
-  const pts = Math.round(Number(score) || 0);
-  return { text: `${Math.max(0, pts).toLocaleString()} PTS`, penalty: pts < 0 };
-}
+export const scoreText = (score) => `${Math.max(0, Math.round(score) || 0).toLocaleString()} PTS`;
 
 /** Screen rects of every HUD block (for no-overlap checks by other UI, e.g. touch controls). */
 export function hudRects(doc = document) {
