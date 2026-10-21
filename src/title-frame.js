@@ -35,4 +35,5 @@ export function frameTitle(road, playerZ, dz) {
       b.prevZ = b.worldZ;
     }
   }
+  lists[0] = lists[1] = lists[2] = null; // don't hold the last road after initTrack
 }

@@ -107,7 +107,9 @@ export function createHome(h) {
     if (S.status !== 'TITLE') { t = 0; lastPos = -1; return; }
     t += dt;
     if (h.road) {
-      const dz = lastPos < 0 || S.trackPos < lastPos ? 0 : S.trackPos - lastPos;
+      // Back from a race (attract doesn't run mid-race) the step is the whole race: count it as 0.
+      const step = S.trackPos - lastPos;
+      const dz = lastPos < 0 || step < 0 || step > 4000 ? 0 : step;
       lastPos = S.trackPos;
       frameTitle(h.road, S.trackPos + ROAD_CFG.playerZOffset, dz);
     }

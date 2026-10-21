@@ -46,8 +46,8 @@ function box(b, cameraZ, w, h) {
   const roadW = scale * ROAD_CFG.roadWidth * w / 2;
   const roadY = h / 2 + scale * ROAD_CFG.cameraHeight * h / 2;
   const x = w / 2 + b.offset * roadW;
-  const bw = b.kind === 'OBSTACLE' ? Math.max(12, roadW * b.halfW * 2) : roadW * 0.32;
-  const bh = b.kind === 'OBSTACLE' ? bw * 0.58 : bw * (b.truck ? 1.6 : 0.9);
+  const bw = b.kind === 'OBSTACLE' ? Math.max(12, roadW * b.halfW * 2) : roadW * (b.truck ? 0.38 : 0.32); // main.js renderScene
+  const bh = b.kind === 'OBSTACLE' ? bw * 0.58 : bw * (b.truck ? 1.4 : 0.9); // the sprites are taller than the placeholder
   return { x0: x - bw / 2, x1: x + bw / 2, y0: roadY - bh, y1: roadY };
 }
 
