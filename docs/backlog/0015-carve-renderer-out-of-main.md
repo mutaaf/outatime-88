@@ -1,7 +1,7 @@
 ---
 id: 0015
 title: Carve renderScene and drawPlayerCar out of main.js into src/render/
-status: ready
+status: shipped
 priority: P2
 size: L
 lens: tech-health

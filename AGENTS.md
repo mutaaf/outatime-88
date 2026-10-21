@@ -128,9 +128,15 @@ Depth over breadth: polish one moment until it sings before adding three.
 ```
 index.html          Markup: canvas, HUD, touch controls, start/garage/results modals (Tailwind classes)
 src/main.js         Entry: what the title needs on its first frame — JarvisAI assist modes ·
-                      LiveTraffic's data and init · renderScene() (2D-canvas pseudo-3D renderer) ·
-                      UI (roster, level select, garage) · bindAllControls() · mainLoop(); exports
-                      what the race step reads (RS = state both write, RACE_DEPS = shared modules)
+                      LiveTraffic's data and init · UI (roster, level select, garage) ·
+                      bindAllControls() · mainLoop(); exports what the race step and src/render/
+                      read (RS = state both write, RACE_DEPS = shared modules)
+src/render/         The 2D-canvas pseudo-3D renderer (0015), in the startup bundle (the title draws with it):
+                      canvas.js (display canvas + pixel buffer, view size, era render config) ·
+                      scene.js (renderScene(): the frame, the loop ride, the blit + speed feel) ·
+                      road.js (backdrop + road deck; `road` = the visible segments this frame) ·
+                      sprites.js (items, obstacles, cars + tags, wrecks, AR) · player.js (drawPlayerCar) ·
+                      fx.js (car FX, speed lines, warp tunnel, sparks, the 3D overlay). Each file ≤ 500 lines
 src/race-step.js    Lazy race step (0170): updateGame(dt), LiveTraffic.update, race rules (damage,
                       streaks, takedowns, specials, time warp), race start/finish, race HUD;
                       imports only from ./main.js
