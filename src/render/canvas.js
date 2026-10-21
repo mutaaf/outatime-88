@@ -1,5 +1,6 @@
 // The 2D renderer's canvases (ticket 0015): the display canvas and the pixel buffer the road
 // is drawn into, their sizes, and the era's render config. main.js and src/render/ share these.
+// src/render/ and main.js import each other: load the renderer only through main.js (the entry).
 import { GameState } from '../state.js';
 import { ERAS } from '../data.js';
 import { gfxQ } from '../main.js';

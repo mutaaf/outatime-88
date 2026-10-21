@@ -1,15 +1,17 @@
 // The 2D race frame after the renderer moved to src/render/ (ticket 0015). The race is frozen
 // (sim held, graphics governor held, clock and randomness pinned, traffic parked up the road)
-// and the frame is redrawn on demand: it must come out the same every time, with the era's sky
-// on top, the orange deck under the car and the car itself, at desktop and phone size.
+// and the frame is redrawn on demand: a smoke test that it comes out the same every time, with
+// the era's sky on top, the orange deck under the car and the car itself, at desktop and phone
+// size, and that every draw path (cars, AR, warp, NOS) runs without an error.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage, racing } from './helpers.js';
 
 /** Freezes the race at a fixed spot and returns `frames` redraws of it, sampled. */
-const frozenFrames = (page, frames) => page.evaluate((frames) => {
+const frozenFrames = (page, frames, busy = false) => page.evaluate(([frames, busy]) => {
   const O = window.__OT, g = O.GameState, t = O.traffic();
   O.sim(1); // holds the frame loop: from here on only a resize redraws (main.js)
-  Date.now = () => 1.7e12; Math.random = () => 0.5;
+  const now = performance.now();
+  Date.now = () => 1.7e12; Math.random = () => 0.5; performance.now = () => now;
   Object.assign(g, {
     trackPos: 2400, playerX: 0, playerY: 0, playerVX: 0, speed: 0, screenShake: 0, invulnTimer: 0, warpFxTimer: 0,
     nosBurning: false, carSurgeTimer: 0, agroTimer: 0, carYaw: 0, cameraBank: 0, stuntSpinAngle: 0, chassisRoll: 0,
@@ -17,6 +19,14 @@ const frozenFrames = (page, frames) => page.evaluate((frames) => {
   });
   for (const k of ['particles', 'flyingWrecks', 'pickupAnimations', 'hitShockwaves', 'debrisShards', 'lightningBolts']) g[k].length = 0;
   for (const c of [...t.traffic, ...t.racers]) c.worldZ = g.trackPos + 90000;
+  if (busy) {
+    // Every draw path the parked frame skips: cars in view with name tags and rival NOS, the
+    // AR overlay, the warp split + tunnel and the player's NOS.
+    [...t.racers, ...t.traffic].slice(0, 4).forEach((c, i) => Object.assign(c, {
+      worldZ: g.trackPos + 400 + i * 250, offset: i % 2 ? 0.45 : -0.45, takenDown: false, yaw: 0, y: 0, suspY: 0, nosActive: i % 2 === 0,
+    }));
+    Object.assign(g, { jarvisArEnabled: true, warpFxTimer: 0.5, nosBurning: true });
+  }
   const c = document.getElementById('gameCanvas'), ctx = c.getContext('2d');
   const out = [];
   for (let f = 0; f < frames; f++) {
@@ -25,10 +35,11 @@ const frozenFrames = (page, frames) => page.evaluate((frames) => {
     const px = [];
     for (let i = 0; i < d.length; i += 4 * 53) px.push(d[i], d[i + 1], d[i + 2]);
     const at = (fx, fy) => { const o = (Math.floor(fy * c.height) * c.width + Math.floor(fx * c.width)) * 4; return [d[o], d[o + 1], d[o + 2]]; };
-    out.push({ px, w: c.width, h: c.height, sky: at(0.5, 0.05), deck: at(0.5, 0.97), car: g.carBox && { ...g.carBox } });
+    const rw = c.width / (g.pixelScale || 1); // carBox is in road-buffer px
+    out.push({ px, w: c.width, h: c.height, rw, sky: at(0.5, 0.05), deck: at(0.5, 0.97), car: g.carBox && { ...g.carBox } });
   }
   return out;
-}, frames);
+}, [frames, busy]);
 
 const same = (a, b) => {
   let n = 0;
@@ -57,7 +68,20 @@ for (const [w, h] of [[1280, 720], [390, 844]]) {
     // The player car was drawn and published its screen box, centred on the road.
     expect(a.car.x1 - a.car.x0).toBeGreaterThan(20);
     expect(a.car.x0).toBeGreaterThan(0);
-    expect(a.car.x1).toBeLessThan(w);
+    expect(a.car.x1).toBeLessThan(a.rw);
+    expect(problems).toEqual([]);
+  });
+
+  test(`a busy frame (cars, rival NOS, AR, warp, NOS) draws without errors at ${w}x${h} (0015)`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto(`${APP}?debug`);
+    await page.locator('#btnStartRace').click();
+    await racing(page);
+    await page.waitForFunction(() => window.__OT.GameState.playerShape2D, null, { timeout: 15000 });
+    const [a, b] = await frozenFrames(page, 2, true);
+    expect(a.w).toBeGreaterThan(0);
+    expect(same(a.px, b.px)).toBeGreaterThanOrEqual(0.99);
     expect(problems).toEqual([]);
   });
 }

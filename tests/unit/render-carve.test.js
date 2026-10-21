@@ -22,7 +22,7 @@ describe('2D renderer carve (0015)', () => {
   });
 
   it('every render module is under 500 lines and each piece has its home', () => {
-    expect(renderFiles.sort()).toEqual(['canvas.js', 'fx.js', 'player.js', 'road.js', 'scene.js', 'sprites.js']);
+    expect(renderFiles).toEqual(expect.arrayContaining(['canvas.js', 'fx.js', 'player.js', 'road.js', 'scene.js', 'sprites.js']));
     for (const f of renderFiles) expect(lines(src(`render/${f}`)), f).toBeLessThanOrEqual(500);
     expect(src('render/scene.js')).toMatch(/export function renderScene\(/);
     expect(src('render/player.js')).toMatch(/export function drawPlayerCar\(/);

@@ -46,6 +46,7 @@ function drawNosFlames(ctx, rw, rh) {
 }
 let nosFlameGrad = null;
 
+/** Pickups flying into the car, hit shockwaves and debris (screen space; both renderers). */
 export function drawCarFx(ctx, rw, rh, over3d) {
   if (!over3d && !carArt) drawNosFlames(ctx, rw, rh);
   // 5.2 Render Animated Power-Ups Magnetically Arcing into the player car's Fusion Core!
