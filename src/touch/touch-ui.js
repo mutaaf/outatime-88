@@ -464,6 +464,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       if (!ptrs.some((q) => q !== p && q.id !== -1 && q.kind === 'look')) { lookDragging = false; lookBack2D = false; }
     }
     p.id = -1; p.kind = ''; p.btn = null;
+    if (headerMoved && !held()) headerResized();
   }
 
   /** Lift every finger: lost focus, a modal opened, the race ended. Nothing stays stuck on. */
@@ -501,9 +502,19 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   const schedule = () => { if (!queued) { queued = true; win.requestAnimationFrame(() => { queued = false; releaseAll(); relayout(); }); } };
   win.addEventListener('resize', schedule);
   win.addEventListener('orientationchange', schedule);
+  // The HUD changes height mid-race (a phone's speed card wraps once the score grows), so a
+  // header resize never lifts a held finger: the controls catch up when the last one comes off.
+  let headerMoved = false; let headerQueued = false;
+  const held = () => ptrs.some((p) => p.id !== -1);
+  const headerResized = () => {
+    headerMoved = true;
+    if (headerQueued || held()) return;
+    headerQueued = true;
+    win.requestAnimationFrame(() => { headerQueued = false; if (!held()) { headerMoved = false; relayout(); } });
+  };
   if (typeof win.ResizeObserver === 'function') {
     const header = doc.querySelector('header');
-    if (header) new win.ResizeObserver(schedule).observe(header);
+    if (header) new win.ResizeObserver(headerResized).observe(header);
   }
 
   // --- Per-frame ----------------------------------------------------------------------------

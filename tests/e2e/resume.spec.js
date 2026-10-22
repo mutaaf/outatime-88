@@ -1,7 +1,7 @@
 // Pause → resume never leaves the race frozen, whichever way you paused, and a thumb that
 // goes down during the start lights is the stick once the race goes green.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage, touchReady } from './helpers.js';
+import { APP, watchPage, touchReady, nextFrames } from './helpers.js';
 
 const SAVE_KEY = 'outatime_cruisn_88_save_v2';
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -152,6 +152,32 @@ test('dragging the thumbstick: the knob follows the finger and steering is propo
   await expect.poll(steer).toBeLessThan(-0.3);
   await touch('touchEnd', []);
   await expect.poll(async () => Math.abs(await steer())).toBeLessThan(0.01);
+});
+
+test('the HUD growing mid-race (first points wrap the speed card) never drops a held thumb', async ({ page }) => {
+  await race(page);
+  const cdp = await page.context().newCDPSession(page);
+  const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ ...p, id: 1, radiusX: 8, radiusY: 8, force: 1 })) });
+  const steer = () => page.evaluate(() => window.__OT.input.touchSteerVal);
+  const engaged = () => page.evaluate(() => document.querySelector('#tcStick').classList.contains('tc-engaged'));
+  const zoneTop = () => page.evaluate(() => new DOMMatrix(document.querySelector('#tcZoneHint').style.transform).m42);
+  const top0 = await zoneTop();
+  await touch('touchStart', [{ x: 100, y: 660 }]);
+  await touch('touchMove', [{ x: 160, y: 660 }]);
+  await expect.poll(steer).toBeGreaterThan(0.5);
+  // The header grows the way it does on a phone once the score's text wraps under WARP READY.
+  await page.evaluate(() => { const h = document.querySelector('header'); h.style.minHeight = `${h.getBoundingClientRect().height + 24}px`; });
+  await nextFrames(page, 4);
+  expect(await engaged()).toBe(true);
+  expect(await steer()).toBeGreaterThan(0.5);
+  await touch('touchMove', [{ x: 170, y: 660 }]);
+  await nextFrames(page, 2);
+  expect(await engaged()).toBe(true);
+  expect(await steer()).toBeGreaterThan(0.5);
+  // Lifting the thumb lets the controls catch up with the taller HUD.
+  await touch('touchEnd', []);
+  await expect.poll(async () => Math.abs(await steer())).toBeLessThan(0.01);
+  await expect.poll(zoneTop).toBeGreaterThan(top0 + 20);
 });
 
 test('a live race is never paused by leaving the app (friends are still driving)', async ({ page }) => {
