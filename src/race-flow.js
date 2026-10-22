@@ -43,7 +43,8 @@ export const COACH_LEARNED_AFTER = 2;
 export function updateInteractiveCoach(currentSegIdx) {
   const banner = document.getElementById('interactiveCoachBanner');
   if (!banner) return;
-  if (GameState.coachDismissed) { hideCoach(banner); return; }
+  // Settings → Coach tips off (0201) silences it for good; GOT IT only for this race.
+  if (GameState.coachDismissed || SaveStore.data.settings.coach === false) { hideCoach(banner); return; }
   // A pending fork is the decision on screen; the coach waits until it's made (ticket 0019).
   if (GameState.forkPending) { RS.coachYieldUntil = performance.now() + 350; hideCoach(banner); return; }
   // Yield to the announcer, and wait for its fade-out so the two never cross-fade on top of
@@ -265,7 +266,7 @@ export function setSteerHint(on) {
 
 export function updateOnboarding() {
   if (InputState.left || InputState.right || Math.abs(InputState.touchSteerVal) > 0.2 || Math.abs(GameState.playerVX) > 0.6) RS.onboarding.steer();
-  setSteerHint(RS.onboarding.hint(performance.now()) === 'steer');
+  setSteerHint(SaveStore.data.settings.coach !== false && RS.onboarding.hint(performance.now()) === 'steer');
 }
 
 export function applyDailyModifier(id) {

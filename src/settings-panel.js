@@ -23,6 +23,8 @@ export function createPanel(ctx) {
     if (voice) voice.setAttribute('aria-checked', String(s.voice));
     const prox = $('setProximity');
     if (prox) prox.setAttribute('aria-checked', String(s.proximity !== false));
+    const coach = $('setCoach');
+    if (coach) coach.setAttribute('aria-checked', String(s.coach !== false));
     const pairs = [['setMaster', SoundEngine.muted ? 0 : SoundEngine.volume], ['setMusic', s.musicVolume], ['setSfx', s.sfxVolume]];
     for (const [id, v] of pairs) {
       const el = $(id);
@@ -45,6 +47,8 @@ export function createPanel(ctx) {
   });
   const prox = $('setProximity');
   if (prox) prox.addEventListener('click', () => { settings().proximity = settings().proximity === false; save(); syncPanel(); });
+  const coach = $('setCoach');
+  if (coach) coach.addEventListener('click', () => { settings().coach = settings().coach === false; save(); syncPanel(); });
   $('setTiltSens').addEventListener('input', (e) => {
     SaveStore.data.tiltSensitivity = Math.max(0.4, Math.min(2.2, parseFloat(e.target.value) || 1));
     save(); syncPanel();

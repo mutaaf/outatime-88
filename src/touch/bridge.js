@@ -118,7 +118,8 @@ export function connectTouch(game) {
     controls.relayout();
     // Live races can't pause (everyone shares one clock), so the guide waits for your first
     // solo race instead of covering the countdown; the lobby shows a one-line tip meanwhile.
-    if (controls.isActive() && !cfg().coachSeen && GameState.status === 'PLAYING' && GameState.mode !== 'LIVE') {
+    // Coach tips off (0201) skips it without marking it seen: turned back on, it still plays once.
+    if (controls.isActive() && !cfg().coachSeen && SaveStore.data.settings.coach !== false && GameState.status === 'PLAYING' && GameState.mode !== 'LIVE') {
       // The guide plays over the start lights and never pauses the race: it's done once you
       // steer, or a few seconds into the race (the steering hint takes over from there).
       loadPanel().then(({ maybeShowCoach }) => maybeShowCoach({
