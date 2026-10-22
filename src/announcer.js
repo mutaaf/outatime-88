@@ -32,9 +32,9 @@ export function createAnnouncer({ now, show, hide }) {
     push(main, sub = '', duration = 950, priority = priorityFor(main)) {
       const msg = { main, sub, duration, priority, at: now() };
       if (current && current.main === main) { // refresh, don't flicker
-        current.sub = sub;
         current.until = Math.max(current.until, now() + duration);
-        show(current);
+        // Repaint only a new sub line: the banner is a live region, so a rewrite is re-read (0030).
+        if (current.sub !== sub) { current.sub = sub; show(current); }
         return;
       }
       if (!current || priority > current.priority) { display(msg); return; }

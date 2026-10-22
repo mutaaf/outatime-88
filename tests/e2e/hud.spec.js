@@ -339,3 +339,66 @@ for (const vp of [{ width: 390, height: 844, touch: true }, { width: 360, height
     });
   });
 }
+
+// Screen readers (ticket 0030): the one announcement channel is a polite live region written once
+// per announcement, and place changes are spoken on a visually hidden line at most every 2 s —
+// the position card itself is not a live region (it would read every overtake and lap tick).
+for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+  test(`announcements and place changes reach screen readers without spamming them at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    const attrs = await page.evaluate(() => {
+      const a = (sel, n) => document.querySelector(sel)?.getAttribute(n);
+      return {
+        ann: [a('#announcerContainer', 'role'), a('#announcerContainer', 'aria-live'), a('#announcerContainer', 'aria-atomic')],
+        card: a('#hudPosCard', 'role'), cardLive: a('#hudPosCard', 'aria-live'),
+        call: [a('#hudPlaceCall', 'role'), a('#hudPlaceCall', 'aria-live')],
+      };
+    });
+    expect(attrs.ann).toEqual(['status', 'polite', 'true']);
+    expect(attrs.card).not.toBe('status');
+    expect(attrs.cardLive).toBeNull();
+    expect(attrs.call).toEqual(['status', 'polite']);
+
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+    await racing(page, { minTime: 0.5 });
+    // Record every write to the two live regions from here on.
+    await page.evaluate(() => {
+      const log = (window.__srLog = { ann: [], call: [] });
+      new MutationObserver(() => log.ann.push(document.getElementById('announcerMain').textContent.trim()))
+        .observe(document.getElementById('announcerMain'), { childList: true, characterData: true, subtree: true });
+      const call = document.getElementById('hudPlaceCall');
+      new MutationObserver(() => log.call.push({ t: performance.now(), text: call.textContent }))
+        .observe(call, { childList: true, characterData: true, subtree: true });
+    });
+
+    // One announcement re-pushed every frame-ish (as the race step does for held states) is one write.
+    for (let i = 0; i < 5; i++) {
+      await page.evaluate(() => window.__OT.announce('FINAL LAP', '', 1500));
+      await page.waitForTimeout(60);
+    }
+    expect((await page.evaluate(() => window.__srLog.ann)).filter((t) => t === 'FINAL LAP')).toHaveLength(1);
+
+    // Place changes: hold the standings and walk the player up the field faster than 2 s.
+    const total = await page.evaluate(() => window.__OT.GameState.totalRacers);
+    await page.evaluate(() => { window.__OT.traffic().updateStandings = () => {}; window.__OT.GameState.racePosition = window.__OT.GameState.totalRacers; });
+    await page.waitForTimeout(2100); // let any real overtake's 2 s window from the launch run out
+    await page.evaluate(() => { window.__srLog.call.length = 0; });
+    for (const p of [3, 2, 1]) {
+      await page.evaluate((n) => { window.__OT.GameState.racePosition = n; }, p);
+      await page.waitForTimeout(300);
+    }
+    await page.waitForFunction(() => document.getElementById('hudPlaceCall').textContent === `Now 1st of ${window.__OT.GameState.totalRacers}`, null, { timeout: 15000 });
+    const calls = await page.evaluate(() => window.__srLog.call);
+    expect(calls[0].text).toBe(`Now 3rd of ${total}`);
+    expect(calls.at(-1).text).toBe(`Now 1st of ${total}`);
+    expect(calls.map((c) => c.text)).not.toContain(`Now 2nd of ${total}`); // held, then superseded
+    for (let i = 1; i < calls.length; i++) expect(calls[i].t - calls[i - 1].t).toBeGreaterThanOrEqual(1950);
+
+    // The hidden line takes no space on screen and the HUD row looks as before.
+    const box = await page.locator('#hudPlaceCall').boundingBox();
+    expect(box.width * box.height).toBeLessThanOrEqual(1);
+    expect(problems).toEqual([]);
+  });
+}

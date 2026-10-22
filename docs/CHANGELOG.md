@@ -120,3 +120,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-21 · 0015 · Under the hood: the 2D race renderer moved out of the game's main file into its own modules, so new visual features can land side by side (the race looks exactly the same)
 2026-10-22 · 0202 · On a phone the gap to the car ahead and the race clock stay whole when WARP READY lights up or the score runs long (the speed card wraps its label instead)
 2026-10-22 · fix · On phones, scoring your first points no longer lets go of the thumbstick or a held button
+2026-10-22 · 0030 · Screen readers now hear the race's announcements once each, and "Now 3rd of 6" when your place changes (at most every 2 seconds), without reading every HUD tick

@@ -1,12 +1,12 @@
 ---
 id: 0030
 title: Announcements and race calls reach screen readers (aria-live) without spamming them
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-10-17
-pr:
+pr: 150
 ---
 
 ## Why
@@ -24,10 +24,10 @@ visually-hidden live line), never the speed/timer. Respect the existing priority
 two messages never fire in one tick.
 
 ## Acceptance criteria
-- [ ] `#announcerContainer` has a polite live region; text changes exactly once per announcement
-- [ ] A visually hidden live line announces "Now 3rd of 6" on place change, at most once per 2 s
-- [ ] No visual change at 390x844 or 1280x720; zero-overlap layout e2e still green
-- [ ] No per-frame DOM writes added (change-only writes, invariant 4)
+- [x] `#announcerContainer` has a polite live region; text changes exactly once per announcement
+- [x] A visually hidden live line announces "Now 3rd of 6" on place change, at most once per 2 s
+- [x] No visual change at 390x844 or 1280x720; zero-overlap layout e2e still green
+- [x] No per-frame DOM writes added (change-only writes, invariant 4)
 
 ## Test plan
 Extend `tests/unit/announcer.test.js` (one DOM write per message) and `tests/e2e/hud.spec.js`

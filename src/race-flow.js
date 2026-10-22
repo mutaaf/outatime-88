@@ -14,6 +14,7 @@ import {
 import { createFair, fairPayload } from './fairplay.js';
 import { wakeFrame } from './slipstream.js';
 import { playHint } from './play-hints.js';
+import { createPlaceCall } from './place-call.js';
 import {
   endlessSolo, nearMisses, cashAcc, earnCash, resetRunner, steerWheel, resetNos, showForkCue,
   ghostRecorder
@@ -111,6 +112,11 @@ export function updateInteractiveCoach(currentSegIdx) {
 export let raceHud = null;
 
 export let hudNextAt = 0;
+// Place changes for screen readers (0030): #hudPlaceCall, a visually hidden polite live line.
+const placeCall = createPlaceCall({
+  now: () => performance.now(),
+  write(text) { const el = document.getElementById('hudPlaceCall'); if (el) el.textContent = text; },
+});
 const phonePortrait = typeof matchMedia === 'function' ? matchMedia('(max-width: 599px) and (orientation: portrait)') : null;
 
 export function updateRaceHud(force) {
@@ -137,6 +143,7 @@ export function updateRaceHud(force) {
   hudView.tier = GameState.tier;
   hudView.score = GameState.score;
   raceHud.update(hudView);
+  placeCall.update(hudView.position, hudView.total, GameState.racePhase === 'RACING' && GameState.status === 'PLAYING');
   if (ghostRace.active) ghostRace.update(hudView.raceTime, GameState.distance, GameState.speed, hudView.length);
 }
 
@@ -391,6 +398,7 @@ export function startNewRace(opts) {
   syncAudioUI();
   updateEraHud();
   if (raceHud) raceHud.reset();
+  placeCall.reset();
   updateLiveHud(true);
 
   document.getElementById('titleScreen').classList.add('hidden');

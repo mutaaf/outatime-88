@@ -50,7 +50,7 @@
        other UI must never cover (src/hud.js hudRects()). -->
   <header class="pointer-events-none absolute top-0 left-0 right-0 z-20">
     <div id="raceHud" class="race-hud">
-      <div id="hudPosCard" class="hud-card hud-pos" data-hud-rect data-place="p" role="status" aria-label="Race position">
+      <div id="hudPosCard" class="hud-card hud-pos" data-hud-rect data-place="p" role="group" aria-label="Race position">
         <div class="pos-line"><span id="hudPos" class="pos-num">6TH</span><span id="hudPosOf" class="pos-of">/6</span></div>
         <div id="hudLap" class="hud-lap">LAP 1/3</div>
         <div id="hudHpBox" class="hud-hp" title="Car health"><i id="hudHp"></i></div>
@@ -80,6 +80,9 @@
         <button id="btnSteerMode" type="button" data-hud-rect title="Steering (K) · co-pilot (I) · hold for more" aria-label="Steering mode" class="hud-steer pointer-events-auto"><span aria-hidden="true">⌨️</span><b>KEYS</b></button>
       </div>
     </div>
+
+    <!-- Place changes for screen readers (0030): spoken at most every 2 s by src/place-call.js; the card above isn't a live region. -->
+    <p id="hudPlaceCall" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
     <!-- Pre-0051 HUD, kept hidden: older systems still write these ids. -->
     <div id="legacyHud" class="hidden" aria-hidden="true">
@@ -301,7 +304,7 @@
   <div id="levelUpBanner" class="levelup pointer-events-none" aria-hidden="true"><b>LEVEL UP!</b><span id="levelUpTier">TIER 2</span></div>
 
   <!-- COMPACT NON-INTRUSIVE EVENT TOAST BANNER (Keeps windshield clear!) -->
-  <div id="announcerContainer" class="slot-message pointer-events-none absolute inset-x-0 z-20 flex flex-col items-center justify-center px-4 text-center">
+  <div id="announcerContainer" role="status" aria-live="polite" aria-atomic="true" class="slot-message pointer-events-none absolute inset-x-0 z-20 flex flex-col items-center justify-center px-4 text-center">
     <div id="announcerMain" class="px-3.5 py-1 rounded-full bg-slate-950/85 border border-amber-400/60 font-arcade text-xs sm:text-base font-bold tracking-wider uppercase text-amber-300 shadow-lg opacity-0 transition-all duration-300 scale-95">
       CHECKPOINT REACHED
     </div>
