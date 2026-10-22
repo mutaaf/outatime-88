@@ -375,9 +375,11 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
 
     // One announcement re-pushed every frame-ish (as the race step does for held states) is one write.
     for (let i = 0; i < 5; i++) {
-      await page.evaluate(() => window.__OT.announce('FINAL LAP', '', 1500));
+      // Top priority, so it preempts whatever banner the race itself is showing right now.
+      await page.evaluate(() => window.__OT.announce('FINAL LAP', '', 1500, 9));
       await page.waitForTimeout(60);
     }
+    await page.waitForFunction(() => window.__srLog.ann.includes('FINAL LAP'));
     expect((await page.evaluate(() => window.__srLog.ann)).filter((t) => t === 'FINAL LAP')).toHaveLength(1);
 
     // Place changes: hold the standings and walk the player up the field faster than 2 s.
