@@ -183,6 +183,75 @@ for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { wi
   });
 }
 
+// Ticket 0202: 0190 regressed mid-race. On a phone the speed card's foot widened when FLUX turned
+// into "⚡ WARP READY" (and as the score grew), and the race-time column beside it shrank to ~10 px:
+// the ahead pill read "▲ +0…" and the clock was cut too. Sample a real race with the warp
+// held ready and a long score, every 250 ms for 15 s; then the worst case, paused.
+for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { width: 820, height: 1180 }]) {
+  test(`gap pill stays whole with WARP READY and a long score, every sample, at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+    await racing(page, { minTime: 0.5 });
+    await page.waitForFunction(() => document.getElementById('hudGapAhead').textContent !== '');
+    // 97: the HUD shows WARP READY (>= 95) but the car never warps (that needs 100 at 88 mph).
+    const hold = () => page.evaluate(() => { const g = window.__OT.GameState; g.flux = 97; g.score = Math.max(g.score, 1234567); });
+    await hold();
+    await page.waitForFunction(() => document.getElementById('hudFluxLabel').textContent.includes('WARP READY'));
+    const end = Date.now() + 15_000;
+    let samples = 0;
+    while (Date.now() < end) {
+      await hold();
+      const t = await readTimes(page);
+      for (const p of t.parts) {
+        expect(p.clip, `${p.id} "${p.text}" is cut off (sample ${samples})`).toBeLessThanOrEqual(0);
+        for (const c of t.cards) expect(intersects(p.box, c), `${p.id} overlaps a HUD card`).toBeFalsy();
+      }
+      samples++;
+      await page.waitForTimeout(250);
+    }
+    expect(samples).toBeGreaterThan(20);
+    expect(problems).toEqual([]);
+  });
+}
+
+for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { width: 820, height: 1180 }, { width: 1280, height: 720 }]) {
+  test(`worst case — nemesis, WARP READY, 7-digit score — still fits at ${vp.width}x${vp.height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize(vp);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+    await racing(page, { minTime: 0.5 });
+    await page.evaluate(() => {
+      window.__OT.pause();
+      const compact = matchMedia('(max-width: 599px) and (orientation: portrait)').matches;
+      document.getElementById('hudGapAhead').textContent = compact ? '▲ 😈+0.1s' : '▲ 😈RIN +0.1s';
+      document.getElementById('hudGapBehind').textContent = compact ? '▼ −9.9s' : '▼ VEX −9.9s';
+      document.getElementById('hudTime').textContent = '9:59.9';
+      document.getElementById('hudClock').textContent = '60';
+      document.getElementById('hudFluxLabel').textContent = '⚡ WARP READY';
+      document.getElementById('hudScore').textContent = (1234567).toLocaleString() + ' PTS';
+    });
+    await page.waitForTimeout(200);
+    const t = await readTimes(page);
+    expect(t.ahead).toContain('😈');
+    for (const p of t.parts) {
+      expect(p.clip, `${p.id} "${p.text}" is cut off`).toBeLessThanOrEqual(0);
+      for (const c of t.cards) expect(intersects(p.box, c), `${p.id} overlaps a HUD card`).toBeFalsy();
+    }
+    // The speed card keeps its own text whole too, and the HUD row never runs off the screen.
+    const card = await page.evaluate(() => {
+      const foot = document.querySelector('#hudSpeedCard .spd-foot');
+      const r = document.querySelector('.hud-gearcol').getBoundingClientRect();
+      return { footClip: foot.scrollWidth - foot.clientWidth, gearRight: r.right, vw: innerWidth };
+    });
+    expect(card.footClip).toBeLessThanOrEqual(0);
+    expect(card.gearRight).toBeLessThanOrEqual(card.vw);
+    expect(problems).toEqual([]);
+  });
+}
+
 // Ticket 0199: penalties charged live can push the running total below zero, but the run pays
 // max(0, earned − penalty). The pill holds at 0 with a dim PENALTY tag, never a minus sign,
 // stays whole inside the speed card beside the longest flux label, and is no wider than the
