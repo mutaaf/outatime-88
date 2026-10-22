@@ -1,12 +1,12 @@
 ---
 id: 0201
 title: A COACH TIPS setting turns the in-race tip card and thumb hints off
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-10-21
-pr:
+pr: 154
 ---
 
 ## Why
