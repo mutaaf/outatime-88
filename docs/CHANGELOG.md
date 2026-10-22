@@ -121,3 +121,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-22 · 0202 · On a phone the gap to the car ahead and the race clock stay whole when WARP READY lights up or the score runs long (the speed card wraps its label instead)
 2026-10-22 · fix · On phones, scoring your first points no longer lets go of the thumbstick or a held button
 2026-10-22 · 0030 · Screen readers now hear the race's announcements once each, and "Now 3rd of 6" when your place changes (at most every 2 seconds), without reading every HUD tick
+2026-10-22 · 0112 · WARP READY no longer relies on colour: the touch WARP button reads ▲ READY with a ring (static in calm motion), and a short rising tick plays once when the warp is ready
