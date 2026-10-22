@@ -4,7 +4,7 @@
 // in a race ever waits. It reads main's state through main.js's exports; anything both sides
 // write lives on the shared RS object.
 import {
-  RACE_DEPS, JarvisAI, LiveTraffic, RAI, RS, activeCarParams,
+  RACE_DEPS, DEBUG_MODE, JarvisAI, LiveTraffic, RAI, RS, activeCarParams,
   advanceContractProgress, aiRoad, burstSparks, coarsePointer, drive, gfxQ, lateral, live,
   loadRunnerUi, pickupArt, runStats, runnerMod,
   smoke2d, sparks, steerModes, storm, syncRunnerUi, touch, triggerAnnouncement, updateEraHud, view3d
@@ -25,6 +25,7 @@ const {
 } = RACE_DEPS;
 import { createFormationStream } from './formations.js';
 import { createReadyCue } from './warp-cue.js';
+import { createProximityCue } from './proximity-cue.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
@@ -35,6 +36,10 @@ RS.fair = createFair();
 // warp range, cooldown over, still racing); the HUD, the touch button and the hints read it, and
 // one rising tick plays through the SFX bus when it turns on.
 const warpCue = createReadyCue(FLUX.warpBoostMin);
+// Proximity cue (0191): a quiet tick panned toward the traffic or obstacle about to hit you.
+// Settings → Sound turns it off; the ?debug test mode never sounds it (GameState.proxTicks counts).
+const proxCue = createProximityCue(SoundEngine, () => SaveStore.data.settings?.proximity !== false, DEBUG_MODE);
+const proxMe = { x: 0, z: 0, vz: 0, halfW: 0, halfL: 0 };
 
 // The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
 // and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
@@ -1941,6 +1946,11 @@ export const LiveTrafficMethods = {
         }
       }
     }
+
+    proxMe.x = GameState.playerX; proxMe.z = playerZ; proxMe.vz = playerWorldVZ;
+    proxMe.halfW = playerHalfW; proxMe.halfL = playerHalfL;
+    const proxPan = proxCue.step(rawDt, proxMe, this.traffic, this.obstacles);
+    if (proxPan !== null) { GameState.proxTicks = (GameState.proxTicks || 0) + 1; GameState.proxPan = proxPan; }
 
     // 6. Player ↔ knockable props (ticket 0074): a real momentum exchange. A 4 kg cone is
     //    swatted aside at nearly twice your speed and costs you almost nothing; a 95 kg
