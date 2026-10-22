@@ -169,6 +169,7 @@ test('the HUD growing mid-race (first points wrap the speed card) never drops a 
   await page.evaluate(() => { const h = document.querySelector('header'); h.style.minHeight = `${h.getBoundingClientRect().height + 24}px`; });
   await nextFrames(page, 4);
   expect(await engaged()).toBe(true);
+  expect(await zoneTop()).toBe(top0); // the controls hold still under the thumb
   expect(await steer()).toBeGreaterThan(0.5);
   await touch('touchMove', [{ x: 170, y: 660 }]);
   await nextFrames(page, 2);

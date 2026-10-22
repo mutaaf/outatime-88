@@ -480,6 +480,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     tilt.classList.remove('tc-pressed');
     picker.classList.remove('tc-open');
     driftLatch = false; accelLatch = false;
+    if (headerMoved) headerResized(); // the HUD moved while a finger was down: catch up now
   }
 
   layer.addEventListener('pointerdown', onDown, { passive: false });
@@ -505,7 +506,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   // The HUD changes height mid-race (a phone's speed card wraps once the score grows), so a
   // header resize never lifts a held finger: the controls catch up when the last one comes off.
   let headerMoved = false; let headerQueued = false;
-  const held = () => ptrs.some((p) => p.id !== -1);
+  const held = () => { for (const p of ptrs) if (p.id !== -1) return true; return false; };
   const headerResized = () => {
     headerMoved = true;
     if (headerQueued || held()) return;
