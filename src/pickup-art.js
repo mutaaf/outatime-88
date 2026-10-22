@@ -2,9 +2,10 @@
 // rendered once per size bucket into an offscreen canvas and then blitted at (or just under)
 // its native size, so a coin is never a blurry upscaled bitmap. Silhouettes are shape-coded
 // (coin = disc + star, flux core = hexagon + bolt, repair = rounded square + cross, NOS =
-// capsule canister) so they read without relying on colour. Also here: a pooled collect burst
-// and the power-up hint arrow, and the floating pickup / score labels (src/popups.js). Nothing
-// allocates per frame once the cache is warm.
+// capsule canister), and every one floats in a white ring no hazard has (0198), so they read
+// without relying on colour. Also here: a pooled collect burst and the power-up hint arrow,
+// and the floating pickup / score labels (src/popups.js). Nothing allocates per frame once the
+// cache is warm.
 
 import { LABEL, labelSlots, layoutLabels, fallbackBox } from './popups.js';
 
@@ -72,7 +73,7 @@ function star(c, cx, cy, r) {
 }
 
 /** Paint kind `kind` at size S (px) centred in canvas `c` of side W. */
-export function paintIcon(c, kind, S, W) {
+export function paintIcon(c, kind, S, W, bare) {
   const a = ART[kind];
   const m = W / 2;
   const line = Math.max(1, S * 0.06);
@@ -82,6 +83,14 @@ export function paintIcon(c, kind, S, W) {
   g.addColorStop(1, 'rgba(0,0,0,0)');
   c.fillStyle = g;
   c.fillRect(0, 0, W, W);
+  // Every pickup floats in a white ring on a dark keyline (0198): a shape no hazard has, so "grab
+  // it" never rests on hue (gold 2× vs amber barricades, red magnet vs the gate, in greyscale).
+  // `bare` icons (the power-up HUD, which has its own countdown ring) skip it.
+  if (!bare) {
+    c.beginPath(); c.arc(m, m, S * 0.56, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(8,6,20,0.75)'; c.lineWidth = line * 2.2; c.stroke();
+    c.strokeStyle = '#ffffff'; c.lineWidth = line * 1.6; c.stroke();
+  }
   const body = c.createLinearGradient(m - S * 0.4, m - S * 0.4, m + S * 0.4, m + S * 0.4);
   body.addColorStop(0, '#ffffff');
   body.addColorStop(0.18, a.body);
@@ -191,11 +200,12 @@ export function paintIcon(c, kind, S, W) {
 let pxScale = 1;
 export function setPixelScale(k) { pxScale = k > 0 ? k : 1; }
 
-/** The cached icon canvas for `kind` drawn at least `px` big (its side is bucketSize × PAD). */
-export function iconFor(kind, px) {
+/** The cached icon canvas for `kind` drawn at least `px` big (its side is bucketSize × PAD);
+ *  `bare` = without the pickup ring. */
+export function iconFor(kind, px, bare) {
   if (!ART[kind]) return null;
   const b = bucketOf(px);
-  const key = kind + ':' + b;
+  const key = (bare ? 'b:' : '') + kind + ':' + b;
   let cv = cache.get(key);
   if (!cv) {
     if (cache.size >= CACHE_MAX) cache.clear();
@@ -203,7 +213,7 @@ export function iconFor(kind, px) {
     const W = Math.ceil(S * PAD);
     cv = makeCanvas(W, W);
     const c = cv.getContext('2d');
-    if (c) paintIcon(c, kind, S, W);
+    if (c) paintIcon(c, kind, S, W, bare);
     cv.iconSize = S;
     cache.set(key, cv);
     stats.built++;
@@ -215,9 +225,10 @@ export function iconFor(kind, px) {
 /**
  * Draw a pickup centred at (x, y), `size` px across. Coins spin (edge-on squash), the others
  * rock gently; calm mode holds them still. Positions snap to whole pixels to stay sharp.
+ * `bare` draws it without the pickup ring.
  */
-export function drawPickup(ctx, kind, x, y, size, t, phase, still) {
-  const cv = iconFor(kind, size * pxScale);
+export function drawPickup(ctx, kind, x, y, size, t, phase, still, bare) {
+  const cv = iconFor(kind, size * pxScale, bare);
   if (!cv) return;
   const k = size / cv.iconSize;
   const W = cv.width * k;
@@ -343,7 +354,7 @@ export function drawPowerHud(ctx, rw, rh, st, carX, carY, t, still) {
     ctx.globalAlpha = ending ? 0.45 : 1;
     ctx.beginPath(); ctx.arc(x, y, r * 0.95, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ctx.stroke();
     ctx.globalAlpha = 1;
-    drawPickup(ctx, k, x, y, r * 1.25, 0, 0, true);
+    drawPickup(ctx, k, x, y, r * 1.25, 0, 0, true, true); // bare: the countdown is the ring
     y += Math.round(r * 2.6);
   }
   if (st.t.SHIELD > 0) {
