@@ -216,7 +216,7 @@ for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { wi
   });
 }
 
-for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { width: 820, height: 1180 }, { width: 1280, height: 720 }]) {
+for (const vp of [{ width: 390, height: 844 }, { width: 375, height: 667 }, { width: 360, height: 740 }, { width: 360, height: 640 }, { width: 320, height: 568 }, { width: 820, height: 1180 }, { width: 1280, height: 720 }]) {
   test(`worst case — nemesis, WARP READY, 7-digit score — still fits at ${vp.width}x${vp.height}`, async ({ page }) => {
     const problems = watchPage(page);
     await page.setViewportSize(vp);
@@ -232,6 +232,7 @@ for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { wi
       document.getElementById('hudClock').textContent = '60';
       document.getElementById('hudFluxLabel').textContent = '⚡ WARP READY';
       document.getElementById('hudScore').textContent = (1234567).toLocaleString() + ' PTS';
+      document.getElementById('hudPos').textContent = '2ND'; // the widest place in a field of 6
     });
     await page.waitForTimeout(200);
     const t = await readTimes(page);
@@ -240,14 +241,25 @@ for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { wi
       expect(p.clip, `${p.id} "${p.text}" is cut off`).toBeLessThanOrEqual(0);
       for (const c of t.cards) expect(intersects(p.box, c), `${p.id} overlaps a HUD card`).toBeFalsy();
     }
-    // The speed card keeps its own text whole too, and the HUD row never runs off the screen.
+    // The cards keep their own text inside their borders and off the times column (a squeezed card
+    // spills its text sideways, which a box-to-box check can't see), and the row stays on screen.
     const card = await page.evaluate(() => {
-      const foot = document.querySelector('#hudSpeedCard .spd-foot');
-      const r = document.querySelector('.hud-gearcol').getBoundingClientRect();
-      return { footClip: foot.scrollWidth - foot.clientWidth, gearRight: r.right, vw: innerWidth };
+      const R = (s) => document.querySelector(s).getBoundingClientRect();
+      const times = R('#hudTimes');
+      const spills = [];
+      for (const [cardSel, parts] of [['#hudPosCard', ['#hudPos', '#hudPosOf', '#hudLap']], ['#hudSpeedCard', ['#hudSpeed', '#hudFluxLabel', '#hudScore']]]) {
+        const c = R(cardSel);
+        for (const s of parts) {
+          const r = R(s);
+          if (r.left < c.left - 0.5 || r.right > c.right + 0.5) spills.push(`${s} outside ${cardSel}`);
+          if (r.left < times.right && times.left < r.right && r.top < times.bottom && times.top < r.bottom) spills.push(`${s} over the times`);
+        }
+      }
+      return { spills, gearRight: R('.hud-gearcol').right, pageWidth: document.documentElement.scrollWidth, vw: innerWidth };
     });
-    expect(card.footClip).toBeLessThanOrEqual(0);
+    expect(card.spills).toEqual([]);
     expect(card.gearRight).toBeLessThanOrEqual(card.vw);
+    expect(card.pageWidth).toBeLessThanOrEqual(card.vw);
     expect(problems).toEqual([]);
   });
 }
