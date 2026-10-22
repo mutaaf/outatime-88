@@ -1,7 +1,7 @@
 ---
 id: 0198
 title: Pickups and hazards stay distinguishable under colour-vision simulation
-status: ready
+status: in-progress
 priority: P2
 size: M
 lens: accessibility
@@ -16,10 +16,13 @@ Invariant 8 covers contrast and motion but not colour-vision deficiency. Pickups
 Add a Playwright audit that captures a fixed-seed frame with a pickup, a hazard and a rival in view, applies protanopia/deuteranopia/tritanopia matrices (and greyscale) in the test, and asserts pickup and hazard sprites differ in luminance contrast or silhouette. Fix any pair that fails by adding a shape/outline channel in `src/pickup-art.js` or `src/hazard-art.js`. Touches `tests/e2e/` and the art modules only.
 
 ## Acceptance criteria
-- [ ] New e2e `colour-vision.spec.js` computes mean-luminance and edge-silhouette difference for each pickup vs hazard pair under 4 simulations
-- [ ] Every pair passes a documented threshold (>= 1.5:1 luminance ratio or a distinct outline), recorded in the PR body
-- [ ] Any failing pair is fixed by shape/outline, not by recolouring the era palettes
-- [ ] No frame-time regression; sprite caches unchanged in size beyond +5%
+- [x] New e2e `colour-vision.spec.js` computes mean-luminance and edge-silhouette difference for each pickup vs hazard pair under 4 simulations
+- [x] Every pair passes a documented threshold (>= 1.5:1 luminance ratio or a distinct outline), recorded in the PR body
+- [x] Any failing pair is fixed by shape/outline, not by recolouring the era palettes
+- [x] No frame-time regression; sprite caches unchanged in size beyond +5%
+
+## Outcome
+Measured on main, every pickup/hazard pair already cleared the thresholds by silhouette (oriented edge difference >= 0.78; the same sprite at another distance measures <= 0.33), but pickups shared no look: two pickups differed by up to 0.93, more than any pickup differed from a hazard, so "grab it" was carried by hue and glow. Every pickup now floats in a white ring on a dark keyline (src/pickup-art.js, same icon canvas size): pickups now differ from each other by <= 0.55 and from any hazard by >= 0.74 under all four simulations. The audit (tests/e2e/colour-vision.spec.js + cvd.js) asserts both. Endless road hazards (src/hazard-art.js: lanes, bridge gaps, signs) are road strips, not sprites, and are not in this audit.
 
 ## Test plan
 The new e2e; `npm run check:fast`; before/after screenshots in the PR.

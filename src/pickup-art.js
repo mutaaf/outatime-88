@@ -2,8 +2,8 @@
 // rendered once per size bucket into an offscreen canvas and then blitted at (or just under)
 // its native size, so a coin is never a blurry upscaled bitmap. Silhouettes are shape-coded
 // (coin = disc + star, flux core = hexagon + bolt, repair = rounded square + cross, NOS =
-// capsule canister) so they read without relying on colour. Also here: a pooled collect burst
-// and the power-up hint arrow, and the floating pickup / score labels (src/popups.js). Nothing
+// capsule canister), and every one floats in a white ring no hazard has (0198), so they read
+// without relying on colour. Also here: a pooled collect burst and the power-up hint arrow, and the floating pickup / score labels (src/popups.js). Nothing
 // allocates per frame once the cache is warm.
 
 import { LABEL, labelSlots, layoutLabels, fallbackBox } from './popups.js';
@@ -82,6 +82,11 @@ export function paintIcon(c, kind, S, W) {
   g.addColorStop(1, 'rgba(0,0,0,0)');
   c.fillStyle = g;
   c.fillRect(0, 0, W, W);
+  // Every pickup floats in a white ring on a dark keyline (0198): a shape no hazard has, so "grab
+  // it" never rests on hue (gold 2× vs amber barricades, red magnet vs the gate, in greyscale).
+  c.beginPath(); c.arc(m, m, S * 0.56, 0, Math.PI * 2);
+  c.strokeStyle = 'rgba(8,6,20,0.75)'; c.lineWidth = line * 2.2; c.stroke();
+  c.strokeStyle = '#ffffff'; c.lineWidth = line * 1.6; c.stroke();
   const body = c.createLinearGradient(m - S * 0.4, m - S * 0.4, m + S * 0.4, m + S * 0.4);
   body.addColorStop(0, '#ffffff');
   body.addColorStop(0.18, a.body);
