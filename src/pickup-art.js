@@ -3,8 +3,9 @@
 // its native size, so a coin is never a blurry upscaled bitmap. Silhouettes are shape-coded
 // (coin = disc + star, flux core = hexagon + bolt, repair = rounded square + cross, NOS =
 // capsule canister), and every one floats in a white ring no hazard has (0198), so they read
-// without relying on colour. Also here: a pooled collect burst and the power-up hint arrow, and the floating pickup / score labels (src/popups.js). Nothing
-// allocates per frame once the cache is warm.
+// without relying on colour. Also here: a pooled collect burst and the power-up hint arrow,
+// and the floating pickup / score labels (src/popups.js). Nothing allocates per frame once the
+// cache is warm.
 
 import { LABEL, labelSlots, layoutLabels, fallbackBox } from './popups.js';
 

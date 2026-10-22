@@ -1,12 +1,12 @@
 ---
 id: 0198
 title: Pickups and hazards stay distinguishable under colour-vision simulation
-status: in-progress
+status: shipped
 priority: P2
 size: M
 lens: accessibility
 created: 2026-10-21
-pr:
+pr: 153
 ---
 
 ## Why
