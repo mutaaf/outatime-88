@@ -14,6 +14,7 @@ const holdCar = (page, side) => page.evaluate((side) => {
     g.invulnTimer = 30; g.hp = g.maxHp; g.speed = 45;
     for (const c of t.traffic) if (c !== car) c.worldZ = g.trackPos + 90000;
     for (const c of t.racers) c.worldZ = g.trackPos + 90000;
+    for (const o of t.obstacles) o.worldZ = o.prevZ = g.trackPos + 90000;
     car.idle = false; car.takenDown = false; car.active = true;
     car.worldZ = car.prevZ = g.trackPos + 1250 + 105 + car.halfL + 1500;
     car.offset = car.prevOffset = g.playerX + side; car.mph = 0; car.vz = 0;
@@ -52,6 +53,13 @@ test('traffic about to hit you ticks from its side, and the setting turns it off
   const off = (await ticks(page)).n;
   await simWait(page, 1);
   expect((await ticks(page)).n).toBe(off);
+  // ...and back on, the same held car ticks again (so the quiet above was the setting).
+  await page.locator('#btnHudSettings').click();
+  await page.locator('#setProximity').click();
+  await page.locator('#btnSettingsDone').click();
+  await racing(page);
+  await simWait(page, 1);
+  expect((await ticks(page)).n).toBeGreaterThan(off);
   await page.evaluate(() => clearInterval(window.__hold));
   expect(problems).toEqual([]);
 });

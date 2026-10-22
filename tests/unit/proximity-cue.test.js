@@ -3,10 +3,11 @@ import { describe, it, expect } from 'vitest';
 import { PROX, chooseCue, createLimiter, createProximityCue } from '../../src/proximity-cue.js';
 import { FakeAudioContext } from './fake-audio.js';
 
-// You at z 1000 doing 100 world units/s, 0.14 wide either side of the middle, 105 long.
-const me = (x = 0, vz = 100) => ({ x, z: 1000, vz, halfW: 0.14, halfL: 105 });
+// You on the road at z 1000 doing 100 world units/s, 0.14 wide either side of the middle,
+// 105 long, 34 tall, 10 s into the race.
+const me = (x = 0, vz = 100, extra = {}) => ({ x, z: 1000, vz, halfW: 0.14, halfL: 105, bot: 0, top: 34, now: 10, ...extra });
 // A car whose back bumper is `secs` away at your closing speed (it stands still).
-const car = (offset, secs, extra = {}) => ({ worldZ: 1000 + 105 + 100 + secs * 100, offset, halfW: 0.12, halfL: 100, vz: 0, ...extra });
+const car = (offset, secs, extra = {}) => ({ worldZ: 1000 + 105 + 100 + secs * 100, offset, halfW: 0.12, halfL: 100, vz: 0, y: 0, height: 38, ...extra });
 
 describe('chooseCue', () => {
   it('pans left, centre or right to where the threat is', () => {
@@ -24,6 +25,22 @@ describe('chooseCue', () => {
     expect(chooseCue(me(0, 0), [car(0, 0.3)], [])).toBeNull(); // you're stopped
     expect(chooseCue(me(), [car(0, -0.3)], [])).toBeNull(); // already beside or behind you
     expect(chooseCue(me(), [car(0, 0.3, { idle: true }), car(0, 0.3, { takenDown: true }), car(0, 0.3, { hitCount: 1 })], [])).toBeNull();
+  });
+
+  it('counts rivals too, and forgets a car you are already against', () => {
+    expect(chooseCue(me(), [], [], [car(-0.2, 0.4, { vz: 40 })])).toBe(-1);
+    expect(chooseCue(me(), [car(0, 0.05, { touchT: 9.8 })], [], [car(0, 0.05, { touchT: 9.7 })])).toBeNull();
+    expect(chooseCue(me(), [car(0, 0.05, { touchT: 9.4 })], [])).toBe(0); // that contact was a while ago
+  });
+
+  it('stays quiet for what you are jumping over or sliding under right now', () => {
+    const sedan = car(0, 0.4);
+    expect(chooseCue(me(0, 100, { bot: 40, top: 74 }), [sedan], [])).toBeNull(); // airborne over it
+    expect(chooseCue(me(0, 100, { bot: 30, top: 64 }), [sedan], [])).toBe(0); // not high enough yet
+    const bar = car(0, 0.4, { height: 90, clearanceY: 20 }); // a gate you can slide under
+    expect(chooseCue(me(0, 100, { top: 18 }), [], [bar])).toBeNull(); // sliding
+    expect(chooseCue(me(), [], [bar])).toBe(0); // standing tall: it will hit you
+    expect(chooseCue(me(), [car(0, 0.4, { y: 60 })], [])).toBeNull(); // a car flying over your roof
   });
 
   it('picks the soonest threat when several are coming', () => {
@@ -82,8 +99,10 @@ describe('createProximityCue', () => {
     expect(panner.pan.value).toBeLessThan(0);
   });
 
-  it('starts nothing when muted, at zero volume, toggled off, or with no audio yet', () => {
-    for (const [se, on] of [[engine({ muted: true }), true], [engine({ volume: 0 }), true], [engine(), false]]) {
+  it('starts nothing when muted, at zero volume, toggled off, suspended, or with no audio yet', () => {
+    const asleep = engine();
+    asleep.ctx.state = 'suspended';
+    for (const [se, on] of [[engine({ muted: true }), true], [engine({ volume: 0 }), true], [engine(), false], [asleep, true]]) {
       const cue = createProximityCue(se, () => on);
       for (let i = 0; i < 240; i++) cue.step(1 / 120, me(), threat, []);
       expect(se.ctx.started).toHaveLength(0);
