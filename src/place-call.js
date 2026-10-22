@@ -24,6 +24,6 @@ export function createPlaceCall({ now, write }) {
       nextAt = t + GAP_MS;
       write(placeText(place, total));
     },
-    reset() { said = 0; nextAt = 0; },
+    reset() { said = 0; nextAt = 0; write(''); }, // no last-race place left for a screen reader to find
   };
 }

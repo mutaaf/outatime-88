@@ -75,6 +75,6 @@ describe('screen-reader place call (ticket 0030)', () => {
     r.call.reset();
     r.at(200); r.call.update(6, 6, false);
     r.at(300); r.call.update(5, 6, true);
-    expect(r.said).toEqual(['Now 1st of 6', 'Now 5th of 6']); // the new race isn't held by the old window
+    expect(r.said).toEqual(['Now 1st of 6', '', 'Now 5th of 6']); // cleared, and the new race isn't held by the old window
   });
 });

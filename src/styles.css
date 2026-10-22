@@ -188,9 +188,11 @@ html, body {
 .wordmark-tagline { text-shadow: 0 0 10px rgba(0, 240, 255, 0.45); }
 /* One-tap title (ticket 0022): the attract-mode road and car show through the middle; a
    dark fade top and bottom keeps the wordmark and PLAY readable. */
-/* On the title the race UI stays out of the way; the attract-mode road keeps rolling. */
+/* On the title the race UI stays out of the way; the attract-mode road keeps rolling. The announcer
+   hides its children, not itself: a live region must already be in the tree when a race's first
+   message lands, or screen readers skip it (0030). */
 body.on-title header, body.on-title #touchControlsLayer, body.on-title #steerHint, body.on-title #driverBadgeBar, body.on-title #interactiveCoachBanner,
-body.on-title #announcerContainer, body.on-title #liveStuntTelemetry, body.on-title #forkChoiceBanner,
+body.on-title #announcerContainer > *, body.on-title #liveStuntTelemetry, body.on-title #forkChoiceBanner,
 /* Nothing from the last race lingers on the home screen (0185): level-up art, the storm, the stage. */
 body.on-title #levelUpBanner, body.on-title #stormGlow, body.on-title #hudStorm, body.on-title #raceStage { visibility: hidden; }
 .title-icons { padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }

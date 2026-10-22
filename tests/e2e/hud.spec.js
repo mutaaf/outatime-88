@@ -365,7 +365,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
     await racing(page, { minTime: 0.5 });
     // Record every write to the two live regions from here on.
     await page.evaluate(() => {
-      const log = (window.__srLog = { ann: [], call: [] });
+      const log = (window.__srLog = { ann: [], call: [], since: performance.now() });
       new MutationObserver(() => log.ann.push(document.getElementById('announcerMain').textContent.trim()))
         .observe(document.getElementById('announcerMain'), { childList: true, characterData: true, subtree: true });
       const call = document.getElementById('hudPlaceCall');
@@ -383,12 +383,18 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
     // Place changes: hold the standings and walk the player up the field faster than 2 s.
     const total = await page.evaluate(() => window.__OT.GameState.totalRacers);
     await page.evaluate(() => { window.__OT.traffic().updateStandings = () => {}; window.__OT.GameState.racePosition = window.__OT.GameState.totalRacers; });
-    await page.waitForTimeout(2100); // let any real overtake's 2 s window from the launch run out
-    await page.evaluate(() => { window.__srLog.call.length = 0; });
-    for (const p of [3, 2, 1]) {
-      await page.evaluate((n) => { window.__OT.GameState.racePosition = n; }, p);
-      await page.waitForTimeout(300);
-    }
+    // Wait until the line has been quiet for over 2 s: any real overtake from the launch, and the
+    // forced last place, have been spoken and their windows have run out (slow runners included).
+    await page.waitForFunction(() => {
+      const c = window.__srLog.call;
+      return performance.now() - Math.max(window.__srLog.since, c.length ? c.at(-1).t : 0) > 2100;
+    }, null, { timeout: 15000, polling: 100 });
+    await page.evaluate(() => { window.__srLog.call.length = 0; window.__OT.GameState.racePosition = 3; });
+    await page.waitForFunction(() => window.__srLog.call.length > 0, null, { timeout: 10000 });
+    // Two more places inside the 2 s window: only the latest is spoken once it has passed.
+    await page.evaluate(() => { window.__OT.GameState.racePosition = 2; });
+    await page.waitForTimeout(250);
+    await page.evaluate(() => { window.__OT.GameState.racePosition = 1; });
     await page.waitForFunction(() => document.getElementById('hudPlaceCall').textContent === `Now 1st of ${window.__OT.GameState.totalRacers}`, null, { timeout: 15000 });
     const calls = await page.evaluate(() => window.__srLog.call);
     expect(calls[0].text).toBe(`Now 3rd of ${total}`);
