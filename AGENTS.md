@@ -223,6 +223,8 @@ src/perf/           Graphics quality (ticket 0041), render-only — the sim is i
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
 src/near-fade.js    Near-camera traffic (0200), pure: a car passing beside the camera eases to ≤ 22% of the view and 35% alpha;
                       depth = road-scaled car width / view width; car-sprite.js drawNear applies it to every non-player car
+src/warp-cue.js     WARP READY cue (0112), pure: createReadyCue(min) is true once per fill (re-arms 5 below); the race step
+                      plays a rising tick on it, the touch WARP button swaps its label to ▲ READY and adds a ring
 src/slipstream.js   Slipstream charge cue (0197), lazy (race flow + tuner): draftCharge → rising tone, greener speed
                       lines, an eased edge tint and a 2 Hz READY pulse; main only calls RS.wake from drawSpeedLines
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)

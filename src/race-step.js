@@ -24,12 +24,15 @@ const {
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, wallContact, warpReady
 } = RACE_DEPS;
 import { createFormationStream } from './formations.js';
+import { createReadyCue } from './warp-cue.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
 } from './fairplay.js';
 
 RS.fair = createFair();
+// WARP READY (0112): one rising tick through the SFX bus when a boost would fire the warp.
+const warpCue = createReadyCue(FLUX.warpBoostMin);
 
 // The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
 // and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
@@ -1308,6 +1311,10 @@ export function updateGame(rawDt) {
     triggerTimeWarp();
   }
   if (GameState.warpActiveTimer > 0) GameState.warpActiveTimer -= rawDt;
+  if (warpCue(GameState.fluxCharge)) {
+    SoundEngine.playTone(740, 'triangle', 0.09, 0.1, 1110);
+    setTimeout(() => SoundEngine.playTone(1110, 'triangle', 0.16, 0.11, 1660), 70);
+  }
 
   if (currentSeg && GameState.speed >= 84 && GameState.playerY < 20) {
     currentSeg.flameLeft = true;
