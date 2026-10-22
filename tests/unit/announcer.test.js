@@ -72,3 +72,19 @@ describe('announcer queue (ticket 0002)', () => {
     expect(priorityFor('💨 SLIPSTREAM TURBO SLINGSHOT!')).toBe(1);
   });
 });
+
+describe('announcer writes once per announcement for screen readers (ticket 0030)', () => {
+  it('re-pushing the visible message does not repaint it unless its sub line changes', () => {
+    const r = rig();
+    r.a.push('FINAL LAP', '', 1000, 2);
+    r.advance(100);
+    r.a.push('FINAL LAP', '', 1000, 2);
+    r.a.push('FINAL LAP', '', 1000, 2);
+    expect(r.shown).toEqual(['FINAL LAP']);
+    expect(r.visible.main).toBe('FINAL LAP');
+    r.advance(950); // the refresh still extended it
+    expect(r.visible.main).toBe('FINAL LAP');
+    r.a.push('FINAL LAP', 'LAST CHANCE', 1000, 2);
+    expect(r.shown).toEqual(['FINAL LAP', 'FINAL LAP']);
+  });
+});
