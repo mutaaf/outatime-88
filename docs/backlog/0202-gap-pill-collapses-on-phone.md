@@ -1,12 +1,12 @@
 ---
 id: 0202
 title: The phone gap pill still collapses to an ellipsis (0190 regressed) and clips the nemesis mark
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-22
-pr:
+pr: 147
 ---
 
 ## Why
@@ -24,10 +24,10 @@ a `flex: none` / `min-width: max-content` so it never shrinks below its text; al
 the nemesis emoji. Touches `src/styles.css`, possibly `src/hud.js`, `index.html`.
 
 ## Acceptance criteria
-- [ ] Sampled every 250 ms for 15 s of a 390x844 race, `#hudGapAhead` always has `scrollWidth <= clientWidth`, including with the nemesis mark and values under 1 s
-- [ ] Also holds at 360x740 and 820x1180 portrait
-- [ ] No overlap with the position card, speed card or timer (zero-overlap spec green)
-- [ ] 1280x720 layout unchanged
+- [x] Sampled every 250 ms for 15 s of a 390x844 race, `#hudGapAhead` always has `scrollWidth <= clientWidth`, including with the nemesis mark and values under 1 s
+- [x] Also holds at 360x740 and 820x1180 portrait
+- [x] No overlap with the position card, speed card or timer (zero-overlap spec green)
+- [x] 1280x720 layout unchanged
 
 ## Test plan
 Extend the phone HUD e2e from 0190: poll the pill during a real race (and force a nemesis
