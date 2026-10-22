@@ -48,7 +48,17 @@ export function createPanel(ctx) {
   const prox = $('setProximity');
   if (prox) prox.addEventListener('click', () => { settings().proximity = settings().proximity === false; save(); syncPanel(); });
   const coach = $('setCoach');
-  if (coach) coach.addEventListener('click', () => { settings().coach = settings().coach === false; save(); syncPanel(); });
+  if (coach) coach.addEventListener('click', () => {
+    settings().coach = settings().coach === false;
+    // Off clears a tip or steer prompt already up (under a paused race) now, not on the next frame.
+    if (!settings().coach) {
+      const tip = $('interactiveCoachBanner');
+      if (tip) { tip.style.opacity = '0'; tip.style.pointerEvents = 'none'; }
+      const steer = $('steerHint');
+      if (steer) steer.classList.add('hidden');
+    }
+    save(); syncPanel();
+  });
   $('setTiltSens').addEventListener('input', (e) => {
     SaveStore.data.tiltSensitivity = Math.max(0.4, Math.min(2.2, parseFloat(e.target.value) || 1));
     save(); syncPanel();

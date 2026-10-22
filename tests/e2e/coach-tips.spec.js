@@ -3,7 +3,7 @@
 // The announcement channel is untouched. A recorder samples every frame for each of the three,
 // so a single frame of any of them counts.
 import { test, expect, devices } from '@playwright/test';
-import { APP, watchPage, racing, touchReady } from './helpers.js';
+import { APP, watchPage, racing, simWait, touchReady } from './helpers.js';
 
 const SAVE = 'outatime_cruisn_88_save_v2';
 const saved = (page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}'), SAVE);
@@ -24,15 +24,14 @@ const newPlayer = (page, settings) => page.addInitScript(([k, s]) => {
 
 const shown = (page) => page.evaluate(() => window.__shown);
 
-/** Race on until the first-run windows are over: the steer prompt gives up at 9 s, the
- *  opening tip at 300 m. Holds throttle so the car covers the distance. */
-async function raceThroughTheLessons(page) {
+/** Wait out the first-run windows: the steer prompt's runs 0.7–9 s of wall clock from the green
+ *  light (src/onboarding.js), the opening tip's to 300 m (held throttle covers that). */
+async function waitOutTheLessons(page, { metres = 0 } = {}) {
+  const t0 = await page.evaluate(() => performance.now());
   await page.keyboard.down('ArrowUp');
-  await page.waitForFunction(() => {
-    const g = window.__OT.GameState;
-    return g.status !== 'PLAYING' || (g.raceTime > 9.5 && g.distance > 320);
-  }, null, { timeout: 40_000 });
+  await page.waitForFunction(([t, m]) => performance.now() - t > 9500 && window.__OT.GameState.distance > m, [t0, metres], { timeout: 60_000 });
   await page.keyboard.up('ArrowUp');
+  expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING'); // watched a live race throughout
 }
 
 test.describe('keyboard', () => {
@@ -61,6 +60,7 @@ test.describe('keyboard', () => {
 
   for (const on of [true, false]) {
     test(`coach tips ${on ? 'ON: the tip card and steer prompt teach a new player' : 'OFF: no tip card and no steer prompt in a whole race start'}`, async ({ page }) => {
+      test.slow(); // ~10 s of watching, on a runner where the sim may crawl
       const problems = watchPage(page);
       await newPlayer(page, on ? null : { coach: false });
       await page.goto(`${APP}?debug`);
@@ -70,7 +70,7 @@ test.describe('keyboard', () => {
         // The control case: the same recorder sees both, so OFF's zeroes are the setting.
         await page.waitForFunction(() => window.__shown.steer > 0 && window.__shown.tip > 0, null, { timeout: 30_000 });
       } else {
-        await raceThroughTheLessons(page);
+        await waitOutTheLessons(page, { metres: 320 });
         expect(await shown(page)).toEqual({ tip: 0, steer: 0, guide: 0 });
       }
       expect(problems).toEqual([]);
@@ -90,13 +90,15 @@ test.describe('keyboard', () => {
     await page.locator('#btnSettingsDone').click();
     await expect(page.locator('#settingsModal')).toBeHidden();
     await expect.poll(() => page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
-    await expect.poll(() => page.evaluate(() => document.getElementById('interactiveCoachBanner').style.opacity)).toBe('0');
-    await expect(page.locator('#steerHint')).toBeHidden();
+    // The card hides by itself now and then (announcer, gaps), so watch a stretch of race, not one frame.
+    await page.evaluate(() => { window.__shown = { tip: 0, steer: 0, guide: 0 }; });
+    expect(await simWait(page, 3)).toBe(true);
+    expect(await shown(page)).toMatchObject({ tip: 0, steer: 0 });
     expect(problems).toEqual([]);
   });
 });
 
-const { defaultBrowserType, ...iPhone } = devices['iPhone 13']; // eslint-disable-line no-unused-vars
+const { defaultBrowserType, ...iPhone } = devices['iPhone 13'];
 
 test.describe('phone', () => {
   test.use({ ...iPhone, viewport: { width: 390, height: 844 } });
@@ -118,6 +120,7 @@ test.describe('phone', () => {
 
   for (const on of [true, false]) {
     test(`coach tips ${on ? 'ON: the first touch race plays the thumb guide' : 'OFF: no thumb guide bubbles, no steer prompt'}`, async ({ page }) => {
+      test.slow();
       const problems = watchPage(page);
       await newPlayer(page, on ? null : { coach: false });
       await page.goto(`${APP}?debug`);
@@ -127,10 +130,7 @@ test.describe('phone', () => {
       if (on) {
         await page.waitForFunction(() => window.__shown.guide > 0, null, { timeout: 15_000 });
       } else {
-        await page.waitForFunction(() => {
-          const g = window.__OT.GameState;
-          return g.status !== 'PLAYING' || g.raceTime > 9.5;
-        }, null, { timeout: 40_000 });
+        await waitOutTheLessons(page);
         expect(await shown(page)).toEqual({ tip: 0, steer: 0, guide: 0 });
         // The guide is only skipped, never marked seen: turning tips back on still plays it once.
         expect((await saved(page)).controls?.coachSeen).toBeFalsy();
