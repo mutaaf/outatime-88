@@ -12,7 +12,8 @@ import { materialFor } from '../../src/materials.js';
 
 const PICKUPS = ['HW_COIN', 'PLUTONIUM', 'REPAIR_WRENCH', 'NOS_CAN', 'MAGNET', 'SHIELD', 'DOUBLER'];
 const LANE = -0.5; // the left lane: clear of the player's car, which is drawn over the road
-const HAZARDS = ['TRAFFIC_CONE', 'OIL_BARREL', 'PINE_TREE_HAZARD', 'LOW_LASER_BAR', 'HIGH_LIGHT_GATE', 'HOLO_BARRIER', 'FLUX_CRATE'];
+const HAZARDS = ['TRAFFIC_CONE', 'OIL_BARREL', 'PINE_TREE_HAZARD', 'LOW_LASER_BAR', 'HIGH_LIGHT_GATE', 'HOLO_BARRIER'];
+// (FLUX_CRATE has no 2D art of its own: it is drawn as the HOLO_BARRIER barricade.)
 
 /** Paused race with an empty stretch of road `ahead` segments in front of the camera. */
 async function stage(page, ahead) {
@@ -20,10 +21,12 @@ async function stage(page, ahead) {
   await page.waitForFunction(() => window.__OT);
   await page.locator('#btnStartRace').click();
   await racing(page);
-  await page.waitForFunction(() => window.__OT.pickupArt());
+  // The lazy art first: pickup icons, and the era backdrop + roadside art (the pine hazard's
+  // own art, and a sky that would otherwise change under the empty-road reference shots).
+  await page.waitForFunction(() => window.__OT.pickupArt() && window.__OT.backdrop()?.id, null, { timeout: 20000 });
   return page.evaluate((ahead) => {
     const OT = window.__OT, g = OT.GameState, tr = OT.track(), lt = OT.traffic();
-    g.reducedMotion = true; // still pose: no coin spin, no shake
+    g.reducedMotion = true; // calm pose: no coin spin, no rocking, no shake (pickups still bob)
     OT.pause();
     const base = Math.floor(g.trackPos / 200) + ahead;
     for (let i = base - 40; i <= base + 40; i++) { const s = tr.seg(i); if (s) s.items.length = 0; }
@@ -52,7 +55,7 @@ function shoot(page, seg, type, pickup) {
     const px = c.getContext('2d').getImageData(0, 0, w, h).data;
     const keep = window.__cvd || (window.__cvd = {});
     if (!type) {
-      if (!keep.bg) { keep.bg = px; return null; }
+      if (!keep.bg || keep.seg !== seg) { keep.bg = px; keep.seg = seg; return null; }
       const noisy = new Uint8Array(w * h);
       for (let i = 0; i < w * h; i++) {
         const o = i * 4;
@@ -74,11 +77,11 @@ function shoot(page, seg, type, pickup) {
     }
     if (x1 < 0) return { w: 0, h: 0, px: [], bg: [], mask: [] };
     const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
-    const out = { x0, y0, w: cw, h: ch, px: new Array(cw * ch * 3), bg: new Array(cw * ch * 3), mask: new Array(cw * ch) };
+    const out = { x0, y0, w: cw, h: ch, px: new Array(cw * ch * 3), mask: new Array(cw * ch) };
     for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
       const i = (y0 + y) * w + x0 + x, j = y * cw + x;
       out.mask[j] = on[i];
-      for (let k = 0; k < 3; k++) { out.px[j * 3 + k] = px[i * 4 + k]; out.bg[j * 3 + k] = bg[i * 4 + k]; }
+      for (let k = 0; k < 3; k++) out.px[j * 3 + k] = px[i * 4 + k];
     }
     return out;
   }, { seg, type, pickup, halfW, LANE });
@@ -96,6 +99,8 @@ test('pickups and hazards stay apart under colour-vision simulation', async ({ p
   for (const type of [...PICKUPS, ...HAZARDS]) {
     stats[type] = spriteStats(await shoot(page, seg, type, PICKUPS.includes(type)));
     expect(stats[type].n, `${type} drew nothing`).toBeGreaterThan(400);
+    // Below ~40 px a sprite is too coarse for the 32-cell silhouette to mean anything.
+    expect(Math.max(stats[type].w, stats[type].h), `${type} too small to judge`).toBeGreaterThanOrEqual(40);
   }
   const rows = [], fails = [], classes = [];
   for (const sim of Object.keys(SIMS)) {
@@ -115,6 +120,19 @@ test('pickups and hazards stay apart under colour-vision simulation', async ({ p
     }
     rows.push(`[${sim}] pickups apart at most ${far.toFixed(2)} (${farPair}); pickup-hazard at least ${near.toFixed(2)} (${nearPair})`);
     if (far >= near) classes.push(rows[rows.length - 1]);
+  }
+  // The noise floor: the same sprites three segments further on (smaller) must still measure
+  // as the same, or "different" above would mean nothing.
+  const far = seg + 3;
+  await shoot(page, far, null);
+  await shoot(page, far, null);
+  for (const type of ['HW_COIN', 'DOUBLER', 'HOLO_BARRIER']) {
+    const again = spriteStats(await shoot(page, far, type, PICKUPS.includes(type)));
+    for (const sim of Object.keys(SIMS)) {
+      const e = compare(stats[type][sim], again[sim]).edge;
+      rows.push(`${type} near vs far [${sim}] edge ${e.toFixed(2)}`);
+      expect(e, `${type} at two distances [${sim}]`).toBeLessThan(EDGE_MIN);
+    }
   }
   await info.attach('colour-vision.txt', { body: rows.join('\n'), contentType: 'text/plain' });
   // The PR's before/after picture: a 2× badge and a barricade side by side.

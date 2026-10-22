@@ -87,18 +87,27 @@ export function spriteStats(shot) {
       Y[i] = simLum(px[i * 3], px[i * 3 + 1], px[i * 3 + 2], m);
       if (mask[i]) sum += Y[i];
     }
-    // Box-resample the gamma-encoded luminance onto the grid (cells outside the box: the
-    // mean road colour, so the outline against the road is an edge too).
-    const grid = new Float64Array(GRID * GRID), cnt = new Float64Array(GRID * GRID);
+    // Resample the gamma-encoded luminance onto the grid: each cell averages the pixels it
+    // covers (at least the one under its centre, so a sprite smaller than the grid is
+    // upscaled, not scattered). Cells outside the box are the mean road colour.
+    const grid = new Float64Array(GRID * GRID);
     let road = 0, roadN = 0;
-    for (let i = 0; i < w * h; i++) if (!mask[i]) { road += Y[i]; roadN++; }
+    for (let i = 0; i < w * h; i++) if (!mask[i]) { road += Math.sqrt(Y[i]); roadN++; }
     road = roadN ? road / roadN : 0;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const gx = Math.min(GRID - 1, Math.floor(((x + ox) / side) * GRID));
-      const gy = Math.min(GRID - 1, Math.floor(((y + oy) / side) * GRID));
-      grid[gy * GRID + gx] += Math.sqrt(Y[y * w + x]); cnt[gy * GRID + gx]++;
+    const k = side / GRID;
+    const span = (g, o, n) => {
+      const a = g * k - o, b = (g + 1) * k - o;
+      if (b <= 0 || a >= n) return null;
+      const lo = Math.max(0, Math.floor(a));
+      return [lo, Math.min(n, Math.max(lo + 1, Math.ceil(b)))];
+    };
+    for (let gy = 0; gy < GRID; gy++) for (let gx = 0; gx < GRID; gx++) {
+      const sx = span(gx, ox, w), sy = span(gy, oy, h);
+      if (!sx || !sy) { grid[gy * GRID + gx] = road; continue; }
+      let acc = 0, n = 0;
+      for (let y = sy[0]; y < sy[1]; y++) for (let x = sx[0]; x < sx[1]; x++) { acc += Math.sqrt(Y[y * w + x]); n++; }
+      grid[gy * GRID + gx] = acc / n;
     }
-    for (let i = 0; i < grid.length; i++) grid[i] = cnt[i] ? grid[i] / cnt[i] : Math.sqrt(road);
     const at = (x, y) => grid[Math.max(0, Math.min(GRID - 1, y)) * GRID + Math.max(0, Math.min(GRID - 1, x))];
     const edges = new Uint8Array(GRID * GRID);
     for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) {
