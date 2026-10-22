@@ -1,7 +1,7 @@
 ---
 id: 0191
 title: A panned proximity tick when traffic is about to hit you
-status: proposed
+status: ready
 priority: P2
 size: S
 lens: accessibility

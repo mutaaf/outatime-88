@@ -1,7 +1,7 @@
 ---
 id: 0204
 title: Pause shows a one-screen controls reference for the active input
-status: proposed
+status: ready
 priority: P2
 size: S
 lens: accessibility
