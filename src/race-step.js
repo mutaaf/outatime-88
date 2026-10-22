@@ -31,7 +31,9 @@ import {
 } from './fairplay.js';
 
 RS.fair = createFair();
-// WARP READY (0112): one rising tick through the SFX bus when a boost would fire the warp.
+// WARP READY (0112): GameState.warpReady says a boost would fire the warp right now (meter in
+// warp range, cooldown over, still racing); the HUD, the touch button and the hints read it, and
+// one rising tick plays through the SFX bus when it turns on.
 const warpCue = createReadyCue(FLUX.warpBoostMin);
 
 // The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
@@ -1311,7 +1313,8 @@ export function updateGame(rawDt) {
     triggerTimeWarp();
   }
   if (GameState.warpActiveTimer > 0) GameState.warpActiveTimer -= rawDt;
-  if (warpCue(GameState.fluxCharge)) {
+  GameState.warpReady = GameState.racePhase === 'RACING' && boostOutcome(GameState.fluxCharge) === 'warp' && GameState.sinceWarp >= FLUX.warpCooldown;
+  if (warpCue(GameState.warpReady ? GameState.fluxCharge : 0)) {
     SoundEngine.playTone(740, 'triangle', 0.09, 0.1, 1110);
     setTimeout(() => SoundEngine.playTone(1110, 'triangle', 0.16, 0.11, 1660), 70);
   }
