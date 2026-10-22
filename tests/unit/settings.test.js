@@ -15,6 +15,8 @@ describe('settings (ticket 0050)', () => {
     expect(s.tilt).toBe(true);
     expect(s.voice).toBe(true); // missing → on
     expect(normalizeSettings({ voice: false }).voice).toBe(false);
+    expect(s.proximity).toBe(true); // proximity cue (0191): an old save without it gets it on
+    expect(normalizeSettings({ proximity: false }).proximity).toBe(false);
   });
 
   it('difficulty scales rival pace and damage, and normal changes nothing', () => {

@@ -122,3 +122,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-22 · fix · On phones, scoring your first points no longer lets go of the thumbstick or a held button
 2026-10-22 · 0030 · Screen readers now hear the race's announcements once each, and "Now 3rd of 6" when your place changes (at most every 2 seconds), without reading every HUD tick
 2026-10-22 · 0112 · WARP READY no longer relies on colour: the touch WARP button reads READY with a double ring (static in calm motion), and a short rising tick plays once when a boost would fire the warp
+2026-10-22 · 0191 · A quiet tick now sounds from the side of any car or obstacle about to hit you (within 0.8 s, at most 4 a second); turn it off in Settings → Sound → Proximity cue

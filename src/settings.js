@@ -12,6 +12,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   sfxVolume: 1,           // 0..1, engine + effects
   musicStyle: 'auto',     // 'auto' (synthwave in the '88 eras, street beats elsewhere + Endless tier 3+) | 'synthwave' | 'street' (0193)
   voice: true,            // the race announcer reads names and calls out loud (on-device speech)
+  proximity: true,        // a quiet tick panned toward traffic about to hit you (0191, src/proximity-cue.js)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'
   difficulty: 'normal',   // 'easy' | 'normal' | 'hard'
   graphics: 'auto',       // 'auto' (device-picked tier, src/perf/) | 'low' | 'medium' | 'high' | 'ultra'
@@ -39,6 +40,7 @@ export function normalizeSettings(saved) {
   s.tilt = Boolean(s.tilt);
   s.tiltInvert = Boolean(s.tiltInvert);
   s.voice = s.voice !== false;
+  s.proximity = s.proximity !== false;
   s.musicVolume = clamp01(Number(s.musicVolume), SETTINGS_DEFAULTS.musicVolume);
   s.sfxVolume = clamp01(Number(s.sfxVolume), SETTINGS_DEFAULTS.sfxVolume);
   for (const [k, list] of Object.entries(CHOICES)) if (!list.includes(s[k])) s[k] = SETTINGS_DEFAULTS[k];

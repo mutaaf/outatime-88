@@ -1,12 +1,12 @@
 ---
 id: 0191
 title: A panned proximity tick when traffic is about to hit you
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-10-20
-pr:
+pr: 152
 ---
 
 ## Why
@@ -24,10 +24,10 @@ under the master compressor. Off with Mute; a Settings toggle "Proximity cue" (d
 No per-frame allocation: reuse nodes/buffers.
 
 ## Acceptance criteria
-- [ ] Unit test: the cue chooser returns pan -1/0/+1 for obstacles left/centre/right and null when none is within 0.8 s
-- [ ] Rate limit holds (≤ 4 cues in any 1 s window) in a unit test with a dense field
-- [ ] Muted or toggled off: no oscillator/buffer source is started
-- [ ] Never plays under `?debug` silent test mode; no frame-time regression (perf probe)
+- [x] Unit test: the cue chooser returns pan -1/0/+1 for obstacles left/centre/right and null when none is within 0.8 s
+- [x] Rate limit holds (≤ 4 cues in any 1 s window) in a unit test with a dense field
+- [x] Muted or toggled off: no oscillator/buffer source is started
+- [x] Never plays under `?debug` silent test mode; no frame-time regression (perf probe)
 
 ## Test plan
 Pure-function unit test for the chooser and limiter; one e2e that the setting persists.
