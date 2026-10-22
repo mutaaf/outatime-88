@@ -195,7 +195,7 @@ for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { wi
     await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
     await racing(page, { minTime: 0.5 });
     await page.waitForFunction(() => document.getElementById('hudGapAhead').textContent !== '');
-    // 97: the HUD shows WARP READY (>= 95) but the car never warps (that needs 100 at 88 mph).
+    // 97: the HUD shows WARP READY (>= 92) but the car never warps (that needs 100 at 88 mph).
     const hold = () => page.evaluate(() => { const g = window.__OT.GameState; g.flux = 97; g.score = Math.max(g.score, 1234567); });
     await hold();
     await page.waitForFunction(() => document.getElementById('hudFluxLabel').textContent.includes('WARP READY'));

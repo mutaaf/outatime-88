@@ -133,7 +133,7 @@ export function createHud(doc = document) {
         width(el.nos, 'nos', Math.round(Math.max(0, Math.min(1, s.nos || 0)) * 100));
         flag(el.speedCard, 'nosOn', 'is-nos', Boolean(s.nosOn));
       }
-      const ready = s.flux >= 95;
+      const ready = !!s.ready; // GameState.warpReady (0112): a boost would fire the warp now
       text(el.fluxLabel, 'fluxLabel', ready ? '⚡ WARP READY' : 'FLUX');
       flag(el.speedCard, 'ready', 'is-ready', ready);
       // The score sits under the FLUX meter; labelled as points so it never reads as flux.

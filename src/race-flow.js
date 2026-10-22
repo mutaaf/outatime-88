@@ -94,7 +94,7 @@ export function updateInteractiveCoach(currentSegIdx) {
       iconEl.textContent = '⚡'; titleEl.textContent = 'BARRIER';
       descEl.textContent = `Go ${open}, jump it, or boost-smash it`;
     }
-  } else if (GameState.fluxCharge >= 95 && GameState.timeWarps === 0) {
+  } else if (GameState.warpReady && GameState.timeWarps === 0) {
     iconEl.textContent = '⚡'; titleEl.textContent = 'FLUX FULL';
     descEl.textContent = hintNow().coachFlux;
   } else if (GameState.distance < 300) { // just after the green light
@@ -135,6 +135,7 @@ export function updateRaceHud(force) {
   hudView.compact = Boolean(phonePortrait && phonePortrait.matches); // the phone-portrait HUD layout in styles.css (0190)
   hudView.mph = GameState.speed;
   hudView.flux = GameState.fluxCharge;
+  hudView.ready = Boolean(GameState.warpReady);
   hudView.nos = GameState.nosFill || 0;
   hudView.nosOn = Boolean(GameState.nosBurning);
   hudView.hpFrac = GameState.maxHp ? GameState.hp / GameState.maxHp : 1;
@@ -235,7 +236,7 @@ export function updateLiveHud(forceHud) {
     } else if (GameState.agroTimer > 0) {
       fluxHint.textContent = '🔴 AGRO RAM SHIELD ACTIVE!';
       fluxHint.className = 'text-[7px] font-arcade text-orange-300 font-bold truncate';
-    } else if (GameState.fluxCharge >= 95) {
+    } else if (GameState.warpReady) {
       fluxHint.textContent = hintNow().flux;
       fluxHint.className = 'text-[7px] font-arcade text-yellow-300 font-bold truncate';
     } else {
@@ -367,6 +368,7 @@ export function startNewRace(opts) {
   GameState.speed = 26;
   GameState.peakSpeed = 42;
   GameState.fluxCharge = FLUX.start;
+  GameState.warpReady = false; // set by the race step (0112); stale from the last race until then
   GameState.sinceWarp = FLUX.warpCooldown;
   GameState.warpFxTimer = 0;
   sparks.clear();

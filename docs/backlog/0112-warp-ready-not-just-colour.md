@@ -1,12 +1,12 @@
 ---
 id: 0112
 title: WARP READY must not rely on colour or glow alone (shape + sound cue)
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-10-18
-pr:
+pr: 151
 ---
 
 ## Why

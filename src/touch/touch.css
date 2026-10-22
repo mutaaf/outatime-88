@@ -44,8 +44,10 @@ html, body { overscroll-behavior: none; }
 .tc-primary { border-width: 3px; }
 .tc-primary .tc-ico { width: 46%; height: 46%; }
 .tc-primary .tc-lbl { font-size: 11px; }
-.tc-boost.tc-ready { animation: tc-ready 0.9s ease-in-out infinite; border-color: #fde047; color: #fde047; }
+.tc-boost.tc-ready { animation: tc-ready 0.9s ease-in-out infinite; border: 6px double #fde047; color: #fde047; }
+.tc-boost.tc-ready .tc-lbl { color: #fde047; }
 @keyframes tc-ready { 50% { box-shadow: 0 0 34px #fde047, inset 0 0 18px rgba(253, 224, 71, 0.5); } }
+.tc-boost.tc-ready.tc-calm, .tc-editing .tc-boost.tc-ready { animation: none; box-shadow: 0 0 26px #fde047; }
 .tc-drift { --c: #ff5a3c; }
 .tc-jump { --c: #e879f9; }
 .tc-special { --c: #a3e635; }

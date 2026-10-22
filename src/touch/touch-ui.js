@@ -81,6 +81,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     el[id] = b;
     if (hasRing) ring[id] = { fill: b.querySelector('.tc-ring-fill'), last: -1 };
   }
+  el.boost.dataset.ready = 'false';
   const specialBadge = el.special.querySelector('.tc-badge');
   const picker = mk('div', 'tc-picker');
   picker.id = 'tcPicker';
@@ -554,7 +555,8 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     const st = h.status();
     if (st) {
       setRing('boost', st.flux);
-      el.boost.classList.toggle('tc-ready', !!st.warpReady);
+      if (!!st.warpReady !== boostReady) setBoostReady(!!st.warpReady);
+      if (!!st.calm !== boostCalm) { boostCalm = !!st.calm; el.boost.classList.toggle('tc-calm', boostCalm); }
       setRing('respawn', st.respawn);
       setRing('special', st.specials > 0 ? 1 : st.flux >= 0.35 ? 1 : 0);
       const n = String(st.specials);
@@ -564,6 +566,17 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     const showMirror = InputState.lookBack && !h.is3D();
     if (mirror.classList.contains('tc-open') !== showMirror) mirror.classList.toggle('tc-open', showMirror);
     if (showMirror) h.drawMirror(mirrorCtx, mirror.width, mirror.height);
+  }
+  // WARP READY (0112): the label and the border's shape (a double ring) change too, not just the colour, so the cue
+  // survives colour-blindness and a greyscale screen; calm motion keeps them but stops the pulse.
+  let boostReady = false, boostCalm = false;
+  const boostLbl = el.boost.querySelector('.tc-lbl');
+  function setBoostReady(on) {
+    boostReady = on;
+    el.boost.classList.toggle('tc-ready', on);
+    el.boost.dataset.ready = on ? 'true' : 'false';
+    boostLbl.textContent = on ? 'READY' : LABELS.boost;
+    el.boost.setAttribute('aria-label', on ? `${LABELS.boost} ready` : LABELS.boost);
   }
   function setRing(id, v) {
     const r = ring[id];
