@@ -127,3 +127,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-22 · 0201 · New Settings → Race → Coach tips switch: turn it off and races no longer show the tip card, the first-run steer prompt or the touch thumb guide
 2026-10-23 · 0203 · A billboard, banner or start arch with a car, obstacle or pickup behind it now turns see-through, so what you are racing stays readable through it
 2026-10-23 · 0167 · Rivals on the race strip now carry their own letter (and ▲/▼ for the cars either side of you), so you can tell who is who without relying on colour
+2026-10-23 · 0207 · Settings, Garage, Ranks and the share sheet now take keyboard focus when they open, keep Tab inside, close on Escape and hand focus back to the button that opened them; Enter on a focused title button presses it instead of starting a race
