@@ -25,13 +25,16 @@ async function endless(page) {
 /** A barrel hit that can't end the run. */
 const hit = () => { const g = window.__OT.GameState; g.invulnTimer = 0; window.__OT.damage(4, 'BARREL HIT'); g.invulnTimer = 60; g.hp = Math.max(g.hp, 60); };
 
+/** Race-clock wait that must pass with the run still going (a dead run would prove nothing). */
+const play = async (page, s) => expect(await simWait(page, s)).toBe(true);
+
 /** Everything that lights the whole screen, as close together as the game lets it happen. */
 async function stress(page) {
   await startFlashProbe(page);
   // A bolt and a hit first, then the warp lands while the bolt's wash is still fading.
   await page.evaluate(() => window.__OT.hazard('LIGHTNING', 0.5, 0));
   await page.evaluate(hit);
-  await simWait(page, 0.3);
+  await play(page, 0.3);
   const before = await page.evaluate(() => window.__OT.GameState.timeWarps);
   await page.waitForFunction((b) => {
     const g = window.__OT.GameState;
@@ -39,29 +42,36 @@ async function stress(page) {
     g.fluxCharge = 100; g.speed = 100; g.sinceWarp = 99; g.warpActiveTimer = 0;
     return false;
   }, before, { timeout: 8000 });
-  // Straight into an ability, more hits (they land once the warp is over) and more strikes.
+  // Straight into an ability (its tint stays up through the rest), then hits and strikes under it.
   await page.evaluate(() => { const g = window.__OT.GameState; g.specialCharges = 3; window.__OT.input.zonePressed = true; });
-  for (let i = 0; i < 3; i++) {
+  await play(page, 1.0);
+  for (let i = 0; i < 2; i++) {
     await page.evaluate(hit);
     await page.evaluate(() => window.__OT.hazard('LIGHTNING', 0.5, 2));
-    await simWait(page, 0.6);
+    await play(page, 1.0);
   }
   await page.evaluate(() => { window.__OT.input.agroPressed = true; });
-  await simWait(page, 1.2);
+  await play(page, 0.6);
+  expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
   return flashRises(await stopFlashProbe(page));
 }
 
-test('the probe catches a strobe: an overlay pulsed 6 times a second counts more than 3', async ({ page }) => {
+test('the probe sees every pulse of a frame-locked strobe', async ({ page }) => {
   await endless(page);
   await startFlashProbe(page);
+  // On one frame, off the next, for 24 frames: 12 pulses at any frame rate.
   await page.evaluate(() => new Promise((done) => {
     const el = document.getElementById('warpFlash');
     el.style.transition = 'none';
     let n = 0;
-    const id = setInterval(() => { el.style.opacity = n++ % 2 ? '0' : '0.5'; if (n > 12) { clearInterval(id); el.style.opacity = '0'; done(); } }, 84);
+    (function tick() {
+      el.style.opacity = n % 2 ? '0' : '0.5';
+      if (n++ < 24) requestAnimationFrame(tick); else { el.style.opacity = '0'; requestAnimationFrame(() => requestAnimationFrame(done)); }
+    })();
   }));
   const r = flashRises(await stopFlashProbe(page));
-  expect(r.perSecond).toBeGreaterThan(3);
+  expect(r.flashes).toBeGreaterThanOrEqual(11);
+  expect(r.peak.warpFlash).toBeCloseTo(0.5);
 });
 
 test('full motion: a stress race never flashes more than 3 times in any second', async ({ page }) => {
@@ -70,10 +80,11 @@ test('full motion: a stress race never flashes more than 3 times in any second',
   await endless(page);
   expect(await page.evaluate(() => window.__OT.GameState.reducedMotion)).toBe(false);
   const r = await stress(page);
-  // The run did light the screen: the warp flash and at least one bolt wash were seen.
+  // The run did light the screen: the warp flash, bolt washes (also under the ability tint) and the tint.
   expect(r.peak.warpFlash).toBeGreaterThanOrEqual(FLASH_MIN);
   expect(r.peak.canvas).toBeGreaterThanOrEqual(FLASH_MIN);
-  expect(r.rises).toBeGreaterThan(0);
+  expect(r.peak.abilityTintOverlay).toBeGreaterThanOrEqual(FLASH_MIN);
+  expect(r.flashes).toBeGreaterThanOrEqual(3);
   expect(r.perSecond).toBeLessThanOrEqual(3);
   expect(problems).toEqual([]);
 });
@@ -85,8 +96,11 @@ test('calm motion: the same stress race shows no flash layer at 0.1 or above', a
   await endless(page);
   expect(await page.evaluate(() => window.__OT.GameState.reducedMotion)).toBe(true);
   const r = await stress(page);
-  expect(r.peak.warpFlash).toBeGreaterThan(0); // the warp still shows, just softly
-  for (const [layer, peak] of Object.entries(r.peak)) expect(peak, layer).toBeLessThan(FLASH_MIN);
-  expect(r.rises).toBe(0);
+  // Every effect still shows, just softly.
+  for (const [layer, peak] of Object.entries(r.peak)) {
+    expect(peak, layer).toBeGreaterThan(0);
+    expect(peak, layer).toBeLessThan(FLASH_MIN);
+  }
+  expect(r.flashes).toBe(0);
   expect(problems).toEqual([]);
 });
