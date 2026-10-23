@@ -42,10 +42,17 @@ const onFocus = (e) => { if (e.target !== focusNow) { focusBefore = focusNow; fo
 // Focus dropped to nothing (Safari doesn't focus a clicked button): forget it, so a menu
 // opened next never names an older control as its opener.
 const onBlur = (e) => { if (!e.relatedTarget) { focusBefore = null; focusNow = null; } };
+// Is the player moving focus with Tab (a keyboard player) rather than pointing? A pointer
+// press clears it, so focus a script handed back after a mouse click doesn't count.
+let tabbing = false;
+const onPointer = () => { tabbing = false; };
+export const tabNavigating = () => tabbing;
+
 const outside = (el, a) => (a && a !== document.body && a.isConnected && !el.contains(a) ? a : null);
 
 function onKey(e) {
   const top = open[open.length - 1];
+  if (e.key === 'Tab') tabbing = true;
   if (!top) return;
   // A panel that isn't scoped here (the racer panel over Settings) has focus: leave Tab to it.
   const a = document.activeElement;
@@ -75,7 +82,13 @@ export const inTopMenu = (el) => open.length > 0 && open[open.length - 1].el.con
 export function scopeFocus(el, { canRestore = () => true, onEscape = null } = {}) {
   if (!el) return null;
   const scope = { el, onEscape, opener: null };
-  if (!keysBound) { window.addEventListener('keydown', onKey, true); document.addEventListener('focusin', onFocus, true); document.addEventListener('focusout', onBlur, true); keysBound = true; }
+  if (!keysBound) {
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onPointer, true);
+    document.addEventListener('focusin', onFocus, true);
+    document.addEventListener('focusout', onBlur, true);
+    keysBound = true;
+  }
   let shown = false;
   const sync = () => {
     const now = !el.classList.contains('hidden');

@@ -11,7 +11,7 @@ import { HOME_IDLE_MS, PITCH, homeHooks, isFirstVisit, noteNewsSeen } from './ho
 import { POP_CULTURE_ROSTER, ROAD_CFG } from './data.js';
 import { frameTitle } from './title-frame.js';
 import { InputState, setLastInput } from './input.js';
-import { scopeFocus, menuOpen, inTopMenu } from './focus-scope.js';
+import { scopeFocus, menuOpen, inTopMenu, tabNavigating } from './focus-scope.js';
 
 /**
  * h: { state (GameState), save (SaveStore), goHome(), play(), daily(), garage(carId), ranks(),
@@ -253,9 +253,9 @@ export function createHome(h) {
   for (const id of ['startModal', 'settingsModal', 'garageModal', 'carRevealOverlay']) scopeFocus($(id), { canRestore: notRacing });
   scopeFocus($('leaderboardModal'), { canRestore: notRacing, onEscape: () => $('btnCloseLeaderboard').click() });
   scopeFocus($('shareSheet'), { canRestore: notRacing, onEscape: () => $('btnShareClose').click() });
-  // With no menu open, Enter/Space on a button reached with the keyboard (:focus-visible)
-  // presses that button: the title's "Enter races" and the results' "Enter = play again" only
-  // answer otherwise, so a mouse click that left focus on a button changes nothing. Mid-race a
+  // With no menu open, Enter/Space on a button a keyboard player reached with Tab presses that
+  // button: the title's "Enter races" and the results' "Enter = play again" only answer
+  // otherwise, so a mouse click that left focus on a button changes nothing. Mid-race a
   // focused button outside the open menu (a clicked HUD gear, a title button the race started
   // from) lets go instead, so the key drives the car and never presses it.
   window.addEventListener('keydown', (e) => {
@@ -263,7 +263,7 @@ export function createHome(h) {
     const a = document.activeElement;
     if (!a || !a.matches || !a.matches('button, a[href]')) return;
     if (S.status === 'PLAYING') { if (!inTopMenu(a)) { e.preventDefault(); a.blur(); } return; }
-    if (!menuOpen() && a.matches(':focus-visible')) e.stopImmediatePropagation();
+    if (!menuOpen() && tabNavigating()) e.stopImmediatePropagation();
   }, true);
 
   return { renderTitle, attract, debug: () => ({ idleAt, hooks: [...(rail ? rail.querySelectorAll('[data-hook]') : [])].map((b) => b.dataset.hook) }) };

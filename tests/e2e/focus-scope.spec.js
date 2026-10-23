@@ -17,6 +17,14 @@ const where = (page, modal, opener) => page.evaluate(([m, o]) => {
   return { inside: !!a && document.querySelector(m).contains(a), opener: a === document.querySelector(o), id: a ? (a.id || a.tagName) : null };
 }, [modal, opener]);
 
+/** Put focus on `sel` the way a keyboard player gets there: with Tab (Shift+Tab, Tab). */
+async function tabTo(page, sel) {
+  await page.focus(sel);
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect.poll(() => page.evaluate((s) => document.activeElement === document.querySelector(s), sel)).toBe(true);
+}
+
 /** The home flow (src/home.js, lazy) wires the scopes; wait for it like a player would. */
 const homeReady = (page) => page.waitForFunction(() => document.querySelector('#homeHooks')?.childElementCount > 0);
 
@@ -42,7 +50,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 
     await homeReady(page);
     for (const menu of MENUS) {
       for (const how of ['button', 'Escape']) {
-        await page.focus(menu.opener);
+        await tabTo(page, menu.opener);
         await page.keyboard.press('Enter');
         await expect(page.locator(menu.modal), `${menu.name} opens from Enter on its button`).toBeVisible();
         await expect.poll(async () => (await where(page, menu.modal, menu.opener)).inside, { message: `${menu.name}: focus moves in` }).toBe(true);
@@ -87,7 +95,7 @@ test('inside Settings the keyboard still binds keys: Enter and Space reach the k
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
   await homeReady(page);
-  await page.focus('#btnOpenSettings');
+  await tabTo(page, '#btnOpenSettings');
   await page.keyboard.press('Enter');
   await expect(page.locator('#settingsModal')).toBeVisible();
   const up = page.locator('[data-key-action="up"]');
@@ -109,7 +117,7 @@ test('Garage → Events moves focus into Events', async ({ page }) => {
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
   await homeReady(page);
-  await page.focus('#btnOpenGarageFromTitle');
+  await tabTo(page, '#btnOpenGarageFromTitle');
   await page.keyboard.press('Enter');
   await expect(page.locator('#garageModal')).toBeVisible();
   await page.focus('#btnChangeEventFromGarage');
@@ -121,4 +129,15 @@ test('Garage → Events moves focus into Events', async ({ page }) => {
     expect((await where(page, '#startModal', 'body')).inside).toBe(true);
   }
   expect(problems).toEqual([]);
+});
+
+test('a mouse player who closes a menu still races with Enter', async ({ page }) => {
+  await page.goto(`${APP}?debug`);
+  await homeReady(page);
+  await page.locator('#btnOpenLeaderboard').click();
+  await expect(page.locator('#leaderboardModal')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#leaderboardModal')).toBeHidden();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
 });

@@ -1,7 +1,7 @@
 ---
 id: 0207
 title: Menus keep keyboard focus inside and hand it back when they close
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: accessibility
