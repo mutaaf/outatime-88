@@ -7,7 +7,8 @@ import { lapOf, ordinal, formatRaceTime, formatGap, gapSeconds, RACE_LAPS } from
 
 const SPEED_FULL = 160; // mph at a full speed bar; 88 sits at 55%
 
-export function createHud(doc = document) {
+/** marks(names) → one short label per rival for the track strip (src/strip-marks.js, ticket 0167). */
+export function createHud(doc = document, marks = () => []) {
   const $ = (id) => doc.getElementById(id);
   const el = {
     pos: $('hudPos'), posOf: $('hudPosOf'), posCard: $('hudPosCard'), lap: $('hudLap'), hp: $('hudHp'),
@@ -56,14 +57,16 @@ export function createHud(doc = document) {
     if (!same) {
       el.dots.textContent = '';
       dots.clear();
+      const labels = marks(field.filter((e) => !e.isPlayer).map((e) => e.short));
+      let r = 0;
       for (const e of field) {
         const node = doc.createElement('span');
         node.className = e.isPlayer ? 'hud-dot hud-dot-you' : 'hud-dot';
         node.style.setProperty('--dot', e.isPlayer ? '#ffffff' : (e.color || '#94a3b8'));
         node.title = e.isPlayer ? 'You' : e.short;
-        if (e.isPlayer) node.textContent = 'YOU';
+        node.textContent = e.isPlayer ? 'YOU' : labels[r++] || '';
         el.dots.appendChild(node);
-        dots.set(e.id, { node, left: -1 });
+        dots.set(e.id, { node, left: -1, near: '' });
       }
     }
   }
@@ -122,6 +125,9 @@ export function createHud(doc = document) {
           : Math.max(0, Math.min(1, e.progress / s.length));
         const left = Math.round(frac * 1000) / 10;
         if (left !== d.left) { d.left = left; d.node.style.left = `${left}%`; }
+        // 0167: the markers the ▲/▼ gap pills talk about wear the same arrow (CSS).
+        const near = e === a ? 'ahead' : e === b ? 'behind' : '';
+        if (near !== d.near) { d.near = near; d.node.dataset.near = near; }
       }
 
       const mph = Math.max(0, Math.round(s.mph));

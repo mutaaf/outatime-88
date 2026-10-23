@@ -362,10 +362,19 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-track::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: rgba(226, 232, 240, 0.25); }
 .lap-tick { position: absolute; top: 18%; bottom: 18%; width: 2px; background: rgba(103, 232, 249, 0.6); }
 .finish-flag { position: absolute; right: -0.55em; top: 50%; transform: translateY(-50%); font-size: clamp(16px, 2.8vmin, 30px); }
-.hud-dots { position: absolute; inset: 0 0.7em 0 0.7em; }
+/* 0167: inset by half the YOU tag, so a marker at the start or the flag stays inside the strip on phones too. */
+.hud-dots { position: absolute; inset: 0 max(0.7em, 19px); }
 .hud-dot { position: absolute; top: 50%; left: 0; width: clamp(10px, 1.6vmin, 18px); height: clamp(10px, 1.6vmin, 18px);
   transform: translate(-50%, -50%); border-radius: 9999px; background: var(--dot); border: 2px solid rgba(2, 6, 23, 0.9);
   box-shadow: 0 0 8px var(--dot); }
+/* 0167: a rival marker is a letter, not just a colour: white on near-black (≥ 15:1), the rival's colour as its ring.
+   The cars directly ahead / behind wear the gap pills' ▲ / ▼ and sit above the rest. */
+.hud-dot:not(.hud-dot-you):not(.hud-dot-ghost) { width: auto; min-width: clamp(14px, 2.4vmin, 24px); height: clamp(14px, 2.4vmin, 24px);
+  padding: 0 2px; display: flex; align-items: center; justify-content: center; white-space: nowrap; line-height: 1;
+  font-size: clamp(9px, 1.5vmin, 14px); font-weight: 900; color: #fff; background: #020617; border-color: var(--dot); box-shadow: 0 0 6px var(--dot); }
+.hud-dot[data-near='ahead'], .hud-dot[data-near='behind'] { z-index: 1; }
+.hud-dot[data-near='ahead']::before { content: '▲'; font-size: 0.75em; margin-right: 1px; }
+.hud-dot[data-near='behind']::before { content: '▼'; font-size: 0.75em; margin-right: 1px; }
 .hud-dot-you { z-index: 2; width: auto; height: auto; padding: 1px 6px; border-radius: 8px; font-size: clamp(8px, 1.3vmin, 13px);
   font-weight: 900; color: #05050d; background: #fff; border: 2px solid #ff8800; box-shadow: 0 0 10px #ff8800; }
 

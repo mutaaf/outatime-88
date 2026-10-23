@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createHud, scoreText } from '../../src/hud.js';
+import { createHud as hudFor, scoreText } from '../../src/hud.js';
+import { stripMarks } from '../../src/strip-marks.js';
+
+const createHud = (doc) => hudFor(doc, stripMarks);
 import { breakdown, createPenaltyLog, logHit, penaltyPoints } from '../../src/scoring.js';
 
 /** A tiny DOM stand-in that counts writes, so we can prove the HUD only writes on change. */
@@ -163,5 +166,43 @@ describe('compact gap pills on phones (ticket 0190)', () => {
     expect([...ahead].length).toBeLessThanOrEqual(10);
     hud.update(view({ compact: true, position: 1, field: [{ id: 'YOU', short: 'YOU', progress: 5000, isPlayer: true }, { id: 'a', short: 'KAI', progress: 4000 }] }));
     expect(doc.getElementById('hudGapAhead').textContent).toBe('★ LEAD');
+  });
+});
+
+// Ticket 0167: the track strip must say who is who without colour. Each rival's marker carries
+// the shortest start of its name no other rival shares (two letters at most), and the cars
+// directly ahead and behind are tagged so the ▲/▼ gap pills point at a marker.
+describe('track strip markers (ticket 0167)', () => {
+  it('stripMarks: one letter when it is unique, two when the first is shared, never a repeat', () => {
+    expect(stripMarks(['KAI', 'DEZ', 'RIN', 'VEX', 'CAL'])).toEqual(['K', 'D', 'R', 'V', 'C']);
+    expect(stripMarks(['KAI', 'KIRA', 'DEZ'])).toEqual(['KA', 'KI', 'D']);
+    // Two letters still shared (or the same name twice in a live room): initial + slot number.
+    const dup = stripMarks(['MAX', 'MAX', 'MAE', 'ZED']);
+    expect(dup[3]).toBe('Z');
+    expect(new Set(dup).size).toBe(4);
+    for (const m of dup) expect(m.length).toBeLessThanOrEqual(2);
+    expect(stripMarks([])).toEqual([]);
+    const odd = stripMarks(['', undefined, 'A']);
+    expect(new Set(odd).size).toBe(3);
+  });
+
+  it('every rival marker shows a unique label, YOU stays YOU, and ahead/behind are tagged', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    hud.update(view());
+    const dots = doc.getElementById('hudDots').children;
+    const labels = dots.map((d) => d.textContent);
+    expect(labels).toEqual(['K', 'D', 'R', 'YOU', 'V', 'C']);
+    expect(dots[2].dataset.near).toBe('ahead'); // RIN, directly ahead of you in 4th
+    expect(dots[4].dataset.near).toBe('behind'); // VEX
+    expect(dots[0].dataset.near || '').toBe('');
+    // You pass RIN: the tags move with the standings, and only the changed markers are written.
+    const before = doc.writes.n;
+    hud.update(view());
+    expect(doc.writes.n).toBe(before);
+    hud.update(view({ position: 3, field: [view().field[0], view().field[1], view().field[3], view().field[2], view().field[4], view().field[5]] }));
+    expect(dots[1].dataset.near).toBe('ahead'); // DEZ
+    expect(dots[2].dataset.near).toBe('behind'); // RIN
+    expect(dots[4].dataset.near).toBe('');
   });
 });
