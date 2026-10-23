@@ -1,8 +1,8 @@
 ---
 id: 0167
 title: Race strip and line-up never rely on colour alone to tell rivals apart
-status: proposed
-priority: P2
+status: ready
+priority: P1
 size: S
 lens: accessibility
 created: 2026-10-19
