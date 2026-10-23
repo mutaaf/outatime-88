@@ -10,9 +10,20 @@ export function loadBoardArt() {
   return loading;
 }
 
+// What the road has drawn so far this frame, far to near (ticket 0203): the rects of cars,
+// obstacles and pickups, which a nearer board must not hide (src/board-fade.js). Specks under
+// 8 px are too far off to read anyway; past the cap the rest of the frame simply isn't noted.
+export const seen = { n: 0, r: new Float32Array(384) };
+export function noteSeen(l, t, r, b) {
+  const k = seen.n * 4;
+  if (r - l < 8 || k >= 384) return;
+  seen.r[k] = l; seen.r[k + 1] = t; seen.r[k + 2] = r; seen.r[k + 3] = b;
+  seen.n++;
+}
+
 /** Draw a board item (BILLBOARD or the clock tower's board) at screen x on the road row. */
 export function drawBoard(ctx, item, n, x, roadY, roadW, rw, rh, eraId) {
-  if (art) art.draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId);
+  if (art) art.draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, seen);
   else loadBoardArt();
 }
 

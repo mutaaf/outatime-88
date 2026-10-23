@@ -159,6 +159,7 @@ export function addBoard(seg, offset, kind, k) {
   it.slot = seg.index * 4 + k;
   it.cid = '';
   it.mv = -1;
+  it.bh = 0; // last faded for something behind it (0203); a pooled item starts solid
   return it;
 }
 

@@ -14,6 +14,7 @@
 import { GameState } from './state.js';
 import { track } from './track.js';
 import { drawRoadsideAd } from './backdrop.js';
+import { covers, boardAlpha } from './board-fade.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -152,7 +153,9 @@ export function creativeFor(item, eraId, day = today(), seed = track.seed, level
 // ── Faces: one canvas per (campaign, aspect, bucket), LRU-capped ─────────────────────────
 const faces = new Map();
 let faceGen = 0;
-const stats = { impressions: 0, posted: 0, painted: 0, boards: 0 };
+const stats = { impressions: 0, posted: 0, painted: 0, boards: 0, faded: 0, covered: 0 };
+// ?debug (0203): the last board that faded for something behind it, and that thing's rect.
+const lastFade = { alpha: 1, kind: '', item: null, board: [0, 0, 0, 0], behind: [0, 0, 0, 0] };
 let lastBucket = 0, lastPx = 0;
 
 function clearFaces() { faces.clear(); faceGen++; }
@@ -434,15 +437,17 @@ if (typeof window !== 'undefined') {
 }
 
 export function debug() {
-  return { ...stats, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
+  return { ...stats, lastFade, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
 }
 
 // ── 2D ─────────────────────────────────────────────────────────────────────────────────
 /**
  * Draw board `item` (a BILLBOARD, or the clock tower's ERA board) standing on the road row
  * `roadY`, centred at screen x, for a road `roadW` px half-wide. `n` picks the era's ad.
+ * `drawn` (src/billboards.js `seen`) holds what the road drew further up this frame: a board whose
+ * face covers any of it draws see-through and isn't counted as viewed (ticket 0203, src/board-fade.js).
  */
-export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId) {
+export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now = performance.now()) {
   const kind = item.type === 'CLOCK_TOWER_BILLBOARD' ? 'ERA' : (SPEC[item.kind] ? item.kind : 'ROADSIDE');
   const s = SPEC[kind];
   const w = s.w * roadW;
@@ -454,6 +459,22 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId) {
   if (top > rh || roadY < 0 || left > rw || left + w < 0) return;
   stats.boards++;
   const night = String(eraId) !== '1955';
+  const b = Math.max(1, w * 0.022);
+  const hit = drawn ? covers(drawn, left - b, top - b, left + w + b, bottom + b) : -1;
+  if (hit >= 0) item.bh = now;
+  const alpha = boardAlpha(item.bh ? (now - item.bh) / 1000 : Infinity);
+  const prevAlpha = ctx.globalAlpha;
+  if (alpha < 1) {
+    ctx.globalAlpha = prevAlpha * alpha;
+    stats.faded++;
+    if (hit >= 0) {
+      stats.covered++;
+      lastFade.alpha = alpha; lastFade.kind = kind; lastFade.item = item;
+      lastFade.board[0] = left - b; lastFade.board[1] = top - b; lastFade.board[2] = left + w + b; lastFade.board[3] = bottom + b;
+      for (let i = 0; i < 4; i++) lastFade.behind[i] = drawn.r[hit * 4 + i];
+    }
+  }
+  if (hit < 0 && lastFade.item === item) lastFade.item = null; // only ever the board covering something now
   // Legs: two posts under a roadside board, two pylons outside the road for an overhead one.
   ctx.fillStyle = '#1b1f29';
   const legW = Math.max(1, w * (s.overhead ? 0.02 : 0.03));
@@ -465,7 +486,6 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId) {
     ctx.fillRect(x + w * 0.3 - legW / 2, bottom, legW, roadY - bottom);
   }
   // Bezel, then the face.
-  const b = Math.max(1, w * 0.022);
   ctx.fillStyle = '#0c0e13';
   ctx.fillRect(left - b, top - b, w + b * 2, h + b * 2);
   if (kind === 'ERA') {
@@ -486,7 +506,7 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId) {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(item.fc, left, top, w, h);
     ctx.imageSmoothingEnabled = smooth;
-    noteView(item, cid, left, top, w, h, rw, rh);
+    if (alpha === 1) noteView(item, cid, left, top, w, h, rw, rh, now); // a see-through face isn't a viewed ad
   }
   if (night && w > 20) {
     // Two lamp heads on the top bezel washing the face with warm light.
@@ -498,4 +518,5 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId) {
     ctx.fillRect(x - w * 0.28 - lw / 2, top - b - lh, lw, lh);
     ctx.fillRect(x + w * 0.28 - lw / 2, top - b - lh, lw, lh);
   }
+  ctx.globalAlpha = prevAlpha;
 }

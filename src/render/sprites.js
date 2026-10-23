@@ -3,7 +3,7 @@
 import { GameState } from '../state.js';
 import { ROAD_CFG } from '../data.js';
 import { PICKUPS } from '../pickups.js';
-import { drawBoard } from '../billboards.js';
+import { drawBoard, seen, noteSeen } from '../billboards.js';
 import { drawRoadsideProp, drawHazardArt, drawSoftShadow, queueTag, flushTags } from '../backdrop.js';
 import { RS, LiveTraffic, live, carArt, pickupArt, hzArt } from '../main.js';
 import { road } from './road.js';
@@ -25,6 +25,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
   pushAll(allMovingCars, LiveTraffic.traffic);
   pushAll(allMovingCars, live.ghosts);
   moverSeg.length = allMovingCars.length;
+  seen.n = 0;
   for (let m = 0; m < allMovingCars.length; m++) moverSeg[m] = allMovingCars[m].takenDown ? -1 : Math.floor(allMovingCars[m].worldZ / ROAD_CFG.segLength);
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
     const seg = visibleSegments[i];
@@ -100,6 +101,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
         // Crisp cached icon (src/pickup-art.js); a plain disc until the chunk lands.
         const size = Math.max(6, itemW * 0.95);
         const py = roadY - itemW * 0.72 + bobY;
+        noteSeen(itemX - size / 2, py - size / 2, itemX + size / 2, py + size / 2);
         if (pickupArt) pickupArt.drawPickup(ctx, item.type, itemX, py, size, nowSec, item.phase || 0, GameState.reducedMotion);
         else { ctx.fillStyle = PICKUPS[item.type].color; ctx.beginPath(); ctx.arc(itemX, py, size * 0.4, 0, Math.PI * 2); ctx.fill(); }
       } else if ((item.type === 'STREET_LAMP' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW') && drawRoadsideProp(ctx, item.type, itemX, roadY, itemW, itemH, roadW, rw, rh)) {
@@ -125,6 +127,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
       const oy = roadY - oyLift;
       const ow = Math.max(12, roadW * (ob.halfW * 2.0));
       const oh = Math.max(7, ow * 0.58);
+      noteSeen(ox - ow * 0.55, oy - oh * 1.7, ox + ow * 0.55, oy + oh * 0.5);
 
       ctx.save();
       ctx.translate(ox, oy - oh * 0.5);
@@ -234,6 +237,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
       const isTruck = (mv.style === 'SEMI_TRUCK');
       const cw = Math.max(10, roadW * (isTruck ? 0.38 : 0.32));
       const ch = Math.max(6, cw * (isTruck ? 0.95 : 0.56));
+      noteSeen(cx - cw * 0.6, roadYifted - cw * (isTruck ? 1.2 : 0.85), cx + cw * 0.6, roadYifted);
 
       // Slipstream Draft Wake Cone if player is drafting this car
       if (GameState.draftingCar === mv) {

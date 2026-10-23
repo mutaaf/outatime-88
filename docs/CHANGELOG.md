@@ -125,3 +125,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-22 · 0191 · A quiet tick now sounds from the side of any car or obstacle about to hit you (within 0.8 s, at most 4 a second); turn it off in Settings → Sound → Proximity cue
 2026-10-22 · 0198 · Every pickup now floats in a white ring no hazard has, so coins and power-ups read apart from cones, barrels and barricades without relying on colour
 2026-10-22 · 0201 · New Settings → Race → Coach tips switch: turn it off and races no longer show the tip card, the first-run steer prompt or the touch thumb guide
+2026-10-23 · 0203 · A billboard, banner or start arch with a car, obstacle or pickup behind it now turns see-through, so what you are racing stays readable through it

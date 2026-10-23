@@ -1,12 +1,12 @@
 ---
 id: 0203
 title: Roadside sponsor/"BEAT THE BOARD" billboards must not sit on top of rivals in the lane ahead
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-22
-pr:
+pr: 156
 ---
 
 ## Why
@@ -22,9 +22,9 @@ cars and hazards, or fade to ~35% alpha when a car/hazard is within their screen
 (same idea as shipped 0200). Touch only the board z-order/alpha logic.
 
 ## Acceptance criteria
-- [ ] A rival or hazard overlapping a board's rect is drawn fully opaque on top of it (unit test on the sort/alpha decision)
-- [ ] Screenshot at 1280x720 and 390x844 shows the rival tag and car readable in front of a board
-- [ ] No frame-time regression (perf probe within budget); main JS budget respected (see LESSONS)
+- [x] A rival or hazard overlapping a board's rect is drawn fully opaque on top of it (unit test on the sort/alpha decision)
+- [x] Screenshot at 1280x720 and 390x844 shows the rival tag and car readable in front of a board
+- [x] No frame-time regression (perf probe within budget); main JS budget respected (see LESSONS)
 
 ## Test plan
 Unit test the draw-order/alpha helper with a car inside and outside the board rect; one

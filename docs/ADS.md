@@ -60,7 +60,8 @@ for sale.
 
 An impression is counted when **at least 50% of the board is on screen**, the board covers
 **at least 0.25% of the screen** (big enough to read), **for one continuous second**, during a
-race (not on the title screen). Each board counts at most once per race. Counts are batched:
+race (not on the title screen). A 2D board drawn see-through because a car, obstacle or pickup
+is behind it (ticket 0203) is not being viewed: that time doesn't count. Each board counts at most once per race. Counts are batched:
 sent when a race ends (a new road starts), every 40 impressions, and when the tab is hidden.
 
 ## Adding a campaign
