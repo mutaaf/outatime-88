@@ -319,7 +319,8 @@ export function hud(ctx, rw, rh, over3d, t) {
     for (let i = 0; i < 6; i++) { const ang = (i / 6) * Math.PI * 2; ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * rw * 0.06 * (0.6 + k), cy + Math.sin(ang) * rh * 0.04 * (0.6 + k), Math.min(rw, rh) * 0.05 * (0.7 + k * 0.6), 0, Math.PI * 2); ctx.fill(); }
     label(ctx, 'POOF!', cx, cy - rh * 0.1, Math.max(18, rh * 0.06), '#fde047');
   }
-  if (!over3d && S.bolt > 0) { ctx.fillStyle = `rgba(224,242,254,${(S.bolt * 0.8).toFixed(2)})`; ctx.fillRect(0, 0, rw, rh); }
+  // The strike's wash: calm motion keeps it under the 0.1 flash line (ticket 0188).
+  if (!over3d && S.bolt > 0) { ctx.fillStyle = `rgba(224,242,254,${(S.bolt * (G.reducedMotion ? 0.2 : 0.8)).toFixed(2)})`; ctx.fillRect(0, 0, rw, rh); }
 }
 
 /** The Time Patrol's hover car rising behind you at the bottom of the screen, lights flashing. */

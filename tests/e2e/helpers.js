@@ -125,3 +125,83 @@ export async function racing(page, { minTime = 0.3, timeout = 20000 } = {}) {
 export function touchReady(page, { timeout = 20000 } = {}) {
   return page.waitForFunction(() => Boolean(window.__OT && window.__OT.touch && window.__OT.touch()), null, { timeout });
 }
+
+/**
+ * Flash probe (ticket 0188), test-only: every animation frame it records how strongly the
+ * full-screen flash layers are lit — the DOM overlays (`#warpFlash`, `#abilityTintOverlay`:
+ * computed opacity × background alpha) and any translucent light wash drawn across a 2D canvas
+ * from its top-left corner (the storm-bolt and era-lightning washes; a board face swelling past
+ * the camera is not a flash). Call `installFlashProbe` before `goto`, then
+ * `startFlashProbe` / `stopFlashProbe` around the moment under test; `flashRises` counts them.
+ */
+export const FLASH_MIN = 0.1;
+
+export function installFlashProbe(page) {
+  return page.addInitScript(() => {
+    const P = { canvas: 0 };
+    window.__flash = P;
+    const fill = CanvasRenderingContext2D.prototype.fillRect;
+    CanvasRenderingContext2D.prototype.fillRect = function (x, y, w, h) {
+      const c = this.canvas, s = this.fillStyle;
+      if (typeof s === 'string' && c.width >= 320) {
+        const t = this.getTransform(); // in canvas pixels, whatever scale the drawer works in
+        const X = t.a * x + t.c * y + t.e, Y = t.b * x + t.d * y + t.f, W = t.a * w, H = t.d * h;
+        const m = Math.abs(X) < 1 && Math.abs(Y) < 1 && Math.abs(W - c.width) < c.width * 0.1 && H >= c.height * 0.3
+          && /^rgba\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\)$/.exec(s);
+        if (m && +m[1] + +m[2] + +m[3] >= 600) P.canvas = Math.max(P.canvas, +m[4] * this.globalAlpha);
+      }
+      return fill.call(this, x, y, w, h);
+    };
+  });
+}
+
+export function startFlashProbe(page) {
+  return page.evaluate(() => {
+    const P = window.__flash;
+    const alphaOf = (bg) => {
+      const m = /\/\s*([\d.]+)\s*\)$/.exec(bg) || /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/.exec(bg);
+      return m ? +m[1] : (bg === 'transparent' ? 0 : 1);
+    };
+    const els = ['warpFlash', 'abilityTintOverlay'].map((id) => document.getElementById(id));
+    P.samples = []; P.on = true; P.canvas = 0;
+    (function tick() {
+      if (!P.on) return;
+      const s = { t: performance.now(), sim: window.__OT.GameState.raceTime, canvas: P.canvas };
+      P.canvas = 0;
+      for (const el of els) {
+        const cs = getComputedStyle(el);
+        s[el.id] = (parseFloat(cs.opacity) || 0) * alphaOf(cs.backgroundColor);
+      }
+      P.samples.push(s);
+      requestAnimationFrame(tick);
+    })();
+  });
+}
+
+/** Stops the probe; returns its per-frame samples ({ t, sim, canvas, warpFlash, abilityTintOverlay }). */
+export function stopFlashProbe(page) {
+  return page.evaluate(() => { window.__flash.on = false; return window.__flash.samples; });
+}
+
+/** The most times the flash level (strongest layer per frame) rose to `min` in any one-second
+ *  window, by wall clock (`t`, ms) and by race clock (`sim`, s); plus each layer's peak. */
+export function flashRises(samples, min = FLASH_MIN) {
+  const layers = ['canvas', 'warpFlash', 'abilityTintOverlay'];
+  const peak = Object.fromEntries(layers.map((k) => [k, Math.max(0, ...samples.map((s) => s[k]))]));
+  const rises = [];
+  let lit = false;
+  for (const s of samples) {
+    const on = Math.max(...layers.map((k) => s[k])) >= min;
+    if (on && !lit) rises.push(s);
+    lit = on;
+  }
+  const most = (key, span) => {
+    let best = 0;
+    for (let i = 0, j = 0; i < rises.length; i++) {
+      while (rises[i][key] - rises[j][key] >= span) j++;
+      best = Math.max(best, i - j + 1);
+    }
+    return best;
+  };
+  return { rises: rises.length, perSecond: Math.max(most('t', 1000), most('sim', 1)), peak };
+}
