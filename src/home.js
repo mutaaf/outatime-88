@@ -11,6 +11,7 @@ import { HOME_IDLE_MS, PITCH, homeHooks, isFirstVisit, noteNewsSeen } from './ho
 import { POP_CULTURE_ROSTER, ROAD_CFG } from './data.js';
 import { frameTitle } from './title-frame.js';
 import { InputState, setLastInput } from './input.js';
+import { scopeFocus } from './focus-scope.js';
 
 /**
  * h: { state (GameState), save (SaveStore), goHome(), play(), daily(), garage(carId), ranks(),
@@ -245,5 +246,25 @@ export function createHome(h) {
   });
 
   renderTitle();
+  // ---------- keyboard focus in menus (ticket 0207, src/focus-scope.js) ----------
+  // Each menu takes focus when it opens, keeps Tab inside and hands focus back on close, but
+  // never to a button while racing (a pause sheet closing leaves focus on nothing).
+  const notRacing = () => S.status !== 'PLAYING';
+  scopeFocus($('settingsModal'), { canRestore: notRacing });
+  scopeFocus($('garageModal'), { canRestore: notRacing });
+  scopeFocus($('leaderboardModal'), { canRestore: notRacing, onEscape: () => $('btnCloseLeaderboard').click() });
+  scopeFocus($('shareSheet'), { canRestore: notRacing, onEscape: () => $('btnShareClose').click() });
+  // Enter/Space on a button reached with the keyboard (:focus-visible) presses that button: the
+  // title's "Enter races" and the results' "Enter = play again" only answer otherwise, so a mouse
+  // click that left focus on a button changes nothing. Mid-race a button outside the menus (a
+  // clicked HUD gear) lets go instead, so the key drives the car and never presses it.
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Enter' && e.code !== 'Space' && e.code !== 'NumpadEnter') return;
+    const a = document.activeElement;
+    if (!a || !a.matches || !a.matches('button, a[href]')) return;
+    if (S.status === 'PLAYING' && !a.closest('[role="dialog"]')) { e.preventDefault(); a.blur(); return; }
+    if (a.matches(':focus-visible')) e.stopImmediatePropagation();
+  }, true);
+
   return { renderTitle, attract, debug: () => ({ idleAt, hooks: [...(rail ? rail.querySelectorAll('[data-hook]') : [])].map((b) => b.dataset.hook) }) };
 }

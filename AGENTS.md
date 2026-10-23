@@ -228,6 +228,8 @@ src/warp-cue.js     WARP READY cue (0112), pure: createReadyCue(min) is true onc
                       tick on its edge; the HUD label, hints and the touch WARP button (READY + double border) read it
 src/slipstream.js   Slipstream charge cue (0197), lazy (race flow + tuner): draftCharge → rising tone, greener speed
                       lines, an eased edge tint and a 2 Hz READY pulse; main only calls RS.wake from drawSpeedLines
+src/focus-scope.js  Menu focus scope (0207), lazy via home.js: a shown menu takes focus, Tab/Shift+Tab loop inside, focus goes back to
+                      its opener on close (never while racing); Ranks/share close on Escape. Watches each menu's `hidden` class
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/play-hints.js   In-race prompts worded for the input in hand (0007), pure: pad X/RB/Y, phone BOOST, else keys;
                       InputState.lastInput is set only through setLastInput (src/input.js), which keeps body.input-pad
