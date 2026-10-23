@@ -1,7 +1,7 @@
 ---
 id: 0188
 title: A flash guard — an e2e proves no effect strobes more than 3 times a second
-status: proposed
+status: ready
 priority: P2
 size: S
 lens: accessibility
