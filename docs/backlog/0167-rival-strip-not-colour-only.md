@@ -22,9 +22,9 @@ outline, keep YOU larger, and make the nearest rival ahead/behind labelled. Touc
 `src/hud.js` and the strip styles.
 
 ## Acceptance criteria
-- [x] Every strip marker has a distinguishing initial or shape readable with colour removed (grayscale screenshot test)
-- [x] Markers never overlap labels at 390x844 and 1280x720
-- [x] No frame-time regression
+- [x] Every strip marker has a distinguishing initial or shape readable with colour removed (e2e: unique letters, ≥ 4.5:1 white-on-near-black text; grayscale screenshots checked by hand at 1280x720 and 390x844)
+- [x] Markers never overlap labels at 390x844 and 1280x720 (e2e: inside the strip and clear of every other HUD block, 7 sizes 320–1920 px incl. landscape phone and tablet). Cars at the same spot (the grid, a tight pack, endless rivals clamped to an end) still stack on the strip: YOU and the ▲/▼ cars draw on top
+- [x] No frame-time regression (HUD writes only on change; CI perf project)
 
 ## Test plan
 e2e: start a race, read marker text via the DOM/canvas data hook and assert uniqueness; unit test for the label chooser.

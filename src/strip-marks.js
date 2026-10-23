@@ -3,8 +3,8 @@
 
 /**
  * For each rival name, the shortest start (one or two letters) no other rival's name shares;
- * still shared (or the same name twice in a live room), the initial and the racer's slot.
- * Labels stay unique and at most two characters (three past nine racers).
+ * still shared (or the same name twice in a live room), the initial and a count among the
+ * racers sharing it (T1, T2: never a place number). Labels stay unique and at most two characters.
  */
 export function stripMarks(names) {
   return names.map((n, i) => {
@@ -13,6 +13,7 @@ export function stripMarks(names) {
       const p = n.slice(0, k);
       if (p.length === k && !names.some((m, j) => j !== i && String(m || '?').toUpperCase().startsWith(p))) return p;
     }
-    return n[0] + (i + 1);
+    const c = n[0];
+    return c + (names.slice(0, i).filter((m) => String(m || '?').toUpperCase()[0] === c).length + 1);
   });
 }

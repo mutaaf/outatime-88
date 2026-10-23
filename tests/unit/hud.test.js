@@ -178,7 +178,8 @@ describe('track strip markers (ticket 0167)', () => {
     expect(stripMarks(['KAI', 'KIRA', 'DEZ'])).toEqual(['KA', 'KI', 'D']);
     // Two letters still shared (or the same name twice in a live room): initial + slot number.
     const dup = stripMarks(['MAX', 'MAX', 'MAE', 'ZED']);
-    expect(dup[3]).toBe('Z');
+    expect(dup).toEqual(['M1', 'M2', 'M3', 'Z']);
+    expect(stripMarks(['THE', 'KAI', 'THE'])).toEqual(['T1', 'K', 'T2']); // two roster drivers called "The …"
     expect(new Set(dup).size).toBe(4);
     for (const m of dup) expect(m.length).toBeLessThanOrEqual(2);
     expect(stripMarks([])).toEqual([]);
