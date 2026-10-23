@@ -39,11 +39,18 @@ let keysBound = false;
 // focuses DONE) has already moved focus by the time its class change is seen.
 let focusNow = null, focusBefore = null;
 const onFocus = (e) => { if (e.target !== focusNow) { focusBefore = focusNow; focusNow = e.target; } };
+// Focus dropped to nothing (Safari doesn't focus a clicked button): forget it, so a menu
+// opened next never names an older control as its opener.
+const onBlur = (e) => { if (!e.relatedTarget) { focusBefore = null; focusNow = null; } };
 const outside = (el, a) => (a && a !== document.body && a.isConnected && !el.contains(a) ? a : null);
 
 function onKey(e) {
   const top = open[open.length - 1];
   if (!top) return;
+  // A panel that isn't scoped here (the racer panel over Settings) has focus: leave Tab to it.
+  const a = document.activeElement;
+  const d = a && !top.el.contains(a) && a.closest && a.closest('[role="dialog"]');
+  if (d && d.id !== 'titleScreen' && visible(d)) return;
   if (e.key === 'Tab') {
     const to = nextTab(tabbables(top.el), document.activeElement, e.shiftKey);
     e.preventDefault();
@@ -55,6 +62,10 @@ function onKey(e) {
   }
 }
 
+/** Is a menu open, and is `el` inside the top one? */
+export const menuOpen = () => open.length > 0;
+export const inTopMenu = (el) => open.length > 0 && open[open.length - 1].el.contains(el);
+
 /**
  * Scope keyboard focus to `el` while it is shown (no `hidden` class).
  * - `canRestore()`: false while racing, so closing a pause menu never parks focus on a button
@@ -64,7 +75,7 @@ function onKey(e) {
 export function scopeFocus(el, { canRestore = () => true, onEscape = null } = {}) {
   if (!el) return null;
   const scope = { el, onEscape, opener: null };
-  if (!keysBound) { window.addEventListener('keydown', onKey, true); document.addEventListener('focusin', onFocus, true); keysBound = true; }
+  if (!keysBound) { window.addEventListener('keydown', onKey, true); document.addEventListener('focusin', onFocus, true); document.addEventListener('focusout', onBlur, true); keysBound = true; }
   let shown = false;
   const sync = () => {
     const now = !el.classList.contains('hidden');

@@ -82,3 +82,43 @@ test('pausing a race with Escape traps focus in the sheet and gives the race its
   expect(active).toBe(true);
   expect(problems).toEqual([]);
 });
+
+test('inside Settings the keyboard still binds keys: Enter and Space reach the key row', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug`);
+  await homeReady(page);
+  await page.focus('#btnOpenSettings');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#settingsModal')).toBeVisible();
+  const up = page.locator('[data-key-action="up"]');
+  await up.focus();
+  await page.keyboard.press('Enter');
+  await expect(up).toHaveText(/PRESS A KEY/);
+  await page.keyboard.press('Enter'); // a game key: refused with a note, still capturing
+  await expect(page.locator('#setKeysNote')).toContainText('game key');
+  await expect(up).toHaveText(/PRESS A KEY/);
+  await page.keyboard.press('Space'); // boost's key: refused too, the button is not pressed
+  await expect(page.locator('#setKeysNote')).toContainText(/SPACE|Space/);
+  await expect(up).toHaveText(/PRESS A KEY/);
+  await page.keyboard.press('KeyO');
+  await expect(up).toHaveText('O');
+  expect(problems).toEqual([]);
+});
+
+test('Garage → Events moves focus into Events', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug`);
+  await homeReady(page);
+  await page.focus('#btnOpenGarageFromTitle');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#garageModal')).toBeVisible();
+  await page.focus('#btnChangeEventFromGarage');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#startModal')).toBeVisible();
+  await expect.poll(async () => (await where(page, '#startModal', 'body')).inside).toBe(true);
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press('Tab');
+    expect((await where(page, '#startModal', 'body')).inside).toBe(true);
+  }
+  expect(problems).toEqual([]);
+});
