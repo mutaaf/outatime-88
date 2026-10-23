@@ -1,12 +1,12 @@
 ---
 id: 0201
 title: A COACH TIPS setting turns the in-race tip card and thumb hints off
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-10-21
-pr:
+pr: 154
 ---
 
 ## Why
@@ -23,10 +23,10 @@ Add a Settings toggle `COACH TIPS: ON / OFF` (default ON) stored as a new defaul
 Touches `src/settings.js`, `src/settings-ui.js`, and the coach gate in the race-flow chunk.
 
 ## Acceptance criteria
-- [ ] Toggle in Settings, keyboard reachable, 44px target on touch, default ON
-- [ ] OFF: no tip card and no first-run bubbles appear in a race; ON behaves as today
-- [ ] Old saves load with the default (unit test with an old-shape save)
-- [ ] Main JS budget held (logic lives in the lazy chunk)
+- [x] Toggle in Settings, keyboard reachable, 44px target on touch, default ON
+- [x] OFF: no tip card and no first-run bubbles appear in a race; ON behaves as today
+- [x] Old saves load with the default (unit test with an old-shape save)
+- [x] Main JS budget held (logic lives in the lazy chunk)
 
 ## Test plan
 Unit test for settings normalisation; e2e toggles OFF, starts a race, asserts no `.coach-tip`.

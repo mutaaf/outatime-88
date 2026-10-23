@@ -19,6 +19,15 @@ describe('settings (ticket 0050)', () => {
     expect(normalizeSettings({ proximity: false }).proximity).toBe(false);
   });
 
+  it('coach tips (0201): on by default, and an old save without the field gets them on', () => {
+    expect(SETTINGS_DEFAULTS.coach).toBe(true);
+    // A real pre-0201 settings blob, as saved by the 0191 build.
+    const old = { tilt: false, tiltInvert: false, musicVolume: 0.8, sfxVolume: 1, musicStyle: 'auto', voice: true, proximity: true, motion: 'auto', difficulty: 'normal', graphics: 'auto', steer: '', assist: '', keys: null };
+    expect(normalizeSettings(old).coach).toBe(true);
+    expect(normalizeSettings({ ...old, coach: false }).coach).toBe(false);
+    expect(normalizeSettings({ coach: 'yes' }).coach).toBe(true); // junk → on
+  });
+
   it('difficulty scales rival pace and damage, and normal changes nothing', () => {
     expect(difficultyOf({ difficulty: 'normal' })).toMatchObject({ rivalPace: 1, damage: 1 });
     expect(difficultyOf({ difficulty: 'easy' }).rivalPace).toBeLessThan(1);
