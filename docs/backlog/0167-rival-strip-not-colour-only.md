@@ -1,12 +1,12 @@
 ---
 id: 0167
 title: Race strip and line-up never rely on colour alone to tell rivals apart
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-10-19
-pr:
+pr: 158
 ---
 
 ## Why
@@ -22,9 +22,9 @@ outline, keep YOU larger, and make the nearest rival ahead/behind labelled. Touc
 `src/hud.js` and the strip styles.
 
 ## Acceptance criteria
-- [ ] Every strip marker has a distinguishing initial or shape readable with colour removed (grayscale screenshot test)
-- [ ] Markers never overlap labels at 390x844 and 1280x720
-- [ ] No frame-time regression
+- [x] Every strip marker has a distinguishing initial or shape readable with colour removed (grayscale screenshot test)
+- [x] Markers never overlap labels at 390x844 and 1280x720
+- [x] No frame-time regression
 
 ## Test plan
 e2e: start a race, read marker text via the DOM/canvas data hook and assert uniqueness; unit test for the label chooser.
