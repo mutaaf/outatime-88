@@ -21,7 +21,7 @@ function watch(page) {
 }
 
 test('TV pairs a phone by QR, the phone starts and steers the race, losing it pauses', async ({ browser, request }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   const probe = await request.post(`${BASE}/outatime/api/pad`);
   test.skip(probe.status() === 404 || probe.status() === 503, 'this Worker has no PadRoom yet (operator PR 0175)');
 
@@ -59,7 +59,8 @@ test('TV pairs a phone by QR, the phone starts and steers the race, losing it pa
   // ▶ on the phone starts the race on the TV.
   await phone.locator('#padStart').dispatchEvent('pointerdown');
   await expect.poll(() => tv.evaluate(() => window.__OT.GameState.status), { timeout: 20_000 }).toBe('PLAYING');
-  await expect(phone.locator('#padStart')).toHaveText(/PAUSE/, { timeout: 5_000 });
+  // The TV sends its HUD from its frame loop, so a starved runner takes many seconds to say PLAYING.
+  await expect(phone.locator('#padStart')).toHaveText(/PAUSE/, { timeout: 20_000 });
 
   // Hold GAS: the TV car speeds up, and the phone's mini HUD follows.
   await phone.locator('#padGas').dispatchEvent('pointerdown');
@@ -74,7 +75,7 @@ test('TV pairs a phone by QR, the phone starts and steers the race, losing it pa
   // The car carries its sideways momentum into each swerve (the handling model), and a loaded
   // runner steps the sim slowly, so wait for it to head the new way rather than a fixed 700 ms.
   const x0 = await x();
-  await tv.waitForFunction((x0) => window.__OT.GameState.playerX > x0 + 0.02, x0, { timeout: 10_000 });
+  await tv.waitForFunction((x0) => window.__OT.GameState.playerX > x0 + 0.02, x0, { timeout: 20_000 });
   await phone.evaluate(() => window.__PAD.setTilt(-25));
   await tv.waitForFunction(() => window.__OT_TV.pads[0].s.steer < -0.6, null, { timeout: 5_000 });
   const x2 = await tv.evaluate(() => new Promise((done) => {
