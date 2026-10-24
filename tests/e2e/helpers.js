@@ -125,3 +125,104 @@ export async function racing(page, { minTime = 0.3, timeout = 20000 } = {}) {
 export function touchReady(page, { timeout = 20000 } = {}) {
   return page.waitForFunction(() => Boolean(window.__OT && window.__OT.touch && window.__OT.touch()), null, { timeout });
 }
+
+/**
+ * Flash probe (ticket 0188), test-only: every animation frame it records how strongly each
+ * full-screen flash layer is lit — the DOM overlays (`#warpFlash`, `#abilityTintOverlay`:
+ * computed opacity × background alpha) and `canvas`: any bright or saturated-red fill (rgba or
+ * hex, × globalAlpha) laid across a 2D canvas from its corner, like the storm-bolt and
+ * era-lightning washes (a board face swelling past the camera is not one). Call
+ * `installFlashProbe` before `goto`, then `startFlashProbe` / `stopFlashProbe` around the moment
+ * under test; `flashRises` turns the samples into flashes.
+ */
+export const FLASH_MIN = 0.1;
+export const FLASH_LAYERS = ['canvas', 'warpFlash', 'abilityTintOverlay'];
+
+export function installFlashProbe(page) {
+  return page.addInitScript(() => {
+    const P = { canvas: 0 };
+    window.__flash = P;
+    const RGBA = /^rgba\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\)$/, HEX = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i;
+    const fill = CanvasRenderingContext2D.prototype.fillRect;
+    CanvasRenderingContext2D.prototype.fillRect = function (x, y, w, h) {
+      const c = this.canvas, s = this.fillStyle;
+      if (typeof s === 'string' && c.width >= 320) {
+        let r, g, b, a = 1, m;
+        if ((m = RGBA.exec(s))) { r = +m[1]; g = +m[2]; b = +m[3]; a = +m[4]; }
+        else if ((m = HEX.exec(s))) { r = parseInt(m[1], 16); g = parseInt(m[2], 16); b = parseInt(m[3], 16); }
+        a *= this.globalAlpha;
+        // Bright (near white) or saturated red: the two kinds WCAG 2.3.1 counts.
+        if (m && a > P.canvas && (r + g + b >= 600 || (r >= 200 && g <= 100 && b <= 100))) {
+          const t = this.getTransform(); // in canvas pixels, whatever scale or shake the drawer works in
+          const X = t.a * x + t.c * y + t.e, Y = t.b * x + t.d * y + t.f, W = t.a * w, H = t.d * h, tol = c.width * 0.02;
+          if (Math.abs(X) < tol && Math.abs(Y) < tol && Math.abs(W - c.width) < c.width * 0.1 && H >= c.height * 0.3) P.canvas = a;
+        }
+      }
+      return fill.call(this, x, y, w, h);
+    };
+  });
+}
+
+export function startFlashProbe(page) {
+  return page.evaluate(() => {
+    const P = window.__flash;
+    const alphaOf = (bg) => {
+      const m = /\/\s*([\d.]+)\s*\)$/.exec(bg) || /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/.exec(bg);
+      return m ? +m[1] : (bg === 'transparent' ? 0 : 1);
+    };
+    const els = ['warpFlash', 'abilityTintOverlay'].map((id) => document.getElementById(id));
+    P.samples = []; P.on = true; P.canvas = 0;
+    (function tick() {
+      if (!P.on) return;
+      const s = { t: performance.now(), canvas: P.canvas };
+      P.canvas = 0;
+      for (const el of els) {
+        const cs = getComputedStyle(el);
+        s[el.id] = (parseFloat(cs.opacity) || 0) * alphaOf(cs.backgroundColor);
+      }
+      P.samples.push(s);
+      requestAnimationFrame(tick);
+    })();
+  });
+}
+
+/** Stops the probe; returns its per-frame samples ({ t, canvas, warpFlash, abilityTintOverlay }). */
+export function stopFlashProbe(page) {
+  return page.evaluate(() => { window.__flash.on = false; return window.__flash.samples; });
+}
+
+/**
+ * Pure: per-frame samples → flashes. Each layer is tracked on its own, so a long tint never hides
+ * a flash on another layer. A flash is a layer rising to `min` and falling back within 1 s (a tint
+ * that stays up is a tint, not a flash; one still lit when sampling ends counts if it rose in the
+ * last second). Layers rising within 100 ms of each other are one flash, the way a player sees
+ * them. Returns { flashes, perSecond: the most in any 1 s window (wall clock), peak per layer }.
+ */
+export function flashRises(samples, min = FLASH_MIN) {
+  const peak = Object.fromEntries(FLASH_LAYERS.map((k) => [k, Math.max(0, ...samples.map((s) => s[k] || 0))]));
+  const end = samples.length ? samples[samples.length - 1].t : 0;
+  const starts = [];
+  for (const k of FLASH_LAYERS) {
+    let up = null;
+    for (const s of samples) {
+      const on = (s[k] || 0) >= min;
+      if (on && up === null) up = s.t;
+      else if (!on && up !== null) { if (s.t - up <= 1000) starts.push({ t: up, k }); up = null; }
+    }
+    if (up !== null && end - up <= 1000) starts.push({ t: up, k });
+  }
+  starts.sort((a, b) => a.t - b.t);
+  const flashes = [];
+  let last = null; // the flash the next rise may join: same moment, another layer
+  for (const r of starts) {
+    if (last && r.t - last.t <= 100 && !last.ks.includes(r.k)) { last.ks.push(r.k); continue; }
+    last = { t: r.t, ks: [r.k] };
+    flashes.push(r.t);
+  }
+  let perSecond = 0;
+  for (let i = 0, j = 0; i < flashes.length; i++) {
+    while (flashes[i] - flashes[j] >= 1000) j++;
+    perSecond = Math.max(perSecond, i - j + 1);
+  }
+  return { flashes: flashes.length, perSecond, peak };
+}

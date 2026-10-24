@@ -550,6 +550,8 @@ export function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
 }
 
 // --- STREET-CREW SPECIAL ABILITIES (ZONE / AGRO / ROAR) ---
+// Calm motion: the tint (a 10% wash) shows at half strength, under the 0.1 flash line (ticket 0188).
+const CALM_TINT = '0.5';
 export function activateMidnightSpecial(type) {
   SoundEngine.init();
   const tint = document.getElementById('abilityTintOverlay');
@@ -569,7 +571,7 @@ export function activateMidnightSpecial(type) {
     SoundEngine.playAbilityZone();
     if (tint) {
       tint.className = 'pointer-events-none absolute inset-0 bg-emerald-500/10 opacity-100 transition-opacity duration-200';
-      tint.style.opacity = ''; tintShown = true; // the step loop's '0' would otherwise hide it
+      tint.style.opacity = GameState.reducedMotion ? CALM_TINT : ''; tintShown = true; // the step loop's '0' would otherwise hide it
     }
     triggerAnnouncement('🟢 MIDNIGHT ZONE ENGAGED!', 'BULLET-TIME PRECISION REFLEX ACTIVE', 1600);
   } else if (type === 'AGRO') {
@@ -578,7 +580,7 @@ export function activateMidnightSpecial(type) {
     SoundEngine.playBoosterHit();
     if (tint) {
       tint.className = 'pointer-events-none absolute inset-0 bg-orange-600/10 opacity-100 transition-opacity duration-200';
-      tint.style.opacity = ''; tintShown = true; // the step loop's '0' would otherwise hide it
+      tint.style.opacity = GameState.reducedMotion ? CALM_TINT : ''; tintShown = true; // the step loop's '0' would otherwise hide it
     }
     triggerAnnouncement('🔴 AGRO JUGGERNAUT SHIELD!', 'RAM ANY RIVAL OR COP FOR INSTANT TAKEDOWNS!', 1800);
   } else if (type === 'ROAR') {
