@@ -6,6 +6,7 @@ import { SoundEngine } from './audio.js';
 import { InputState } from './input.js';
 import { ACTIONS, applyKeys, bindKey, isDefault, keyName } from './keybinds.js';
 import { renderControlsRef } from './controls-ref.js';
+import { tiltStatusText } from './tilt-text.js';
 
 export { renderControlsRef }; // the garage draws its copy of the card through this chunk (0204)
 /** Both pause sheets' controls cards (0204): the settings pause and the Escape/P garage pause. */
@@ -163,6 +164,7 @@ export function createPanel(ctx) {
 
   return {
     sync: syncPanel,
+    tiltText: tiltStatusText,
     open() {
       syncPanel();
       capturing = '';

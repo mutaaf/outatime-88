@@ -6,7 +6,7 @@ import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState } from './input.js';
 import { SoundEngine } from './audio.js';
-import { normalizeSettings, reducedMotionFor, screenAngle, tiltAngle, tiltSteer, tiltStatusText, difficultyOf } from './settings.js';
+import { normalizeSettings, reducedMotionFor, screenAngle, tiltAngle, tiltSteer, difficultyOf } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 let tiltStatus = 'off';
@@ -69,7 +69,8 @@ function setTiltStatus(status) {
   const sw = $('setTilt');
   if (sw) sw.setAttribute('aria-checked', String(on));
   const st = $('tiltStatus');
-  if (st) { st.textContent = tiltStatusText(status); st.dataset.status = status; }
+  // The sentence comes from the panel's chunk (0195); the panel is the only place it shows.
+  if (st) { if (panel) st.textContent = panel.tiltText(status); st.dataset.status = status; }
   const chip = $('btnTitleTilt');
   if (chip) {
     chip.setAttribute('aria-pressed', String(on));
@@ -143,6 +144,7 @@ function applyAll() {
   applyMotion();
   SoundEngine.setMix(s.musicVolume, s.sfxVolume);
   SoundEngine.setMusicStyle(s.musicStyle);
+  document.documentElement.dataset.hudSize = s.hud; // 0195: CSS scales the HUD text
   if (panel) panel.sync();
 }
 

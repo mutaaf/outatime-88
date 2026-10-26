@@ -252,7 +252,9 @@ src/live/           Live races, a lazy chunk (loaded on RACE FRIENDS or a ?room=
                       net.js (room socket, reconnect, clock sync) · ghosts.js (interpolation)
                       identity.js (seats follow the racer, 0090) · share.js · live.css
 src/settings.js     Settings rules: defaults/normalise (SaveStore.data.settings), difficulty, motion, tilt maths
-src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor()
+src/tilt-text.js    The panel's tilt status sentences, pure; imported only by the lazy settings-panel chunk (0195)
+src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor();
+                      applyAll() sets html[data-hud-size] (0195: LARGE scales the race HUD's text by --hk in styles.css)
 src/touch/          Touch controls (ticket 0061), Roblox/Fortnite style:
                       touch-ui.js (one full-screen Pointer Events surface: thumbstick / D-pad /
                       tilt, action arc, shortcuts, look-drag; sample() writes InputState

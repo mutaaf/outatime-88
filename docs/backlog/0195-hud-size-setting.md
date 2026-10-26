@@ -1,12 +1,12 @@
 ---
 id: 0195
 title: HUD size setting (normal / large) for low-vision players
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: accessibility
 created: 2026-10-20
-pr:
+pr: 167
 ---
 
 ## Why
@@ -15,11 +15,13 @@ Racers such as Forza and F1 25 ship HUD text-size and element-hiding options as 
 ## What
 Settings → HUD SIZE: NORMAL | LARGE, saved in `SaveStore.data.settings` (default NORMAL, so old saves are unchanged). LARGE scales the speed, place and gap text ~1.3x via a CSS variable on `body`; layout slots (`src/layout.js`) re-measure so nothing overlaps. Touches `src/settings.js`, `src/settings-ui.js`, `src/styles.css`.
 
+As shipped: `settings.hud` ('normal' | 'large'); `applyAll()` sets `html[data-hud-size]`, and `--hk` on `.race-hud` (1.3 for LARGE) scales place, lap, gap pills, race time, clock and mph. Portrait screens move the times to their own row under the cards and the strip below that; phones on their side under 620 px wide drop the strip. `src/layout.js` is unchanged: its header ResizeObserver already re-measures the message slots, and the touch kit lays out below the header. The live-race standings tower now starts below the measured HUD (`--slot-message`). The tilt status sentences moved to `src/tilt-text.js` (panel chunk only) to keep main in budget.
+
 ## Acceptance criteria
-- [ ] Default is NORMAL; an old save loads without error and shows NORMAL
-- [ ] LARGE grows the speed readout by >= 25% and keeps every HUD rect inside the viewport with zero overlaps at 390x844, 844x390 and 1280x720
-- [ ] Choice persists across reload; keyboard path to the control exists
-- [ ] Main JS budget held (the setting UI lives in the lazy settings chunk)
+- [x] Default is NORMAL; an old save loads without error and shows NORMAL
+- [x] LARGE grows the speed readout by >= 25% and keeps every HUD rect inside the viewport with zero overlaps at 390x844, 844x390 and 1280x720
+- [x] Choice persists across reload; keyboard path to the control exists
+- [x] Main JS budget held (the setting UI lives in the lazy settings chunk)
 
 ## Test plan
 Unit test for settings normalise (default, bad value); e2e that sets LARGE and checks `hudRects()` for overlap and bounds at three viewports.
