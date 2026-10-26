@@ -16,7 +16,7 @@ const countResumes = (page) => page.evaluate(() => {
   const ctx = window.__OT.audio().ctx;
   const real = ctx.resume.bind(ctx);
   window.__resumes = 0;
-  ctx.resume = () => { window.__resumes++; return real(); };
+  ctx.resume = () => { window.__resumes++; delete ctx.state; return real(); }; // drops a faked state
 });
 const resumes = (page) => page.evaluate(() => window.__resumes);
 
@@ -51,13 +51,9 @@ test('a tab that comes back wakes a suspended context; a touch or key wakes an i
   // An iOS interruption can't be forced in Chromium, so the context reports 'interrupted' and
   // the test checks a real touch and a real key each ask it to resume.
   await page.evaluate(() => {
-    const ctx = window.__OT.audio().ctx;
     window.__resumes = 0;
-    const real = ctx.resume.bind(ctx);
-    Object.defineProperty(ctx, 'state', { configurable: true, get: () => 'interrupted' });
-    ctx.resume = () => { window.__resumes++; delete ctx.state; return real(); };
+    Object.defineProperty(window.__OT.audio().ctx, 'state', { configurable: true, get: () => 'interrupted' });
   });
-  // The fake state also answers the statechange a real resume fires, which reads it again.
   await page.keyboard.press('Shift');
   expect(await page.evaluate(() => window.__resumes)).toBe(1);
   await expect.poll(() => state(page)).toBe('running');
