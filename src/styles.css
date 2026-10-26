@@ -595,6 +595,17 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 /* Title (0026): the event chip and today's missions; side by side on a phone on its side. */
 .title-lines { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 @media (max-height: 430px) { .title-lines { flex-direction: row; gap: 14px; } }
+/* Desktop and landscape-tablet titles (0208): the hero car fills the lower middle (its top sits at
+   about 89vh - 18.8vw), so PLAY sits right under the racer chip with RACE FRIENDS and VIEW on one
+   row beside each other, the hook cards flank the car (home.css), and the offline pill drops to the
+   bottom edge between the corner icons. */
+@media (min-width: 900px) and (min-height: 600px) and (min-aspect-ratio: 5/4) {
+  .title-screen .title-mid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; justify-items: center; margin: 10px 0 auto; }
+  .title-mid > * { grid-column: 1 / -1; }
+  .title-mid > #btnOpenLive { grid-column: 1; justify-self: end; }
+  .title-mid > .title-chips { grid-column: 2; justify-self: start; }
+  .title-mid > .offline-pill { position: absolute; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); translate: -50% 0; }
+}
 @media (max-height: 700px) and (orientation: portrait) { .end-missions { margin-top: 3px; gap: 1px; font-size: 9px; } .end-missions li { padding: 0 8px; } }
 .rank-card { margin-top: 2px; padding: 8px 10px; border-radius: 14px; background: linear-gradient(135deg, rgba(255, 0, 127, 0.18), rgba(0, 240, 255, 0.12)); border: 1px solid rgba(255, 0, 127, 0.55); font-family: 'Orbitron', sans-serif; }
 .rank-card-in { animation: rankPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }

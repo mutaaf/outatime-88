@@ -135,3 +135,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-26 · 0195 · Settings → VIEW → HUD SIZE: LARGE makes your place, lap, gaps, race clock and speed 1.3x bigger; on upright screens the times move to their own row so nothing overlaps
 2026-10-26 · 0205 · A fast near-miss chain now shows one score plate that keeps growing (running total, latest multiplier, a small pop), and never more than two plates over the road at once
 2026-10-26 · 0206 · Playing on mute: a near-miss on traffic now shows a 🚗 NEAR MISS plate with its points, and every sound that tells you something is listed with what you see instead (docs/ACCESSIBILITY.md)
+2026-10-26 · 0208 · On a computer or a tablet on its side, the title no longer lays text over your car: PLAY sits higher with RACE FRIENDS and VIEW side by side, the cards (or the first-visit pitch) flank the car, and the offline badge moves to the bottom edge

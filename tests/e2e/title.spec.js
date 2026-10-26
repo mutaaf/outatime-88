@@ -1,7 +1,7 @@
 // Title identity (pillar 1) and one-tap start (ticket 0022): PLAY is on screen everywhere,
 // one tap anywhere races, and a new player is taught to steer in the race itself.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, nextFrames } from './helpers.js';
 
 for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }, { width: 360, height: 640 }]) {
   test(`START is fully visible on load at ${vp.width}x${vp.height}`, async ({ page }) => {
@@ -101,6 +101,56 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
         expect(c.near).toBeGreaterThanOrEqual(2990);
       }
       await info.attach(`title-${vp.width}x${vp.height}${reduce ? '-reduced' : ''}`, { body: await page.screenshot(), contentType: 'image/png' });
+      expect(problems).toEqual([]);
+    });
+  }
+}
+
+// Ticket 0208: on desktop shapes the title's text (hook cards or the first-visit pitch, the
+// offline pill, every button and label) stays off the hero car. The car's rect is
+// GameState.carBox (drawPlayerCar, canvas pixels), sampled over a few frames as the attract
+// driver weaves; the offline pill is forced on (service workers are blocked in e2e).
+const RETURNING_SAVE = { onboarded: true, bestScore: 42000, fluxCoins: 600, endless: { bestDistance: 3880, bestTier: 2, runs: 6 } };
+for (const vp of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 1920, height: 1080 }]) {
+  for (const first of [false, true]) {
+    test(`title text stays off the hero car at ${vp.width}x${vp.height} (${first ? 'first visit' : 'returning'})`, async ({ page }, info) => {
+      const problems = watchPage(page);
+      await page.setViewportSize(vp);
+      if (!first) await page.addInitScript((s) => localStorage.setItem('outatime_cruisn_88_save_v2', s), JSON.stringify(RETURNING_SAVE));
+      await page.goto(`${APP}?debug`);
+      await page.waitForFunction(() => window.__OT && window.__OT.home());
+      await expect(page.locator(first ? '.home-pitch li' : '#homeHooks .home-hook').first()).toBeVisible();
+      await page.evaluate(() => { const p = document.getElementById('offlinePill'); p.textContent = '✈️ READY FOR OFFLINE'; p.classList.remove('hidden'); });
+      await page.waitForTimeout(2400); // the cards' and the pitch's entrance animations settle
+      const car = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+      for (let i = 0; i < 6; i++) {
+        await nextFrames(page, 3);
+        const b = await page.evaluate(() => {
+          const c = document.getElementById('gameCanvas'), r = c.getBoundingClientRect(), k = r.width / c.width, q = r.height / c.height;
+          const b = window.__OT.GameState.carBox;
+          return { x0: r.left + b.x0 * k, y0: r.top + b.y0 * q, x1: r.left + b.x1 * k, y1: r.top + b.y1 * q };
+        });
+        car.x0 = Math.min(car.x0, b.x0); car.y0 = Math.min(car.y0, b.y0); car.x1 = Math.max(car.x1, b.x1); car.y1 = Math.max(car.y1, b.y1);
+      }
+      // The car sits in the lower middle of the screen (a sanity check on the hook itself).
+      expect(car.x1 - car.x0).toBeGreaterThan(vp.width * 0.2);
+      expect(car.y0).toBeGreaterThan(vp.height * 0.4);
+      const boxes = await page.evaluate(() => {
+        const vis = (e) => { const c = getComputedStyle(e); const r = e.getBoundingClientRect(); return c.display !== 'none' && c.visibility !== 'hidden' && r.width > 0 && r.height > 0; };
+        const own = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+        const els = [...document.querySelectorAll('#titleScreen *')].filter((e) => vis(e) && (own(e) || e.matches('button, .home-hook, .home-pitch li')));
+        return els.map((e) => { const r = e.getBoundingClientRect(); return { id: e.id || String(e.className).slice(0, 40) || e.textContent.trim().slice(0, 20), x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; });
+      });
+      expect(boxes.some((b) => b.id === 'offlinePill')).toBe(true);
+      for (const b of boxes) {
+        const hit = b.x0 < car.x1 && car.x0 < b.x1 && b.y0 < car.y1 && car.y0 < b.y1;
+        expect(hit, `${b.id} [${b.x0 | 0},${b.y0 | 0} → ${b.x1 | 0},${b.y1 | 0}] covers the car [${car.x0 | 0},${car.y0 | 0} → ${car.x1 | 0},${car.y1 | 0}]`).toBe(false);
+      }
+      // PLAY stays the biggest target, and nothing scrolls.
+      const play = await page.locator('#btnStartRace').boundingBox();
+      for (const b of boxes.filter((b) => b.id !== 'btnStartRace' && !/wordmark/.test(b.id))) expect((b.x1 - b.x0) * (b.y1 - b.y0), b.id).toBeLessThan(play.width * play.height);
+      expect(await page.evaluate(() => document.scrollingElement.scrollHeight <= innerHeight && document.scrollingElement.scrollWidth <= innerWidth)).toBe(true);
+      await info.attach(`title-hero-${vp.width}x${vp.height}${first ? '-first' : ''}`, { body: await page.screenshot(), contentType: 'image/png' });
       expect(problems).toEqual([]);
     });
   }
