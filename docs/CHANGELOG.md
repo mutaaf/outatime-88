@@ -129,3 +129,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-23 · 0167 · Rivals on the race strip now carry their own letter (and ▲/▼ for the cars either side of you), so you can tell who is who without relying on colour
 2026-10-23 · 0207 · Settings, Garage, Ranks and the share sheet now take keyboard focus when they open, keep Tab inside, close on Escape and hand focus back to the button that opened them; Enter on a focused title button presses it instead of starting a race
 2026-10-23 · 0188 · With calm motion on, a storm-bolt strike and the ZONE/AGRO ability tint now wash the screen softly instead of flashing it; a new test checks that no effect flashes the screen more than 3 times a second
+2026-10-26 · 0196 · Rival catch-up is now measured: a clean race is still won by seconds on every level, and a test keeps it that way

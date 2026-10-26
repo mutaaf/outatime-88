@@ -31,7 +31,7 @@ const CAMPAIGN_ONLY = () => process.env.BAL_MODE === 'campaign';
 
 test.describe.configure({ mode: 'parallel' });
 
-for (const skill of CAMPAIGN_ONLY() ? [] : SKILLS) {
+for (const skill of CAMPAIGN_ONLY() || process.env.BAL_MODE === 'band' ? [] : SKILLS) {
   for (let p = 0; p < PLAYERS; p++) {
     test(`${skill} player ${p}`, async ({ page }) => {
       test.setTimeout(30 * 60_000);
@@ -193,6 +193,67 @@ for (const skill of CAMPAIGN ? SKILLS : []) {
       }
       mkdirSync(join(here, 'out'), { recursive: true });
       writeFileSync(join(here, 'out', `${LABEL}.campaign.${skill}.${lv}.json`), JSON.stringify({ skill, level: lv, races }, null, 1));
+    });
+  }
+}
+
+// Rubber band (ticket 0196): BAL_MODE=band races every level with the same seed twice, the
+// rival band on and then off (src/rival-ai.js AI.band, switched through the page's own copy
+// of the lazy chunk), and records the gap at the flag: the first rival's finish (projected at
+// its pace when it is still running) minus yours, so + means you won by that many seconds.
+const BAND = env('BAL_MODE', '') === 'band';
+for (const skill of BAND ? env('BAL_SKILLS', 'expert').split(',') : []) {
+  for (let lv = 0; lv < LEVELS; lv++) {
+    test(`band ${skill} level ${lv + 1}`, async ({ page }) => {
+      test.setTimeout(20 * 60_000);
+      await page.route('**/outatime/api/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: route.request().url().endsWith('/run') ? '{"token":"t"}' : '{"ok":true,"entries":[]}' }));
+      await page.goto('/outatime/?debug&gfx=low');
+      await page.waitForFunction(() => window.__OT && window.__OT.sim);
+      await page.addScriptTag({ content: BOT });
+      await page.waitForFunction(() => performance.getEntriesByType('resource').some((e) => /\/rival-ai-[\w-]+\.js$/.test(e.name)));
+      const races = [];
+      // r = -1 is a warm-up race, not recorded: a page's first race runs slower and
+      // messier (seen on every level), which would land on the band-on side of the pair.
+      for (let r = -1; r < RACES; r++) {
+        const seed = (SEED * 4241 + SKILLS.indexOf(skill) * 131 + lv * 17 + r) | 0;
+        const pair = {};
+        for (const band of [true, false]) {
+          await page.evaluate(async ({ skill, seed, lv, band }) => {
+            const OT = window.__OT, B = window.__balanceBot, G = OT.GameState;
+            const url = performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\/rival-ai-[\w-]+\.js$/.test(n));
+            const { AI } = await import(url); // the same module instance the race step drives
+            window.__band = window.__band || { ...AI.band };
+            AI.band.push = band ? window.__band.push : 0;
+            AI.band.ease = band ? window.__band.ease : 0;
+            Math.random = B.mulberry32(seed);
+            G.levelIndex = lv;
+            OT.startRace({ mode: 'ARCADE' });
+            const bot = B.createBot(skill, seed);
+            const m = window.__race = { flag: null, hits: 0 };
+            m.tick = () => {
+              bot();
+              if (m.flag || G.finishTime == null) return;
+              const L = G.raceLength;
+              let first = Infinity, who = '';
+              for (const c of OT.traffic().racers) {
+                const t = c.finishTime != null ? c.finishTime : G.raceTime + Math.max(0, L - c.progress) / Math.max(30, c.mph);
+                if (t < first) { first = t; who = c.short; }
+              }
+              const log = G.penaltyLog || {};
+              m.flag = { you: G.finishTime, first, who, gap: first - G.finishTime, position: G.racePosition, hits: (log.traffic || []).length + (log.obstacle || []).length };
+            };
+          }, { skill, seed, lv, band });
+          await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING' && window.__OT.traffic().racers.every((c) => c.ai), null, { timeout: 15_000 });
+          for (let i = 0; i < 400; i++) {
+            const done = await page.evaluate(() => { window.__OT.sim(1200, window.__race.tick); return window.__race.flag || window.__OT.GameState.status !== 'PLAYING'; });
+            if (done) break;
+          }
+          pair[band ? 'on' : 'off'] = await page.evaluate(() => window.__race.flag);
+        }
+        if (r >= 0) races.push({ seed, ...pair });
+      }
+      mkdirSync(join(here, 'out'), { recursive: true });
+      writeFileSync(join(here, 'out', `${LABEL}.band.${skill}.${lv}.json`), JSON.stringify({ band: true, skill, level: lv, races }, null, 1));
     });
   }
 }

@@ -15,7 +15,8 @@ if (!labels.length) { console.error('usage: node tests/balance/report.mjs <label
 
 const all = (label) => readdirSync(dir).filter((f) => f.startsWith(`${label}.`)).map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')));
 const load = (label) => all(label).filter((p) => p.runs);
-const loadCampaign = (label) => all(label).filter((p) => p.races);
+const loadCampaign = (label) => all(label).filter((p) => p.races && !p.band);
+const loadBand = (label) => all(label).filter((p) => p.band);
 const q = (xs, p) => { if (!xs.length) return 0; const s = xs.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
 const fmt = (n, d = 0) => Number(n).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
 const mmss = (s) => { const t = Math.round(s); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
@@ -126,9 +127,30 @@ function campaignTable(label) {
   return lines.join('\n') + '\n';
 }
 
+/** Rubber band (0196): the gap at the flag with the band on and off, clean races only. */
+function bandTable(label) {
+  const ps = loadBand(label);
+  if (!ps.length) return '';
+  const lines = [`#### ${label}: rubber band, ${ps[0].skill} bot (${ps[0].races.length} seeded races per level, each raced with the band on and off)`, '',
+    'Gap = the first rival\'s finish minus yours (+ = you won by that much). Clean = no traffic or obstacle hits.', '',
+    '| level | clean races on / off | gap band on: min / median | gap band off: min / median | median the band costs | wins on / off (all races) |', '|---|---|---|---|---|---|'];
+  for (let lv = 0; lv < WORLD_LEVELS.length; lv++) {
+    const rs = ps.filter((p) => p.level === lv).flatMap((p) => p.races);
+    if (!rs.length) continue;
+    const clean = (k) => rs.map((r) => r[k]).filter((x) => x && !x.hits).map((x) => x.gap);
+    const on = clean('on'), off = clean('off');
+    const both = rs.filter((r) => r.on && r.off && !r.on.hits && !r.off.hits).map((r) => r.off.gap - r.on.gap);
+    const wins = (k) => rs.filter((r) => r[k] && r[k].position === 1).length;
+    const s = (xs) => (xs.length ? `${fmt(Math.min(...xs), 2)} / ${fmt(q(xs, 0.5), 2)} s` : '–');
+    lines.push(`| ${lv + 1} ${WORLD_LEVELS[lv].id} | ${on.length} / ${off.length} | ${s(on)} | ${s(off)} | ${both.length ? fmt(q(both, 0.5), 2) + ' s' : '–'} | ${wins('on')} / ${wins('off')} of ${rs.length} |`);
+  }
+  return lines.join('\n') + '\n';
+}
+
 const sums = labels.map((l) => [l, summarize(load(l))]);
-for (const [l, s] of sums) console.log(table(l, s));
+for (const [l, s] of sums) if (Object.keys(s).length) console.log(table(l, s));
 for (const l of labels) console.log(campaignTable(l));
+for (const l of labels) console.log(bandTable(l));
 if (sums.length === 2) {
   const [[la, a], [lb, b]] = sums;
   console.log([`#### ${la} → ${lb}`, '', '| bot | median survival | 1st run median | tier median | pts/s | coins/min | net coins/run |', '|---|---|---|---|---|---|---|'].join('\n'));

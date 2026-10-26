@@ -197,6 +197,44 @@ Not changed:
 The "runs to buy every power-up level" rows in the *before* table use today's ladder
 (⚡27,000). Against the old ⚡15,150 ladder a casual player needed about 8 runs for all of it.
 
+## Rubber band (ticket 0196)
+
+Rivals have a capped rubber band (`src/rival-ai.js` `AI.band`: a rival far behind you may push
+up to +14 mph, one far ahead eases off by up to 18 mph, less at higher tiers). The claim is
+that it keeps a race close without deciding it: a clean drive still wins, by a clear margin.
+
+- **Harness:** `BAL_MODE=band npm run balance` (default bot: expert; `BAL_SKILLS`,
+  `BAL_RACES`, `BAL_LEVELS` work as usual) races every level with the same seed twice, band on
+  then band off. The band is switched through the page's own copy of the lazy rival-AI chunk,
+  so the game ships nothing for it. A warm-up race per page is not recorded (a page's first race
+  runs slower and messier). `node tests/balance/report.mjs <label>` prints the table below.
+- **Unit test:** `tests/unit/rubber-band.test.js` races the real field (roster cars at
+  `RIVAL_PACES`, personalities, nemesis, the race's difficulty ramp) through the real rival AI
+  over each level's real road and racing line against a clean player at 112 mph (a little
+  under the slowest clean expert finish below, 112.9 mph average on level 5). It asserts a win
+  by at least 1.5 s on every level and seed with the band on, that the band never adds to your
+  lead, and that it takes less than 3 s off it (the tightest case there is 2.39 s on level 6).
+  Turning `push` up to 45 mph fails the "less than 3 s" check; around 120 mph a clean race is
+  no longer won by 1.5 s.
+- **Result (2026-10-26):** no level fails the bound, so the constants are unchanged.
+
+#### rubber band, expert bot (10 seeded races per level, each raced with the band on and off)
+
+Gap = the first rival's finish minus yours (+ = you won by that much). Clean = no traffic or obstacle hits.
+
+| level | clean races on / off | gap band on: min / median | gap band off: min / median | median the band costs | wins on / off (all races) |
+|---|---|---|---|---|---|
+| 1 LVL1_CLOCK_HOLLOW | 9 / 9 | 3.92 / 5.07 s | 5.20 / 5.59 s | 1.15 s | 10 / 10 of 10 |
+| 2 LVL2_RED_ROCK | 10 / 10 | 4.04 / 4.63 s | 4.95 / 7.41 s | 2.02 s | 10 / 10 of 10 |
+| 3 LVL3_TOKYO_2015 | 10 / 10 | 3.65 / 4.64 s | 4.27 / 5.98 s | 1.70 s | 10 / 10 of 10 |
+| 4 LVL4_MULHOLLAND_2088 | 9 / 10 | 3.64 / 4.39 s | 4.04 / 6.01 s | 1.26 s | 10 / 10 of 10 |
+| 5 LVL5_INFINITE_HW | 10 / 10 | 3.81 / 5.00 s | 4.61 / 6.24 s | 1.49 s | 10 / 10 of 10 |
+| 6 LVL6_LOW_ORBIT | 9 / 9 | 4.27 / 4.76 s | 4.74 / 5.89 s | 2.14 s | 10 / 10 of 10 |
+
+The band costs a clean expert 1.2–2.1 s at the flag (median) and never more than the lead it
+had. The expert bot is a fast driver; a slower clean driver gives rivals behind less reason to
+push (the push starts 220 behind you), so this is the case where the band does the most.
+
 ## Caveats
 
 - **Bots aren't kids.** The skill table is a model, and the numbers mean "for a player who
