@@ -7,6 +7,10 @@ import { InputState } from './input.js';
 import { ACTIONS, applyKeys, bindKey, isDefault, keyName } from './keybinds.js';
 import { renderControlsRef } from './controls-ref.js';
 
+export { renderControlsRef }; // the garage draws its copy of the card through this chunk (0204)
+/** Both pause sheets' controls cards (0204): the settings pause and the Escape/P garage pause. */
+const renderCards = () => { renderControlsRef($('pauseControls')); renderControlsRef($('garageControls')); };
+
 const $ = (id) => document.getElementById(id);
 
 export function createPanel(ctx) {
@@ -37,7 +41,7 @@ export function createPanel(ctx) {
     if (sensOut) sensOut.textContent = `${Number(SaveStore.data.tiltSensitivity || 1).toFixed(1)}x`;
   }
 
-  $('setTilt').addEventListener('click', () => toggleTilt());
+  $('setTilt').addEventListener('click', () => toggleTilt().then(renderCards, renderCards));
   $('setTiltInvert').addEventListener('click', () => { settings().tiltInvert = !settings().tiltInvert; save(); syncPanel(); });
   $('setTiltRecenter').addEventListener('click', recenterTilt);
   const voice = $('setVoice');
@@ -90,7 +94,7 @@ export function createPanel(ctx) {
   let swallowUp = ''; // the key just bound: its keyup must not also click the focused button (Space does)
   const note = (text) => { if (keysNote) keysNote.textContent = text; };
   function renderKeys() {
-    renderControlsRef($('pauseControls')); // the pause card names the keys too (0204)
+    renderCards(); // the pause cards name the keys too (0204)
     if (!keysBox) return;
     const keys = applyKeys(InputState, settings().keys);
     if (!keysBox.firstChild) {

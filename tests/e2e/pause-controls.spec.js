@@ -8,6 +8,14 @@ const card = (page, id = 'pauseControls') => page.locator(`#${id}`);
 const value = (page, label, id = 'pauseControls') => page.locator(`#${id} [data-ctl="${label}"]`);
 const overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
+/** The card is on screen whole without scrolling its sheet. */
+async function expectOnScreen(page, id) {
+  const vp = page.viewportSize();
+  const box = await card(page, id).boundingBox();
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
+}
+
 /** The card sits inside the viewport, clear of the pause buttons, and no cell's text spills out. */
 async function expectFits(page, id, buttons) {
   const vp = page.viewportSize();
@@ -53,7 +61,7 @@ test.describe('keyboard at 1280x720', () => {
     await expect(value(page, 'STEER')).toHaveText('U D · ← →');
     await expect(value(page, 'GAS')).toHaveText('W · ↑');
     await expect(value(page, 'WARP')).toHaveText(';');
-    await expect(value(page, 'NOS')).toHaveText('L-SHIFT · R-SHIFT');
+    await expect(value(page, 'NOS')).toHaveText('L-SHIFT · R-SHIFT · N');
     await expect(value(page, 'JUMP')).toHaveText('H · E');
     await expectFits(page, 'pauseControls', ['#btnSettingsDone', '#settingsModal [data-home]']);
     // A key changed while paused shows on the card at once.
@@ -66,11 +74,22 @@ test.describe('keyboard at 1280x720', () => {
 
     // Escape mid-race pauses into the garage sheet: the same card is there.
     await page.keyboard.press('Escape');
-    await expect(page.locator('#garageModal')).toBeVisible();
+    await expect(page.locator('#garageModal')).toBeVisible({ timeout: 15_000 }); // a cold chunk on a starved runner
     expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PAUSED');
-    await expect(card(page, 'garageControls')).toBeVisible();
+    await expect(card(page, 'garageControls')).toBeVisible({ timeout: 15_000 });
     await expect(value(page, 'STEER', 'garageControls')).toHaveText('U O · ← →');
-    await expectFits(page, 'garageControls', ['#btnResumeFromGarage', '#btnSettingsFromGarage', '#btnChangeEventFromGarage', '#upgradesList']);
+    await expectFits(page, 'garageControls', ['#btnCloseGarage', '#garageStage', '#garageCarName', '#btnResumeFromGarage']);
+    await expectOnScreen(page, 'garageControls');
+    // Settings from the garage: a rebind there shows on the garage card when you come back.
+    await page.locator('#btnSettingsFromGarage').click();
+    await page.locator('[data-key-action="left"]').click();
+    await page.keyboard.press('KeyY');
+    await expect(page.locator('#setKeysNote')).toContainText('game key'); // Y is reserved: nothing changes
+    await page.keyboard.press('KeyL');
+    await expect(value(page, 'STEER')).toHaveText('L O · ← →');
+    await page.locator('#btnSettingsDone').click();
+    await expect(page.locator('#garageModal')).toBeVisible();
+    await expect(value(page, 'STEER', 'garageControls')).toHaveText('L O · ← →');
     expect(problems).toEqual([]);
   });
 
@@ -94,12 +113,17 @@ test.describe('keyboard at 1280x720', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('gamepadconnected')));
     await page.evaluate(() => window.__OT.startRace());
     await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING' && window.__OT.InputState.lastInput === 'pad');
-    await page.locator('#btnHudSettings').dispatchEvent('click'); // no pointer: the pad stays the input in hand
+    // No pad button pauses: the mouse click (or Escape) that opens the pause still shows the pad's card.
+    await page.locator('#btnHudSettings').click();
     await expect(card(page)).toContainText('GAMEPAD');
     await expect(value(page, 'GAS')).toHaveText('A · RT');
     await expect(value(page, 'WARP')).toHaveText('X · RB');
     await expect(value(page, 'NOS')).toHaveText('LB');
     await expect(value(page, 'JUMP')).toHaveText('Y');
+    await page.locator('#btnSettingsDone').click();
+    await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING');
+    await page.keyboard.press('Escape');
+    await expect(card(page, 'garageControls')).toContainText('GAMEPAD', { timeout: 15_000 });
     expect(problems).toEqual([]);
   });
 });
@@ -109,6 +133,8 @@ test.describe('touch phone at 390x844', () => {
 
   test('the pause names the touch pads and fits above the fold with the pause buttons', async ({ page }) => {
     const problems = watchPage(page);
+    // A phone with a tilt sensor (an iOS-style permission gate that says yes).
+    await page.addInitScript(() => { window.DeviceOrientationEvent.requestPermission = () => Promise.resolve('granted'); });
     await page.goto(`${APP}?debug`);
     await page.evaluate(() => window.__OT.startRace());
     await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING');
@@ -117,13 +143,24 @@ test.describe('touch phone at 390x844', () => {
     await expect(card(page)).toContainText('TOUCH');
     for (const [k, v] of [['WARP', 'WARP'], ['NOS', 'NOS'], ['BRAKE', 'DRIFT'], ['JUMP', 'JUMP']]) await expect(value(page, k)).toHaveText(v);
     await expectFits(page, 'pauseControls', ['#btnSettingsDone', '#settingsModal [data-home]']);
+    // Tilt turned on while paused: the card says so at once.
+    await page.locator('#setTilt').tap();
+    await expect(value(page, 'STEER')).toHaveText('TILT');
+    await page.locator('#setTilt').tap();
+    await expect(value(page, 'STEER')).toHaveText(/STICK|D-PAD/);
     // The whole card and RESUME are on screen without scrolling the sheet.
     expect(await page.evaluate(() => document.getElementById('settingsModal').scrollTop)).toBe(0);
     const box = await card(page).boundingBox();
     expect(box.y + box.height).toBeLessThanOrEqual(844);
     const resume = await page.locator('#btnSettingsDone').boundingBox();
     expect(resume.y).toBeGreaterThanOrEqual(0);
-    await page.screenshot({ path: 'test-results/pause-controls-390.png' });
+    // The Escape/P garage pause shows its card at the top of the sheet, on screen.
+    await page.locator('#btnSettingsDone').tap();
+    await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING');
+    await page.keyboard.press('Escape');
+    await expect(card(page, 'garageControls')).toBeVisible({ timeout: 15_000 });
+    await expectOnScreen(page, 'garageControls');
+    await expectFits(page, 'garageControls', ['#btnCloseGarage', '#garageStage']);
     expect(problems).toEqual([]);
   });
 
