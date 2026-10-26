@@ -25,6 +25,7 @@ const {
 } = RACE_DEPS;
 import { createFormationStream } from './formations.js';
 import { createReadyCue } from './warp-cue.js';
+import { foldChain, startChain, chainLabel } from './chain-plate.js';
 import { createProximityCue } from './proximity-cue.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
@@ -319,10 +320,15 @@ export function addEndlessRunStreak(amount, reasonLabel, offsetFromCenter = 0) {
   GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.streakPerDodge * amount);
   // A sliver of hit-stop sells the graze; chains stretch it a touch (ticket 0009).
   hitStop.trigger(Math.min(0.09, 0.035 + chain * 0.008), GameState.reducedMotion);
-  if (reasonLabel) {
-    const chainTag = chain > 1 ? ` · NEAR-MISS x${chain}` : '';
-    spawnAcquireAnimation('HW_COIN', offsetFromCenter, `${reasonLabel} +${pts} (x${GameState.combo})${chainTag}`);
-  }
+  if (reasonLabel) chainPlate('HW_COIN', offsetFromCenter, reasonLabel, pts);
+}
+
+/** A dodge-chain score plate: folds into the chain's live plate if there is one (ticket 0205). */
+function chainPlate(itemType, offsetFromCenter, reason, pts) {
+  const combo = GameState.combo;
+  const sw = foldChain(GameState.hitShockwaves, pts, combo);
+  const e = spawnAcquireAnimation(itemType, offsetFromCenter, chainLabel(reason, sw ? sw.total : pts, combo, nearMisses.count()), sw);
+  if (!sw) startChain(e, pts, combo);
 }
 
 export function performHumanTrick(direction) {
@@ -449,7 +455,8 @@ export function applyPickup(item, def) {
   spawnAcquireAnimation(item.type, rel, label);
 }
 
-export function spawnAcquireAnimation(itemType, offsetFromCenter, bonusLabel) {
+/** The flying icon plus a ring and score plate; `into` reuses a live plate (the chain's) instead. */
+export function spawnAcquireAnimation(itemType, offsetFromCenter, bonusLabel, into) {
   GameState.carSurgeTimer = 0.55;
   GameState.pickupAnimations.push({
     type: itemType,
@@ -459,16 +466,20 @@ export function spawnAcquireAnimation(itemType, offsetFromCenter, bonusLabel) {
     spin: 0,
     label: bonusLabel
   });
-  GameState.hitShockwaves.push({
+  const color = PICKUPS[itemType] ? PICKUPS[itemType].color : '#ffd000';
+  if (into) { into.x = 0; into.y = 0; into.radius = 12; into.color = color; into.label = bonusLabel; return into; }
+  const sw = {
     x: 0,
     y: 0,
     radius: 12,
     maxRadius: 115,
-    color: PICKUPS[itemType] ? PICKUPS[itemType].color : '#ffd000',
+    color,
     label: bonusLabel,
     life: 0.65,
     maxLife: 0.65
-  });
+  };
+  GameState.hitShockwaves.push(sw);
+  return sw;
 }
 
 export function spawnObstacleShatter(offsetFromCenter, primaryColor, accentColor, labelText) {
@@ -1892,7 +1903,7 @@ export const LiveTrafficMethods = {
               const pts = 600 * GameState.combo;
               GameState.score += pts;
               SoundEngine.playStunt();
-              spawnAcquireAnimation('HW_COIN', 0, `🔼 JUMP CLEARED! +${pts}`);
+              chainPlate('HW_COIN', 0, '🔼 JUMP CLEARED!', pts);
             }
           } else if (slidUnder) {
             if (!ob.nearMissed) {
@@ -1902,7 +1913,7 @@ export const LiveTrafficMethods = {
               GameState.score += pts;
               GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSlide);
               SoundEngine.playStunt();
-              spawnAcquireAnimation('PLUTONIUM', 0, `🔽 SLIDE UNDER! +${pts}`);
+              chainPlate('PLUTONIUM', 0, '🔽 SLIDE UNDER!', pts);
             }
           } else {
             // HARD PHYSICAL RIGID-BODY COLLISION: Never let the player pass through the obstacle!

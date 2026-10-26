@@ -101,7 +101,7 @@ for (const [w, h] of [[1280, 720], [390, 844]]) {
           for (let i = 0; i < s.labels; i++) { const o = i * 7; rects.push([s.slots[o], s.slots[o + 1], s.slots[o] + s.slots[o + 2], s.slots[o + 1] + s.slots[o + 3]]); }
           best = { rects, box: { ...s.box }, rw: s.rw, rh: s.rh };
         }
-        if ((best && best.rects.length >= 3) || performance.now() - t0 > 8000) { OT.pause(); resolve(best); } else requestAnimationFrame(tick);
+        if ((best && best.rects.length >= 2) || performance.now() - t0 > 8000) { OT.pause(); resolve(best); } else requestAnimationFrame(tick);
       })();
     }));
     expect(seen).not.toBeNull();
@@ -115,6 +115,60 @@ for (const [w, h] of [[1280, 720], [390, 844]]) {
     }
     for (let i = 0; i < seen.rects.length; i++) for (let j = i + 1; j < seen.rects.length; j++) expect(hit(seen.rects[i], seen.rects[j])).toBe(false);
     await info.attach(`labels-${w}x${h}`, { body: await page.screenshot(), contentType: 'image/png' });
+    expect(problems).toEqual([]);
+    await ctx.close();
+  });
+}
+
+// Ticket 0205: a fast near-miss chain is one growing plate. Three chain events inside the
+// window plus a pickup never draw more than two plates: the chain's (with the running total and
+// the latest multiplier) and the pickup's, clear of the car and on the canvas.
+for (const [w, h] of [[390, 844], [1280, 720]]) {
+  test(`chain at ${w}x${h}: one growing plate beside the pickup's`, async ({ browser }, info) => {
+    test.setTimeout(90000);
+    const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+    const page = await ctx.newPage();
+    const problems = watchPage(page);
+    await race(page);
+    await page.waitForFunction(() => window.__OT.pickupArt());
+    const seen = await page.evaluate(() => new Promise((resolve) => {
+      const OT = window.__OT, g = OT.GameState;
+      const plates = () => g.hitShockwaves.filter((e) => e.label);
+      const t0 = performance.now();
+      let most = 0, step = 0, last = 0, snap = null;
+      (function tick() {
+        const s = OT.pickupArt();
+        most = Math.max(most, s.labels);
+        const now = performance.now();
+        // One chain event about every 150 ms (well inside the 2.5 s chain window and the plate's
+        // 0.65 s life), then a pickup; read what the frame after the last one drew.
+        if (step < 3 && now - last > 150) { OT.streak('⚡ CLOSE SHAVE!'); step++; last = now; }
+        else if (step === 3 && now - last > 150) { OT.pickup('REPAIR_WRENCH'); step++; last = now; }
+        else if (step === 4 && now - last > 60 && s.labels >= 2) {
+          const rects = [];
+          for (let i = 0; i < s.labels; i++) { const o = i * 7; rects.push([s.slots[o], s.slots[o + 1], s.slots[o] + s.slots[o + 2], s.slots[o + 1] + s.slots[o + 3]]); }
+          snap = { rects, box: { ...s.box }, rw: s.rw, rh: s.rh, plates: plates().map((e) => ({ label: e.label, chain: !!e.chain, total: e.total })) };
+          step++;
+        }
+        if (step === 5 || now - t0 > 10000) { OT.pause(); resolve({ most, snap }); } else requestAnimationFrame(tick);
+      })();
+    }));
+    expect(seen.snap).not.toBeNull();
+    expect(seen.most).toBeLessThanOrEqual(2);
+    const chain = seen.snap.plates.filter((p) => p.chain);
+    expect(chain.length).toBe(1);
+    expect(chain[0].label).toMatch(/CLOSE SHAVE! \+\d+ \(x\d+\) · NEAR-MISS x3$/);
+    expect(chain[0].label).toContain(`+${chain[0].total}`);
+    expect(seen.snap.plates.some((p) => !p.chain && /HP/.test(p.label))).toBe(true);
+    const { box, rw, rh, rects } = seen.snap;
+    expect(rects.length).toBe(2);
+    const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    for (const r of rects) {
+      expect(hit(r, [box.x0, box.y0, box.x1, box.y1])).toBe(false);
+      expect(r[0] >= 0 && r[1] >= 0 && r[2] <= rw && r[3] <= rh).toBe(true);
+    }
+    expect(hit(rects[0], rects[1])).toBe(false);
+    await info.attach(`chain-${w}x${h}`, { body: await page.screenshot(), contentType: 'image/png' });
     expect(problems).toEqual([]);
     await ctx.close();
   });

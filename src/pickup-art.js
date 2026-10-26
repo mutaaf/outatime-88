@@ -413,7 +413,7 @@ export function drawLabels(ctx, rw, rh, list, box, still) {
     ctx.fillStyle = e.color || '#ffd000';
     ctx.fillRect(x, y + h - Math.max(1, 2 * s), w, Math.max(1, 2 * s));
     ctx.fillStyle = '#ffffff';
-    if (s < 1) {
+    if (s !== 1) {
       ctx.translate(x + w * 0.5, y + h * 0.5);
       ctx.scale(s, s);
       ctx.fillText(e.label, 0, 0);

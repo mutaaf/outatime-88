@@ -1,12 +1,12 @@
 ---
 id: 0205
 title: A fast near-miss chain shows one growing tally, not a stack of three plates
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-22
-pr:
+pr: 168
 ---
 
 ## Why
@@ -29,12 +29,12 @@ Main's startup JS budget is nearly full (see docs/LESSONS.md): keep the change i
 `popups.js` and its existing lazy chunk.
 
 ## Acceptance criteria
-- [ ] Three near-misses inside the chain window leave at most 2 plates on screen, and the
+- [x] Three near-misses inside the chain window leave at most 2 plates on screen, and the
       chain plate shows the running multiplier and total, not three separate lines.
-- [ ] Pickup labels still appear separately from the chain plate.
-- [ ] The plate stays within the road buffer and clear of the car box at 390x844 and 1280x720.
-- [ ] Reduced motion: no scale pop, the numbers just update.
-- [ ] No frame-time regression; main gz size budget unchanged.
+- [x] Pickup labels still appear separately from the chain plate.
+- [x] The plate stays within the road buffer and clear of the car box at 390x844 and 1280x720.
+- [x] Reduced motion: no scale pop, the numbers just update.
+- [x] No frame-time regression; main gz size budget unchanged.
 
 ## Test plan
 Unit test on the popup layout/merge: feed 3 chain events within the window and assert one live
