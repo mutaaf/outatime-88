@@ -5,6 +5,7 @@ import { GameState } from './state.js';
 import { SoundEngine } from './audio.js';
 import { InputState } from './input.js';
 import { ACTIONS, applyKeys, bindKey, isDefault, keyName } from './keybinds.js';
+import { renderControlsRef } from './controls-ref.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -89,6 +90,7 @@ export function createPanel(ctx) {
   let swallowUp = ''; // the key just bound: its keyup must not also click the focused button (Space does)
   const note = (text) => { if (keysNote) keysNote.textContent = text; };
   function renderKeys() {
+    renderControlsRef($('pauseControls')); // the pause card names the keys too (0204)
     if (!keysBox) return;
     const keys = applyKeys(InputState, settings().keys);
     if (!keysBox.firstChild) {
