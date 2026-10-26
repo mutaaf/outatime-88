@@ -44,12 +44,28 @@ describe('play-on-mute audit (docs/ACCESSIBILITY.md)', () => {
     expect(files.map((p) => relative('src', p)).filter((f) => !named.has(f))).toEqual([]);
   });
 
+  it('has a row checked for every call that plays a sound (the per-file counts match)', () => {
+    const calls = /\b(?:SoundEngine|sound)\??\.(?:play[A-Z]\w*|sample|crunch)\(|\bhooks\.beep\(|\bRC\.(?:say|fanfare)\(|\.speak\(/g;
+    const actual = {};
+    for (const p of walk('src')) {
+      if (/src\/(audio|music|street-score)\.js$|src\/sfx\//.test(p)) continue;
+      const n = (read(p).match(calls) || []).length;
+      if (n) actual[relative('src', p)] = n;
+    }
+    const block = section.match(/<!-- sound-calls\n([\s\S]*?)-->/);
+    expect(block).not.toBeNull();
+    const listed = Object.fromEntries(block[1].trim().split('\n').map((l) => { const [f, n] = l.trim().split(/\s+/); return [f, Number(n)]; }));
+    expect(actual).toEqual(listed);
+    for (const f of Object.keys(actual)) expect(named.has(f), f).toBe(true);
+  });
+
   it('gives every row a visual twin', () => {
     expect(rows.length).toBeGreaterThan(20);
     for (const r of rows) {
       const cells = r.split('|').slice(1, -1).map((c) => c.trim());
       expect(cells.length, r).toBe(4);
-      expect(cells[3].length, r).toBeGreaterThan(3);
+      expect(cells[3].length, r).toBeGreaterThan(10);
+      expect(cells[3], r).not.toMatch(/^(TBD|TODO|none|-)$/i);
     }
   });
 });

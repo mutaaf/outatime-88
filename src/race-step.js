@@ -1847,8 +1847,9 @@ export const LiveTrafficMethods = {
           GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.trafficNearMiss);
           GameState.score += 500 * GameState.combo;
           SoundEngine.playCoinPickup();
-          // The chime's visual twin (0206, docs/ACCESSIBILITY.md): muted, this is how you know.
-          spawnAcquireAnimation('HW_COIN', tr.offset - GameState.playerX, `🚗 NEAR MISS! +${500 * GameState.combo} (x${GameState.combo})`);
+          // The chime's visual twin (0206, docs/ACCESSIBILITY.md): muted, this is how you know. A plate
+          // only: no coin fly-in or car surge (no cash was picked up), and none in the finish roll-out.
+          if (GameState.racePhase === 'RACING') GameState.hitShockwaves.push({ x: (tr.offset - GameState.playerX) * 150, y: 0, radius: 12, maxRadius: 115, color: '#fde047', label: `🚗 NEAR MISS! +${500 * GameState.combo} (x${GameState.combo})`, life: 0.65, maxLife: 0.65 });
           advanceContractProgress('NEAR_MISS', 1);
         }
       }
