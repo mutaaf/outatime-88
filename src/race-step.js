@@ -321,14 +321,15 @@ export function addEndlessRunStreak(amount, reasonLabel, offsetFromCenter = 0) {
   // A sliver of hit-stop sells the graze; chains stretch it a touch (ticket 0009).
   hitStop.trigger(Math.min(0.09, 0.035 + chain * 0.008), GameState.reducedMotion);
   if (reasonLabel) chainPlate('HW_COIN', offsetFromCenter, reasonLabel, pts);
+  return pts;
 }
 
 /** A dodge-chain score plate: folds into the chain's live plate if there is one (ticket 0205). */
 function chainPlate(itemType, offsetFromCenter, reason, pts) {
-  const combo = GameState.combo;
-  const sw = foldChain(GameState.hitShockwaves, pts, combo);
+  const combo = GameState.combo, streak = GameState.dodgeStreak;
+  const sw = foldChain(GameState.hitShockwaves, pts, combo, streak);
   const e = spawnAcquireAnimation(itemType, offsetFromCenter, chainLabel(reason, sw ? sw.total : pts, combo, nearMisses.count()), sw);
-  if (!sw) startChain(e, pts, combo);
+  if (!sw) startChain(e, pts, combo, streak);
 }
 
 export function performHumanTrick(direction) {
@@ -1899,21 +1900,21 @@ export const LiveTrafficMethods = {
           if (jumpedOver) {
             if (!ob.nearMissed) {
               ob.nearMissed = true;
-              GameState.lessonsCleared.jump++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
+              GameState.lessonsCleared.jump++; const streakPts = addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
               const pts = 600 * GameState.combo;
               GameState.score += pts;
               SoundEngine.playStunt();
-              chainPlate('HW_COIN', 0, '🔼 JUMP CLEARED!', pts);
+              chainPlate('HW_COIN', 0, '🔼 JUMP CLEARED!', pts + streakPts);
             }
           } else if (slidUnder) {
             if (!ob.nearMissed) {
               ob.nearMissed = true;
-              GameState.lessonsCleared.slide++; addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
+              GameState.lessonsCleared.slide++; const streakPts = addEndlessRunStreak(2, null, 0); GameState.speed = Math.min(135, GameState.speed + 8);
               const pts = 650 * GameState.combo;
               GameState.score += pts;
               GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.obstacleSlide);
               SoundEngine.playStunt();
-              chainPlate('PLUTONIUM', 0, '🔽 SLIDE UNDER!', pts);
+              chainPlate('PLUTONIUM', 0, '🔽 SLIDE UNDER!', pts + streakPts);
             }
           } else {
             // HARD PHYSICAL RIGID-BODY COLLISION: Never let the player pass through the obstacle!

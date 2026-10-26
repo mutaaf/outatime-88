@@ -8,13 +8,15 @@ const measure = (s) => s.length * 8;
 const plate = (label, life = 0.65) => ({ label, life, maxLife: 0.65 });
 
 /** The race step's chain path: fold into the live plate or spawn a new one. */
-function chainEvent(list, reason, pts, combo, chain) {
-  const sw = foldChain(list, pts, combo);
+let streak = 0;
+function chainEvent(list, reason, pts, combo, chain, crashed = false) {
+  streak = crashed ? 2 : streak + 2;
+  const sw = foldChain(list, pts, combo, streak);
   const label = chainLabel(reason, sw ? sw.total : pts, combo, chain);
   if (sw) { sw.label = label; return sw; }
   const e = plate(label);
   list.push(e);
-  return startChain(e, pts, combo);
+  return startChain(e, pts, combo, streak);
 }
 
 const age = (list, dt) => { for (let i = list.length - 1; i >= 0; i--) { list[i].life -= dt; if (list[i].life <= 0) list.splice(i, 1); } };
@@ -55,10 +57,18 @@ describe('chain plate', () => {
     chainEvent(list, 'B', 600, 5, 3);
     expect(list.length).toBe(1);
     expect(list[0].total).toBe(600);
-    chainEvent(list, 'C', 500, 1, 1); // combo reset by a hit in between
+    chainEvent(list, 'C', 500, 1, 1, true); // a hit in between reset the streak
     expect(list.length).toBe(1);
     expect(list[0].total).toBe(500);
     expect(list[0].label).toBe('C +500 (x1)');
+  });
+
+  it('a crash at x2 starts a new tally even though the multiplier is back to x2', () => {
+    const list = [];
+    chainEvent(list, 'A', 1000, 2, 1);
+    chainEvent(list, 'B', 1000, 2, 2, true); // crash (streak 0), then a graze takes it to 2 again
+    expect(list.length).toBe(1);
+    expect(list[0].total).toBe(1000);
   });
 
   it('never shows more than two plates, and the chain plate is never pushed off by pickups', () => {
@@ -93,7 +103,7 @@ describe('chain plate', () => {
       layoutLabels(list, box, rw, rh, measure, out, true);
       const still = out[6];
       expect(still).toBeLessThanOrEqual(1);
-      if (rw >= 390) { expect(popped).toBeGreaterThan(1); expect(w).toBeGreaterThan(out[2]); }
+      if (rw >= 390) { expect(popped).toBeGreaterThan(1); expect(out[6]).toBe(1); expect(w).toBeGreaterThan(out[2]); }
     }
     list[0].life = list[0].maxLife - 0.3; // the pop is over: back to size
     const box = fallbackBox(1280, 720, { x0: 0, y0: 0, x1: 0, y1: 0 });

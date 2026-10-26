@@ -157,7 +157,8 @@ for (const [w, h] of [[390, 844], [1280, 720]]) {
     expect(seen.most).toBeLessThanOrEqual(2);
     const chain = seen.snap.plates.filter((p) => p.chain);
     expect(chain.length).toBe(1);
-    expect(chain[0].label).toMatch(/CLOSE SHAVE! \+\d+ \(x\d+\) · NEAR-MISS x3$/);
+    // x3 or more: a real near-miss on the road can join the chain too.
+    expect(chain[0].label).toMatch(/CLOSE SHAVE! \+\d+ \(x\d+\) · NEAR-MISS x([3-9]|\d{2,})$/);
     expect(chain[0].label).toContain(`+${chain[0].total}`);
     expect(seen.snap.plates.some((p) => !p.chain && /HP/.test(p.label))).toBe(true);
     const { box, rw, rh, rects } = seen.snap;
