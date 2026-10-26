@@ -3,6 +3,8 @@
 // at most LABEL.max at once, clamped to the canvas and shrunk to fit a narrow one. With no room
 // above (the car high in the air) they stack beside the car instead. The margins allow for the
 // FOV push-in crop at full speed + NOS, so a label is whole on screen too. Drawn by src/pickup-art.js.
+// A dodge chain is one plate that grows (src/chain-plate.js, 0205): it always gets a slot, the other
+// slot goes to the newest other label, and it pops when it grows (not with reduced motion).
 
 export const LABEL = {
   font: 11,     // px on the road buffer
@@ -12,7 +14,9 @@ export const LABEL = {
   margin: 6,    // from the canvas edge
   fovMax: 1.115, // main.js crops the road buffer by up to this at 88+ with NOS (speedFeel + nosFeel)
   rise: 12,     // px a label floats up over its life
-  max: 3,
+  max: 2,       // the chain plate + one other (0205)
+  pop: 0.22,    // extra scale on a chain plate that just grew
+  popT: 0.18,   // s the pop takes to settle
   stride: 7,    // per slot in the output: x0, y0, w, h, alpha, source index, scale
 };
 
@@ -44,13 +48,18 @@ export function layoutLabels(list, box, rw, rh, measure, out, still) {
   const h0 = LABEL.font + padY * 2;
   const cx = (box.x0 + box.x1) * 0.5;
   const rightRoom = rw - m - (box.x1 + gap), leftRoom = box.x0 - gap - m;
-  let n = 0, top = box.y0, side = false, sideY = 0;
+  let n = 0, top = box.y0, side = false, sideY = 0, keep = 0;
+  for (let i = 0; i < list.length; i++) if (list[i].chain && list[i].label) { keep = 1; break; }
   for (let i = list.length - 1; i >= 0 && n < max; i--) {
     const e = list[i];
     if (!e.label) continue;
+    if (e.chain) { if (keep !== 1) continue; keep = 2; } // one chain plate, never pushed off
+    else if (keep === 1 && n >= max - 1) continue;
     if (e.lwFor !== e.label) { e.lw = measure(e.label); e.lwFor = e.label; }
     const t = Math.min(1, Math.max(0, 1 - e.life / e.maxLife));
-    let s = Math.min(1, (rw - m * 2) / (e.lw + padX * 2));
+    const fit = (rw - m * 2) / (e.lw + padX * 2), age = e.maxLife - e.life;
+    let s = Math.min(1, fit);
+    if (e.merged && !still && age < LABEL.popT) s = Math.min(fit, s * (1 + LABEL.pop * (1 - age / LABEL.popT)));
     let w = (e.lw + padX * 2) * s, h = h0 * s;
     let x, y;
     if (!side) {

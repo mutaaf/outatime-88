@@ -1564,6 +1564,7 @@ window.onload = () => {
     heal: healPlayerHp,
     runner: () => ({ storm, stats: runStats, goals: runnerMod ? runnerMod.goalsOf(SaveStore.data) : null }),
     pickup: (type) => raceStep && raceStep.applyPickup({ type, offset: GameState.playerX }, PICKUPS[type]),
+    streak: (why) => raceStep && raceStep.addEndlessRunStreak(2, why), // a near-miss chain event (0205)
     fair: () => RS.fair, // jump/trick caps and counters (ticket 0180)
     hazard: (k, a, l) => RS.hz && RS.hz.debugPlace(k, a, l),
     // Balance harness (docs/BALANCE.md): hold the frame loop and run sim steps flat out.
