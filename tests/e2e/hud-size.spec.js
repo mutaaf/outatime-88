@@ -3,7 +3,7 @@
 // compact default, the choice survives a reload, and LARGE still lays the HUD out with every
 // block on screen and nothing on top of anything else, worst-case text included.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage, racing } from './helpers.js';
+import { APP, watchPage, racing, nextFrames } from './helpers.js';
 
 const SAVE = 'outatime_cruisn_88_save_v2';
 const saved = (page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}'), SAVE);
@@ -25,8 +25,10 @@ test('HUD SIZE is NORMAL by default, LARGE by keyboard, and LARGE survives a rel
   await expect(normal).toHaveAttribute('aria-pressed', 'true');
   await expect(large).toHaveAttribute('aria-pressed', 'false');
 
-  // Keyboard path: focus moves to the button and Enter picks it.
-  await large.focus();
+  // Keyboard path: Tab reaches LARGE from NORMAL inside the panel, and Enter picks it.
+  await normal.focus();
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => document.activeElement?.dataset.value)).toBe('large');
   await page.keyboard.press('Enter');
   await expect(large).toHaveAttribute('aria-pressed', 'true');
   await expect(normal).toHaveAttribute('aria-pressed', 'false');
@@ -43,12 +45,14 @@ test('HUD SIZE is NORMAL by default, LARGE by keyboard, and LARGE survives a rel
   await expect(page.locator('#tiltStatus')).toContainText(/tilt/i);
   await normal.click();
   expect(await page.evaluate(() => document.documentElement.dataset.hudSize)).toBe('normal');
+  expect((await saved(page)).settings.hud).toBe('normal');
   expect(problems).toEqual([]);
 });
 
 // Every viewport the ticket names, plus the narrowest phones and a portrait tablet (0190/0202).
 const VIEWPORTS = [
   { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1280, height: 720 },
+  { width: 568, height: 320 }, { width: 640, height: 360 },
   { width: 360, height: 740 }, { width: 320, height: 568 }, { width: 600, height: 960 }, { width: 768, height: 1024 }, { width: 820, height: 1180 },
 ];
 for (const vp of VIEWPORTS) {
@@ -100,9 +104,13 @@ for (const vp of VIEWPORTS) {
         }
       }
       const timeParts = ['hudGapAhead', 'hudGapBehind', 'hudClockWrap'].map((id) => document.getElementById(id)).filter(shown).map(R);
-      return { large, normal, rects, clipped, spills, timeParts, header: R(document.querySelector('header')), pageWidth: root.scrollWidth, vw: innerWidth, vh: innerHeight };
+      const strip = document.getElementById('hudTrack').getBoundingClientRect().width;
+      return { ahead: document.getElementById('hudGapAhead').textContent, strip, large, normal, rects, clipped, spills, timeParts, header: R(document.querySelector('header')), pageWidth: root.scrollWidth, vw: innerWidth, vh: innerHeight };
     });
 
+    expect(m.ahead, 'the forced worst-case text was still up when measured').toContain('0.1');
+    // The strip is either off (the smallest phones on their side) or wide enough for its YOU tag and dots.
+    if (m.strip) expect(m.strip, 'track strip squeezed').toBeGreaterThanOrEqual(60);
     expect(m.large.speed / m.normal.speed, 'speed readout grows').toBeGreaterThanOrEqual(1.25);
     expect(m.large.place / m.normal.place, 'place grows').toBeGreaterThanOrEqual(1.25);
     expect(m.large.gap / m.normal.gap, 'gap pill grows').toBeGreaterThanOrEqual(1.25);
@@ -149,7 +157,7 @@ for (const [width, height] of [[390, 844], [844, 390], [667, 375], [768, 1024]])
     await page.evaluate(() => window.__OT.startRace());
     await page.waitForFunction(() => document.querySelectorAll('#touchControlsLayer > .tc-btn:not(.tc-hidden)').length > 0, null, { timeout: 20000 });
     await page.evaluate(() => window.__OT.pause());
-    await page.waitForTimeout(300); // a header resize re-lays the controls on the next frame
+    await nextFrames(page, 4); // a header resize re-lays the controls on the next frame
     const r = await page.evaluate(() => {
       const box = (el) => { const b = el.getBoundingClientRect(); return { id: el.id, x: b.x, y: b.y, width: b.width, height: b.height }; };
       return {

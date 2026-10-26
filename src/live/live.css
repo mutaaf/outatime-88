@@ -232,11 +232,11 @@ body:not(.in-live) .live-countdown { display: none; }
 .live-gap { font-family: 'Inter', sans-serif !important; font-size: 11px !important; color: #fca5a5 !important; }
 .live-rdy { font-style: normal; color: #34d399; }
 
-/* In-race layer. */
+/* In-race layer. The tower starts below the HUD's measured bottom (layout.js --slot-message): a LARGE HUD (0195) and tall screens grow the place card past 132 px. */
 .live-hud { position: fixed; inset: 0; z-index: 56; pointer-events: none; font-family: 'Orbitron', sans-serif; }
 .live-hud[hidden] { display: none !important; }
 body:not(.in-live) .live-hud { display: none; }
-.live-tower { position: absolute; left: max(12px, env(safe-area-inset-left)); top: 132px; list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; width: 168px; }
+.live-tower { position: absolute; left: max(12px, env(safe-area-inset-left)); top: max(132px, calc(var(--slot-message, 0px) + 6px)); list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; width: 168px; }
 .live-tower li { display: grid; grid-template-columns: 1.3rem 1fr auto; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 8px; background: rgba(2, 6, 23, .72); border-left: 3px solid var(--g, #ffd000); font-size: 10px; color: #e2e8f0; }
 .live-tower li b { color: #94a3b8; }
 .live-tower li span { font-family: 'Press Start 2P', monospace; font-size: 9px; letter-spacing: .08em; }

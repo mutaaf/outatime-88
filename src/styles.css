@@ -482,10 +482,16 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   .spd-num { font-size: calc(26px * var(--hk)); }
   .hud-pos, .hud-speed { min-width: 0; }
 }
+/* LARGE (0195) on the smallest phones on their side (568x320): the bigger cards leave the strip a few px, and its
+   YOU tag spilled onto the times. The gap pills still say who is ahead and behind, so the strip steps aside. */
+@media (max-height: 520px) and (max-width: 619px) and (orientation: landscape) {
+  [data-hud-size="large"] .hud-track { display: none; }
+}
 /* HUD SIZE → LARGE (0195): the numbers a racer reads at speed (place, lap, gaps, clock, mph) grow 1.3x. */
 [data-hud-size="large"] .race-hud { --hk: 1.3; }
-/* Upright screens have no room for the bigger times column between the cards: it gets its own row
-   under them (gap pills and clock side by side, wrapping when they must), and the strip a full row below that. */
+/* Upright screens: the bigger times column would squeeze between the cards on phones, so on every
+   portrait screen (one layout, tablets included) it gets its own row under them (gap pills and clock
+   side by side, wrapping when they must), and the strip a full row below that. */
 @media (orientation: portrait) {
   [data-hud-size="large"] .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto;
     grid-template-areas: "pos . speed gear" "times times times times" "track track track track"; }
