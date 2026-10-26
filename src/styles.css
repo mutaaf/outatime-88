@@ -840,6 +840,15 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .end-goals li b { color: #fde047; }
 .end-goals .goals-head { background: none; padding: 0 2px; color: #fde68a; font-weight: 900; }
 .pause-goals { margin: 10px 0 4px; }
+/* Pause controls card (0204): the six driving controls for the input in hand, 3 × 2 (6 × 1 in a wide garage). */
+.ctl-ref { margin-top: 10px; padding: 8px 10px 10px; border-radius: 14px; background: rgba(2, 6, 23, 0.85); border: 1px solid #1e293b; }
+.ctl-ref h3 { font: 900 11px/1.2 'Orbitron', sans-serif; letter-spacing: 0.14em; color: #67e8f9; margin-bottom: 6px; }
+.ctl-ref h3 small { margin-left: 6px; font-size: 10px; color: #cbd5e1; letter-spacing: 0.1em; }
+.ctl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ctl-grid > div { min-width: 0; padding: 4px 6px; border-radius: 8px; background: rgba(15, 23, 42, 0.9); }
+.ctl-grid dt { font: 700 10px/1.2 'Orbitron', sans-serif; letter-spacing: 0.08em; color: #94a3b8; }
+.ctl-grid dd { font: 800 12px/1.25 'Orbitron', sans-serif; color: #f8fafc; overflow-wrap: anywhere; }
+@media (min-width: 640px) { .ctl-ref-wide .ctl-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .power-shop { margin: 8px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font: 700 clamp(9px, 1.4vmin, 12px)/1.25 'Orbitron', sans-serif; }
 .power-shop.hidden { display: none; }
 .power-shop .shop-head { grid-column: 1 / -1; color: #fde68a; font-weight: 900; text-align: left; padding: 0 2px; }

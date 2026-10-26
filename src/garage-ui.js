@@ -348,6 +348,8 @@ export function createGarageUI(deps) {
       viewIdx = focus >= 0 ? focus : deps.selectedIndex();
       if (!turntable) turntable = make2D();
       render();
+      // Escape / P mid-race pauses here: the controls card (0204) lives in the settings panel's chunk.
+      import('./settings-panel.js').then((m) => m.renderControlsRef($('garageControls'))).catch(() => {});
       // In 3D mode, swap in the real 3D models once the (already loaded) chunk answers.
       const p3 = deps.preview3d && !turntable.is3D ? deps.preview3d() : null;
       if (p3) {
