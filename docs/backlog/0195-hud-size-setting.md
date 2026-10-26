@@ -1,7 +1,7 @@
 ---
 id: 0195
 title: HUD size setting (normal / large) for low-vision players
-status: proposed
+status: ready
 priority: P2
 size: M
 lens: accessibility
