@@ -1847,6 +1847,8 @@ export const LiveTrafficMethods = {
           GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.trafficNearMiss);
           GameState.score += 500 * GameState.combo;
           SoundEngine.playCoinPickup();
+          // The chime's visual twin (0206, docs/ACCESSIBILITY.md): muted, this is how you know.
+          spawnAcquireAnimation('HW_COIN', tr.offset - GameState.playerX, `🚗 NEAR MISS! +${500 * GameState.combo} (x${GameState.combo})`);
           advanceContractProgress('NEAR_MISS', 1);
         }
       }
