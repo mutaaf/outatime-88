@@ -14,6 +14,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   voice: true,            // the race announcer reads names and calls out loud (on-device speech)
   proximity: true,        // a quiet tick panned toward traffic about to hit you (0191, src/proximity-cue.js)
   coach: true,            // in-race tip card, first-run steer prompt and touch thumb guide (0201)
+  hud: 'normal',          // HUD text size: 'normal' | 'large' (0195; ~1.3x speed, place, gaps and clock)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'
   difficulty: 'normal',   // 'easy' | 'normal' | 'hard'
   graphics: 'auto',       // 'auto' (device-picked tier, src/perf/) | 'low' | 'medium' | 'high' | 'ultra'
@@ -31,7 +32,7 @@ export const DIFFICULTY = Object.freeze({
 const CHOICES = {
   motion: ['auto', 'reduce', 'full'], difficulty: Object.keys(DIFFICULTY), graphics: ['auto', 'low', 'medium', 'high', 'ultra'],
   steer: ['', 'keys', 'mouse', 'stick', 'dpad', 'tilt'], assist: ['', 'off', 'assist', 'auto'],
-  musicStyle: ['auto', 'synthwave', 'street'],
+  musicStyle: ['auto', 'synthwave', 'street'], hud: ['normal', 'large'],
 };
 const clamp01 = (v, d) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : d);
 
@@ -100,16 +101,4 @@ export function tiltSteer(rawDeg, zeroDeg, { sensitivity = 1, invert = false } =
   const sign = invert ? -1 : 1;
   const v = sign * (d - Math.sign(d) * TILT.deadzone) / (TILT.range - TILT.deadzone) * sensitivity;
   return Math.max(-1, Math.min(1, v));
-}
-
-/** What the settings panel should say about tilt right now. */
-export function tiltStatusText(status) {
-  switch (status) {
-    case 'on': return 'Tilt is ON. Hold the device how you like and tap RECENTER.';
-    case 'waiting': return 'Waiting for the tilt sensor…';
-    case 'denied': return 'Tilt was blocked. Allow Motion & Orientation for this site in your browser settings, then try again.';
-    case 'unsupported': return 'This device has no tilt sensor. Use the touch pads or a gamepad.';
-    case 'nosignal': return 'No tilt sensor found on this device. Use the touch pads or a gamepad.';
-    default: return 'Tilt is OFF. Turn it on to steer by tilting.';
-  }
 }

@@ -132,3 +132,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-26 · 0196 · Rival catch-up is now measured: on NORMAL a clean race is still won by seconds on every level, and a test keeps it that way
 2026-10-26 · 0204 · Pausing a race now shows a CONTROLS card for the input in hand: your keys (rebound ones too), the pad's buttons, or the touch pads, in the ⚙️ pause and the Escape garage pause
 2026-10-26 · 0212 · Sound now comes back by itself after a phone call, Siri, a lock screen or a tab switch (or on your next tap or key); if you muted, it stays muted
+2026-10-26 · 0195 · Settings → VIEW → HUD SIZE: LARGE makes your place, lap, gaps, race clock and speed 1.3x bigger; on upright screens the times move to their own row so nothing overlaps

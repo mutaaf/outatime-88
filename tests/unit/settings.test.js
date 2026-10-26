@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   SETTINGS_DEFAULTS, normalizeSettings, difficultyOf, reducedMotionFor,
-  screenAngle, tiltAngle, tiltSteer, tiltStatusText, TILT,
+  screenAngle, tiltAngle, tiltSteer, TILT,
 } from '../../src/settings.js';
+import { tiltStatusText } from '../../src/tilt-text.js';
 
 describe('settings (ticket 0050)', () => {
   it('fills defaults and repairs out-of-range values', () => {
@@ -26,6 +27,15 @@ describe('settings (ticket 0050)', () => {
     expect(normalizeSettings(old).coach).toBe(true);
     expect(normalizeSettings({ ...old, coach: false }).coach).toBe(false);
     expect(normalizeSettings({ coach: 'yes' }).coach).toBe(true); // junk → on
+  });
+
+  it('HUD size (0195): NORMAL by default, an old save gets NORMAL, junk falls back to NORMAL', () => {
+    expect(SETTINGS_DEFAULTS.hud).toBe('normal');
+    // A real pre-0195 settings blob, as saved by the 0201 build.
+    const old = { tilt: false, tiltInvert: false, musicVolume: 0.8, sfxVolume: 1, musicStyle: 'auto', voice: true, proximity: true, coach: true, motion: 'auto', difficulty: 'normal', graphics: 'auto', steer: '', assist: '', keys: null };
+    expect(normalizeSettings(old).hud).toBe('normal');
+    expect(normalizeSettings({ ...old, hud: 'large' }).hud).toBe('large');
+    for (const junk of ['LARGE', 'huge', 1.3, true, null]) expect(normalizeSettings({ hud: junk }).hud).toBe('normal');
   });
 
   it('difficulty scales rival pace and damage, and normal changes nothing', () => {
