@@ -217,7 +217,7 @@ export function initSettings({ announce } = {}) {
   // Ticket 0032. Audio sleeps while hidden and wakes on return: SoundEngine.wake() (0212).
   const onHide = () => {
     if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE' && !settingsOpen()) openSettings();
-    SoundEngine.wake();
+    SoundEngine.wake(true);
   };
   document.addEventListener('visibilitychange', () => { if (document.hidden) onHide(); });
   window.addEventListener('pagehide', onHide);

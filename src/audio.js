@@ -89,19 +89,23 @@ export const SoundEngine = {
         this.loadBank();
         // A call, Siri, an alarm or a lock screen ('interrupted' on iOS) or the browser can put the
         // context to sleep: wake it when it changes state, when the tab is back, or on the next
-        // touch or key (iOS wants a gesture). Hiding the tab puts it to sleep; mute always wins (0212).
-        const wake = ctx.onstatechange = () => this.wake();
-        for (const t of ['pointerdown', 'keydown']) window.addEventListener(t, wake, true);
+        // touch or key (iOS wants a gesture, and a touch only counts on its way up). Hiding the tab
+        // puts it to sleep; mute always wins (0212). Gamepad-only play recovers on return to the tab.
+        ctx.onstatechange = () => this.wake();
+        const wake = () => this.wake(false); // the page is in use again
+        for (const t of ['pointerup', 'keydown']) window.addEventListener(t, wake, true);
         document.addEventListener('visibilitychange', wake);
       }
     }
     this.wake();
   },
-  /** Match the context to the moment: muted or in a hidden tab it sleeps (0032); otherwise a
-   *  context left 'suspended' or 'interrupted' resumes (0212). */
-  wake() {
+  /** Match the context to the moment: muted, in a hidden tab or away (`wake(true)`: the page
+   *  is going, until a `wake(false)` from the tab, a touch or a key) it sleeps (0032); otherwise
+   *  a context left 'suspended' or 'interrupted' resumes (0212). The ONLY place that suspends or
+   *  resumes it: its own statechange calls this, so a suspend anywhere else is undone at once. */
+  wake(away = this.away) {
     const c = this.ctx, s = c?.state;
-    if (this.muted || document.hidden) { if (s === 'running') c.suspend().catch(() => {}); }
+    if ((this.away = away) || this.muted || document.hidden) { if (s === 'running') c.suspend().catch(() => {}); }
     else if (s === 'suspended' || s === 'interrupted') c.resume().catch(() => {});
   },
   setMuted(muteVal) {

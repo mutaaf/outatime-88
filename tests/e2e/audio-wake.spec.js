@@ -11,6 +11,15 @@ const setHidden = (page, hidden) => page.evaluate((h) => {
   document.dispatchEvent(new Event('visibilitychange'));
 }, hidden);
 
+// Counts every resume() the game asks for, so "nothing woke it" is checked without a clock.
+const countResumes = (page) => page.evaluate(() => {
+  const ctx = window.__OT.audio().ctx;
+  const real = ctx.resume.bind(ctx);
+  window.__resumes = 0;
+  ctx.resume = () => { window.__resumes++; return real(); };
+});
+const resumes = (page) => page.evaluate(() => window.__resumes);
+
 async function boot(page) {
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
@@ -27,7 +36,10 @@ test('a tab that comes back wakes a suspended context; a touch or key wakes an i
   // Hidden: the game puts sound to sleep (0032) and nothing wakes it while hidden.
   await setHidden(page, true);
   await expect.poll(() => state(page)).toBe('suspended');
-  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown')));
+  await countResumes(page);
+  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerup')));
+  await page.keyboard.press('Shift');
+  expect(await resumes(page)).toBe(0);
   expect(await state(page)).toBe('suspended');
   // Back in the tab: it runs again with no tap.
   await setHidden(page, false);
@@ -45,11 +57,12 @@ test('a tab that comes back wakes a suspended context; a touch or key wakes an i
     Object.defineProperty(ctx, 'state', { configurable: true, get: () => 'interrupted' });
     ctx.resume = () => { window.__resumes++; delete ctx.state; return real(); };
   });
+  // The fake state also answers the statechange a real resume fires, which reads it again.
   await page.keyboard.press('Shift');
   expect(await page.evaluate(() => window.__resumes)).toBe(1);
   await expect.poll(() => state(page)).toBe('running');
   await page.evaluate(() => Object.defineProperty(window.__OT.audio().ctx, 'state', { configurable: true, get: () => 'interrupted' }));
-  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown')));
+  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerup')));
   expect(await page.evaluate(() => window.__resumes)).toBe(2);
   await expect.poll(() => state(page)).toBe('running');
   expect(problems).toEqual([]);
@@ -59,14 +72,25 @@ test('a player who muted stays silent through a tab switch, a touch and a key', 
   const problems = await boot(page);
   await page.evaluate(() => window.__OT.audio().setMuted(true));
   await expect.poll(() => state(page)).toBe('suspended');
+  await countResumes(page);
   await setHidden(page, true);
   await setHidden(page, false);
-  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown')));
+  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerup')));
   await page.keyboard.press('Shift');
-  await page.waitForTimeout(300); // give a wrong resume() time to land
+  expect(await resumes(page)).toBe(0);
   expect(await state(page)).toBe('suspended');
   // Un-muting is still the player's way back.
   await page.evaluate(() => window.__OT.audio().setMuted(false));
+  await expect.poll(() => state(page)).toBe('running');
+  expect(problems).toEqual([]);
+});
+
+test('a page going away sleeps the sound even while it still reads as visible', async ({ page }) => {
+  const problems = await boot(page);
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  await expect.poll(() => state(page)).toBe('suspended');
+  // Back (a page restored from the back/forward cache): the tab coming into view wakes it.
+  await setHidden(page, false);
   await expect.poll(() => state(page)).toBe('running');
   expect(problems).toEqual([]);
 });
