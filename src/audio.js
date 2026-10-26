@@ -87,15 +87,22 @@ export const SoundEngine = {
         this.masterGain.connect(ctx.destination);
         this.buildEngineVoice();
         this.loadBank();
+        // A call, Siri, an alarm or a lock screen ('interrupted' on iOS) or the browser can put the
+        // context to sleep: wake it when it changes state, when the tab is back, or on the next
+        // touch or key (iOS wants a gesture). Hiding the tab puts it to sleep; mute always wins (0212).
+        const wake = ctx.onstatechange = () => this.wake();
+        for (const t of ['pointerdown', 'keydown']) window.addEventListener(t, wake, true);
+        document.addEventListener('visibilitychange', wake);
       }
     }
-    if (this.ctx) {
-      if (this.muted && this.ctx.state === 'running') {
-        this.ctx.suspend().catch(() => {});
-      } else if (!this.muted && this.ctx.state === 'suspended') {
-        this.ctx.resume().catch(() => {});
-      }
-    }
+    this.wake();
+  },
+  /** Match the context to the moment: muted or in a hidden tab it sleeps (0032); otherwise a
+   *  context left 'suspended' or 'interrupted' resumes (0212). */
+  wake() {
+    const c = this.ctx, s = c?.state;
+    if (this.muted || document.hidden) { if (s === 'running') c.suspend().catch(() => {}); }
+    else if (s === 'suspended' || s === 'interrupted') c.resume().catch(() => {});
   },
   setMuted(muteVal) {
     this.muted = Boolean(muteVal);
@@ -108,11 +115,7 @@ export const SoundEngine = {
       try {
         this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
         this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime);
-        if (this.muted && this.ctx.state === 'running') {
-          this.ctx.suspend().catch(() => {});
-        } else if (!this.muted && this.ctx.state === 'suspended') {
-          this.ctx.resume().catch(() => {});
-        }
+        this.wake();
       } catch (e) {}
     }
     hooks.syncAudioUI();
@@ -140,7 +143,7 @@ export const SoundEngine = {
     if (this.ctx && this.masterGain) {
       try {
         this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
-        if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+        this.wake();
       } catch (e) {}
     }
     hooks.syncAudioUI();
