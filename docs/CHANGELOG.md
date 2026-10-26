@@ -134,3 +134,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-26 · 0212 · Sound now comes back by itself after a phone call, Siri, a lock screen or a tab switch (or on your next tap or key); if you muted, it stays muted
 2026-10-26 · 0195 · Settings → VIEW → HUD SIZE: LARGE makes your place, lap, gaps, race clock and speed 1.3x bigger; on upright screens the times move to their own row so nothing overlaps
 2026-10-26 · 0205 · A fast near-miss chain now shows one score plate that keeps growing (running total, latest multiplier, a small pop), and never more than two plates over the road at once
+2026-10-26 · 0206 · Playing on mute: a near-miss on traffic now shows a 🚗 NEAR MISS plate with its points, and every sound that tells you something is listed with what you see instead (docs/ACCESSIBILITY.md)
