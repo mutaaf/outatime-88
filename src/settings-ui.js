@@ -214,17 +214,12 @@ export function initSettings({ announce } = {}) {
   $('btnSettingsDone').addEventListener('click', closeSettings);
   // Switching apps mid-race pauses with the panel up, so coming back shows ▶ RESUME instead
   // of a race that kept going (or a frozen-looking frame) behind your back.
-  // Ticket 0032. Audio sleeps while hidden and wakes on return (or on the next tap, on iOS).
+  // Ticket 0032. Audio sleeps while hidden and wakes on return: SoundEngine.wake() (0212).
   const onHide = () => {
     if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE' && !settingsOpen()) openSettings();
-    const a = SoundEngine.ctx;
-    if (a && a.state === 'running') a.suspend().catch(() => {});
+    SoundEngine.wake(true);
   };
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { onHide(); return; }
-    const a = SoundEngine.ctx;
-    if (a && a.state === 'suspended' && !SoundEngine.muted) a.resume().catch(() => {});
-  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) onHide(); });
   window.addEventListener('pagehide', onHide);
   $('settingsModal').addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
   // While the panel is open the race neither steers nor starts behind it: keys aimed at the

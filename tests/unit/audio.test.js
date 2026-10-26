@@ -13,8 +13,9 @@ beforeEach(() => {
   created = [];
   vi.stubGlobal('window', {
     AudioContext: class extends FakeAudioContext { constructor() { super(); created.push(this); } },
-    setInterval: () => 1, clearInterval: () => {},
+    setInterval: () => 1, clearInterval: () => {}, addEventListener: () => {},
   });
+  vi.stubGlobal('document', { hidden: false, addEventListener: () => {} });
 });
 
 const reachesDestination = (ctx, node, seen = new Set()) => {
@@ -85,5 +86,129 @@ describe('SoundEngine graph (ticket 0006)', () => {
     vi.stubGlobal('window', {});
     const { SoundEngine } = await import('../../src/audio.js');
     expect(() => { SoundEngine.init(); SoundEngine.playCrash(); SoundEngine.updateEngine(50, true); SoundEngine.startMusicLoop(); }).not.toThrow();
+  });
+});
+
+describe('sound wakes after an interruption (ticket 0212)', () => {
+  // A window and document that record their listeners, so the test can fire them.
+  let on, doc;
+  const fire = (type) => (on[type] || []).forEach((f) => f({ type }));
+  beforeEach(() => {
+    on = {};
+    doc = { hidden: false };
+    const listen = (type, f) => { (on[type] ||= []).push(f); };
+    doc.addEventListener = listen;
+    vi.stubGlobal('document', doc);
+    // Like a real context, this one fires statechange whenever its state moves.
+    vi.stubGlobal('window', {
+      AudioContext: class extends FakeAudioContext {
+        constructor() { super(); created.push(this); this.changes = 0; }
+        resume() { return this.move('running'); }
+        suspend() { return this.move('suspended'); }
+        move(to) {
+          if (this.state !== to) { this.state = to; if (++this.changes > 20) throw new Error('statechange loop'); this.onstatechange?.(); }
+          return Promise.resolve();
+        }
+      },
+      setInterval: () => 1, clearInterval: () => {},
+      addEventListener: listen,
+    });
+  });
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  for (const asleep of ['suspended', 'interrupted']) {
+    for (const wake of ['visibilitychange', 'pointerup', 'keydown']) {
+      it(`an un-muted player's ${asleep} context runs again on ${wake}`, async () => {
+        const { SoundEngine } = await import('../../src/audio.js');
+        SoundEngine.init();
+        const ctx = created[0];
+        ctx.state = asleep;
+        fire(wake);
+        await flush();
+        expect(ctx.state).toBe('running');
+      });
+    }
+  }
+
+  it('the context waking itself up (statechange) is resumed, but not while the tab is hidden', async () => {
+    const { SoundEngine } = await import('../../src/audio.js');
+    SoundEngine.init();
+    const ctx = created[0];
+    doc.hidden = true;
+    fire('visibilitychange'); // hiding the tab puts it to sleep (0032)
+    expect(ctx.state).toBe('suspended');
+    ctx.onstatechange?.();
+    await flush();
+    expect(ctx.state).toBe('suspended'); // a hidden tab sleeps on purpose (0032)
+    fire('visibilitychange'); // still hidden: nothing
+    expect(ctx.state).toBe('suspended');
+    doc.hidden = false;
+    ctx.state = 'interrupted';
+    ctx.onstatechange();
+    await flush();
+    expect(ctx.state).toBe('running');
+  });
+
+  it('a muted player stays muted: no event resumes the context', async () => {
+    const { SoundEngine } = await import('../../src/audio.js');
+    SoundEngine.init();
+    const ctx = created[0];
+    SoundEngine.setMuted(true);
+    expect(ctx.state).toBe('suspended');
+    for (const s of ['suspended', 'interrupted']) {
+      ctx.state = s;
+      for (const w of ['visibilitychange', 'pointerup', 'keydown']) fire(w);
+      ctx.onstatechange?.();
+      await flush();
+      expect(ctx.state).toBe(s);
+    }
+    SoundEngine.setMuted(false);
+    expect(ctx.state).toBe('running'); // un-muting still wakes it, interrupted included
+  });
+
+  it('a closed context, a rejected resume or no context at all never throws', async () => {
+    const { SoundEngine } = await import('../../src/audio.js');
+    expect(() => SoundEngine.wake()).not.toThrow(); // title before the first gesture
+    SoundEngine.init();
+    const ctx = created[0];
+    ctx.state = 'closed';
+    const resume = vi.spyOn(ctx, 'resume');
+    fire('pointerup');
+    expect(resume).not.toHaveBeenCalled();
+    ctx.state = 'interrupted';
+    ctx.resume = () => Promise.reject(new Error('InvalidStateError'));
+    expect(() => fire('pointerup')).not.toThrow();
+    await flush();
+  });
+
+  it('listens once, however many times init() runs', async () => {
+    const { SoundEngine } = await import('../../src/audio.js');
+    SoundEngine.init(); SoundEngine.init(); SoundEngine.init();
+    expect(on.pointerup).toHaveLength(1);
+    expect(on.keydown).toHaveLength(1);
+  });
+
+  it('statechange never loops, and a context that resumes itself while muted goes back to sleep', async () => {
+    const { SoundEngine } = await import('../../src/audio.js');
+    SoundEngine.init();
+    const ctx = created[0];
+    SoundEngine.setMuted(true); SoundEngine.setMuted(false); SoundEngine.setMuted(true);
+    expect(ctx.changes).toBe(3);
+    ctx.state = 'running'; // iOS ending an interruption on its own
+    ctx.onstatechange();
+    expect(ctx.state).toBe('suspended');
+  });
+
+  it('a page going away always sleeps it, even before the tab reads as hidden', async () => {
+    const { SoundEngine } = await import('../../src/audio.js');
+    SoundEngine.init();
+    const ctx = created[0];
+    expect(ctx.state).toBe('running');
+    SoundEngine.wake(true); // settings-ui's pagehide / hide handler
+    expect(ctx.state).toBe('suspended'); // its own statechange doesn't undo it
+    ctx.onstatechange();
+    expect(ctx.state).toBe('suspended');
+    fire('visibilitychange'); // back from the back/forward cache
+    expect(ctx.state).toBe('running');
   });
 });

@@ -87,15 +87,26 @@ export const SoundEngine = {
         this.masterGain.connect(ctx.destination);
         this.buildEngineVoice();
         this.loadBank();
+        // A call, Siri, an alarm or a lock screen ('interrupted' on iOS) or the browser can put the
+        // context to sleep: wake it when it changes state, when the tab is back, or on the next
+        // touch or key (iOS wants a gesture, and a touch only counts on its way up). Hiding the tab
+        // puts it to sleep; mute always wins (0212). Gamepad-only play recovers on return to the tab.
+        ctx.onstatechange = () => this.wake();
+        const wake = () => this.wake(false); // the page is in use again
+        for (const t of ['pointerup', 'keydown']) window.addEventListener(t, wake, true);
+        document.addEventListener('visibilitychange', wake);
       }
     }
-    if (this.ctx) {
-      if (this.muted && this.ctx.state === 'running') {
-        this.ctx.suspend().catch(() => {});
-      } else if (!this.muted && this.ctx.state === 'suspended') {
-        this.ctx.resume().catch(() => {});
-      }
-    }
+    this.wake();
+  },
+  /** Match the context to the moment: muted, in a hidden tab or away (`wake(true)`: the page
+   *  is going, until a `wake(false)` from the tab, a touch or a key) it sleeps (0032); otherwise
+   *  a context left 'suspended' or 'interrupted' resumes (0212). The ONLY place that suspends or
+   *  resumes it: its own statechange calls this, so a suspend anywhere else is undone at once. */
+  wake(away = this.away) {
+    const c = this.ctx, s = c?.state;
+    if ((this.away = away) || this.muted || document.hidden) { if (s === 'running') c.suspend().catch(() => {}); }
+    else if (s === 'suspended' || s === 'interrupted') c.resume().catch(() => {});
   },
   setMuted(muteVal) {
     this.muted = Boolean(muteVal);
@@ -108,11 +119,7 @@ export const SoundEngine = {
       try {
         this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
         this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime);
-        if (this.muted && this.ctx.state === 'running') {
-          this.ctx.suspend().catch(() => {});
-        } else if (!this.muted && this.ctx.state === 'suspended') {
-          this.ctx.resume().catch(() => {});
-        }
+        this.wake();
       } catch (e) {}
     }
     hooks.syncAudioUI();
@@ -140,7 +147,7 @@ export const SoundEngine = {
     if (this.ctx && this.masterGain) {
       try {
         this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
-        if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+        this.wake();
       } catch (e) {}
     }
     hooks.syncAudioUI();

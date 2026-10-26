@@ -1,12 +1,12 @@
 ---
 id: 0212
 title: Sound comes back after a phone call, Siri or a tab switch (AudioContext "interrupted")
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: tech-health
 created: 2026-10-26
-pr:
+pr: 166
 ---
 
 ## Why
@@ -25,10 +25,10 @@ state is `'suspended'` or `'interrupted'`. Muting by the player must stay respec
 tiny: main JS is ~57.6/59 kB gz.
 
 ## Acceptance criteria
-- [ ] With the player un-muted, forcing the context to `suspended` or `interrupted` and then firing `visibilitychange` (visible) or a pointerdown brings `ctx.state` back to `running`
-- [ ] With the player muted, neither event resumes the context
-- [ ] No console errors when the context is closed or never created (title before first gesture)
-- [ ] Main JS budget holds
+- [x] With the player un-muted, forcing the context to `suspended` or `interrupted` and then firing `visibilitychange` (visible) or a pointerdown brings `ctx.state` back to `running`
+- [x] With the player muted, neither event resumes the context
+- [x] No console errors when the context is closed or never created (title before first gesture)
+- [x] Main JS budget holds
 
 ## Test plan
 Unit test around a fake context object (state, `resume`, `statechange`) for both branches;
