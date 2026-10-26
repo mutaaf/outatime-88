@@ -111,9 +111,15 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
 // GameState.carBox (drawPlayerCar, canvas pixels), sampled over a few frames as the attract
 // driver weaves; the offline pill is forced on (service workers are blocked in e2e).
 const RETURNING_SAVE = { onboarded: true, bestScore: 42000, fluxCoins: 600, endless: { bestDistance: 3880, bestTier: 2, runs: 6 } };
-for (const vp of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 1920, height: 1080 }]) {
-  for (const first of [false, true]) {
-    test(`title text stays off the hero car at ${vp.width}x${vp.height} (${first ? 'first visit' : 'returning'})`, async ({ page }, info) => {
+// 1366x657 is a 1366x768 laptop's browser window; the challenge case adds a friend's banner above PLAY.
+const HERO_CASES = [];
+for (const vp of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 1920, height: 1080 }, { width: 1366, height: 657 }]) {
+  for (const first of [false, true]) HERO_CASES.push({ vp, first, challenge: false });
+}
+HERO_CASES.push({ vp: { width: 1280, height: 720 }, first: false, challenge: true });
+for (const { vp, first, challenge } of HERO_CASES) {
+  {
+    test(`title text stays off the hero car at ${vp.width}x${vp.height} (${first ? 'first visit' : 'returning'}${challenge ? ', challenge banner' : ''})`, async ({ page }, info) => {
       const problems = watchPage(page);
       await page.setViewportSize(vp);
       if (!first) await page.addInitScript((s) => localStorage.setItem('outatime_cruisn_88_save_v2', s), JSON.stringify(RETURNING_SAVE));
@@ -121,6 +127,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }, { 
       await page.waitForFunction(() => window.__OT && window.__OT.home());
       await expect(page.locator(first ? '.home-pitch li' : '#homeHooks .home-hook').first()).toBeVisible();
       await page.evaluate(() => { const p = document.getElementById('offlinePill'); p.textContent = '✈️ READY FOR OFFLINE'; p.classList.remove('hidden'); });
+      if (challenge) await page.evaluate(() => { document.getElementById('challengeText').textContent = 'BEAT ACE · 1:23.4'; document.getElementById('challengeTrack').textContent = 'NEON STRIP'; document.getElementById('challengeBanner').classList.remove('hidden'); });
       await page.waitForTimeout(2400); // the cards' and the pitch's entrance animations settle
       const car = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
       for (let i = 0; i < 6; i++) {
@@ -150,7 +157,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }, { 
       const play = await page.locator('#btnStartRace').boundingBox();
       for (const b of boxes.filter((b) => b.id !== 'btnStartRace' && !/wordmark/.test(b.id))) expect((b.x1 - b.x0) * (b.y1 - b.y0), b.id).toBeLessThan(play.width * play.height);
       expect(await page.evaluate(() => document.scrollingElement.scrollHeight <= innerHeight && document.scrollingElement.scrollWidth <= innerWidth)).toBe(true);
-      await info.attach(`title-hero-${vp.width}x${vp.height}${first ? '-first' : ''}`, { body: await page.screenshot(), contentType: 'image/png' });
+      await info.attach(`title-hero-${vp.width}x${vp.height}${first ? '-first' : ''}${challenge ? '-challenge' : ''}`, { body: await page.screenshot(), contentType: 'image/png' });
       expect(problems).toEqual([]);
     });
   }

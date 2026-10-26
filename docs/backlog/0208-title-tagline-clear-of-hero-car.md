@@ -35,8 +35,10 @@ New title art, copy changes, the daily-challenge billboard.
 
 ## Shipped
 At ≥ 900 px wide, ≥ 600 px tall and wider than 5:4 (desktops, tablets on their side): PLAY sits
-right under the racer chip, RACE FRIENDS and VIEW share one row, the hook cards (or the pitch, as a
+right under the racer chip with RACE FRIENDS and VIEW on its row either side of it, the hook cards (or the pitch, as a
 left-right zigzag) sit in two columns either side of a 40vw hole over the car, above the corner
 icons, and the offline pill sits at the bottom edge between the icon groups. Phones are unchanged.
-`title.spec.js` checks every title box against `GameState.carBox` at 1280x720, 1024x768 and
-1920x1080, for a first visit and a returning player.
+`title.spec.js` checks every title box against `GameState.carBox` at 1280x720, 1024x768,
+1920x1080 and 1366x657 (a 1366x768 laptop's window), for a first visit and a returning player,
+plus 1280x720 with a challenge banner. Still open: shorter windows with a challenge banner
+(e.g. 1366x657) push PLAY onto the car's roof.
