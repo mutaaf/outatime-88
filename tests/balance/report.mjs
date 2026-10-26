@@ -127,31 +127,40 @@ function campaignTable(label) {
   return lines.join('\n') + '\n';
 }
 
-/** Rubber band (0196): the gap at the flag with the band on and off, clean races only. */
+/** Rubber band (0196): the gap at the flag with the band on and off, clean races only; one table per bot. */
 function bandTable(label) {
-  const ps = loadBand(label);
-  if (!ps.length) return '';
-  const lines = [`#### ${label}: rubber band, ${ps[0].skill} bot (${ps[0].races.length} seeded races per level, each raced with the band on and off)`, '',
-    'Gap = the first rival\'s finish minus yours (+ = you won by that much). Clean = no traffic or obstacle hits.', '',
-    '| level | clean races on / off | gap band on: min / median | gap band off: min / median | median the band costs | wins on / off (all races) |', '|---|---|---|---|---|---|'];
-  for (let lv = 0; lv < WORLD_LEVELS.length; lv++) {
-    const rs = ps.filter((p) => p.level === lv).flatMap((p) => p.races);
-    if (!rs.length) continue;
-    const clean = (k) => rs.map((r) => r[k]).filter((x) => x && !x.hits).map((x) => x.gap);
-    const on = clean('on'), off = clean('off');
-    const both = rs.filter((r) => r.on && r.off && !r.on.hits && !r.off.hits).map((r) => r.off.gap - r.on.gap);
-    const wins = (k) => rs.filter((r) => r[k] && r[k].position === 1).length;
-    const s = (xs) => (xs.length ? `${fmt(Math.min(...xs), 2)} / ${fmt(q(xs, 0.5), 2)} s` : '–');
-    lines.push(`| ${lv + 1} ${WORLD_LEVELS[lv].id} | ${on.length} / ${off.length} | ${s(on)} | ${s(off)} | ${both.length ? fmt(q(both, 0.5), 2) + ' s' : '–'} | ${wins('on')} / ${wins('off')} of ${rs.length} |`);
+  const all = loadBand(label);
+  const out = [];
+  for (const skill of SKILLS) {
+    const ps = all.filter((p) => p.skill === skill);
+    if (!ps.length) continue;
+    const lines = [`#### ${label}: rubber band, ${skill} bot (${ps[0].races.length} seeded races per level, each raced with the band on and off)`, '',
+      'Gap = the first rival\'s finish minus yours (+ = you won by that much). Clean = no traffic or obstacle hits. "Band costs" = gap off − gap on,',
+      'which includes your own run-to-run spread; "rivals gain" = how much sooner the first rival finishes with the band on (the band alone).', '',
+      '| level | clean races on / off | gap band on: min / median | gap band off: min / median | band costs: median / max | rivals gain: median / max | wins on / off (all races) | DNF |', '|---|---|---|---|---|---|---|---|'];
+    for (let lv = 0; lv < WORLD_LEVELS.length; lv++) {
+      const rs = ps.filter((p) => p.level === lv).flatMap((p) => p.races);
+      if (!rs.length) continue;
+      const ok = (x) => x && !x.dnf && !x.hits;
+      const on = rs.map((r) => r.on).filter(ok).map((x) => x.gap), off = rs.map((r) => r.off).filter(ok).map((x) => x.gap);
+      const pairs = rs.filter((r) => ok(r.on) && ok(r.off));
+      const cost = pairs.map((r) => r.off.gap - r.on.gap), gain = pairs.map((r) => r.off.first - r.on.first);
+      const wins = (k) => rs.filter((r) => r[k] && r[k].position === 1).length;
+      const dnf = rs.filter((r) => (r.on && r.on.dnf) || (r.off && r.off.dnf)).length;
+      const s = (xs) => (xs.length ? `${fmt(Math.min(...xs), 2)} / ${fmt(q(xs, 0.5), 2)} s` : '–');
+      const m = (xs) => (xs.length ? `${fmt(q(xs, 0.5), 2)} / ${fmt(Math.max(...xs), 2)} s` : '–');
+      lines.push(`| ${lv + 1} ${WORLD_LEVELS[lv].id} | ${on.length} / ${off.length} | ${s(on)} | ${s(off)} | ${m(cost)} | ${m(gain)} | ${wins('on')} / ${wins('off')} of ${rs.length} | ${dnf} |`);
+    }
+    out.push(lines.join('\n') + '\n');
   }
-  return lines.join('\n') + '\n';
+  return out.join('\n');
 }
 
 const sums = labels.map((l) => [l, summarize(load(l))]);
 for (const [l, s] of sums) if (Object.keys(s).length) console.log(table(l, s));
 for (const l of labels) console.log(campaignTable(l));
 for (const l of labels) console.log(bandTable(l));
-if (sums.length === 2) {
+if (sums.length === 2 && Object.keys(sums[0][1]).length && Object.keys(sums[1][1]).length) {
   const [[la, a], [lb, b]] = sums;
   console.log([`#### ${la} → ${lb}`, '', '| bot | median survival | 1st run median | tier median | pts/s | coins/min | net coins/run |', '|---|---|---|---|---|---|---|'].join('\n'));
   for (const k of SKILLS) {

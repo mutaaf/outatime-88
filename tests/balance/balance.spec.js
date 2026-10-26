@@ -198,9 +198,10 @@ for (const skill of CAMPAIGN ? SKILLS : []) {
 }
 
 // Rubber band (ticket 0196): BAL_MODE=band races every level with the same seed twice, the
-// rival band on and then off (src/rival-ai.js AI.band, switched through the page's own copy
-// of the lazy chunk), and records the gap at the flag: the first rival's finish (projected at
-// its pace when it is still running) minus yours, so + means you won by that many seconds.
+// rival band on and off (src/rival-ai.js AI.band, switched through the page's own copy of the
+// lazy chunk; which goes first alternates per race), and records the gap at the flag: the first
+// rival's finish (projected at its pace when it is still running) minus yours, so + means you
+// won by that many seconds. A race that never reaches the flag is recorded as { dnf: true }.
 const BAND = env('BAL_MODE', '') === 'band';
 for (const skill of BAND ? env('BAL_SKILLS', 'expert').split(',') : []) {
   for (let lv = 0; lv < LEVELS; lv++) {
@@ -215,9 +216,10 @@ for (const skill of BAND ? env('BAL_SKILLS', 'expert').split(',') : []) {
       // r = -1 is a warm-up race, not recorded: a page's first race runs slower and
       // messier (seen on every level), which would land on the band-on side of the pair.
       for (let r = -1; r < RACES; r++) {
-        const seed = (SEED * 4241 + SKILLS.indexOf(skill) * 131 + lv * 17 + r) | 0;
+        // Seeded from the fixed bot list, so BAL_SKILLS=expert replays the default run exactly.
+        const seed = (SEED * 4241 + ['novice', 'casual', 'good', 'expert'].indexOf(skill) * 131 + lv * 17 + r) | 0;
         const pair = {};
-        for (const band of [true, false]) {
+        for (const band of (r & 1 ? [false, true] : [true, false])) {
           await page.evaluate(async ({ skill, seed, lv, band }) => {
             const OT = window.__OT, B = window.__balanceBot, G = OT.GameState;
             const url = performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\/rival-ai-[\w-]+\.js$/.test(n));
@@ -248,7 +250,7 @@ for (const skill of BAND ? env('BAL_SKILLS', 'expert').split(',') : []) {
             const done = await page.evaluate(() => { window.__OT.sim(1200, window.__race.tick); return window.__race.flag || window.__OT.GameState.status !== 'PLAYING'; });
             if (done) break;
           }
-          pair[band ? 'on' : 'off'] = await page.evaluate(() => window.__race.flag);
+          pair[band ? 'on' : 'off'] = await page.evaluate(() => window.__race.flag || { dnf: true });
         }
         if (r >= 0) races.push({ seed, ...pair });
       }
