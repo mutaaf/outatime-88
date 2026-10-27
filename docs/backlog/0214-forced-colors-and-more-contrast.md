@@ -1,7 +1,7 @@
 ---
 id: 0214
 title: Windows High Contrast (forced-colors) and "more contrast" keep every menu and button readable
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: accessibility
@@ -27,11 +27,11 @@ glows/gradients are dropped with `forced-color-adjust` left at its default. The 
 untouched. No JS, no new hosts.
 
 ## Acceptance criteria
-- [ ] With Playwright `forcedColors: 'active'`, the title, pause, settings and garage controls each have a non-zero computed border and text not equal to the background
-- [ ] A selected toggle (VIEW 2D/3D, a settings choice) is distinguishable from an unselected one with colours removed (marker or outline, not only fill)
-- [ ] The visible focus ring survives forced colours
-- [ ] Default rendering (no media feature) is pixel-identical at 390x844 and 1280x720
-- [ ] No main-bundle growth beyond the CSS bytes; gzip delta stated in the PR
+- [x] With Playwright `forcedColors: 'active'`, the title, pause, settings and garage controls each have a non-zero computed border and text not equal to the background
+- [x] A selected toggle (VIEW 2D/3D, a settings choice) is distinguishable from an unselected one with colours removed (marker or outline, not only fill)
+- [x] The visible focus ring survives forced colours
+- [x] Default rendering (no media feature) is pixel-identical at 390x844 and 1280x720
+- [x] No main-bundle growth beyond the CSS bytes; gzip delta stated in the PR
 
 ## Test plan
 New `tests/e2e/forced-colors.spec.js`: launch contexts with `forcedColors: 'active'` and
