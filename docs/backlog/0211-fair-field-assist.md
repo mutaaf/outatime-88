@@ -1,7 +1,7 @@
 ---
 id: 0211
 title: "Fair field" setting softens rival catch-up
-status: proposed
+status: ready
 priority: P2
 size: M
 lens: player-feel
