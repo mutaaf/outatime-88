@@ -13,6 +13,17 @@ import { APP, watchPage, racing } from './helpers.js';
 /** Touch controls allowed under 44 px, with the reason. Keep it short; fix before adding here. */
 const TOUCH_EXCEPTIONS = {};
 
+/** Controls each screen must show, so the audit can never pass on a screen it failed to reach
+ *  or on controls it could not hit (a coach card or a lazy chunk may add more). */
+const MUST = {
+  title: ['btnOpenSettings', 'btnOpenGarageFromTitle'],
+  settings: ['setTiltSens', 'setMaster', 'setVoice', 'btnSettingsDone'],
+  garage: ['btnCloseGarage', 'btnGaragePrimary'],
+  'race HUD': ['btnSteerMode'],
+  pause: ['btnResumeFromGarage'],
+  results: ['btnPlayAgain', 'btnOpenGarageFromEnd', 'btnSelectLevelFromEnd'],
+};
+
 const homeReady = (page) => page.waitForFunction(() => document.querySelector('#homeHooks')?.childElementCount > 0);
 
 /** Every visible, hittable control: { id, w, h, x, y } (its hit box in viewport px). */
@@ -37,7 +48,7 @@ const targets = (page) => page.evaluate(() => {
     while (y0 > r.top - reach && hits(el, cx, y0 - 1)) y0--;
     while (y1 < r.bottom + reach && hits(el, cx, y1 + 1)) y1++;
     const label = el.id || el.getAttribute('aria-label') || el.textContent.trim().slice(0, 24) || el.className;
-    out.push({ id: `${el.tagName.toLowerCase()} ${label}`, x: x0 - 0.5, y: y0 - 0.5, w: x1 - x0 + 1, h: y1 - y0 + 1 });
+    out.push({ el: el.id, id: `${el.tagName.toLowerCase()} ${label}`, x: x0 - 0.5, y: y0 - 0.5, w: x1 - x0 + 1, h: y1 - y0 + 1 });
   }
   return out;
 });
@@ -89,13 +100,14 @@ test('mouse at 1280x720: every control is 24x24 or spaced like one', async ({ pa
   const problems = watchPage(page);
   await walk(page, async (screen) => {
     const list = await targets(page);
-    expect(list.length, `${screen}: controls found`).toBeGreaterThan(3);
+    expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST[screen]));
     expect(pointerFails(list), `${screen}: undersized controls`).toEqual([]);
   });
   expect(problems).toEqual([]);
 });
 
-for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+// 360x640: the narrowest common Android size, where the steering pill drops its name.
+for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 360, height: 640 }]) {
   test.describe(`touch ${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport, hasTouch: true, isMobile: true });
 
@@ -104,7 +116,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
       const problems = watchPage(page);
       await walk(page, async (screen) => {
         const list = await targets(page);
-        expect(list.length, `${screen}: controls found`).toBeGreaterThan(3);
+        expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST[screen]));
         expect(touchFails(list), `${screen}: controls under 44 px`).toEqual([]);
       });
       expect(problems).toEqual([]);

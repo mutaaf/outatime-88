@@ -476,6 +476,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   .hud-lap { letter-spacing: 0.04em; }
   .hud-card { padding-left: 6px; padding-right: 6px; }
   .hud-steer b { display: none; } /* the mode's icon stays; its name is in the button's label */
+  .hud-steer::after { left: -9px; right: -9px; } /* 0210: the icon-only pill still takes a 44px tap */
 }
 /* Short landscape screens (phones on their side): one slim row. */
 @media (max-height: 520px) and (orientation: landscape) {

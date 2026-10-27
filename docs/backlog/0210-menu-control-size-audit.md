@@ -36,11 +36,15 @@ New `tests/e2e/target-size.spec.js` walking the screens above and asserting boxe
 ## Shipped
 `tests/e2e/target-size.spec.js` measures each control's real hit box (elementFromPoint walked out
 from its centre, so a `::after` hit area counts and a covered control is skipped) on the title,
-Settings, garage, race HUD, pause and results; mouse uses the SC 2.5.8 spacing exception, touch has
-an empty exception list. Offenders fixed: the Settings sliders (32 → 44 px box, the track looks the
-same), the steering-mode pill (a `::after` hit area to 45 px, the pill unchanged) and the results
+Settings, garage, race HUD, pause and results (asserting each screen's key controls were measured); mouse uses the SC 2.5.8 spacing exception, touch has
+an empty exception list (390x844, 844x390, 360x640). Offenders fixed: the Settings sliders (32 → 44 px box, the track looks the
+same), the steering-mode pill (a `::after` hit area of 47 px, wider on phones under 375 px where it is icon-only; the pill unchanged) and the results
 GARAGE / LEVELS links on landscape phones (the 32 px override removed). The desktop NEXT CAR chip
 (23.5 px tall) passes under the spacing exception. Title and HUD layouts are unchanged.
 
 ## Out of scope
 Redesigning menus; the in-race touch pads (already covered).
+
+Known trade-off: on landscape phones the pill's hit area reaches ~10 px below the HUD header, the
+top edge of the lefty preset's floating-stick zone. Growing the header to cover it would shift
+the HUD (criterion 4), so a touch in that sliver goes to the pill.
