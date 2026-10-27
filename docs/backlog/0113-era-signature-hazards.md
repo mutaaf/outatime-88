@@ -1,7 +1,7 @@
 ---
 id: 0113
 title: One signature roadside hazard per era, built on the knockable-prop physics
-status: proposed
+status: ready
 priority: P2
 size: M
 lens: content
