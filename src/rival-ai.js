@@ -147,6 +147,7 @@ export function cornerMph(curve, bank, grip, share) {
 export function createAiWorld() {
   return {
     tier: 0, time: 0, speedToWorld: 125,
+    band: 1,        // rubber-band scale this race (GameState.catchUp, ticket 0211)
     curvatureAt: () => 0, // road curve at Z in segment `curve` units (+ bends right)
     bankAt: () => 0, featureAt: () => null, lineAt: () => 0,
     cars: [],       // every car on the road that drives (rivals + the player proxy), any order
@@ -185,9 +186,10 @@ export function stepRival(r, b, w, lead, dt) {
   else {
     // Rubber band, capped and fair: a rival far behind pushes; one far ahead eases off, less
     // so as the tier rises (a top-tier leader doesn't wait for you). The nemesis stays close.
+    // w.band scales both ways (Settings → RIVALS, src/fair-field.js; 1 = the close pack).
     const near = b.nemesis ? 0.5 : 1;
-    if (lead < -220 * near) cruise += AI.band.push * Math.min(1, (-lead - 220 * near) / 500);
-    else if (lead > 350 * near) cruise -= AI.band.ease * (1 - 0.7 * w.tier) * Math.min(1, (lead - 350 * near) / 450);
+    if (lead < -220 * near) cruise += w.band * AI.band.push * Math.min(1, (-lead - 220 * near) / 500);
+    else if (lead > 350 * near) cruise -= w.band * AI.band.ease * (1 - 0.7 * w.tier) * Math.min(1, (lead - 350 * near) / 450);
   }
 
   // Corners: probe ahead; the speed it may carry now so it can brake down to each bend in time.
@@ -443,6 +445,7 @@ export function fillWorld(w, field, playerZ, road, g, s2w) {
   w.time = g.raceTime;
   w.speedToWorld = s2w;
   w.tier = aiTier({ difficulty: g.difficulty, level: g.levelIndex, wave: g.waveTier });
+  w.band = g.catchUp || 1;
   w.curvatureAt = road.curvatureAt; w.bankAt = road.bankAt; w.featureAt = road.featureAt;
   if (lineRef !== road.line) { lineRef = road.line; lineAt = lineRef ? (z) => lineRef.centreAt(z) : zeroLine; }
   w.lineAt = lineAt;

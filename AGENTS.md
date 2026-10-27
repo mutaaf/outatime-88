@@ -165,6 +165,9 @@ src/era-hazards.js  Era signature hazards (0113), pure, race-step chunk only: on
                       body, HUD label; cone penalty, never HP). eraSpill() swaps some planProps patterns for the era's
                       spill on the far side of the line, rolled by a seed hash (the race RNG is untouched); 2D art is
                       src/scenes/era-props.js in the lazy stage chunk, 3D a coloured block (meshes.js ERA_PROP_3D)
+src/fair-field.js   "Fair field" (0211), pure, race-flow chunk only: Settings → RIVALS scales the rubber band (FAIR_FIELD
+                      0.4, close pack 1); race start sets GameState.catchUp (1 in rooms and dailies), read by rival-ai
+                      fillWorld (w.band) and raceflow rivalTargetMph (the fallback driver)
 src/powerups.js     Runner power-ups (0177): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
                       Road placement is pickups.js powerupAt (track.power = Endless tier, 0 off)
 src/popups.js       Floating pickup / score labels (0114), pure layout: above the car's roofline (GameState.carBox from

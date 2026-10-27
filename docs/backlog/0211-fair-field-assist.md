@@ -1,7 +1,7 @@
 ---
 id: 0211
 title: "Fair field" setting softens rival catch-up
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: player-feel
@@ -24,10 +24,10 @@ to about 40%). Stored under `SaveStore.data.settings` with a default. Pure scale
 ignored in rooms and dailies.
 
 ## Acceptance criteria
-- [ ] Default save yields today's exact pace values (old saves unchanged)
-- [ ] FAIR FIELD reduces the catch-up term by the documented factor, with unit tests on the pure function
-- [ ] Ignored in live rooms and the daily challenge (test asserts)
-- [ ] Keyboard-reachable and 44 px on touch; no new hosts
+- [x] Default save yields today's exact pace values (old saves unchanged)
+- [x] FAIR FIELD reduces the catch-up term by the documented factor, with unit tests on the pure function
+- [x] Ignored in live rooms and the daily challenge (test asserts)
+- [x] Keyboard-reachable and 44 px on touch; no new hosts
 
 ## Test plan
 Unit on raceflow pace with both modes; settings normalise test with an old-shape save; e2e
@@ -35,3 +35,13 @@ toggle persists across reload.
 
 ## Out of scope
 Per-rival difficulty, new AI behaviours. Depends on 0196 (fairness test) landing first.
+
+## Shipped
+Settings → RACE → RIVALS: CLOSE PACK / FAIR FIELD (`settings.rivals`, default `pack`). The pure
+scale lives in `src/fair-field.js` (`FAIR_FIELD = 0.4`, `catchUpScale`), not `src/raceflow.js`:
+raceflow ships in the startup bundle, which has ~120 bytes left, so the rule sits in the lazy
+race-flow chunk and main only grew 3 bytes. Race start sets `GameState.catchUp`; the rival AI
+(`fillWorld` → `w.band`, which scales both the push and the ease-off in `stepRival`) and the
+fallback driver (`rivalTargetMph(pace, lead, k)`) read it. Rooms and dailies always get 1. The
+setting takes effect from the next race. Tests: tests/unit/fair-field.test.js,
+tests/e2e/fair-field.spec.js.
