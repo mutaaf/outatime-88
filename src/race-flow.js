@@ -323,7 +323,7 @@ export function startNewRace(opts) {
   if (endlessSolo()) for (const m of GameState.missions) m.reward = Math.max(10, Math.round((m.reward * ENDLESS.cash) / 5) * 5);
   GameState.trafficGapScale = 1;
   // Settings → RIVALS (0211): how hard the rubber band pulls this race; rooms and dailies ignore it.
-  GameState.catchUp = catchUpScale(SaveStore.data.settings && SaveStore.data.settings.rivals, GameState);
+  GameState.catchUp = catchUpScale(SaveStore.data.settings && SaveStore.data.settings.rivals, { mode: liveRace ? 'LIVE' : GameState.mode, daily });
 
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
 

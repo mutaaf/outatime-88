@@ -78,6 +78,25 @@ describe('rival AI rubber band (rival-ai stepRival)', () => {
     }
   });
 
+  it('a rival behind chases on NOS from 300 back on the close pack, only from 750 back on a fair field', () => {
+    /** Does a rival with a full-enough tank fire NOS on a straight, `lead` ahead of you? */
+    function nos(lead, band) {
+      const w = createAiWorld();
+      w.curvatureAt = () => 0; w.bankAt = () => 0; w.featureAt = () => null; w.lineAt = () => 0;
+      w.band = band;
+      const b = createBrain(driverProfile('DRAG KING', 3), { seed: 3, pace: 80, carP: { gripMult: 1, accelMult: 1, topMphBonus: 0 } });
+      b.nosTank = 0.6; // above the chase threshold, below the "tank nearly full" trigger
+      const r = { worldZ: 1000, offset: 0, vx: 0, mph: 80, halfW: 0.14, halfL: 115, progress: 0, finishTime: null, takenDown: false };
+      w.cars.push(r);
+      stepRival(r, b, w, lead, DT);
+      return b.nosOn;
+    }
+    expect(nos(-500, 1)).toBe(true);
+    expect(nos(-500, FAIR_FIELD)).toBe(false);
+    expect(nos(-1000, FAIR_FIELD)).toBe(true);
+    expect(nos(-200, 1)).toBe(false);
+  });
+
   it('fillWorld takes the race catch-up from GameState, defaulting to 1', () => {
     const w = createAiWorld();
     const field = { racers: [], traffic: [], drawObstacles: [] };

@@ -252,7 +252,7 @@ export function stepRival(r, b, w, lead, dt) {
   let nosWant = needNos;
   if (!nosWant && r.finishTime == null && straight && b.nosTank > 0.25) {
     nosWant = (attacking && craft > 0.35) || (defending && craft > 0.5) ||
-      (lead < -300 && craft > 0.3) || (b.nosTank > 0.92 && limit === Infinity);
+      (lead * w.band < -300 && craft > 0.3) || (b.nosTank > 0.92 && limit === Infinity);
   }
   if (b.nosOn) { if (!nosWant && b.nosTank < 0.9 && !straight) b.nosOn = false; }
   else if (nosWant && b.nosTank > 0.2) { b.nosOn = true; b.stats.nos++; }
