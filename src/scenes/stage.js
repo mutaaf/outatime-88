@@ -183,3 +183,4 @@ export function hazard(ctx, ow, baseY, roadW, rw, rh) {
 }
 export function shadow(ctx, x, y, w) { contactShadow(ctx, x, y, w); return true; }
 export { drawTags as tags };
+export { drawEraProp as eraProp } from './era-props.js';
