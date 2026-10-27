@@ -919,13 +919,14 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
    (✓, an underline, the switch knob's side), and focus is a Highlight outline. CSS only; the
    default look is untouched. */
 @media (forced-colors: active) {
-  button, select, summary, [role="button"], [role="tab"], [role="switch"] { border: 1px solid ButtonText !important; }
+  /* Colour and style only: a width stays where a rule set one (a 2px "selected" edge keeps its weight). */
+  button, select, summary, [role="button"], [role="tab"], [role="switch"] { border: 1px solid ButtonText; border-style: solid !important; border-color: ButtonText !important; }
   :focus-visible { outline: 3px solid Highlight !important; outline-offset: 2px !important; }
   /* Selected: Highlight fill, opted out of the text backplate (it would paint Canvas behind HighlightText). */
   :is(.seg button[aria-pressed="true"], .steer-picker button[aria-pressed="true"], .key-btn[aria-pressed="true"],
     .board-tab[aria-selected="true"], .racer-chip.on, .live-chip.on, .live-hot.on, .tc-seg button.on, .tc-presets button.on,
     .tc-editbar button[aria-pressed="true"], .garage-thumb.is-view, .title-tilt[aria-pressed="true"] b,
-    .title-view[aria-pressed="false"] .v2, .title-view[aria-pressed="true"] .v3) { forced-color-adjust: none; background: Highlight; color: HighlightText; box-shadow: none; }
+    .title-view[aria-pressed="false"] .v2, .title-view[aria-pressed="true"] .v3) { forced-color-adjust: none; background: Highlight; color: HighlightText !important; box-shadow: none; }
   :is(.seg button[aria-pressed="true"], .steer-picker button[aria-pressed="true"], .board-tab[aria-selected="true"], .racer-chip.on,
     .live-chip.on, .live-hot.on, .tc-seg button.on, .tc-presets button.on, .garage-thumb.is-view) :not(.thumb-swatch) { color: inherit !important; }
   .title-view[aria-pressed="false"] .v2, .title-view[aria-pressed="true"] .v3, .title-tilt[aria-pressed="true"] b { text-decoration: underline 2px; }
@@ -933,15 +934,17 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
   .switch i { background: ButtonText; }
   .switch[aria-checked="true"] { background: Highlight; }
   .switch[aria-checked="true"] i { background: HighlightText; }
-  /* A paint or a car colour is content, not decoration: keep it, and ring the chosen one. */
+  /* A paint or a car colour is content, not decoration: keep it, and ring the chosen one. Bars and
+     pips are data. garage.css loads after this file and wins ties, hence !important. */
   .paint-swatch, .thumb-swatch { forced-color-adjust: none; }
-  .paint-swatch.is-on { outline: 3px solid Highlight; }
+  .paint-swatch.is-on { outline: 3px solid Highlight !important; }
   .tier-pips span { border: 1px solid CanvasText; }
-  .tier-pips span.on, .spec-base { background: CanvasText; }
-  .spec-up { background: Highlight; }
+  .tier-pips span.on, .spec-base { background: CanvasText !important; }
+  .spec-up { background: Highlight !important; }
 }
 @media (prefers-contrast: more) {
-  * { text-shadow: none !important; }
+  /* No glow: a hard dark edge instead, which keeps text over the road readable. */
+  * { text-shadow: 0 1px 0 #000 !important; }
   .board-tab, .seg button, .set-btn, .steer-picker button, .garage-thumb, .racer-chip, .live-chip, .title-view, .title-tilt,
   .tc-seg button, .tc-presets button { border-width: 2px; }
 }
@@ -949,4 +952,8 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
   .seg button[aria-pressed="true"]::before, .steer-picker button[aria-pressed="true"]::before, .board-tab[aria-selected="true"]::before,
   .racer-chip.on::before, .live-chip.on::before, .tc-seg button.on::before, .tc-presets button.on::before,
   .tc-editbar button[aria-pressed="true"]::before, .garage-thumb.is-view::before { content: '✓ '; }
+  /* Stacked (column) cards: the ✓ sits in the corner rather than adding a row. */
+  .garage-thumb.is-view, .steer-picker button[aria-pressed="true"], .tc-seg button.on, .tc-presets button.on { position: relative; }
+  .garage-thumb.is-view::before, .steer-picker button[aria-pressed="true"]::before, .tc-seg button.on::before,
+  .tc-presets button.on::before { position: absolute; top: 2px; left: 5px; font-size: 10px; line-height: 1; }
 }
