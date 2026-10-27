@@ -1,12 +1,13 @@
 // 2D art for the era signature hazards (ticket 0113, rules in src/era-hazards.js). Drawn by
 // src/render/sprites.js through the backdrop shim, already translated to the prop's centre and
-// rotated with it; the road is at y ≈ oh·0.45. Flat fills only, nothing allocated per call.
+// rotated with it; the road is at y ≈ oh·0.45. Art stays inside the sprite's seen box
+// (±0.55·ow, up to 1.7·oh above the anchor) so billboard fading (0203) treats it as traffic. Flat fills only, nothing allocated per call.
 
 const B = 0.45; // ground line, in oh
 
 function sign(ctx, ow, oh) {
   // A sidewalk A-frame menu board, blown off the kerb: dark frame, cyan neon chalk lines.
-  const h = oh * 1.9;
+  const h = oh * 1.6;
   ctx.fillStyle = '#1f2937';
   ctx.beginPath();
   ctx.moveTo(-ow * 0.42, oh * B); ctx.lineTo(-ow * 0.24, oh * B - h); ctx.lineTo(ow * 0.24, oh * B - h); ctx.lineTo(ow * 0.42, oh * B);
@@ -57,15 +58,15 @@ function drone(ctx, ow, oh) {
   ctx.fillStyle = '#64748b';
   ctx.fillRect(-ow * 0.2, y - oh * 0.2, ow * 0.4, oh * 0.4);
   ctx.fillStyle = '#e2e8f0';
-  ctx.fillRect(-ow * 0.56, y - oh * 0.22, ow * 0.24, Math.max(1.5, oh * 0.06));
-  ctx.fillRect(ow * 0.32, y - oh * 0.04, ow * 0.24, Math.max(1.5, oh * 0.06));
+  ctx.fillRect(-ow * 0.52, y - oh * 0.22, ow * 0.22, Math.max(1.5, oh * 0.06));
+  ctx.fillRect(ow * 0.3, y - oh * 0.04, ow * 0.22, Math.max(1.5, oh * 0.06));
   ctx.fillStyle = '#f43f5e';
   ctx.fillRect(-ow * 0.05, y - oh * 0.1, ow * 0.1, oh * 0.1);
 }
 
 function pylon(ctx, ow, oh) {
   // A light-barrier pylon knocked loose: dark post, magenta light bar, glowing cap.
-  const h = oh * 2.1;
+  const h = oh * 1.5;
   ctx.fillStyle = '#1e1b4b';
   ctx.fillRect(-ow * 0.2, oh * B - h, ow * 0.4, h);
   ctx.fillStyle = '#f0abfc';
@@ -91,7 +92,7 @@ function crate(ctx, ow, oh) {
 
 function shard(ctx, ow, oh) {
   // A chunk of comet ice on the glass road: a pale crystal with a bright face.
-  const h = oh * 1.7;
+  const h = oh * 1.6;
   ctx.fillStyle = '#7dd3fc';
   ctx.beginPath();
   ctx.moveTo(-ow * 0.4, oh * B); ctx.lineTo(-ow * 0.22, oh * B - h * 0.7); ctx.lineTo(ow * 0.04, oh * B - h);

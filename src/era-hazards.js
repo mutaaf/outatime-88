@@ -6,18 +6,19 @@
 // 2D art is src/scenes/era-props.js in the lazy stage chunk).
 
 /**
- * One hazard per era id. `rate` is the share of prop patterns that become this era's spill.
- * Body numbers match src/materials.js (kg, lane units, world Z); `penalty` is always the cone
- * table the server already recomputes (src/scoring.js), `label` is the HUD's hit line.
+ * One hazard per era id. Body numbers match src/materials.js (kg, lane units, world Z); a hit is
+ * always the cone penalty the server already recomputes (src/scoring.js), `label` is the HUD's
+ * hit line. Where and how often a spill lands is the same in every era (SPILL): players warp at
+ * different moments, so a daily or a live room must not place props by the era you are in.
  */
 export const ERA_HAZARDS = {
-  2026: { kind: 'SIDEWALK_SIGN', rate: 0.35, label: 'SIGN HIT', massKg: 9, restitution: 0.4, friction: 2.4, halfW: 0.05, height: 22, halfL: 26 },
-  1985: { kind: 'SHOPPING_CART', rate: 0.35, label: 'CART HIT', massKg: 22, restitution: 0.5, friction: 1.4, halfW: 0.055, height: 20, halfL: 40 },
-  1885: { kind: 'TUMBLEWEED', rate: 0.4, label: 'TUMBLEWEED', massKg: 2, restitution: 0.6, friction: 1.2, halfW: 0.05, height: 18, halfL: 30 },
-  2015: { kind: 'DRONE_WRECK', rate: 0.35, label: 'DRONE HIT', massKg: 6, restitution: 0.45, friction: 2.0, halfW: 0.05, height: 12, halfL: 30 },
-  2088: { kind: 'LIGHT_PYLON', rate: 0.35, label: 'PYLON HIT', massKg: 14, restitution: 0.5, friction: 2.2, halfW: 0.04, height: 26, halfL: 24 },
-  1955: { kind: 'MILK_CRATE', rate: 0.35, label: 'CRATE HIT', massKg: 11, restitution: 0.35, friction: 2.6, halfW: 0.05, height: 16, halfL: 30 },
-  2061: { kind: 'ICE_SHARD', rate: 0.35, label: 'ICE HIT', massKg: 5, restitution: 0.55, friction: 0.8, halfW: 0.045, height: 20, halfL: 28 },
+  2026: { kind: 'SIDEWALK_SIGN', label: 'SIGN HIT', massKg: 9, restitution: 0.4, friction: 2.4, halfW: 0.05, height: 22, halfL: 26 },
+  1985: { kind: 'SHOPPING_CART', label: 'CART HIT', massKg: 22, restitution: 0.5, friction: 1.4, halfW: 0.055, height: 20, halfL: 40 },
+  1885: { kind: 'TUMBLEWEED', label: 'TUMBLEWEED', massKg: 2, restitution: 0.6, friction: 1.2, halfW: 0.05, height: 18, halfL: 30 },
+  2015: { kind: 'DRONE_WRECK', label: 'DRONE HIT', massKg: 6, restitution: 0.45, friction: 2.0, halfW: 0.05, height: 12, halfL: 30 },
+  2088: { kind: 'LIGHT_PYLON', label: 'PYLON HIT', massKg: 14, restitution: 0.5, friction: 2.2, halfW: 0.04, height: 26, halfL: 24 },
+  1955: { kind: 'MILK_CRATE', label: 'CRATE HIT', massKg: 11, restitution: 0.35, friction: 2.6, halfW: 0.05, height: 16, halfL: 30 },
+  2061: { kind: 'ICE_SHARD', label: 'ICE HIT', massKg: 5, restitution: 0.55, friction: 0.8, halfW: 0.045, height: 20, halfL: 28 },
 };
 
 const BY_KIND = {};
@@ -29,6 +30,9 @@ export const eraHazard = (era) => (era && ERA_HAZARDS[era.id]) || null;
 export const eraHazardKind = (kind) => BY_KIND[kind] || null;
 
 export const SPILL = {
+  rate: 0.35,   // share of prop patterns that become the era's spill
+  halfW: 0.055, // the widest and longest era prop: every era clears the line with the same footprint
+  halfL: 40,
   lead: 1800,   // the spill sits this far past its pattern: ≥ 1 s of warning at 120 mph on TURBO
   rows: [[0, 0.62], [170, 0.44], [340, 0.56]], // [dz, |offset| on the side away from the line]
 };
@@ -45,20 +49,20 @@ function unit(seed, k) {
  * The era spill for a prop pattern the planner just made (src/cleanline.js planProps), or null
  * to keep that pattern. `line` is the race's racing line, `blocked(z0, z1)` the set-piece test.
  * Same seed, same pattern, same era → same spill, so dailies stay identical for everyone.
- * `force` skips the roll (tests). Returns [{ type, z, offset }] (every item clear of the line).
+ * Placement never depends on `hz` beyond its kind. `force` skips the roll (tests). Returns [{ type, z, offset }] (every item clear of the line).
  */
 export function eraSpill(line, plan, hz, blocked, force = false) {
   if (!hz || !plan.items.length) return null;
   const z = plan.items[0].z + SPILL.lead;
   if (z + 600 > plan.nextZ) return null;
-  if (!force && unit(line.seed, Math.floor(z / 100)) >= hz.rate) return null;
+  if (!force && unit(line.seed, Math.floor(z / 100)) >= SPILL.rate) return null;
   if (blocked && blocked(z - 600, z + 1000)) return null;
   const far = line.centreAt(z) >= 0 ? -1 : 1;
   const items = [];
   for (let k = 0; k < SPILL.rows.length; k++) {
     const zz = z + SPILL.rows[k][0];
     const o = far * SPILL.rows[k][1];
-    if (line.isClear(zz, o, hz.halfW, hz.halfL)) items.push({ type: hz.kind, z: zz, offset: o });
+    if (line.isClear(zz, o, SPILL.halfW, SPILL.halfL)) items.push({ type: hz.kind, z: zz, offset: o });
   }
   return items.length ? items : null;
 }

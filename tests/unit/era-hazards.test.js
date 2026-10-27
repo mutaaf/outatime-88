@@ -6,7 +6,7 @@ import { ERAS, PACE_MODES } from '../../src/data.js';
 import { MATERIALS } from '../../src/materials.js';
 import { createLine, createHazardPlanner } from '../../src/cleanline.js';
 import { mulberry32 } from '../../src/daily.js';
-import { ERA_HAZARDS, eraHazard, eraHazardKind, eraSpill, eraBody } from '../../src/era-hazards.js';
+import { ERA_HAZARDS, eraHazard, eraHazardKind, eraSpill, eraBody, SPILL } from '../../src/era-hazards.js';
 
 /** Plan a race's prop patterns the way LiveTraffic.spawnProps does; returns every placement. */
 function runProps(seed, era, { level = 0, wave = 1, ahead = 9000, length = 400000, force = false } = {}) {
@@ -32,8 +32,9 @@ describe('era signature hazards (0113)', () => {
     for (const era of ERAS) {
       const hz = eraHazard(era);
       expect(hz, era.id).toBeTruthy();
-      expect(hz.rate).toBeGreaterThan(0);
-      expect(hz.rate).toBeLessThan(0.5); // most patterns stay cones and barrels
+      // the shared footprint covers every kind, so the line check is the same in every era
+      expect(hz.halfW).toBeLessThanOrEqual(SPILL.halfW);
+      expect(hz.halfL).toBeLessThanOrEqual(SPILL.halfL);
       expect(hz.label.length).toBeLessThanOrEqual(12);
       // lighter than a barrel and never a solid block: you swat it, it doesn't stop you
       expect(hz.massKg).toBeLessThan(MATERIALS.OIL_BARREL.massKg);
@@ -73,8 +74,17 @@ describe('era signature hazards (0113)', () => {
       for (const p of out) { const key = p.spawnedAt; zs.add(key); if (p.era) sp.add(key); }
       patterns += zs.size; spills += sp.size;
     }
-    expect(spills / patterns).toBeGreaterThan(ERA_HAZARDS[2026].rate - 0.12);
-    expect(spills / patterns).toBeLessThan(ERA_HAZARDS[2026].rate + 0.12);
+    expect(SPILL.rate).toBeLessThan(0.5); // most patterns stay cones and barrels
+    expect(spills / patterns).toBeGreaterThan(SPILL.rate - 0.12);
+    expect(spills / patterns).toBeLessThan(SPILL.rate + 0.12);
+  });
+
+  it('places the same spills in every era: a warp at a different moment never moves a prop', () => {
+    for (let seed = 1; seed <= 25; seed++) {
+      const where = (era) => runProps(seed, era, { level: seed % 6 }).out.map((p) => `${p.era ? 'S' : p.type}@${p.z}:${p.offset}`);
+      const first = where(ERAS[0]);
+      for (const era of ERAS.slice(1)) expect(where(era), `seed ${seed} ${era.id}`).toEqual(first);
+    }
   });
 
   it('never draws from the race RNG: traffic and every other pattern stay as they were', () => {

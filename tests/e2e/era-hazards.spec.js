@@ -1,5 +1,5 @@
 // Era signature hazards (ticket 0113): each era spills its own knockable prop. In two eras,
-// the spill lands on the far side of the racing line, is drawn without errors in 2D, and a hit
+// the spill lands on the far side of the racing line, the race draws on without errors, and a hit
 // swats it aside for a cone-scale penalty under the era's own label, never HP.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage, racing, nextFrames } from './helpers.js';
@@ -43,7 +43,8 @@ for (const era of ERAS) {
     await page.waitForFunction(() => window.__OT.GameState.speed > 40, null, { timeout: 15000 });
     const before = await page.evaluate((kind) => {
       const T = window.__OT.traffic(); const G = window.__OT.GameState;
-      const z = (G.visualPlayerZ || G.trackPos + 1250) + 900;
+      // Close ahead, so no rival or traffic car can knock it first (debris never costs points).
+      const z = (G.visualPlayerZ || G.trackPos + 1250) + 320;
       T.spawnPropItems([{ type: kind, z, offset: G.playerX }]);
       T.rebuildBodyLists();
       window.__prop = T.props.live.find((b) => b.type === kind && b.worldZ === z);

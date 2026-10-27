@@ -2042,7 +2042,7 @@ export const LiveTrafficMethods = {
       this.props.spawn(hz ? eraBody(opts, hz) : opts);
     }
   },
-  /** Test hook (?debug): the current era's spill on the pattern at z, without the roll. */
+  /** Test hook (e2e through ?debug's __OT): the current era's spill on the pattern at z, without the roll. */
   spawnEraSpill(z) {
     const items = eraSpill(this.planner.line, { items: [{ z }], nextZ: Infinity }, eraHazard(ERAS[GameState.eraIndex]), null, true);
     if (items) this.spawnPropItems(items);
