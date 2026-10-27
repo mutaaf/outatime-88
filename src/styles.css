@@ -267,7 +267,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .set-status { font-size: 12px; line-height: 1.35; color: #cbd5e1; min-height: 1.35em; }
 .set-status[data-status="on"] { color: #6ee7b7; }
 .set-status[data-status="denied"], .set-status[data-status="unsupported"], .set-status[data-status="nosignal"] { color: #fda4af; }
-.set-range { width: min(58%, 260px); height: 32px; accent-color: #22d3ee; cursor: pointer; }
+.set-range { width: min(58%, 260px); height: 44px; accent-color: #22d3ee; cursor: pointer; } /* 0210: a 44px touch target in the 48px row */
 .set-btn { min-height: 44px; padding: 0 14px; border-radius: 12px; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800;
   color: #fde68a; background: rgba(245, 158, 11, 0.16); border: 1px solid rgba(251, 191, 36, 0.6); }
 #btnEditControls.hidden { display: none; }
@@ -426,6 +426,10 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-steer { display: inline-flex; align-items: center; gap: 3px; min-height: 26px; padding: 2px 8px; border-radius: 9999px; white-space: nowrap;
   font: 800 clamp(8px, 1.2vmin, 11px)/1 Orbitron, sans-serif; letter-spacing: 0.06em; color: #a5f3fc;
   background: rgba(2, 6, 23, 0.85); border: 1.5px solid rgba(34, 211, 238, 0.45); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+/* 0210: a 44px tap target without a bigger pill. The hit area reaches 3.5px up (inside the 4px
+   gap under the gear) and 15.5px down (inset counts from inside the 1.5px border). */
+.hud-steer { position: relative; }
+.hud-steer::after { content: ''; position: absolute; inset: -5px -2px -17px; }
 .hud-steer span { font-size: 1.25em; line-height: 1; }
 .hud-steer i { font-style: normal; font-size: 1.2em; }
 .hud-steer[data-assist="auto"] { border-color: #f472b6; color: #fbcfe8; }
@@ -813,7 +817,6 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
   .end-share-text small { display: none; }
   .end-board { margin-top: 4px; padding: 3px 6px; }
   .end-actions-2 { margin-top: 0; }
-  .end-link { min-height: 32px; }
   .end-stats small { font-size: 7px; }
 }
 @media (max-height: 700px) and (orientation: portrait) {
