@@ -81,3 +81,14 @@ touch/bridge.js 1
 
 No larger gaps were found, so there are no follow-up tickets. Music is out of scope
 (captions for the score are a separate question).
+
+## High contrast (ticket 0214)
+
+Windows High Contrast (`forced-colors: active`) drops our fills, gradients and glows. The block
+at the end of `src/styles.css` gives every button, chip, toggle and tab a `ButtonText` edge, marks
+a selected choice with a `Highlight` fill **and** a marker (a ✓ before the label, an underline on
+the VIEW 2D/3D half, the switch knob's side), and draws focus as a 3px `Highlight` outline. Paint
+and car-colour swatches opt out (`forced-color-adjust: none`): their colour is the content.
+`prefers-contrast: more` thickens the edges, swaps text glow for a hard dark edge (text over the road stays readable) and adds the same ✓; on stacked cards the ✓ sits in the corner. A selected
+style that only changes the fill must be added to the `:is(...)` lists there.
+Guarded by `tests/e2e/forced-colors.spec.js` (title, Settings, garage, pause).
