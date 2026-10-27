@@ -87,3 +87,90 @@ for (const [width, height] of SIZES) {
     expect(problems).toEqual([]);
   });
 }
+
+// Ticket 0209: a pack fight on the strip. Three rivals at one spot and a fourth right on top of
+// YOU: every letter stays readable (no two boxes overlap), YOU stays at its exact spot, and the
+// markers still read in race order left to right, inside the strip and clear of the HUD.
+for (const [width, height] of [[1280, 720], [390, 844], [320, 568]]) {
+  test(`a pack on the strip fans out instead of stacking at ${width}x${height}`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize({ width, height });
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+    await racing(page, { minTime: 0.5 });
+    await simWait(page, 1);
+
+    // Pin the rivals for one sim step, then let the frame loop run so the HUD repaints: racers
+    // 0–2 together a few metres ahead of you, racer 3 exactly where you are. A few frames of
+    // driving move them a few metres, far less than one marker's width (~2% of the race).
+    await page.evaluate(() => {
+      window.__pinPack = () => window.__OT.sim(1, () => {
+        const T = window.__OT.traffic(), G = window.__OT.GameState, s = T.speedToWorld(), r = T.racers;
+        const you = r[0].worldZ - (r[0].progress - G.distance) * s; // your track Z
+        for (let i = 0; i < 4; i++) r[i].worldZ = r[i].prevZ = you + (i < 3 ? 6 * s : 0);
+      });
+    });
+    const read = () => page.evaluate(() => {
+      const T = window.__OT.traffic(), G = window.__OT.GameState;
+      const layer = document.getElementById('hudDots').getBoundingClientRect();
+      const marks = [...document.querySelectorAll('#hudDots .hud-dot:not(.hud-dot-ghost)')].map((n) => {
+        const r = n.getBoundingClientRect();
+        return { who: n.title, you: n.classList.contains('hud-dot-you'), x: r.x, y: r.y, width: r.width, height: r.height, cx: r.x + r.width / 2 };
+      });
+      return {
+        marks,
+        order: T.fieldEntries.map((e) => (e.isPlayer ? 'You' : e.short)),
+        progress: T.fieldEntries.map((e) => e.progress),
+        youX: layer.x + layer.width * Math.max(0, Math.min(1, G.distance / G.raceLength)),
+      };
+    });
+    const overlapping = (marks) => {
+      const out = [];
+      for (let i = 0; i < marks.length; i++) for (let j = i + 1; j < marks.length; j++) {
+        if (intersects(marks[i], marks[j])) out.push(`${marks[i].who}/${marks[j].who}`);
+      }
+      return out;
+    };
+    // Sizes reach the placer through a ResizeObserver, and the HUD repaints at most every 50 ms:
+    // keep pinning until the pack has fanned out.
+    await page.waitForFunction(async () => {
+      window.__pinPack();
+      window.__OT.release();
+      const frame = () => new Promise((ok) => requestAnimationFrame(ok));
+      const t0 = performance.now();
+      for (let i = 0; i < 3 || performance.now() - t0 < 120; i++) await frame();
+      const boxes = [...document.querySelectorAll('#hudDots .hud-dot:not(.hud-dot-ghost)')].map((n) => n.getBoundingClientRect());
+      const apart = boxes.every((a, i) => boxes.every((b, j) => j <= i || !(a.x < b.right && b.x < a.right)));
+      if (apart) window.__OT.pause(); // hold the field (and the painted HUD) still right away
+      return apart;
+    }, null, { polling: 100, timeout: 15_000 });
+    const s = await read();
+
+    // The pack really is a pack: four rivals within a marker's width of you (~2% of the race, ~100 m;
+    // on a starved runner the rivals pull a few metres clear between the pin and the pause).
+    const you = s.order.indexOf('You');
+    const near = s.progress.filter((p, i) => i !== you && Math.abs(p - s.progress[you]) < 40);
+    expect(near.length).toBeGreaterThanOrEqual(4);
+    expect(overlapping(s.marks)).toEqual([]);
+    const youMark = s.marks.find((m) => m.you);
+    expect(Math.abs(youMark.cx - s.youX)).toBeLessThanOrEqual(1.5);
+    // Race order still reads left to right (leader rightmost). Cars within a few metres of each
+    // other may have swapped since the HUD's last paint.
+    const cx = s.order.map((who) => s.marks.find((m) => m.who === who).cx);
+    for (let i = 1; i < cx.length; i++) {
+      if (s.progress[i - 1] - s.progress[i] > 3) expect(cx[i], `${s.order[i]} left of ${s.order[i - 1]}`).toBeLessThan(cx[i - 1]);
+    }
+    const track = await page.locator('#hudTrack').boundingBox();
+    for (const m of s.marks) {
+      expect(m.x).toBeGreaterThanOrEqual(track.x - 1);
+      expect(m.x + m.width).toBeLessThanOrEqual(track.x + track.width + 1);
+    }
+    for (const sel of HUD_PANELS.filter((q) => q !== '#hudTrack')) {
+      const other = await page.locator(sel).boundingBox();
+      if (!other) continue;
+      for (const m of s.marks) expect(intersects(m, other), `${m.who} vs ${sel}`).toBeFalsy();
+    }
+    await page.screenshot({ path: test.info().outputPath(`pack-${width}x${height}.png`) });
+    expect(problems).toEqual([]);
+  });
+}

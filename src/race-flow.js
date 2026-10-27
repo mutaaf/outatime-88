@@ -15,7 +15,7 @@ import { createFair, fairPayload } from './fairplay.js';
 import { wakeFrame } from './slipstream.js';
 import { playHint } from './play-hints.js';
 import { createPlaceCall } from './place-call.js';
-import { stripMarks } from './strip-marks.js';
+import { stripMarks, createStripFan } from './strip-marks.js';
 import {
   endlessSolo, nearMisses, cashAcc, earnCash, resetRunner, steerWheel, resetNos, showForkCue,
   ghostRecorder
@@ -125,7 +125,7 @@ export function updateRaceHud(force) {
   const now = performance.now();
   if (!force && now < hudNextAt) return;
   hudNextAt = now + 50;
-  if (!raceHud) raceHud = createHud(document, stripMarks);
+  if (!raceHud) raceHud = createHud(document, stripMarks, createStripFan());
   hudView.position = GameState.racePosition;
   hudView.total = GameState.totalRacers;
   hudView.progress = GameState.distance;
