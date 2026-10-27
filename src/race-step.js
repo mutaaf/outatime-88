@@ -1622,7 +1622,7 @@ export const LiveTrafficMethods = {
       }
       // Fallback driver: race pace with a soft rubber band (src/raceflow.js); finished rivals cruise.
       const lead = r.progress - GameState.distance;
-      const targetMph = r.finishTime != null ? 60 : rivalTargetMph(r.pace, lead);
+      const targetMph = r.finishTime != null ? 60 : rivalTargetMph(r.pace, lead, GameState.catchUp);
       r.nosActive = targetMph > r.pace + 5;
       r.mph += (targetMph - r.mph) * Math.min(1, rawDt * 2.5);
       r.driveVz = r.mph * speedToWorld;
