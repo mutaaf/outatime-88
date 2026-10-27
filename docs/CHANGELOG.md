@@ -136,3 +136,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-26 · 0205 · A fast near-miss chain now shows one score plate that keeps growing (running total, latest multiplier, a small pop), and never more than two plates over the road at once
 2026-10-26 · 0206 · Playing on mute: a near-miss on traffic now shows a 🚗 NEAR MISS plate with its points, and every sound that tells you something is listed with what you see instead (docs/ACCESSIBILITY.md)
 2026-10-26 · 0208 · On a computer or a tablet on its side, the title no longer lays text over your car: PLAY sits higher with RACE FRIENDS and VIEW side by side, the cards (or the first-visit pitch) flank the car, and the offline badge moves to the bottom edge
+2026-10-27 · 0209 · In a pack fight the track strip spreads the markers apart in race order, so every rival's letter and your YOU tag stay readable instead of stacking on top of each other

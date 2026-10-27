@@ -248,6 +248,8 @@ src/sharelink.js    Challenge links (?track=&beat=&by=), share copy — pure
 src/share-ui.js     Share button/sheet, challenge banner (lazy chunk)
 src/share.js        Share card renderer, native share / copy / save (lazy chunk); scripts/make-og.mjs → public/og.jpg
 src/hud.js          Race HUD writer (change-only DOM writes) + hudRects() for no-overlap checks
+src/strip-marks.js  Track strip, lazy (race-flow chunk): stripMarks() letters (0167) and fanOut()/createStripFan(), which spread a
+                      pack sideways in race order, YOU fixed, sizes from a ResizeObserver (0209)
 src/live/           Live races, a lazy chunk (loaded on RACE FRIENDS or a ?room= link):
                       controller.js (menu/lobby/countdown/results UI + race glue via hooks)
                       net.js (room socket, reconnect, clock sync) · ghosts.js (interpolation)

@@ -1,0 +1,107 @@
+// Ticket 0209: a pack of strip markers fans out sideways instead of stacking.
+import { describe, it, expect } from 'vitest';
+import { fanOut } from '../../src/strip-marks.js';
+
+const GAP = 2;
+/** Lays out markers (leader first) on a strip [lo, hi]; returns placed centres. */
+const lay = (x, w, you, lo = 0, hi = 300) => fanOut(x, w, x.length, you, lo, hi, GAP, []);
+const boxes = (c, w) => c.map((v, i) => [v - w[i] / 2, v + w[i] / 2]);
+const overlaps = (c, w) => {
+  const b = boxes(c, w);
+  const hits = [];
+  for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) {
+    if (b[i][0] < b[j][1] - 1e-9 && b[j][0] < b[i][1] - 1e-9) hits.push([i, j]);
+  }
+  return hits;
+};
+/** Leader first means centres never increase down the list (the race order reads left to right). */
+const ordered = (c) => c.every((v, i) => i === 0 || v <= c[i - 1] + 1e-9);
+
+describe('strip markers fan out instead of stacking (ticket 0209)', () => {
+  it('evenly spaced markers keep their exact spots', () => {
+    const x = [250, 200, 150, 100, 50];
+    const w = [16, 16, 36, 16, 16];
+    expect(lay(x, w, 2)).toEqual(x);
+  });
+
+  it('a tight pack ahead of YOU spreads right, in race order, YOU unmoved', () => {
+    const x = [101, 100.5, 100, 60];
+    const w = [16, 16, 16, 36];
+    const c = lay(x, w, 3);
+    expect(c[3]).toBe(60);
+    expect(overlaps(c, w)).toEqual([]);
+    expect(ordered(c)).toBe(true);
+  });
+
+  it('identical progress for the whole field: every box apart, YOU at its spot', () => {
+    for (let you = 0; you < 7; you++) {
+      const x = Array(7).fill(150);
+      const w = x.map((_, i) => (i === you ? 36 : 16));
+      const c = lay(x, w, you);
+      expect(c[you]).toBe(150);
+      expect(overlaps(c, w)).toEqual([]);
+      expect(ordered(c)).toBe(true);
+    }
+  });
+
+  it('rivals on top of YOU move off it; the car ahead goes right, the car behind left', () => {
+    const x = [120, 120, 120];
+    const w = [16, 36, 16];
+    const c = lay(x, w, 1);
+    expect(c[1]).toBe(120);
+    expect(c[0]).toBeGreaterThan(120);
+    expect(c[2]).toBeLessThan(120);
+    expect(overlaps(c, w)).toEqual([]);
+  });
+
+  it('a pack against an end packs back towards YOU and stays inside the strip', () => {
+    // three rivals finished (clamped to the flag), YOU a little behind
+    const x = [300, 300, 300, 240];
+    const w = [16, 18, 16, 36];
+    const c = lay(x, w, 3, -19, 319);
+    expect(overlaps(c, w)).toEqual([]);
+    for (let i = 0; i < c.length; i++) expect(c[i] + w[i] / 2).toBeLessThanOrEqual(319 + 1e-9);
+    // the grid: everyone at the start line, YOU starting last
+    const gw = [16, 16, 16, 16, 16, 36];
+    const g = lay([0, 0, 0, 0, 0, 0], gw, 5, -19, 319);
+    expect(g[5]).toBe(0);
+    expect(overlaps(g, gw)).toEqual([]);
+    expect(ordered(g)).toBe(true);
+    // no room left behind YOU at the start line: those cars stay on their side, under YOU, never ahead of it
+    const s = lay([0, 0, 0], [16, 36, 16], 1, -19, 319);
+    expect(s[2]).toBeLessThanOrEqual(0);
+    expect(s[2] - 8).toBeGreaterThanOrEqual(-19);
+  });
+
+  it('random fields of up to 7: no overlaps whenever the strip has room, YOU never moves, order kept', () => {
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let t = 0; t < 3000; t++) {
+      const n = 2 + Math.floor(rnd() * 6);
+      const W = 120 + rnd() * 900;
+      const x = Array.from({ length: n }, () => (rnd() < 0.5 ? W * rnd() : W * (0.4 + rnd() * 0.05))).sort((a, b) => b - a);
+      const you = Math.floor(rnd() * n);
+      const w = x.map((_, i) => (i === you ? 36 : 14 + rnd() * 12));
+      const inset = 19;
+      const c = lay(x, w, you, -inset, W + inset);
+      expect(c[you]).toBe(x[you]);
+      expect(ordered(c)).toBe(true);
+      // Room: the cars ahead fit between YOU and the flag end, the cars behind between the start and YOU.
+      let ahead = 0, behind = 0;
+      for (let i = 0; i < you; i++) ahead += w[i] + GAP;
+      for (let i = you + 1; i < n; i++) behind += w[i] + GAP;
+      const room = W + inset - (x[you] + w[you] / 2) >= ahead && (x[you] - w[you] / 2) - (-inset) >= behind;
+      if (room) expect(overlaps(c, w)).toEqual([]);
+      for (let i = 0; i < n; i++) {
+        if (i === you) continue;
+        expect(c[i] - w[i] / 2).toBeGreaterThanOrEqual(-inset - 1e-9);
+        expect(c[i] + w[i] / 2).toBeLessThanOrEqual(W + inset + 1e-9);
+      }
+    }
+  });
+
+  it('reuses the output array (no per-frame allocation)', () => {
+    const out = [];
+    expect(fanOut([10, 10], [16, 16], 2, 1, 0, 100, GAP, out)).toBe(out);
+  });
+});
