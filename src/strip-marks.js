@@ -45,6 +45,8 @@ export function fanOut(x, w, n, you, lo, hi, gap, out) {
  * ResizeObserver, so the HUD still never reads layout; until they arrive (or with no strip on
  * screen) markers sit at their exact spots. Writes `left` only when it changes.
  */
+const DEADBAND = 2; // metres
+
 export function createStripFan(gap = 2) {
   const size = new WeakMap(); // node -> border-box width
   const x = [], w = [], out = [];
@@ -69,27 +71,46 @@ export function createStripFan(gap = 2) {
       if (d) { size.set(d.node, 0); ro.observe(d.node); }
     }
   }
+  const ents = [], ord = [];
   return function place(field, dots, el) {
-    let n = 0, you = -1, fresh = false;
+    let m = 0, me = -1, fresh = false;
     for (const e of field) {
       const d = dots.get(e.id);
       if (!d) continue;
       if (!size.has(d.node)) fresh = true;
-      if (e.isPlayer) you = n;
-      x[n] = d.frac * dotsW;
-      w[n] = size.get(d.node) || 0;
-      n++;
+      if (e.isPlayer) me = m;
+      ents[m] = e;
+      m++;
     }
     if (el && (fresh || el !== layer) && typeof ResizeObserver === 'function') { layer = el; observe(field, dots); }
+    // Which side of YOU each rival fans to. A car level with you keeps its side until it is
+    // DEADBAND metres past you, so a side-by-side duel doesn't throw its marker across the YOU tag
+    // on every swap. Order: the cars ahead (standings order), YOU, the cars behind.
+    let n = 0, you = -1;
+    const pYou = me >= 0 ? ents[me].progress : 0;
+    for (let pass = 1; pass >= -1; pass--) {
+      for (let i = 0; i < m; i++) {
+        const d = dots.get(ents[i].id);
+        let side = 0;
+        if (i !== me) {
+          side = me < 0 || i < me ? 1 : -1;
+          if (d.side && me >= 0 && Math.abs(ents[i].progress - pYou) < DEADBAND) side = d.side;
+          d.side = side;
+        }
+        if (side !== pass) continue;
+        if (side === 0) you = n;
+        ord[n] = d;
+        x[n] = d.frac * dotsW;
+        w[n] = size.get(d.node) || 0;
+        n++;
+      }
+    }
     // The layer is inset in the track by half the YOU tag (0167): a box may use that margin.
     const inset = Math.max(0, (trackW - dotsW) / 2);
     if (dotsW > 0) fanOut(x, w, n, you, -inset, dotsW + inset, gap, out);
-    let k = 0;
-    for (const e of field) {
-      const d = dots.get(e.id);
-      if (!d) continue;
+    for (let k = 0; k < n; k++) {
+      const d = ord[k];
       const left = Math.round((dotsW > 0 ? out[k] / dotsW : d.frac) * 1000) / 10;
-      k++;
       if (left !== d.left) { d.left = left; d.node.style.left = `${left}%`; }
     }
   };

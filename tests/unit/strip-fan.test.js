@@ -1,6 +1,6 @@
 // Ticket 0209: a pack of strip markers fans out sideways instead of stacking.
-import { describe, it, expect } from 'vitest';
-import { fanOut } from '../../src/strip-marks.js';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { fanOut, createStripFan } from '../../src/strip-marks.js';
 
 const GAP = 2;
 /** Lays out markers (leader first) on a strip [lo, hi]; returns placed centres. */
@@ -103,5 +103,75 @@ describe('strip markers fan out instead of stacking (ticket 0209)', () => {
   it('reuses the output array (no per-frame allocation)', () => {
     const out = [];
     expect(fanOut([10, 10], [16, 16], 2, 1, 0, 100, GAP, out)).toBe(out);
+  });
+});
+
+describe('createStripFan: the race HUD placer (ticket 0209)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** A fake ResizeObserver the test fires by hand, and a strip 400 px wide inside a 440 px track. */
+  function setup() {
+    let fire = null;
+    const watched = new Set();
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb) { fire = () => cb([...watched].map((t) => ({ target: t, contentRect: { width: t.w }, borderBoxSize: [{ inlineSize: t.w }] }))); }
+      observe(t) { watched.add(t); }
+      disconnect() { watched.clear(); }
+    });
+    const writes = { n: 0 };
+    const node = (w) => {
+      const style = new Proxy({}, { set(o, k, v) { writes.n++; o[k] = v; return true; } });
+      return { w, style };
+    };
+    const track = { w: 440 };
+    const layer = { w: 400, parentNode: track };
+    const field = [
+      { id: 'a', progress: 101 }, { id: 'b', progress: 100.5 }, { id: 'YOU', progress: 100, isPlayer: true }, { id: 'c', progress: 99 },
+    ];
+    const dots = new Map(field.map((e) => [e.id, { node: node(e.isPlayer ? 36 : 16), frac: 0.5, left: -1 }]));
+    return { fire: () => fire(), writes, layer, field, dots, place: createStripFan() };
+  }
+  const lefts = (dots) => [...dots.values()].map((d) => d.left);
+
+  it('sits markers at their exact spots until sizes arrive, then fans the pack, writing only on change', () => {
+    const t = setup();
+    t.place(t.field, t.dots, t.layer);
+    expect(lefts(t.dots)).toEqual([50, 50, 50, 50]);
+    t.fire();
+    t.place(t.field, t.dots, t.layer);
+    const [a, b, you, c] = lefts(t.dots);
+    expect(you).toBe(50);
+    expect(b).toBeGreaterThan(you);
+    expect(a).toBeGreaterThan(b);
+    expect(c).toBeLessThan(you);
+    // b's box (16 px) clears YOU's (36 px) at 400 px: centres at least 26 px apart
+    expect(((b - you) / 100) * 400).toBeGreaterThanOrEqual(26);
+    const n = t.writes.n;
+    t.place(t.field, t.dots, t.layer);
+    expect(t.writes.n).toBe(n); // nothing moved, nothing written
+  });
+
+  it('a rival level with you keeps its side through a swap inside the deadband', () => {
+    const t = setup();
+    t.place(t.field, t.dots, t.layer);
+    t.fire();
+    t.place(t.field, t.dots, t.layer);
+    const before = t.dots.get('b').left;
+    // b drops 0.5 m behind you: the standings swap, the marker stays right of YOU
+    t.field[1].progress = 99.5;
+    [t.field[1], t.field[2]] = [t.field[2], t.field[1]];
+    t.place(t.field, t.dots, t.layer);
+    expect(t.dots.get('b').left).toBe(before);
+    // 3 m behind: past the deadband, it goes to YOU's left
+    t.field[2].progress = 97;
+    t.place(t.field, t.dots, t.layer);
+    expect(t.dots.get('b').left).toBeLessThan(50);
+  });
+
+  it('without ResizeObserver (or a hidden strip) every marker keeps its exact spot', () => {
+    const place = createStripFan();
+    const d = { node: { style: {} }, frac: 0.25, left: -1 };
+    place([{ id: 'YOU', progress: 0, isPlayer: true }], new Map([['YOU', d]]), {});
+    expect(d.left).toBe(25);
   });
 });

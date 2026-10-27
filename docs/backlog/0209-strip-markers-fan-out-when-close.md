@@ -34,8 +34,10 @@ boxes touch, so a pack reads in race order with every letter showing. A marker c
 neighbours keeps its exact spot; a pack against the flag or the start line packs back towards
 YOU inside the strip. With no room left on one side (YOU a car-length from the flag while three
 rivals have finished), those markers stay on their side of YOU, under its tag, never ahead of
-it in the wrong order. Marker widths reach it through a ResizeObserver, so the HUD still never
-reads layout.
+it in the wrong order. A rival level with you keeps its side of YOU until it is 2 m past you,
+so a side-by-side duel doesn't throw its marker across the YOU tag on every swap (self-review).
+Marker widths reach it through a ResizeObserver, so the HUD still never reads layout. Not
+covered: the 👻 ghost marker (src/ghost.js) still sits at its exact spot over the strip.
 
 ## Acceptance criteria
 - [x] A pure function lays out every marker; no two boxes overlap for any set of up to 7 progress values whenever the strip has room for them on their side of YOU (unit: identical progress for the whole field with YOU at every rank, the grid, a pack at the flag, 3000 random fields)
