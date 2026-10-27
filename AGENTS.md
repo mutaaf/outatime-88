@@ -161,6 +161,10 @@ src/hazards.js      Endless hazards (0186): pure rules — run-ending road hazar
                       crumbling lanes, train, missing guardrail, storm lightning), fuel, NOS heat, stall, the Patrol,
                       checkpoints, deaths by cause (save.endless.hz). Lazy, with src/hazard-run.js (glue, loaded by main after
                       the race step; the race step calls step/reset/onContinue/noteEnd through RS.hz) and src/hazard-art.js (2D art + HUD)
+src/era-hazards.js  Era signature hazards (0113), pure, race-step chunk only: one knockable prop per era id (kind, rate,
+                      body, HUD label; cone penalty, never HP). eraSpill() swaps some planProps patterns for the era's
+                      spill on the far side of the line, rolled by a seed hash (the race RNG is untouched); 2D art is
+                      src/scenes/era-props.js in the lazy stage chunk, 3D a coloured block (meshes.js ERA_PROP_3D)
 src/powerups.js     Runner power-ups (0177): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
                       Road placement is pickups.js powerupAt (track.power = Endless tier, 0 off)
 src/popups.js       Floating pickup / score labels (0114), pure layout: above the car's roofline (GameState.carBox from

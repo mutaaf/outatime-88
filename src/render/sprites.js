@@ -4,7 +4,7 @@ import { GameState } from '../state.js';
 import { ROAD_CFG } from '../data.js';
 import { PICKUPS } from '../pickups.js';
 import { drawBoard, seen, noteSeen } from '../billboards.js';
-import { drawRoadsideProp, drawHazardArt, drawSoftShadow, queueTag, flushTags } from '../backdrop.js';
+import { drawRoadsideProp, drawHazardArt, drawEraProp, drawSoftShadow, queueTag, flushTags } from '../backdrop.js';
 import { RS, LiveTraffic, live, carArt, pickupArt, hzArt } from '../main.js';
 import { road } from './road.js';
 import { thrustState } from './player.js';
@@ -163,6 +163,9 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
         ctx.fillRect(-ow * 0.4, oh * 0.45 - bh * 0.32, ow * 0.8, Math.max(2, bh * 0.1));
         ctx.fillStyle = '#93c5fd';
         ctx.fillRect(-ow * 0.4, oh * 0.45 - bh, ow * 0.8, Math.max(1.5, bh * 0.06));
+      } else if (ob.knockable) {
+        // An era's signature prop (0113): its art is in the lazy stage chunk; a plain block until then.
+        if (!drawEraProp(ctx, ob.type, ow, oh)) { ctx.fillStyle = '#94a3b8'; ctx.fillRect(-ow * 0.4, -oh * 0.7, ow * 0.8, oh * 1.1); }
       } else if (ob.type === 'PINE_TREE_HAZARD') {
         // A solid hazard (static in physics): the era's own art over the collision box, and the
         // golden close-shave ring you can graze for a boost.

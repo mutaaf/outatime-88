@@ -43,6 +43,7 @@ export function backdropDebug() { return stage ? stage.debug() : null; }
 // the lazy stage is loaded, so the caller can draw its plain fallback.
 export function drawRoadsideProp(ctx, type, x, roadY, w, h, roadW, rw, rh) { return !!stage && stage.prop(ctx, type, x, roadY, w, h, roadW, rw, rh); }
 export function drawHazardArt(ctx, ow, baseY, roadW, rw, rh) { return !!stage && stage.hazard(ctx, ow, baseY, roadW, rw, rh); }
+export function drawEraProp(ctx, type, ow, oh) { return !!stage && stage.eraProp(ctx, type, ow, oh); }
 export function drawSoftShadow(ctx, x, y, w) { return !!stage && stage.shadow(ctx, x, y, w); }
 
 const TAGS = Array.from({ length: 24 }, () => ({ x: 0, y: 0, w: 0, text: '', kind: 0, color: '' }));

@@ -27,6 +27,7 @@ import { createFormationStream } from './formations.js';
 import { createReadyCue } from './warp-cue.js';
 import { foldChain, startChain, chainLabel } from './chain-plate.js';
 import { createProximityCue } from './proximity-cue.js';
+import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
@@ -1987,7 +1988,8 @@ export const LiveTrafficMethods = {
       const lever = pr.offset - GameState.playerX;
       if (Math.abs(lever) >= playerHalfW + pr.halfW) continue;
       if (!(playerBotY < pr.y + pr.height && playerTopY > pr.y)) continue;
-      const mat = materialFor(pr.type);
+      const eraHz = eraHazardKind(pr.type);
+      const mat = eraHz || materialFor(pr.type);
       // Debris knocked out of place by someone else is just debris: it never costs points.
       const debris = isDebris(pr);
       const e = Math.min(mat.restitution + 0.25, 0.8);
@@ -2011,7 +2013,7 @@ export const LiveTrafficMethods = {
       } else if (mat.damage > 0) {
         applyPlayerDamage(mat.damage, 'BARREL HIT');
       } else {
-        chargePenalty(logHit(GameState.penaltyLog, 'cone', mph), 'CONE HIT');
+        chargePenalty(logHit(GameState.penaltyLog, 'cone', mph), eraHz ? eraHz.label : 'CONE HIT');
         SoundEngine.playImpact('cone', 420, 0.05, 0.06);
       }
       GameState.dodgeStreak = 0;
@@ -2027,12 +2029,25 @@ export const LiveTrafficMethods = {
     if (playerZ + 9000 < this.nextPropZ) return;
     // Cone walls, cone gates and barrel huddles built around the racing line (sprint 4).
     const plan = this.planner.planProps(this.nextPropZ, GameState.waveTier || 1);
-    for (let k = 0; k < plan.items.length; k++) {
-      const it = plan.items[k];
-      const body = this.props.spawn(this.obstacleOpts(100 + k, it.type, it.z, it.offset));
-    }
+    // Era signature hazards (0113): some patterns become the era's own spill (same seed, same spill).
+    this.spawnPropItems(eraSpill(this.planner.line, plan, eraHazard(ERAS[GameState.eraIndex]), hasSetPieceBetween) || plan.items);
     this.nextPropZ = plan.nextZ;
     this.rebuildBodyLists();
+  },
+  spawnPropItems(items) {
+    for (let k = 0; k < items.length; k++) {
+      const it = items[k];
+      const opts = this.obstacleOpts(100 + k, it.type, it.z, it.offset);
+      const hz = eraHazardKind(it.type);
+      this.props.spawn(hz ? eraBody(opts, hz) : opts);
+    }
+  },
+  /** Test hook (?debug): the current era's spill on the pattern at z, without the roll. */
+  spawnEraSpill(z) {
+    const items = eraSpill(this.planner.line, { items: [{ z }], nextZ: Infinity }, eraHazard(ERAS[GameState.eraIndex]), null, true);
+    if (items) this.spawnPropItems(items);
+    this.rebuildBodyLists();
+    return items;
   },
   checkSweptOverlapZ(minZA, maxZA, halfLA, minZB, maxZB, halfLB) {
     return (maxZA + halfLA >= minZB - halfLB) && (minZA - halfLA <= maxZB + halfLB);
