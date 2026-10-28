@@ -1,12 +1,12 @@
 ---
 id: 0218
 title: The first warp of a run lands on a short authored stretch before the road goes procedural
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: player-feel
 created: 2026-10-28
-pr:
+pr: 185
 ---
 
 ## Why
@@ -22,14 +22,31 @@ lane), then resume the generator. Deterministic, endless mode and campaign alike
 rooms or the daily (they must match for everyone). Other eras are separate tickets.
 
 ## Acceptance criteria
-- [ ] Unit: the authored segments are continuous with the road before and after (existing `track.test.js` invariants hold)
-- [ ] Unit: inserted once per run, only after the first warp, never when `GameState` is a live room or daily
-- [ ] Every lane stays open: no obstacle placed inside the authored stretch
-- [ ] Screenshots at 1280x720 and 390x844 attached to the PR
-- [ ] Reduced motion adds no flashes; player keeps control throughout
+- [x] Unit: the authored segments are continuous with the road before and after (existing `track.test.js` invariants hold)
+- [x] Unit: inserted once per run, only after the first warp, never when `GameState` is a live room or daily
+- [x] Every lane stays open: no obstacle placed inside the authored stretch
+- [x] Screenshots at 1280x720 and 390x844 attached to the PR
+- [x] Reduced motion adds no flashes; player keeps control throughout
 
 ## Test plan
 `tests/unit/track.test.js` invariants plus an e2e that warps via `__OT` and asserts the stretch length.
 
 ## Out of scope
 Other eras, cutscenes, anything that takes control from the player.
+
+## Notes (builder, 0218)
+- "6 to 8 authored segments" is built as 7 authored road sections (`ARRIVALS[1985].rows` in
+  `src/arrival.js`, 138 ring segments, ~8 s at 88 mph): 8 single 200-unit ring segments would be
+  under half a second at warp speed.
+- The road is built ~225 segments ahead of the car, so the stretch is the first road built after the
+  warp (it arrives roughly 10 to 15 s after the tunnel at 88 mph), not a rewrite of road already on screen.
+- It plays when the run's first warp lands in 1985 (levels 1 and 5); a first warp into another
+  era uses up the run's arrival until those eras get their own stretches.
+- The whole stretch is one `ARRIVAL` feature, so the set-piece rules keep obstacles, props, era
+  spills and Endless hazards off it; the race step also moves an obstacle the planner had put past
+  the old end of the road (where that check can't see the stretch yet). Traffic still drives it,
+  off the racing line as everywhere (parking it would make cars blink out on a straight). No pickups.
+- "Lined with signs" is done with the era's roadside kit (maples and mailboxes in 1985) instead of
+  boards: in 3D the era board is a clock tower, and a row of them right after the 88 mph warp
+  leans on the combination ticket 0189 leaves to the operator; sponsor slots stay as docs/ADS.md
+  documents. Lamps every 8 segments keep the 3D lamp pool (48) from overflowing.

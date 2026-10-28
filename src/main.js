@@ -25,7 +25,7 @@ import { LEVEL_MEDALS, applyRunResult } from './progress.js';
 import { setTrackIntensity, setTrackPowerups, addItem } from './track.js';
 import { createStorm, stepStorm, stormRespite, runnerMult, canContinue, continueCost, CONTINUE } from './runner.js';
 import { difficultyOf, endlessTuning, endlessCash, recordEndless, ENDLESS } from './endless.js';
-import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt, curvatureAt, bankAt } from './track.js';
+import { track, generateNextTrackBiome, addRoadSection, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt, curvatureAt, bankAt } from './track.js';
 import { stepSetPieces } from './setpieces.js';
 import { mainCanvas, resizeCanvases, roadCanvasHeight, getActiveEraRenderConfig } from './render/canvas.js';
 import { renderScene } from './render/scene.js';
@@ -1647,7 +1647,7 @@ function renderRacerPill(p) {
 export const RACE_DEPS = {
   CAR_SPECS, CONTINUE, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, PACE_MODES,
   PICKUP, PICKUPS, POP_CULTURE_ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
-  WORLD_LEVELS, addItem, addNos, applyRunResult, beginRun, boostOutcome, breakdown, canContinue,
+  WORLD_LEVELS, addItem, addNos, addRoadSection, applyRunResult, beginRun, boostOutcome, breakdown, canContinue,
   continueCost, createDrive, createGhostRecorder, createHitStop, createHud, createLateral,
   createNos, createOnboarding, createPenaltyLog, createRaceClock, createSteer, createStorm,
   crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, finishBonus,
