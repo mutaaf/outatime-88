@@ -1,13 +1,15 @@
 ---
 id: 0028
 title: A set piece at 88 — the first warp of a run lands somewhere memorable
-status: proposed
+status: dropped
 priority: P2
 size: L
 lens: player-feel
 created: 2026-10-17
 pr:
 ---
+
+> Dropped 2026-10-28: size L across track, music and every era. Split into 0217 (landing sting) and 0218 (first authored landing stretch); further eras follow as their own tickets.
 
 ## Why
 The time warp is the game's signature moment. Today every warp is the same tunnel flash.
