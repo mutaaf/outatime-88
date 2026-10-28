@@ -1,12 +1,12 @@
 ---
 id: 0216
 title: A "Camera effects" comfort setting separates shake and FOV kick from every other motion
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: accessibility
 created: 2026-10-27
-pr:
+pr: 181
 ---
 
 ## Why

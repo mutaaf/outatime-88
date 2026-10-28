@@ -168,6 +168,9 @@ src/era-hazards.js  Era signature hazards (0113), pure, race-step chunk only: on
 src/fair-field.js   "Fair field" (0211), pure, race-flow chunk only: Settings → RIVALS scales the rubber band (FAIR_FIELD
                       0.4, close pack 1); race start sets GameState.catchUp (1 in rooms and dailies), read by rival-ai
                       fillWorld (w.band) and raceflow rivalTargetMph (the fallback driver)
+src/camera-fx.js    "Camera effects" (0216), pure, settings-panel chunk only: Settings → Camera effects sets GameState.cameraFx
+                      (full 1 / gentle 0.4 / off 0); nosFeel, the 2D hit-shake and the 3D shake/warp kick multiply by it.
+                      Speed lines, flashes and warp colours stay; calm motion still turns all of it off; the sim never reads it
 src/powerups.js     Runner power-ups (0177): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
                       Road placement is pickups.js powerupAt (track.power = Endless tier, 0 off)
 src/popups.js       Floating pickup / score labels (0114), pure layout: above the car's roofline (GameState.carBox from

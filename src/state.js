@@ -132,6 +132,7 @@ export const GameState = {
   lastRightTap: 0,
   // Game feel (ticket 0009/0003/0014)
   reducedMotion: false,
+  cameraFx: 1,            // camera shake / FOV push-in scale from Settings → Camera effects (0216)
   sinceWarp: 99,
   warpFxTimer: 0,
   fxLinesDrawn: 0

@@ -16,6 +16,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   coach: true,            // in-race tip card, first-run steer prompt and touch thumb guide (0201)
   hud: 'normal',          // HUD text size: 'normal' | 'large' (0195; ~1.3x speed, place, gaps and clock)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'
+  cameraFx: 'full',       // camera shake + FOV push-in only (0216, src/camera-fx.js): 'full' | 'gentle' | 'off'
   difficulty: 'normal',   // 'easy' | 'normal' | 'hard'
   rivals: 'pack',         // rival catch-up: 'pack' (close pack) | 'fair' (fair field, 0211; not in rooms/dailies)
   graphics: 'auto',       // 'auto' (device-picked tier, src/perf/) | 'low' | 'medium' | 'high' | 'ultra'
@@ -34,6 +35,7 @@ const CHOICES = {
   motion: ['auto', 'reduce', 'full'], difficulty: Object.keys(DIFFICULTY), graphics: ['auto', 'low', 'medium', 'high', 'ultra'],
   steer: ['', 'keys', 'mouse', 'stick', 'dpad', 'tilt'], assist: ['', 'off', 'assist', 'auto'],
   musicStyle: ['auto', 'synthwave', 'street'], hud: ['normal', 'large'], rivals: ['pack', 'fair'],
+  cameraFx: ['full', 'gentle', 'off'],
 };
 const clamp01 = (v, d) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : d);
 

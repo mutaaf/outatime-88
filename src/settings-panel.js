@@ -7,6 +7,7 @@ import { InputState } from './input.js';
 import { ACTIONS, applyKeys, bindKey, isDefault, keyName } from './keybinds.js';
 import { renderControlsRef } from './controls-ref.js';
 import { tiltStatusText } from './tilt-text.js';
+import { cameraFxScale } from './camera-fx.js';
 
 export { renderControlsRef }; // the garage draws its copy of the card through this chunk (0204)
 /** Both pause sheets' controls cards (0204): the settings pause and the Escape/P garage pause. */
@@ -16,6 +17,9 @@ const $ = (id) => document.getElementById(id);
 
 export function createPanel(ctx) {
   const { settings, save, applyAll, toggleTilt, recenterTilt } = ctx;
+  // Camera effects (0216): applied when this chunk loads (at boot when the save calms them) and on every change.
+  const applyCameraFx = () => { GameState.cameraFx = cameraFxScale(settings().cameraFx); };
+  applyCameraFx();
 
   function syncPanel() {
     const s = settings();
@@ -74,7 +78,7 @@ export function createPanel(ctx) {
       const b = e.target.closest('button[data-value]');
       if (!b) return;
       settings()[seg.dataset.setting] = b.dataset.value;
-      save(); applyAll();
+      save(); applyAll(); applyCameraFx();
     });
   }
   $('setMaster').addEventListener('input', (e) => { SoundEngine.init(); SoundEngine.setVolume(Number(e.target.value) / 100); });

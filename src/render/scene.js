@@ -44,7 +44,7 @@ export function renderScene() {
 
   // Screen Shake on Takedown / Roar / Boost
   if (GameState.screenShake > 0 && !GameState.reducedMotion) {
-    const mag = GameState.screenShake * 2.5;
+    const mag = GameState.screenShake * 2.5 * GameState.cameraFx;
     ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
   }
 

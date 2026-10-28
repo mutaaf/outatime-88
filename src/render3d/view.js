@@ -943,7 +943,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
     camLook.set(pose.x + pose.ux * lu, pose.y + pose.uy * lu, -(pose.z + pose.uz * lu));
     // Shake: deterministic wobble, off under reduced motion.
     if (!s.reducedMotion) {
-      const mag = (feel.shake * 0.02) + Math.min(1, s.screenShake || 0) * 0.25;
+      const mag = (feel.shake * 0.02) + Math.min(1, s.screenShake || 0) * 0.25 * s.cameraFx;
       if (mag > 0) { camera.position.x += Math.sin(t * 61) * mag; camera.position.y += Math.sin(t * 47 + 1.3) * mag; }
     }
     // Touch look (ticket 0061): drag the right side to orbit the chase camera around the car,
@@ -973,7 +973,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       lean += ((-(s.chassisRoll || 0) * 0.35 - (s.playerVX || 0) * 0.8) * DEG - lean) * Math.min(1, dt * 4);
       camera.rotateZ(Math.max(-0.06, Math.min(0.06, lean)));
     }
-    const warpKick = (!s.reducedMotion && s.warpFxTimer > 0) ? (s.warpFxTimer / 0.9) * 16 : 0;
+    const warpKick = (!s.reducedMotion && s.warpFxTimer > 0) ? (s.warpFxTimer / 0.9) * 16 * s.cameraFx : 0;
     // Portrait phones/tablets: widen the vertical FOV so the road keeps ~46° across.
     const base = camera.aspect < 1 ? Math.min(85, Math.max(60, 2 * Math.atan(PORTRAIT_TAN / camera.aspect) / DEG)) : 60;
     const fov = base + (feel.fov - 1) * 160 + warpKick;
