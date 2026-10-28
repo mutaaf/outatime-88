@@ -139,6 +139,39 @@ describe('layoutLabels', () => {
     const m = layoutLabels(two, box, 390, 844, measure, out);
     expect(m).toBe(2);
     expect([out[5], out[LABEL.stride + 5]].sort()).toEqual([1, 2]); // the oldest pickup is replaced
+    // No chain: an older impact holds on while a newer pickup replaces the older pickup.
+    const mixed = [
+      { label: '💥 SOLID TRAFFIC IMPACT!', hit: true, life: 0.5, maxLife: 0.7 },
+      { label: '+15 💚 HP REPAIRED!', life: 0.6, maxLife: 0.65 },
+      { label: '+120 🔥 x4', life: 0.65, maxLife: 0.65 },
+    ];
+    expect(layoutLabels(mixed, box, 390, 844, measure, out)).toBe(2);
+    expect([out[5], out[LABEL.stride + 5]].sort()).toEqual([0, 2]);
+  });
+
+  it('a growing chain plate keeps its slot frame after frame; a high car closes the gap', () => {
+    const out = labelSlots();
+    const box = fallbackBox(390, 844, { x0: 0, y0: 0, x1: 0, y1: 0 });
+    const chain = { label: '⚡ CLOSE SHAVE! +500 (x2)', chain: true, life: 0.65, maxLife: 0.65 };
+    const list = [chain];
+    layoutLabels(list, box, 390, 844, measure, out);
+    list.push({ label: '+15 💚 HP REPAIRED!', life: 0.65, maxLife: 0.65 });
+    for (let f = 0; f < 5; f++) {
+      // It grows: moves to the list end, life restarts (src/chain-plate.js foldChain).
+      list.push(list.shift()); chain.life = chain.maxLife; chain.label = `⚡ CLOSE SHAVE! +${500 * (f + 2)} (x${f + 3})`;
+      const n = layoutLabels(list, box, 390, 844, measure, out);
+      expect(n).toBe(2);
+      expect(chain.slot).toBe(0);
+      expect(list[out[5]]).toBe(chain); // still nearest the car
+    }
+    // Slot 1 alone, with the car so high that slot 1's height is off the top: it drops into the lane
+    // above the car rather than going to the side.
+    list.splice(list.indexOf(chain), 1);
+    const hi = { ...box }, lift = box.y0 - (LABEL.font + LABEL.padY * 2) * 1.6 - 40;
+    hi.y0 -= lift; hi.y1 -= lift;
+    expect(layoutLabels(list, hi, 390, 844, measure, out)).toBe(1);
+    expect(out[0] + out[2] / 2).toBeCloseTo((hi.x0 + hi.x1) / 2, 0);
+    expect(out[1] + out[3]).toBeLessThanOrEqual(hi.y0);
   });
 
   it('a label pushed out of the lane never comes back half-faded', () => {

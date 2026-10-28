@@ -1,5 +1,5 @@
 // Floating pickup / score labels (ticket 0114), pure layout. Labels hang from an anchor above
-// the car's roofline (never on the car), newest nearest the car and older ones stacked above it,
+// the car's roofline (never on the car), each in the slot it landed in (0220, below),
 // at most LABEL.max at once, clamped to the canvas and shrunk to fit a narrow one. With no room
 // above (the car high in the air) they stack beside the car instead. The margins allow for the
 // FOV push-in crop at full speed + NOS, so a label is whole on screen too. Drawn by src/pickup-art.js.
@@ -107,6 +107,8 @@ export function layoutLabels(list, box, rw, rh, measure, out, still) {
     if (!side) {
       // Its slot's height, or just above the plate under it if that one has floated up into it.
       y = Math.min(box.y0 - gap - t * rise - k * (h0 + gap), top - gap) - h;
+      // A car high up: rather close the gap under it than send it to the side stack.
+      if (y < top0 && k > n) y = Math.min(box.y0 - gap - t * rise - n * (h0 + gap), top - gap) - h;
       if (y >= top0) { x = Math.min(rw - m - w, Math.max(m, cx - w * 0.5)); top = y; }
       else { side = true; sideY = Math.max(top0, Math.min(box.y0, bottom - h)) - gap; }
     }

@@ -1,7 +1,8 @@
 // One growing plate for a dodge chain (ticket 0205), pure. While the chain's plate is still up
 // (GameState.hitShockwaves), the next chain event folds into it instead of stacking another one:
 // its points add up, it shows the latest multiplier, its life restarts with a pop, and it moves to
-// the newest end of the list so it hangs nearest the car. Imported only by the lazy race step.
+// the newest end of the list. It keeps the label slot it landed in while it grows (src/popups.js,
+// 0220): nearest the car when it lands first, never shoved by a pickup. Imported only by the lazy race step.
 
 /**
  * The live chain plate in `list`, updated for `pts` more at multiplier `combo`, or null. `streak`

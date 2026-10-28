@@ -211,9 +211,19 @@ for (const [w, h] of [[390, 844], [1280, 720]]) {
           tr.idle = false; tr.active = true; tr.takenDown = false; tr.offset = g.playerX; tr.vz = 0;
           tr.worldZ = tr.prevZ = g.trackPos + 1100;
           placed = now;
+          g.hitShockwaves.length = 0; // the impact lands in an empty lane
+        }
+        if (impact && !picked) {
+          // Only the impact and the wrench in the lane: no near-miss or chain plate can join in.
+          for (let i = g.hitShockwaves.length - 1; i >= 0; i--) if (g.hitShockwaves[i] !== impact && g.hitShockwaves[i].label) g.hitShockwaves.splice(i, 1);
+          for (const t of T.traffic) { t.idle = true; t.active = false; t.takenDown = true; t.vz = 0; t.worldZ = t.prevZ = -1e6; }
         }
         const f = read();
         if (impact && !picked) { picked = now; setTimeout(() => OT.pickup('REPAIR_WRENCH'), 100); }
+        for (let i = g.hitShockwaves.length - 1; picked && i >= 0; i--) {
+          const e = g.hitShockwaves[i];
+          if (e !== impact && e.label && !/HP/.test(e.label)) g.hitShockwaves.splice(i, 1);
+        }
         if (picked && f.plates.length >= 2) { frames.push(f); if (!landed) landed = { f, before }; }
         else if (picked && !landed && f.plates.length === 1) before = f;
         if (frames.length >= 6 || now - t0 > 15000 || (landed && f.plates.length < 2)) { OT.pause(); resolve({ frames, landed }); } else requestAnimationFrame(tick);

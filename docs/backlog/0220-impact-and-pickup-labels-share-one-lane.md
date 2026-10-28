@@ -51,3 +51,6 @@ impacts, then oldest). When the lane is full, `hit` labels (`spawnObstacleShatte
 save) outrank pickup plates, then the newest wins, and a label that loses its place is gone for
 good (`e.gone`). The lane stays at LABEL.max = 2 (0205's chain plate + one) instead of the ticket's
 three: three plates at once is the clutter pillar 3 forbids, and 0205's e2e holds it at two.
+A pickup plate that loses its place stays hidden for the rest of its 0.65 s even if a hit ends just
+after (its icon and sound still fire). A plate left alone in slot 1 stays there (no drop) unless
+the car is so high that slot 1 is off the top, when it closes the gap instead of going to the side.
