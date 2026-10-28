@@ -231,7 +231,7 @@ export function showThumbGuide({ settings, save, controls, done }) {
   };
   place();
   if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(place);
-  const t0 = performance.now();
+  let t0 = performance.now();
   let closing = false;
   const close = () => {
     if (closing) return;
@@ -246,6 +246,8 @@ export function showThumbGuide({ settings, save, controls, done }) {
   };
   const tick = () => {
     if (closing || !g.isConnected) return;
+    // Held while the phone start grid has the screen (0215): its time and your steering don't count.
+    if (document.body.classList.contains('rc-grid-up')) { t0 += 150; setTimeout(tick, 150); return; }
     const age = performance.now() - t0;
     if ((age > 1500 && done && done()) || age > 14000) close();
     else setTimeout(tick, 150);

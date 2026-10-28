@@ -152,7 +152,7 @@ describe('gridBeat (ticket 0215): one grid banner at a time on phones', () => {
     expect(gridBeat(0, false)).toBe('chips');
     expect(gridBeat(START.chips, false)).toBe('none');
   });
-  it('fits both beats inside the lights on a first race', () => {
-    expect(START.chips + START.stats).toBeLessThanOrEqual(START.hold + 3 * START.light);
+  it('fits both beats inside the lights, so neither outlasts GO (skip, repeat track)', () => {
+    expect(START.chips + START.stats).toBeLessThanOrEqual(3 * START.light);
   });
 });

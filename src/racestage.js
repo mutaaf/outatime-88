@@ -66,25 +66,36 @@ function portrait(color, accent, look) {
 }
 
 // Phones (ticket 0215): the grid's chips, then your car's stats, one at a time on the race clock,
-// and the thumb guide (body.rc-grid-up hides it) only once both are gone. gridAge < 0: not running.
-const phoneGrid = () => Boolean(window.matchMedia && window.matchMedia('(max-width: 479px) and (min-height: 561px)').matches);
+// and the thumb guide (body.rc-grid-up hides and holds it) only once both are gone. The beats run
+// on every screen; styles.css applies them only on a phone-sized portrait view, so a rotation
+// mid-grid lands on the right layout. gridAge < 0: not running.
+const PHONE_GRID = '(max-width: 479px) and (min-height: 561px)';
+let phoneMq = null, gridEl = null, beatNow = '', guideHeld = false;
 let gridAge = -1, gridStats = false, gridCar = null, statsCar = null;
+function holdGuide(on) {
+  if (on === guideHeld) return;
+  guideHeld = on;
+  document.body.classList.toggle('rc-grid-up', on);
+}
 function gridOff() {
   gridAge = -1;
+  beatNow = '';
   delete $('rcGrid').dataset.beat;
-  document.body.classList.remove('rc-grid-up');
+  holdGuide(false);
 }
 function showBeat() {
-  const el = $('rcGrid');
   const beat = gridBeat(gridAge, gridStats);
-  if (beat === el.dataset.beat) return;
-  if (beat === 'none') { el.classList.add('hidden'); gridOff(); return; }
-  if (beat === 'stats') statsCar = gridCar;
-  el.dataset.beat = beat;
+  const phone = Boolean(phoneMq && phoneMq.matches);
+  holdGuide(beat !== 'none' && phone);
+  if (beat === beatNow) return;
+  beatNow = beat;
+  gridEl.dataset.beat = beat;
+  if (beat === 'stats' && phone) statsCar = gridCar;
+  if (beat === 'none') gridAge = -1;
 }
 
 export const stage = {
-  show() { $('raceStage').classList.remove('hidden'); document.body.classList.add('race-starting'); },
+  show() { $('raceStage').classList.remove('hidden'); document.body.classList.add('race-starting'); gridOff(); },
   hide() {
     $('raceStage').classList.add('hidden');
     document.body.classList.remove('race-starting');
@@ -119,15 +130,15 @@ export const stage = {
       + (me && me.cls ? `<span class="rc-mycar">${esc(me.car || '')} · <b>${esc(me.cls)}</b>${me.specLine ? ` · ${esc(me.specLine)}` : ''}</span>` : '');
     el.classList.remove('hidden');
     gridOff();
-    if (!phoneGrid()) return;
+    if (!phoneMq && window.matchMedia) phoneMq = window.matchMedia(PHONE_GRID);
+    gridEl = el;
     // The stats line once per car: a repeat race in the same car is chips only.
     gridCar = me ? me.car || '' : null;
     gridStats = Boolean(me && me.cls) && gridCar !== statsCar;
     gridAge = 0;
-    document.body.classList.add('rc-grid-up');
     showBeat();
   },
-  /** Advances the phone grid's beats by dt seconds of the start clock (pauses with the race). */
+  /** Advances the grid's beats by dt seconds of the start clock (pauses with the race). */
   step(dt) {
     if (gridAge < 0) return;
     gridAge += dt;
