@@ -4,7 +4,7 @@ import { SoundEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState, setLastInput, padGone } from './input.js';
-import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS } from './racecall.js';
+import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS, gridBeat } from './racecall.js';
 import { carPortrait } from './car-sprite.js';
 
 const $ = (id) => document.getElementById(id);
@@ -65,12 +65,42 @@ function portrait(color, accent, look) {
   return `<span class="rc-portrait${img ? ' has-car' : ''}" style="--c1:${esc(color)};--c2:${esc(accent || color)}" aria-hidden="true">${img || '<span>🏎️</span>'}</span>`;
 }
 
+// Phones (ticket 0215): the grid's chips, then your car's stats, one at a time on the race clock,
+// and the thumb guide (body.rc-grid-up hides and holds it) only once both are gone. The beats run
+// on every screen; styles.css applies them only on a phone-sized portrait view, so a rotation
+// mid-grid lands on the right layout. gridAge < 0: not running.
+const PHONE_GRID = '(max-width: 479px) and (min-height: 561px)';
+let phoneMq = null, gridEl = null, beatNow = '', guideHeld = false;
+let gridAge = -1, gridStats = false, gridCar = null, statsCar = null;
+function holdGuide(on) {
+  if (on === guideHeld) return;
+  guideHeld = on;
+  document.body.classList.toggle('rc-grid-up', on);
+}
+function gridOff() {
+  gridAge = -1;
+  beatNow = '';
+  delete $('rcGrid').dataset.beat;
+  holdGuide(false);
+}
+function showBeat() {
+  const beat = gridBeat(gridAge, gridStats);
+  const phone = Boolean(phoneMq && phoneMq.matches);
+  holdGuide(beat !== 'none' && phone);
+  if (beat === beatNow) return;
+  beatNow = beat;
+  gridEl.dataset.beat = beat;
+  if (beat === 'stats' && phone) statsCar = gridCar;
+  if (beat === 'none') gridAge = -1;
+}
+
 export const stage = {
-  show() { $('raceStage').classList.remove('hidden'); document.body.classList.add('race-starting'); },
+  show() { $('raceStage').classList.remove('hidden'); document.body.classList.add('race-starting'); gridOff(); },
   hide() {
     $('raceStage').classList.add('hidden');
     document.body.classList.remove('race-starting');
     for (const id of ['rcCard', 'rcGrid', 'rcLights', 'rcSkip', 'rcFinish']) $(id).classList.add('hidden');
+    gridOff();
   },
   /** One racer's lineup card. */
   card(racer, call, slot, total) {
@@ -99,6 +129,20 @@ export const stage = {
     el.innerHTML = field.map((r, i) => `<span class="rc-chip${r.isPlayer ? ' rc-chip-you' : ''}" style="--c1:${esc(r.color)}"><b>P${i + 1}</b> ${esc(r.isPlayer ? 'YOU' : r.short)}</span>`).join('')
       + (me && me.cls ? `<span class="rc-mycar">${esc(me.car || '')} · <b>${esc(me.cls)}</b>${me.specLine ? ` · ${esc(me.specLine)}` : ''}</span>` : '');
     el.classList.remove('hidden');
+    gridOff();
+    if (!phoneMq && window.matchMedia) phoneMq = window.matchMedia(PHONE_GRID);
+    gridEl = el;
+    // The stats line once per car: a repeat race in the same car is chips only.
+    gridCar = me ? me.car || '' : null;
+    gridStats = Boolean(me && me.cls) && gridCar !== statsCar;
+    gridAge = 0;
+    showBeat();
+  },
+  /** Advances the grid's beats by dt seconds of the start clock (pauses with the race). */
+  step(dt) {
+    if (gridAge < 0) return;
+    gridAge += dt;
+    showBeat();
   },
   /** 3, 2, 1 red lights, then GO. */
   lights(n) {
@@ -116,6 +160,7 @@ export const stage = {
   /** Chequered flag with your place. */
   finish(place, line) {
     for (const id of ['rcCard', 'rcGrid', 'rcLights', 'rcSkip']) $(id).classList.add('hidden');
+    gridOff();
     const el = $('rcFinish');
     $('rcFinishPlace').textContent = place;
     $('rcFinishLine').textContent = line;
@@ -184,8 +229,9 @@ export function renderResults({ badgeText, lvl, next, racers, speedToWorld, play
   };
 }
 
-/** Shows and sounds the start timeline's events; `hooks` { field(), announceLevel(), go() }. */
-export function playStartEvents(events, hooks) {
+/** Shows and sounds the start timeline's events; `hooks` { field(), announceLevel(), go() }; `dt` the step. */
+export function playStartEvents(events, hooks, dt = 0) {
+  stage.step(dt);
   for (const ev of events) {
     if (ev.type === 'card') {
       const field = hooks.field();

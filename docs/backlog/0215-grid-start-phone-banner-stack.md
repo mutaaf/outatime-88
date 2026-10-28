@@ -1,12 +1,12 @@
 ---
 id: 0215
 title: The phone start grid stacks four banners over the skyline; show one at a time
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-27
-pr:
+pr: 180
 ---
 
 ## Why
@@ -24,10 +24,10 @@ races of the same car), never together, and never while the coach tip is up. Des
 unchanged. Touches the lineup/grid overlay code and `src/styles.css`.
 
 ## Acceptance criteria
-- [ ] At 390x844, from PLAY to green light, no two of {lineup row, stats banner, steer tip} are visible at the same time (sampled every 250 ms)
-- [ ] Both lineup and stats are still shown at least once on a first race
-- [ ] Reduced motion: no fade animation, same sequencing
-- [ ] 1280x720 layout is unchanged
+- [x] At 390x844, from PLAY to green light, no two of {lineup row, stats banner, steer tip} are visible at the same time (sampled every 250 ms)
+- [x] Both lineup and stats are still shown at least once on a first race
+- [x] Reduced motion: no fade animation, same sequencing
+- [x] 1280x720 layout is unchanged
 
 ## Test plan
 Extend `tests/e2e/touch-layouts.spec.js` (or a new `grid-banners.spec.js`) to sample element

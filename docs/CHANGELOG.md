@@ -142,3 +142,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-27 · 0210 · Easier to hit on a phone: the Settings volume and tilt sliders, the in-race steering-mode pill and the results screen's GARAGE and LEVELS links all take a full 44 px fingertip now, with no change to how they look
 2026-10-27 · 0211 · New Settings → RIVALS choice: FAIR FIELD turns the rivals' catch-up down to 40%, so rivals you drop push less to get back and leaders wait less for you; CLOSE PACK stays the default, and live races and the daily always race the close pack
 2026-10-28 · 0213 · A browser that can't save (private window, blocked site data, full storage) now says so once on the results card, instead of silently losing medals and times
+2026-10-28 · 0215 · On a phone the start grid shows one thing at a time: the six-car lineup, then your car's stats (skipped when you race the same car again), and the steering tip only once both are gone

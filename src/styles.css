@@ -701,7 +701,16 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .rc-finish-place { font-size: clamp(64px, 15vmin, 160px); font-weight: 900; font-style: italic; line-height: 0.95; color: #fde047; text-shadow: 0 0 30px rgba(253, 224, 71, 0.8), 0 6px 0 #b45309; }
 .rc-finish-line { font-size: clamp(14px, 2.6vmin, 26px); font-weight: 900; letter-spacing: 0.12em; color: #fff; }
 @media (max-height: 560px) { .race-stage .rc-grid { display: none !important; } .race-stage { justify-content: flex-end; padding-bottom: 12px; } }
-[data-motion="reduce"] .rc-pop, [data-motion="reduce"] .rc-finish, [data-motion="reduce"] .rc-flag { animation: none !important; }
+/* Phones (ticket 0215): the grid's chips, then your car's stats, never together; the first-race
+   thumb guide waits until both are gone (racestage.js sets data-beat and body.rc-grid-up). */
+@media (max-width: 479px) and (min-height: 561px) {
+  .rc-grid[data-beat="chips"] .rc-mycar, .rc-grid[data-beat="stats"] .rc-chip, .rc-grid[data-beat="none"] { display: none; }
+  .rc-grid[data-beat] > * { animation: rc-beat 0.25s ease-out; }
+}
+@keyframes rc-beat { from { opacity: 0; } to { opacity: 1; } }
+body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
+[data-motion="reduce"] .rc-pop, [data-motion="reduce"] .rc-finish, [data-motion="reduce"] .rc-flag, [data-motion="reduce"] .rc-grid[data-beat] > * { animation: none !important; }
+[data-motion="reduce"] .tc-guide { transition: none; }
 
 /* Results (ticket 0052): headline + finish order, then score, board and Retry / Next / Ranks.
    Two columns when there's width; everything fits without scrolling down to 360x640. */
