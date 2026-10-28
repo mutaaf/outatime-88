@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ERA_SCORES, DEFAULT_SCORE, scoreFor, layersFor, stepDuration, noteFreq, createScheduler } from '../../src/music.js';
+import { ERA_SCORES, DEFAULT_SCORE, scoreFor, layersFor, stepDuration, noteFreq, midiToFreq, createScheduler, stingNotes, createSting } from '../../src/music.js';
 import { ERAS } from '../../src/data.js';
 import { FakeAudioContext } from './fake-audio.js';
 
@@ -107,5 +107,73 @@ describe('createScheduler', () => {
     const fast = setup({ playing: true, speed: 120, eraId: '2026', warp: false });
     for (let t = 0; t < 4; t += 0.05) { fast.ctx.currentTime = t; fast.sched.tick(); }
     expect(fast.ctx.started.length).toBeGreaterThan(slow);
+  });
+});
+
+// Ticket 0217: a one-bar sting when a warp lands in a new era.
+describe('warp landing sting', () => {
+  const pitchClass = (sc, hz) => ((Math.round(69 + 12 * Math.log2(hz / 440)) - sc.root) % 12 + 12) % 12;
+
+  it("every note comes from the arriving era's scale, rising, resolving on its tonic", () => {
+    for (const [id, sc] of Object.entries(ERA_SCORES)) {
+      const notes = stingNotes(sc);
+      const bar = 16 * stepDuration(sc.bpm);
+      expect(notes.length, id).toBeGreaterThanOrEqual(4);
+      for (const n of notes) {
+        expect(sc.scale, `${id} ${n.hz}`).toContain(pitchClass(sc, n.hz));
+        expect(n.at).toBeGreaterThanOrEqual(0);
+        expect(n.at + n.dur).toBeLessThanOrEqual(bar + 1e-9); // one bar
+      }
+      const arp = notes.filter((n) => !n.under);
+      for (let i = 1; i < arp.length; i++) expect(arp[i].hz, id).toBeGreaterThan(arp[i - 1].hz);
+      const last = arp[arp.length - 1];
+      expect(pitchClass(sc, last.hz), id).toBe(0); // the tonic
+      expect(last.hz).toBeCloseTo(midiToFreq(sc.root + 24), 6);
+    }
+  });
+
+  it('fires once per era change during a warp; never on race start, a tier change or a repeat', () => {
+    const ctx = new FakeAudioContext();
+    const s = createSting(ctx, ctx.createGain());
+    s.update('2026', false, true); // race start in 2026
+    expect(s.count).toBe(0);
+    s.update('1985', false, true); // era set without a warp (race start / Endless tier)
+    expect(s.count).toBe(0);
+    expect(ctx.started.length).toBe(0);
+    s.update('1985', true, true); // warp that does not change era
+    expect(s.count).toBe(0);
+    s.update('1885', true, true); // the warp lands in 1885
+    expect(s.count).toBe(1);
+    const n = ctx.started.length;
+    expect(n).toBe(stingNotes(ERA_SCORES['1885']).length);
+    for (let i = 0; i < 20; i++) s.update('1885', true, true); // the rest of the warp
+    expect(s.count).toBe(1);
+    expect(ctx.started.length).toBe(n);
+    s.update('1885', false, true);
+    s.update('2015', true, true); // the next warp
+    expect(s.count).toBe(2);
+  });
+
+  it('is silent when not playing (muted, paused) and does not fire late when play resumes', () => {
+    const ctx = new FakeAudioContext();
+    const s = createSting(ctx, ctx.createGain());
+    s.update('2026', false, true);
+    s.update('1985', true, false);
+    expect(ctx.started.length).toBe(0);
+    s.update('1985', true, true);
+    expect(s.count).toBe(0);
+    expect(ctx.started.length).toBe(0);
+  });
+
+  it('the synthwave scheduler plays it on the audio clock, at or after now', () => {
+    const state = { playing: true, speed: 100, eraId: '2026', warp: false };
+    const ctx = new FakeAudioContext();
+    const sched = createScheduler(ctx, ctx.createGain(), () => state);
+    ctx.currentTime = 2; sched.tick();
+    ctx.started.length = 0;
+    Object.assign(state, { eraId: '1985', warp: true });
+    ctx.currentTime = 2.03; sched.tick();
+    expect(sched.stings).toBe(1);
+    for (const st of ctx.started) expect(st.when).toBeGreaterThanOrEqual(2.03);
   });
 });

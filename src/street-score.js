@@ -141,7 +141,9 @@ export function createDirector(ctx, out, getState, synth) {
   const synthSched = synth ? synth.createScheduler(ctx, out, () => {
     const s = base || {};
     return { playing: cue === 'synthwave', speed: s.speed || 0, eraId: s.eraId, warp: Boolean(s.warp) };
-  }) : null;
+  }, { sting: false }) : null;
+  // The warp landing sting (0217) plays over whichever cue is on, so it lives here, not in a cue.
+  const sting = synth && synth.createSting ? synth.createSting(ctx, out) : null;
 
   // Street voices go through one stage, level-matched to the synthwave score (rendered offline:
   // racing cues sit ~6 dB under their raw sum; the home loop plays as written).
@@ -239,11 +241,13 @@ export function createDirector(ctx, out, getState, synth) {
   return {
     lookahead,
     get cue() { return cue; },
+    get stings() { return sting ? sting.count : 0; },
     tick() {
       const now = ctx.currentTime;
       base = getState();
       if (nextTime < now) nextTime = now;
       const want = cueFor(base);
+      if (sting) sting.update(base.eraId, Boolean(base.warp), want !== null);
       const g = out && out.gain;
       if (want === null && cue !== null && !fading) {
         // Off the road (results, pause, muted): fade out over ~1.5 s rather than cut.

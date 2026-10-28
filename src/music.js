@@ -95,12 +95,69 @@ export function noteFreq(score, degree, octave) {
   return midiToFreq(score.root + score.scale[idx] + 12 * oct);
 }
 
+// Warp landing sting (0217): one bar in the arriving era's key. A rising arp up its scale (steps
+// 0–10, eighths) lands on the tonic two octaves over the root, with the root held underneath.
+const STING_ARP = [0, 2, 4, 7, 9, 11];
+
+/** The sting's notes: { hz, at, dur } (seconds from its start); `top` = the tonic, `under` = the held root. */
+export function stingNotes(sc) {
+  const sd = stepDuration(sc.bpm);
+  const notes = STING_ARP.map((d, i) => ({ hz: noteFreq(sc, d, 0), at: i * 2 * sd, dur: sd * 1.8, top: false, under: false }));
+  notes.push({ hz: noteFreq(sc, 14, 0), at: 12 * sd, dur: 4 * sd, top: true, under: false });
+  notes.push({ hz: noteFreq(sc, 0, -1), at: 12 * sd, dur: 4 * sd, top: false, under: true });
+  return notes;
+}
+
+/**
+ * Plays the sting into `out` when a warp lands in a new era. update(eraId, warp, playing) runs
+ * every scheduler tick: the era id is tracked always, and the sting fires only on the tick the
+ * era changes while a warp is on and the music is playing, so a race start, an Endless tier or a
+ * muted warp is silent and nothing fires late.
+ */
+export function createSting(ctx, out) {
+  let era = null;
+  let count = 0;
+  function voice(hz, when, dur, type, peak, cutoff) {
+    const o = ctx.createOscillator();
+    const f = ctx.createBiquadFilter();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(hz, when);
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(cutoff, when);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(peak, when + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    o.connect(f); f.connect(g); g.connect(out);
+    o.start(when);
+    o.stop(when + dur + 0.02);
+  }
+  return {
+    get count() { return count; },
+    update(eraId, warp, playing) {
+      const landed = era !== null && eraId !== era && warp && playing;
+      era = eraId;
+      if (!landed) return;
+      count++;
+      const sc = scoreFor(eraId);
+      const t0 = ctx.currentTime + 0.02;
+      for (const n of stingNotes(sc)) {
+        if (n.under) voice(n.hz, t0 + n.at, n.dur, 'triangle', 0.06, 900);
+        else if (n.top) voice(n.hz, t0 + n.at, n.dur, sc.wave, 0.08, 3600);
+        else voice(n.hz, t0 + n.at, n.dur, 'square', 0.06, 3000);
+      }
+    },
+  };
+}
+
 /**
  * Lookahead scheduler. Call tick() every ~25 ms; it queues every step whose start time falls
  * inside [now, now + lookahead]. getState() → { playing, speed, eraId, warp }.
+ * It plays the warp landing sting too, unless `sting: false` (the director plays its own).
  */
-export function createScheduler(ctx, out, getState) {
+export function createScheduler(ctx, out, getState, { sting = true } = {}) {
   const lookahead = 0.12;
+  const landing = sting ? createSting(ctx, out) : null;
   let nextTime = 0;
   let step = 0;
   let noise = null;
@@ -197,6 +254,7 @@ export function createScheduler(ctx, out, getState) {
       // Fell behind (first call, tab backgrounded, long GC)? Resync to now — never schedule
       // into the past and never emit a catch-up burst.
       if (nextTime < now) nextTime = now;
+      if (landing) landing.update(st.eraId, Boolean(st.warp), Boolean(st.playing));
       if (!st.playing) { nextTime = now; return; }
       const sd = stepDuration(scoreFor(st.eraId).bpm);
       while (nextTime <= now + lookahead) {
@@ -205,6 +263,7 @@ export function createScheduler(ctx, out, getState) {
         step++;
       }
     },
+    get stings() { return landing ? landing.count : 0; },
     reset() { step = 0; nextTime = 0; },
   };
 }

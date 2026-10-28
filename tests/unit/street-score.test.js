@@ -123,4 +123,23 @@ describe('director', () => {
     expect(r.d.cue).toBe('phonk');
     expect(r.out.gain.events[r.out.gain.events.length - 1][1]).toBe(1);
   });
+
+  it('plays one warp landing sting on every cue, and none while muted (0217)', () => {
+    for (const style of ['street', 'synthwave']) {
+      const state = { status: 'PLAYING', racePhase: 'RACING', style, eraId: '2026', mode: 'ARCADE', tier: 1, speed: 90, warp: false };
+      const r = rig(state);
+      tick(r, 4);
+      expect(r.d.stings).toBe(0);
+      Object.assign(state, { eraId: '1985', warp: true });
+      tick(r, 30);
+      expect(r.d.stings, style).toBe(1); // exactly one, never one per scheduler
+    }
+    const state = { status: 'PLAYING', racePhase: 'RACING', style: 'street', eraId: '2026', mode: 'ARCADE', tier: 1, speed: 90, warp: false, muted: true };
+    const r = rig(state);
+    tick(r, 4);
+    Object.assign(state, { eraId: '1985', warp: true });
+    tick(r, 10);
+    expect(r.d.stings).toBe(0);
+    expect(r.ctx.started.length).toBe(0);
+  });
 });
