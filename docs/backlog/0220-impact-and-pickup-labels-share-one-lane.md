@@ -1,12 +1,12 @@
 ---
 id: 0220
 title: An impact label and a pickup label never stack on the car (one hit-text lane)
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-28
-pr:
+pr: 184
 ---
 
 ## Why
@@ -29,10 +29,10 @@ main-bundle growth under the headroom in docs/LESSONS.md (put the helper in an e
 module if one is already loaded in a race).
 
 ## Acceptance criteria
-- [ ] A pure helper assigns each label a y-slot; two labels spawned within 300 ms get different slots (unit test)
-- [ ] Rects of simultaneously live labels never intersect, in a forced crash + wrench pickup at 390x844 and 1280x720
-- [ ] No label rect intersects the player car's box; all inside the canvas
-- [ ] Calm motion unchanged; no per-frame allocation added
+- [x] A pure helper assigns each label a y-slot; two labels spawned within 300 ms get different slots (unit test)
+- [x] Rects of simultaneously live labels never intersect, in a forced crash + wrench pickup at 390x844 and 1280x720
+- [x] No label rect intersects the player car's box; all inside the canvas
+- [x] Calm motion unchanged; no per-frame allocation added
 
 ## Test plan
 Unit test for the slot helper. E2E via the `?debug` hook: spawn a shatter and an acquire
@@ -40,3 +40,14 @@ within 100 ms, read both label rects, assert no overlap at both viewports.
 
 ## Out of scope
 Changing which events show text, point values, or the plate art.
+
+## Shipped notes
+Both kinds of label were already one list (`GameState.hitShockwaves`) laid out by `layoutLabels`, so
+plates never shared pixels; what read as a fight was the lane reshuffling: every new label took the
+slot nearest the car and shoved the live one up a plate, and the newest always won, so a wrench
+could push an impact off. `layoutLabels` (src/popups.js) now gives each label a slot it keeps
+(`e.slot`, 0 nearest the car); new labels fill free slots nearest the car (chain plate, then
+impacts, then oldest). When the lane is full, `hit` labels (`spawnObstacleShatter`, the shield
+save) outrank pickup plates, then the newest wins, and a label that loses its place is gone for
+good (`e.gone`). The lane stays at LABEL.max = 2 (0205's chain plate + one) instead of the ticket's
+three: three plates at once is the clutter pillar 3 forbids, and 0205's e2e holds it at two.

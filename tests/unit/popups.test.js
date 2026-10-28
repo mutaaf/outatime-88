@@ -75,16 +75,86 @@ describe('layoutLabels', () => {
     }
   });
 
-  it('shows at most LABEL.max labels, newest first, nearest the car', () => {
+  it('shows at most LABEL.max labels; a newer one stacks above the live one (0220)', () => {
     const out = labelSlots();
     const box = fallbackBox(1280, 720, { x0: 0, y0: 0, x1: 0, y1: 0 });
     const list = wave(LABELS, [0.4, 0.3, 0.2, 0.1, 0]);
     const n = layoutLabels(list, box, 1280, 720, measure, out);
     expect(n).toBe(LABEL.max);
-    expect(out[LABEL.stride * 0 + 5]).toBe(4); // source index of the newest
+    const shown = [out[5], out[LABEL.stride + 5]].sort();
+    expect(shown).toEqual([3, 4]); // the two newest
     const r = rects(out, n);
+    expect(out[5]).toBe(3); // the older of the two is nearest the car, the newer above it
     expect(r[0].y0).toBeGreaterThan(r[1].y0);
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) expect(hit(r[i], r[j])).toBe(false);
+  });
+
+  // Ticket 0220: one hit-text lane. A label keeps the slot it landed in, a hit outranks a pickup.
+  const yOf = (out, n, src) => { for (let i = 0; i < n; i++) if (out[i * LABEL.stride + 5] === src) return out[i * LABEL.stride + 1]; return null; };
+
+  it('a live label keeps its place when a new one lands, at both viewports', () => {
+    const out = labelSlots();
+    for (const [rw, rh] of [[390, 844], [1280, 720]]) {
+      const box = fallbackBox(rw, rh, { x0: 0, y0: 0, x1: 0, y1: 0 });
+      const impact = { label: '💥 SOLID TRAFFIC IMPACT!', hit: true, life: 0.6, maxLife: 0.7 };
+      const list = [impact];
+      expect(layoutLabels(list, box, rw, rh, measure, out)).toBe(1);
+      const before = out[1];
+      list.push({ label: '+15 💚 HP REPAIRED!', life: 0.65, maxLife: 0.65 });
+      const n = layoutLabels(list, box, rw, rh, measure, out);
+      expect(n).toBe(2);
+      expect(yOf(out, n, 0), `${rw}x${rh}`).toBe(before);
+      const r = rects(out, n);
+      const imp = r[out[5] === 0 ? 0 : 1], pick = r[out[5] === 0 ? 1 : 0];
+      expect(pick.y1).toBeLessThanOrEqual(imp.y0); // one plate-height above, never on it
+      // The impact goes first: the wrench label stays put above it, it doesn't drop onto the car.
+      list.shift();
+      const above = pick.y0;
+      expect(layoutLabels(list, box, rw, rh, measure, out)).toBe(1);
+      // (It only loses the nudge it took from the impact's float, never a whole plate.)
+      expect(Math.abs(out[1] - above)).toBeLessThanOrEqual(LABEL.rise);
+      expect(out[1] + out[3]).toBeLessThan(box.y0 - LABEL.font - LABEL.padY * 2);
+      // A label that lands now takes the free slot nearest the car, under the wrench label.
+      list.push({ label: '+120 🔥 x4', life: 0.65, maxLife: 0.65 });
+      const m = layoutLabels(list, box, rw, rh, measure, out);
+      expect(m).toBe(2);
+      expect(yOf(out, m, 1)).toBeGreaterThan(yOf(out, m, 0));
+    }
+  });
+
+  it('an impact outranks a pickup plate when the lane is full', () => {
+    const out = labelSlots();
+    const box = fallbackBox(390, 844, { x0: 0, y0: 0, x1: 0, y1: 0 });
+    const list = [
+      { label: '⚡ CLOSE SHAVE! +500 (x2)', chain: true, life: 0.6, maxLife: 0.65 },
+      { label: '💥 SOLID TRAFFIC IMPACT!', hit: true, life: 0.6, maxLife: 0.7 },
+      { label: '+15 💚 HP REPAIRED!', life: 0.65, maxLife: 0.65 },
+    ];
+    const n = layoutLabels(list, box, 390, 844, measure, out);
+    expect(n).toBe(2);
+    expect([out[5], out[LABEL.stride + 5]].sort()).toEqual([0, 1]);
+    // Without the chain both fit; with a newer impact the pickup is the one dropped.
+    const two = [{ label: '+15 💚 HP REPAIRED!', life: 0.6, maxLife: 0.65 }, { label: '+120 🔥 x4', life: 0.62, maxLife: 0.65 }];
+    two.push({ label: '💥 TAKEDOWN! +2000', hit: true, life: 0.7, maxLife: 0.7 });
+    const m = layoutLabels(two, box, 390, 844, measure, out);
+    expect(m).toBe(2);
+    expect([out[5], out[LABEL.stride + 5]].sort()).toEqual([1, 2]); // the oldest pickup is replaced
+  });
+
+  it('a label pushed out of the lane never comes back half-faded', () => {
+    const out = labelSlots();
+    const box = fallbackBox(1280, 720, { x0: 0, y0: 0, x1: 0, y1: 0 });
+    const list = [
+      { label: '💥 SOLID TRAFFIC IMPACT!', hit: true, life: 0.5, maxLife: 0.7 },
+      { label: '💥 TAKEDOWN! +2000', hit: true, life: 0.6, maxLife: 0.7 },
+      { label: '+15 💚 HP REPAIRED!', life: 0.65, maxLife: 0.65 },
+    ];
+    expect(layoutLabels(list, box, 1280, 720, measure, out)).toBe(2);
+    expect([out[5], out[LABEL.stride + 5]].sort()).toEqual([0, 1]);
+    list.shift(); // the first impact ends; the wrench label had lost its place
+    const n = layoutLabels(list, box, 1280, 720, measure, out);
+    expect(n).toBe(1);
+    expect(list[out[5]].label).toBe('💥 TAKEDOWN! +2000');
   });
 
   it('shrinks a label wider than a narrow buffer so it fits whole', () => {

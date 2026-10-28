@@ -70,7 +70,7 @@ export function shieldBreak(rel) {
   if (touch) touch.controls.haptics.pulse('hit');
   if (pickupArt) pickupArt.burst('SHIELD', rel);
   GameState.screenShake = Math.max(GameState.screenShake, 0.18);
-  GameState.hitShockwaves.push({ x: rel * 150, y: 0, radius: 18, maxRadius: 150, color: POWER.SHIELD.color, label: '🛡️ SHIELD SAVED YOU!', life: 0.7, maxLife: 0.7 });
+  GameState.hitShockwaves.push({ x: rel * 150, y: 0, radius: 18, maxRadius: 150, color: POWER.SHIELD.color, label: '🛡️ SHIELD SAVED YOU!', hit: true, life: 0.7, maxLife: 0.7 });
   triggerAnnouncement('🛡️ SHIELD SAVED YOU!', 'NO DAMAGE · GRAB ANOTHER TO STAY SAFE', 1200);
   return true;
 }
@@ -494,6 +494,7 @@ export function spawnObstacleShatter(offsetFromCenter, primaryColor, accentColor
     maxRadius: 145,
     color: primaryColor,
     label: labelText,
+    hit: true, // outranks a pickup plate in the one label lane (src/popups.js, 0220)
     life: 0.7,
     maxLife: 0.7
   });

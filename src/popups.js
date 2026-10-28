@@ -3,8 +3,11 @@
 // at most LABEL.max at once, clamped to the canvas and shrunk to fit a narrow one. With no room
 // above (the car high in the air) they stack beside the car instead. The margins allow for the
 // FOV push-in crop at full speed + NOS, so a label is whole on screen too. Drawn by src/pickup-art.js.
-// A dodge chain is one plate that grows (src/chain-plate.js, 0205): it always gets a slot, the other
-// slot goes to the newest other label, and it pops when it grows (not with reduced motion).
+// A dodge chain is one plate that grows (src/chain-plate.js, 0205): it always gets a slot, and it pops
+// when it grows (not with reduced motion).
+// One hit-text lane (0220): a label keeps the slot it landed in (slot 0 nearest the car), so a new one
+// stacks one plate above a live one instead of shoving it. When the lane is full an impact (`hit`)
+// outranks a pickup plate, then the newest wins; a label that loses its place is gone for good.
 
 export const LABEL = {
   font: 11,     // px on the road buffer
@@ -22,6 +25,10 @@ export const LABEL = {
 
 /** Output slots for layoutLabels (allocate once). */
 export const labelSlots = () => new Float32Array(LABEL.max * LABEL.stride);
+
+const pick = new Int32Array(LABEL.max); // source index per slot, -1 = free
+// Who keeps a place in the lane: the chain plate, then impacts, then the newest.
+const rank = (e, i) => (e.chain ? 4e6 : 0) + (e.hit ? 2e6 : 0) + i;
 
 /** The car's screen box when the renderer hasn't published one (3D view): drawPlayerCar's maths. */
 export function fallbackBox(rw, rh, out) {
@@ -48,13 +55,48 @@ export function layoutLabels(list, box, rw, rh, measure, out, still) {
   const h0 = LABEL.font + padY * 2;
   const cx = (box.x0 + box.x1) * 0.5;
   const rightRoom = rw - m - (box.x1 + gap), leftRoom = box.x0 - gap - m;
-  let n = 0, top = box.y0, side = false, sideY = 0, keep = 0;
-  for (let i = 0; i < list.length; i++) if (list[i].chain && list[i].label) { keep = 1; break; }
-  for (let i = list.length - 1; i >= 0 && n < max; i--) {
+  // The best `max` labels keep the lane; every other labelled entry has lost its place for good.
+  let chosen = 0;
+  for (let k = 0; k < max; k++) pick[k] = -1;
+  for (let k = 0; k < max; k++) {
+    let best = -1, bestRank = -1;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (!e.label || e.gone || e.lane > 0) continue;
+      const r = rank(e, i);
+      if (r > bestRank) { best = i; bestRank = r; }
+    }
+    if (best < 0) break;
+    list[best].lane = ++chosen; // picked this call (cleared again below)
+  }
+  for (let i = 0; i < list.length; i++) {
     const e = list[i];
-    if (!e.label) continue;
-    if (e.chain) { if (keep !== 1) continue; keep = 2; } // one chain plate, never pushed off
-    else if (keep === 1 && n >= max - 1) continue;
+    if (!e.label || e.gone) continue;
+    if (!(e.lane > 0)) { e.gone = true; continue; }
+    // Picked: keep the slot it already holds, else take the free one nearest the car below.
+    const k = e.slot >= 0 && e.slot < max && pick[e.slot] < 0 ? e.slot : -1;
+    if (k >= 0) pick[k] = i; else e.slot = -1;
+  }
+  // New ones fill the free slots nearest the car first: the chain plate, then impacts, then the oldest.
+  for (;;) {
+    let next = -1, nextRank = -1;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (!e.label || e.gone || e.slot >= 0) continue;
+      const r = rank(e, list.length - i);
+      if (r > nextRank) { next = i; nextRank = r; }
+    }
+    if (next < 0) break;
+    let k = 0;
+    while (pick[k] >= 0) k++;
+    pick[k] = next; list[next].slot = k;
+  }
+  for (let i = 0; i < list.length; i++) if (list[i].lane > 0) list[i].lane = 0;
+  let n = 0, top = box.y0, side = false, sideY = 0;
+  for (let k = 0; k < max; k++) {
+    const i = pick[k];
+    if (i < 0) continue;
+    const e = list[i];
     if (e.lwFor !== e.label) { e.lw = measure(e.label); e.lwFor = e.label; }
     const t = Math.min(1, Math.max(0, 1 - e.life / e.maxLife));
     const fit = (rw - m * 2) / (e.lw + padX * 2), age = e.maxLife - e.life;
@@ -63,14 +105,15 @@ export function layoutLabels(list, box, rw, rh, measure, out, still) {
     let w = (e.lw + padX * 2) * s, h = h0 * s;
     let x, y;
     if (!side) {
-      y = Math.min(box.y0 - gap - t * rise, top - gap) - h;
+      // Its slot's height, or just above the plate under it if that one has floated up into it.
+      y = Math.min(box.y0 - gap - t * rise - k * (h0 + gap), top - gap) - h;
       if (y >= top0) { x = Math.min(rw - m - w, Math.max(m, cx - w * 0.5)); top = y; }
       else { side = true; sideY = Math.max(top0, Math.min(box.y0, bottom - h)) - gap; }
     }
     if (side) {
       const room = Math.max(rightRoom, leftRoom);
       if (room < 24) break;
-      if (w > room) { const k = room / w; s *= k; w = room; h *= k; }
+      if (w > room) { const q = room / w; s *= q; w = room; h *= q; }
       y = sideY + gap;
       if (y + h > bottom) break;
       x = rightRoom >= leftRoom ? box.x1 + gap : box.x0 - gap - w;
