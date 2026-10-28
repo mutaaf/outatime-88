@@ -147,3 +147,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-28 · 0217 · A time warp now lands on a one-bar music sting in the new era's key: a rising run that resolves on its home note, so you hear the jump as well as see it (silent when muted)
 2026-10-28 · 0220 · Crash and pickup labels share one lane over the car: an impact keeps its place and a pickup stacks above it instead of shoving it, and an impact is never pushed off by a pickup
 2026-10-28 · 0218 · The first warp of a run into 1985 now arrives somewhere: a lamp-lit sweeper into a tree-lined Cedar Ridge straight, every lane open, before the road goes back to normal
+2026-10-28 · 0219 · Settings → Sound → Lane guide (off by default): when your lane is about to close, a soft tone pans toward the nearest open lane and rises in pitch as the gap shrinks, so you can steer by ear

@@ -27,6 +27,7 @@ import { createFormationStream } from './formations.js';
 import { createReadyCue } from './warp-cue.js';
 import { foldChain, startChain, chainLabel } from './chain-plate.js';
 import { createProximityCue } from './proximity-cue.js';
+import { createLaneGuide } from './lane-guide.js';
 import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
 import { buildArrival, queueArrival } from './arrival.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
@@ -46,6 +47,11 @@ const warpCue = createReadyCue(FLUX.warpBoostMin);
 const proxCue = createProximityCue(SoundEngine, () => SaveStore.data.settings?.proximity !== false
   && GameState.racePhase === 'RACING' && !(GameState.warpActiveTimer > 0) && !(GameState.agroTimer > 0), DEBUG_MODE);
 const proxMe = { x: 0, z: 0, vz: 0, halfW: 0, halfL: 0, bot: 0, top: 0, now: 0 };
+// Lane guide (0219): an opt-in soft tone panned toward the nearest open lane, pitch rising as
+// your own lane closes; same race-state rules as the tick. Off unless settings.laneGuide is true.
+// ?debug never sounds it but counts GameState.guideSteps / guidePan.
+const laneGuide = createLaneGuide(SoundEngine, () => SaveStore.data.settings?.laneGuide === true
+  && GameState.racePhase === 'RACING' && !(GameState.warpActiveTimer > 0) && !(GameState.agroTimer > 0), DEBUG_MODE);
 
 // The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
 // and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
@@ -1996,6 +2002,8 @@ export const LiveTrafficMethods = {
     proxMe.bot = playerBotY; proxMe.top = playerTopY; proxMe.now = GameState.raceTime;
     const proxPan = proxCue.step(rawDt, proxMe, this.traffic, this.obstacles, this.racers);
     if (proxPan !== null) { GameState.proxTicks = (GameState.proxTicks || 0) + 1; GameState.proxPan = proxPan; }
+    const guidePan = laneGuide.step(rawDt, proxMe, this.traffic, this.obstacles, this.racers);
+    if (guidePan !== null) { GameState.guideSteps = (GameState.guideSteps || 0) + 1; GameState.guidePan = guidePan; }
 
     // 6. Player ↔ knockable props (ticket 0074): a real momentum exchange. A 4 kg cone is
     //    swatted aside at nearly twice your speed and costs you almost nothing; a 95 kg

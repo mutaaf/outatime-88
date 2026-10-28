@@ -41,6 +41,11 @@ export function controlRows(kind, { keys = null, movement = '', autoAccel = true
   return { title: TITLES[kind] || TITLES.keys, rows: LABELS.map((label, i) => ({ label, value: values[i] })) };
 }
 
+/** The card's line for the audio aids that are on (0219: the opt-in lane guide), or ''. */
+export function aidsNote(settings) {
+  return settings && settings.laneGuide === true ? 'LANE GUIDE ON · a tone pans toward the open lane' : '';
+}
+
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 function padConnected() {
@@ -70,4 +75,6 @@ export function renderControlsRef(el) {
   el.innerHTML = `<h3><span aria-hidden="true">🎮 </span>CONTROLS <small>${title}</small></h3><dl class="ctl-grid">`
     + rows.map((r) => `<div><dt>${r.label}</dt><dd data-ctl="${r.label}" aria-label="${esc(r.value.replace(/ · /g, ' or '))}">${esc(r.value)}</dd></div>`).join('')
     + '</dl>';
+  const note = aidsNote(SaveStore.data.settings);
+  if (note) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="laneGuide"><span aria-hidden="true">🔊 </span>${esc(note)}</p>`);
 }

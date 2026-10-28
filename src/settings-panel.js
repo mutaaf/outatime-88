@@ -33,6 +33,8 @@ export function createPanel(ctx) {
     if (voice) voice.setAttribute('aria-checked', String(s.voice));
     const prox = $('setProximity');
     if (prox) prox.setAttribute('aria-checked', String(s.proximity !== false));
+    const guide = $('setLaneGuide');
+    if (guide) guide.setAttribute('aria-checked', String(s.laneGuide === true));
     const coach = $('setCoach');
     if (coach) coach.setAttribute('aria-checked', String(s.coach !== false));
     const pairs = [['setMaster', SoundEngine.muted ? 0 : SoundEngine.volume], ['setMusic', s.musicVolume], ['setSfx', s.sfxVolume]];
@@ -57,6 +59,9 @@ export function createPanel(ctx) {
   });
   const prox = $('setProximity');
   if (prox) prox.addEventListener('click', () => { settings().proximity = settings().proximity === false; save(); syncPanel(); });
+  // Lane guide (0219, src/lane-guide.js): opt-in, so only `true` turns it on (no default in main's settings.js).
+  const guide = $('setLaneGuide');
+  if (guide) guide.addEventListener('click', () => { settings().laneGuide = settings().laneGuide !== true; save(); syncPanel(); renderCards(); });
   const coach = $('setCoach');
   if (coach) coach.addEventListener('click', () => {
     settings().coach = settings().coach === false;
