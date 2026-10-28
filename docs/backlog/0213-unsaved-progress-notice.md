@@ -1,12 +1,12 @@
 ---
 id: 0213
 title: A browser that cannot save tells the player once, instead of silently losing progress
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: tech-health
 created: 2026-10-26
-pr:
+pr: 179
 ---
 
 ## Why

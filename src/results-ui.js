@@ -81,6 +81,34 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     el.classList.remove('hidden');
   }
 
+  // A browser that cannot save (0213): one dismissible line on the first results card after a
+  // failed save, once per session. No DOM at all while storage works.
+  let saveNoticeShown = false;
+  function showSaveNotice() {
+    $('saveNotice')?.remove();
+    if (!SaveStore.persistFailed || saveNoticeShown) return;
+    saveNoticeShown = true;
+    const box = document.createElement('div');
+    box.id = 'saveNotice';
+    box.className = 'save-notice';
+    box.setAttribute('role', 'status');
+    const msg = document.createElement('span');
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'save-notice-x';
+    close.setAttribute('aria-label', 'Dismiss');
+    close.textContent = '✕';
+    close.addEventListener('click', () => {
+      const hadFocus = box.contains(document.activeElement);
+      box.remove();
+      if (hadFocus) $('btnPlayAgain')?.focus();
+    });
+    box.append(msg, close);
+    $('endMedalText').before(box);
+    // The live region is in the tree (and the modal shown) before its text lands, so it is read.
+    setTimeout(() => { msg.textContent = "💾 Progress can't be saved in this browser: medals and times reset when you close the tab."; }, 100);
+  }
+
   /** Everything on the results card after the finish order: medal, ghost, score, stats, initials. */
   function showResults({ lvl, result, newCarNames, verdict, ghostInitials, scoreSheet }) {
     if (result) renderRunMedal(lvl, result);
@@ -105,6 +133,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     $('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
     renderMissions(GameState.missions);
     $('gameOverModal').classList.remove('hidden');
+    showSaveNotice();
     offerScoreSubmission();
   }
 
