@@ -13,6 +13,8 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   musicStyle: 'auto',     // 'auto' (synthwave in the '88 eras, street beats elsewhere + Endless tier 3+) | 'synthwave' | 'street' (0193)
   voice: true,            // the race announcer reads names and calls out loud (on-device speech)
   proximity: true,        // a quiet tick panned toward traffic about to hit you (0191, src/proximity-cue.js)
+  // laneGuide (0219, src/lane-guide.js): a tone panned toward the open lane. Off unless `true`, so it
+  // needs no default here (main's bundle is at its budget); the lazy settings panel writes it.
   coach: true,            // in-race tip card, first-run steer prompt and touch thumb guide (0201)
   hud: 'normal',          // HUD text size: 'normal' | 'large' (0195; ~1.3x speed, place, gaps and clock)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'

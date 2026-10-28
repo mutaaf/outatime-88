@@ -895,6 +895,7 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
 .ctl-grid > div { min-width: 0; padding: 4px 6px; border-radius: 8px; background: rgba(15, 23, 42, 0.9); }
 .ctl-grid dt { font: 700 10px/1.2 'Orbitron', sans-serif; letter-spacing: 0.08em; color: #94a3b8; }
 .ctl-grid dd { font: 800 12px/1.25 'Orbitron', sans-serif; color: #f8fafc; overflow-wrap: anywhere; }
+.ctl-note { margin-top: 6px; font: 700 11px/1.3 'Orbitron', sans-serif; letter-spacing: 0.04em; color: #cbd5e1; }
 @media (min-width: 640px) { .ctl-ref-wide .ctl-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .power-shop { margin: 8px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font: 700 clamp(9px, 1.4vmin, 12px)/1.25 'Orbitron', sans-serif; }
 .power-shop.hidden { display: none; }

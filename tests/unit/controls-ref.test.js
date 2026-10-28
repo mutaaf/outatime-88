@@ -1,6 +1,6 @@
 // Ticket 0204: the pause shows one screen of controls for the input in hand.
 import { describe, it, expect } from 'vitest';
-import { controlsKind, controlRows } from '../../src/controls-ref.js';
+import { aidsNote, controlsKind, controlRows } from '../../src/controls-ref.js';
 
 const rows = (kind, opts) => Object.fromEntries(controlRows(kind, opts).rows.map((r) => [r.label, r.value]));
 const LABELS = ['STEER', 'GAS', 'BRAKE', 'WARP', 'NOS', 'JUMP'];
@@ -58,5 +58,14 @@ describe('controlRows', () => {
     expect(rows('touch', { movement: 'dpad', autoAccel: false })).toMatchObject({ STEER: 'D-PAD', GAS: 'GAS' });
     expect(rows('touch', { movement: 'floating' })).toMatchObject({ STEER: 'STICK' });
     expect(rows('touch', { movement: 'tilt' })).toMatchObject({ STEER: 'TILT' });
+  });
+});
+
+describe('aidsNote (0219)', () => {
+  it('lists the lane guide only when it is on', () => {
+    expect(aidsNote({ laneGuide: true })).toMatch(/LANE GUIDE ON/);
+    expect(aidsNote({ laneGuide: false })).toBe('');
+    expect(aidsNote({})).toBe('');
+    expect(aidsNote(null)).toBe('');
   });
 });
