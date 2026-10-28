@@ -145,3 +145,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-28 · 0215 · On a phone the start grid shows one thing at a time: the six-car lineup, then your car's stats (skipped when you race the same car again), and the steering tip only once both are gone
 2026-10-28 · 0216 · New Settings → Camera effects: FULL, GENTLE (40%) or OFF tones down the camera shake and the push-in at speed without losing the speed lines or the warp colours; CALM motion still turns them off
 2026-10-28 · 0217 · A time warp now lands on a one-bar music sting in the new era's key: a rising run that resolves on its home note, so you hear the jump as well as see it (silent when muted)
+2026-10-28 · 0220 · Crash and pickup labels share one lane over the car: an impact keeps its place and a pickup stacks above it instead of shoving it, and an impact is never pushed off by a pickup

@@ -2,7 +2,7 @@
 // and collect every coin through the one collection path, then check the crisp icon cache is
 // in use at 2× device pixels. Uses the ?debug hook to place the car.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, simWait } from './helpers.js';
 import { ENDLESS } from '../../src/endless.js';
 
 async function race(page) {
@@ -170,6 +170,85 @@ for (const [w, h] of [[390, 844], [1280, 720]]) {
     }
     expect(hit(rects[0], rects[1])).toBe(false);
     await info.attach(`chain-${w}x${h}`, { body: await page.screenshot(), contentType: 'image/png' });
+    expect(problems).toEqual([]);
+    await ctx.close();
+  });
+}
+
+// Ticket 0220: one hit-text lane. A real traffic crash and a wrench picked up 100 ms later: the
+// impact plate keeps its place nearest the car and the pickup plate stacks one plate above it,
+// apart, off the car and on the canvas, on every frame both are up.
+for (const [w, h] of [[390, 844], [1280, 720]]) {
+  test(`crash + wrench at ${w}x${h}: one lane, the impact keeps its place`, async ({ browser }, info) => {
+    test.setTimeout(90000);
+    const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+    const page = await ctx.newPage();
+    const problems = watchPage(page);
+    await race(page);
+    await page.waitForFunction(() => window.__OT.pickupArt() && window.__OT.GameState.racePhase === 'RACING', null, { timeout: 30000 });
+    await page.keyboard.down('ArrowUp');
+    await simWait(page, 1);
+    const seen = await page.evaluate(() => new Promise((resolve) => {
+      const OT = window.__OT, g = OT.GameState, T = OT.traffic();
+      const t0 = performance.now();
+      let placed = -1e9, picked = 0, before = null, landed = null; // before: the last frame with the impact plate alone
+      const frames = [];
+      const read = () => {
+        const s = OT.pickupArt(), plates = [];
+        for (let i = 0; i < s.labels; i++) {
+          const o = i * 7, e = g.hitShockwaves[s.slots[o + 5]];
+          plates.push({ label: e.label, slot: e.slot, r: [s.slots[o], s.slots[o + 1], s.slots[o] + s.slots[o + 2], s.slots[o + 1] + s.slots[o + 3]] });
+        }
+        return { plates, box: { ...s.box }, rw: s.rw, rh: s.rh };
+      };
+      (function tick() {
+        const now = performance.now();
+        const impact = g.hitShockwaves.find((e) => /SOLID TRAFFIC IMPACT/.test(e.label));
+        if (!impact && !picked && now - placed > 700) {
+          // Park a highway car just ahead in our lane: we drive into it.
+          const tr = T.traffic.find((t) => !t.idle) || T.traffic[0];
+          g.invulnTimer = 0;
+          tr.idle = false; tr.active = true; tr.takenDown = false; tr.offset = g.playerX; tr.vz = 0;
+          tr.worldZ = tr.prevZ = g.trackPos + 1100;
+          placed = now;
+          g.hitShockwaves.length = 0; // the impact lands in an empty lane
+        }
+        if (impact && !picked) {
+          // Only the impact and the wrench in the lane: no near-miss or chain plate can join in.
+          for (let i = g.hitShockwaves.length - 1; i >= 0; i--) if (g.hitShockwaves[i] !== impact && g.hitShockwaves[i].label) g.hitShockwaves.splice(i, 1);
+          for (const t of T.traffic) { t.idle = true; t.active = false; t.takenDown = true; t.vz = 0; t.worldZ = t.prevZ = -1e6; }
+        }
+        const f = read();
+        if (impact && !picked) { picked = now; setTimeout(() => OT.pickup('REPAIR_WRENCH'), 100); }
+        for (let i = g.hitShockwaves.length - 1; picked && i >= 0; i--) {
+          const e = g.hitShockwaves[i];
+          if (e !== impact && e.label && !/HP/.test(e.label)) g.hitShockwaves.splice(i, 1);
+        }
+        if (picked && f.plates.length >= 2) { frames.push(f); if (!landed) landed = { f, before }; }
+        else if (picked && !landed && f.plates.length === 1) before = f;
+        if (frames.length >= 6 || now - t0 > 15000 || (landed && f.plates.length < 2)) { OT.pause(); resolve({ frames, landed }); } else requestAnimationFrame(tick);
+      })();
+    }));
+    expect(seen.frames.length).toBeGreaterThan(0);
+    const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    for (const f of seen.frames) {
+      const { box, rw, rh, plates } = f;
+      expect(plates.length).toBe(2);
+      for (const p of plates) {
+        expect(hit(p.r, [box.x0, box.y0, box.x1, box.y1]), p.label).toBe(false);
+        expect(p.r[0] >= 0 && p.r[1] >= 0 && p.r[2] <= rw && p.r[3] <= rh, p.label).toBe(true);
+      }
+      expect(hit(plates[0].r, plates[1].r)).toBe(false);
+      const imp = plates.find((p) => /IMPACT/.test(p.label)), wr = plates.find((p) => /HP/.test(p.label));
+      expect(imp && wr).toBeTruthy();
+      expect(imp.slot).toBe(0);
+      expect(wr.r[3]).toBeLessThanOrEqual(imp.r[1]); // the wrench plate sits above the impact plate
+    }
+    // The frame the wrench lands, the impact plate stays where it was over the car (it only floats).
+    const { f, before } = seen.landed;
+    const gapOf = (fr) => fr.box.y0 - fr.plates.find((p) => /IMPACT/.test(p.label)).r[1];
+    if (before) expect(Math.abs(gapOf(f) - gapOf(before))).toBeLessThanOrEqual(12);
+    await info.attach(`crash-wrench-${w}x${h}`, { body: await page.screenshot(), contentType: 'image/png' });
     expect(problems).toEqual([]);
     await ctx.close();
   });
