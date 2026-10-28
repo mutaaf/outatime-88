@@ -145,6 +145,10 @@ describe('SaveStore', () => {
     storage.setItem = () => { throw new DOMException('quota', 'QuotaExceededError'); };
     expect(() => SaveStore.save()).not.toThrow();
     expect(SaveStore.persistFailed).toBe(true);
+    // A transient failure (a quota freed later) clears once a save lands again.
+    storage.setItem = (k, v) => storage._m.set(k, String(v));
+    SaveStore.save();
+    expect(SaveStore.persistFailed).toBe(false);
   });
 
   it('flags persistFailed when localStorage itself is blocked', async () => {

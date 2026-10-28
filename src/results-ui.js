@@ -87,7 +87,6 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
   function showSaveNotice() {
     $('saveNotice')?.remove();
     if (!SaveStore.persistFailed || saveNoticeShown) return;
-    saveNoticeShown = true;
     const box = document.createElement('div');
     box.id = 'saveNotice';
     box.className = 'save-notice';
@@ -96,7 +95,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'save-notice-x';
-    close.setAttribute('aria-label', 'Dismiss');
+    close.setAttribute('aria-label', 'Dismiss save warning');
     close.textContent = '✕';
     close.addEventListener('click', () => {
       const hadFocus = box.contains(document.activeElement);
@@ -106,7 +105,13 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     box.append(msg, close);
     $('endMedalText').before(box);
     // The live region is in the tree (and the modal shown) before its text lands, so it is read.
-    setTimeout(() => { msg.textContent = "💾 Progress can't be saved in this browser: medals and times reset when you close the tab."; }, 100);
+    // Left before then (PLAY AGAIN at once)? It counts as unseen and waits for the next card.
+    setTimeout(() => {
+      if (!box.isConnected || $('gameOverModal').classList.contains('hidden')) { box.remove(); return; }
+      saveNoticeShown = true;
+      msg.innerHTML = '<span aria-hidden="true">💾 </span>';
+      msg.append("Progress can't be saved in this browser: medals and times reset when you close the tab.");
+    }, 100);
   }
 
   /** Everything on the results card after the finish order: medal, ghost, score, stats, initials. */

@@ -75,6 +75,7 @@ export const SaveStore = {
   save() {
     try {
       localStorage.setItem(this.key, JSON.stringify(this.data));
+      this.persistFailed = false;
     } catch (e) {
       // Private window, blocked site data or a full quota (0213): results-ui tells the player once.
       this.persistFailed = true;
