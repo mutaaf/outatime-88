@@ -33,12 +33,16 @@ decision to the player. Reuse the 0191 obstacle query; no new per-frame allocati
 - Pan is relative to the car (like the 0191 tick): -1/+1 = the open lane is to your left/right,
   0 = you are straddling just off an open lane's middle. Two open lanes equally near: the one away
   from the threat. Pitch 330 → 880 Hz as your own spot closes from 1.2 s to contact.
+- Candidate spots are the hazard lanes and the traffic lanes: -0.48, -0.2, 0, 0.2, 0.48. The guide
+  never points past a spot that something *other than your own threat* will reach within 1.2 s
+  (that would steer you through a closing lane); then it stays silent.
 - "Listed in the controls reference": the pause/garage controls card shows a LANE GUIDE ON line
   while it is on.
 - No default in `src/settings.js`: main is at 58.99/59 kB gz, so `settings.laneGuide` is off unless
   `true` (the save keeps unknown keys). Code lives in `src/lane-guide.js`, race-step chunk only.
-- Perf: the per-step work is 4 obstacle sweeps (your spot + 3 lanes) over the same small lists the
-  0191 tick reads, only when the setting is on; no allocations.
+- Perf: with the guide on and your spot closing, a step does up to ~8 contact sweeps over the same
+  small traffic/obstacle/rival lists the 0191 tick reads (a few hundred comparisons); with your spot
+  clear, one sweep; with the setting off, none. No allocations. The perf probe runs with it off.
 
 ## Test plan
 `tests/unit/audio.test.js` with `fake-audio.js`; extend the 0191 obstacle fixtures.

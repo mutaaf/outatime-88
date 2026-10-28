@@ -9,7 +9,7 @@ import { FakeAudioContext } from './fake-audio.js';
 const me = (x = 0, vz = 100, extra = {}) => ({ x, z: 1000, vz, halfW: 0.14, halfL: 105, bot: 0, top: 34, now: 10, ...extra });
 // A car whose back bumper is `secs` away at your closing speed (it stands still).
 const car = (offset, secs, extra = {}) => ({ worldZ: 1000 + 105 + 100 + secs * 100, offset, halfW: 0.12, halfL: 100, vz: 0, y: 0, height: 38, ...extra });
-const [L, C, R] = GUIDE.lanes;
+const [L, , C, , R] = GUIDE.lanes;
 
 describe('chooseLane', () => {
   it('pans toward the nearest open lane, relative to you', () => {
@@ -17,8 +17,19 @@ describe('chooseLane', () => {
     expect(chooseLane(me(R), [car(R, 0.6)], [])).toBe(-1);
     expect(chooseLane(me(C), [car(C, 0.6), car(L, 0.9)], [])).toBe(1); // left taken too: go right
     expect(chooseLane(me(C), [car(C, 0.6)], [car(R, 1.0)])).toBe(-1);
-    expect(chooseLane(me(L), [car(L, 0.6)], [car(C, 0.9)])).toBe(1); // the far lane, still to your right
-    expect(chooseLane(me(R), [car(R, 0.6), car(C, 0.9)], [])).toBe(-1);
+  });
+
+  it('checks the traffic lanes at ±0.2 too', () => {
+    expect(GUIDE.lanes).toEqual([-0.48, -0.2, 0, 0.2, 0.48]);
+    // In the +0.2 traffic lane behind a car, both outer lanes closing: -0.2 is open.
+    expect(chooseLane(me(0.2), [car(0.2, 0.5), car(L, 0.9), car(R, 0.9)], [])).toBe(-1);
+  });
+
+  it('never sends you across a lane that is closing to reach an open one', () => {
+    expect(chooseLane(me(L), [car(L, 0.6)], [car(C, 0.9)])).toBeNull(); // the right lane is open, past the centre one
+    expect(chooseLane(me(R), [car(R, 0.6), car(C, 0.9)], [])).toBeNull();
+    // Spots only your own threat covers are fine to steer through: that is getting out of its way.
+    expect(chooseLane(me(C), [car(C, 0.6)], [car(L, 0.9)])).toBe(1);
   });
 
   it('sits centred when the open lane is the one you are nearly in already', () => {
@@ -86,7 +97,7 @@ describe('createLaneGuide', () => {
     osc.stop = () => { stopped = true; };
     expect(guide.step(1 / 120, me(), [], [])).toBeNull();
     const gain = se.ctx.nodes.find((n) => n.kind === 'gain' && n !== se.sfxBus);
-    expect(gain.gain.value).toBe(0);
+    expect(gain.gain.events.at(-1)).toEqual(['target', 0, 0, GUIDE.glide]);
     for (let i = 0; i < 240; i++) guide.step(1 / 120, me(), [], []);
     expect(stopped).toBe(true);
     // The next threat starts a fresh one.
@@ -138,9 +149,30 @@ describe('createLaneGuide', () => {
     const se = engine();
     const guide = createLaneGuide(se, () => true);
     guide.step(1 / 120, me(), blocked, []);
+    const gain = se.ctx.nodes.find((n) => n.kind === 'gain' && n !== se.sfxBus);
+    se.ctx.currentTime = 0.01;
     se.muted = true;
+    const n = gain.gain.events.length;
+    guide.step(1 / 120, me(), blocked, []);
+    expect(gain.gain.events.slice(n).filter((e) => e[1] > 0 && e[0] !== 'set')).toEqual([]); // nothing brings it back up
+    expect(gain.gain.events.at(-1)).toEqual(['target', 0, 0.01, GUIDE.glide]);
+  });
+
+  it('glides back in after a pause instead of jumping to full level', () => {
+    const se = engine();
+    const guide = createLaneGuide(se, () => true);
     guide.step(1 / 120, me(), blocked, []);
     const gain = se.ctx.nodes.find((n) => n.kind === 'gain' && n !== se.sfxBus);
-    expect(gain.gain.value).toBe(0);
+    // Still inside the hold: a plain refresh keeps the level.
+    se.ctx.currentTime = 0.1;
+    let n = gain.gain.events.length;
+    guide.step(1 / 120, me(), blocked, []);
+    expect(gain.gain.events.slice(n).some((e) => e[0] === 'target' && e[1] > 0)).toBe(false);
+    // The race stopped stepping for a while (pause): the hold ran out, so it glides in again.
+    se.ctx.currentTime = 2;
+    n = gain.gain.events.length;
+    guide.step(1 / 120, me(), blocked, []);
+    const back = gain.gain.events.slice(n);
+    expect(back.find((e) => e[1] > 0 && e[2] === 2)).toEqual(['target', GUIDE.level * 0.8, 2, GUIDE.glide]);
   });
 });
