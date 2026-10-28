@@ -95,11 +95,13 @@ export function noteFreq(score, degree, octave) {
   return midiToFreq(score.root + score.scale[idx] + 12 * oct);
 }
 
-// Warp landing sting (0217): one bar in the arriving era's key. A rising arp up its scale (steps
-// 0–10, eighths) lands on the tonic two octaves over the root, with the root held underneath.
+// Warp landing sting (0217): one bar in the arriving key. A rising arp (scale degrees 0 2 4 7 9 11,
+// eighths) lands on the tonic two octaves over the root, with the root held underneath. It starts
+// on the first beat after the warp tunnel (STING_DELAY), so it is the arrival, not the take-off.
 const STING_ARP = [0, 2, 4, 7, 9, 11];
+export const STING_DELAY = 0.9; // s: warpFxTimer, the tunnel
 
-/** The sting's notes: { hz, at, dur } (seconds from its start); `top` = the tonic, `under` = the held root. */
+/** The sting's notes for a key ({ root, scale, bpm }): { hz, at, dur } in seconds from its start; `top` = the tonic, `under` = the held root. */
 export function stingNotes(sc) {
   const sd = stepDuration(sc.bpm);
   const notes = STING_ARP.map((d, i) => ({ hz: noteFreq(sc, d, 0), at: i * 2 * sd, dur: sd * 1.8, top: false, under: false }));
@@ -108,15 +110,24 @@ export function stingNotes(sc) {
   return notes;
 }
 
+/** The first beat (a step that is a multiple of 4) at or after `t`, on a grid whose next step `step` falls at `time`. */
+export function beatAt(time, step, sd, t) {
+  while (step % 4 !== 0 || time < t - 1e-6) { time += sd; step++; }
+  return time;
+}
+
 /**
- * Plays the sting into `out` when a warp lands in a new era. update(eraId, warp, playing) runs
- * every scheduler tick: the era id is tracked always, and the sting fires only on the tick the
- * era changes while a warp is on and the music is playing, so a race start, an Endless tier or a
- * muted warp is silent and nothing fires late.
+ * The sting. landed(eraId, warps, playing) runs every scheduler tick and is true only on the
+ * tick a new warp (GameState.timeWarps went up) has changed the era while the music plays and the
+ * context runs. The era and warp count are tracked always, so a race start, an Endless tier (even
+ * during a warp), a muted or paused warp stay silent and nothing fires late. play(key, when)
+ * queues it in that key (the cue that is playing) on the audio clock.
  */
 export function createSting(ctx, out) {
   let era = null;
+  let warps = -1;
   let count = 0;
+  let lastKey = null;
   function voice(hz, when, dur, type, peak, cutoff) {
     const o = ctx.createOscillator();
     const f = ctx.createBiquadFilter();
@@ -134,17 +145,20 @@ export function createSting(ctx, out) {
   }
   return {
     get count() { return count; },
-    update(eraId, warp, playing) {
-      const landed = era !== null && eraId !== era && warp && playing;
-      era = eraId;
-      if (!landed) return;
+    get lastKey() { return lastKey; },
+    landed(eraId, warpCount, playing) {
+      const w = warpCount | 0;
+      const hit = warps >= 0 && w > warps && eraId !== era && Boolean(playing) && ctx.state === 'running';
+      era = eraId; warps = w;
+      return hit;
+    },
+    play(key, when) {
       count++;
-      const sc = scoreFor(eraId);
-      const t0 = ctx.currentTime + 0.02;
-      for (const n of stingNotes(sc)) {
-        if (n.under) voice(n.hz, t0 + n.at, n.dur, 'triangle', 0.06, 900);
-        else if (n.top) voice(n.hz, t0 + n.at, n.dur, sc.wave, 0.08, 3600);
-        else voice(n.hz, t0 + n.at, n.dur, 'square', 0.06, 3000);
+      lastKey = key;
+      for (const n of stingNotes(key)) {
+        if (n.under) voice(n.hz, when + n.at, n.dur, 'triangle', 0.06, 900);
+        else if (n.top) voice(n.hz, when + n.at, n.dur, key.wave || 'square', 0.08, 3600);
+        else voice(n.hz, when + n.at, n.dur, 'square', 0.06, 3000);
       }
     },
   };
@@ -152,7 +166,7 @@ export function createSting(ctx, out) {
 
 /**
  * Lookahead scheduler. Call tick() every ~25 ms; it queues every step whose start time falls
- * inside [now, now + lookahead]. getState() → { playing, speed, eraId, warp }.
+ * inside [now, now + lookahead]. getState() → { playing, speed, eraId, warp, warps }.
  * It plays the warp landing sting too, unless `sting: false` (the director plays its own).
  */
 export function createScheduler(ctx, out, getState, { sting = true } = {}) {
@@ -254,7 +268,10 @@ export function createScheduler(ctx, out, getState, { sting = true } = {}) {
       // Fell behind (first call, tab backgrounded, long GC)? Resync to now — never schedule
       // into the past and never emit a catch-up burst.
       if (nextTime < now) nextTime = now;
-      if (landing) landing.update(st.eraId, Boolean(st.warp), Boolean(st.playing));
+      if (landing && landing.landed(st.eraId, st.warps, st.playing)) {
+        const sc = scoreFor(st.eraId);
+        landing.play(sc, beatAt(nextTime, step, stepDuration(sc.bpm), now + STING_DELAY));
+      }
       if (!st.playing) { nextTime = now; return; }
       const sd = stepDuration(scoreFor(st.eraId).bpm);
       while (nextTime <= now + lookahead) {
@@ -264,6 +281,8 @@ export function createScheduler(ctx, out, getState, { sting = true } = {}) {
       }
     },
     get stings() { return landing ? landing.count : 0; },
+    /** The first beat of this score at or after `t` (the director lands its sting on it). */
+    beatAfter(t) { return beatAt(Math.max(nextTime, ctx.currentTime), step, stepDuration(scoreFor(getState().eraId).bpm), t); },
     reset() { step = 0; nextTime = 0; },
   };
 }

@@ -375,6 +375,7 @@ export const SoundEngine = {
         speed: GameState.speed,
         eraId: (ERAS[GameState.eraIndex] || ERAS[0]).id,
         warp: GameState.warpActiveTimer > 0,
+        warps: GameState.timeWarps,
       }));
     }
     if (this.musicTimer) clearInterval(this.musicTimer);
