@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { START, startHint, judgeLaunch, LAUNCH_EFFECT, createStartSequence, lineupCall, createCallouts, finishResults, resultHeadline } from '../../src/racecall.js';
+import { START, startHint, judgeLaunch, LAUNCH_EFFECT, createStartSequence, lineupCall, createCallouts, finishResults, resultHeadline, gridBeat } from '../../src/racecall.js';
 
 const run = (seq, seconds, step = 0.05) => {
   const out = [];
@@ -137,5 +137,22 @@ describe('start prompt worded for the input in hand (ticket 0111)', () => {
   it('an unknown input falls back to the touch wording, or keys when told it is a desktop', () => {
     expect(startHint(undefined)).toEqual(startHint('touch'));
     expect(startHint('', 'keys')).toEqual(startHint('keys'));
+  });
+});
+
+describe('gridBeat (ticket 0215): one grid banner at a time on phones', () => {
+  it('shows the chips, then the stats line, then neither', () => {
+    expect(gridBeat(0, true)).toBe('chips');
+    expect(gridBeat(START.chips - 0.01, true)).toBe('chips');
+    expect(gridBeat(START.chips, true)).toBe('stats');
+    expect(gridBeat(START.chips + START.stats - 0.01, true)).toBe('stats');
+    expect(gridBeat(START.chips + START.stats, true)).toBe('none');
+  });
+  it('skips the stats line when there is none or it is the same car again', () => {
+    expect(gridBeat(0, false)).toBe('chips');
+    expect(gridBeat(START.chips, false)).toBe('none');
+  });
+  it('fits both beats inside the lights on a first race', () => {
+    expect(START.chips + START.stats).toBeLessThanOrEqual(START.hold + 3 * START.light);
   });
 });

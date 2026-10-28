@@ -8,7 +8,20 @@ export const START = Object.freeze({
   hold: 0.6,        // the whole grid together before the lights
   light: 0.9,       // seconds per red light (3, 2, 1)
   goHold: 0.8,      // GO! stays up this long after green
+  chips: 1.5,       // phones (0215): the grid's six chips alone, then…
+  stats: 1.5,       // …your car's stats line alone, then neither (the thumb guide's turn)
 });
+
+/**
+ * What the grid shows `age` seconds after it appeared on a phone (ticket 0215): one banner at a
+ * time, chips first, then your car's stats line (`stats` false skips it: no stats, or the same
+ * car as last race), then 'none'. Desktop shows both together and never calls this.
+ */
+export function gridBeat(age, stats) {
+  if (age < START.chips) return 'chips';
+  if (stats && age < START.chips + START.stats) return 'stats';
+  return 'none';
+}
 
 /**
  * The rocket-start prompt and the lineup's skip pill, worded for the input in hand (ticket

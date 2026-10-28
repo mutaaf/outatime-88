@@ -530,7 +530,7 @@ export const startHooks = {
   },
 };
 
-export const handleStartEvents = (events) => RC.playStartEvents(events, startHooks);
+export const handleStartEvents = (events, dt) => RC.playStartEvents(events, startHooks, dt);
 
 export function updateRaceStart(rawDt) {
   if (RS.startSeq.inLineup && (RS.skipRequested || InputState.boostPressed)) {
@@ -544,7 +544,7 @@ export function updateRaceStart(rawDt) {
     if (RS.launchPressAt == null && !RS.startSeq.inLineup) RS.launchPressAt = RS.startSeq.t + rawDt;
   }
   GameState.speed = 0;
-  handleStartEvents(RS.startSeq.update(rawDt));
+  handleStartEvents(RS.startSeq.update(rawDt), rawDt);
 }
 
 /** After GO: the late rocket-start window, the GO! hold, live callouts, the finish roll-out. */
@@ -554,7 +554,7 @@ export function updateRaceCeremony(rawDt) {
       InputState.boostPressed = false;
       applyLaunch(RC.judgeLaunch(RS.startSeq.t));
     }
-    handleStartEvents(RS.startSeq.update(rawDt));
+    handleStartEvents(RS.startSeq.update(rawDt), rawDt);
   }
   if (GameState.launchStall > 0) {
     GameState.launchStall -= rawDt;
