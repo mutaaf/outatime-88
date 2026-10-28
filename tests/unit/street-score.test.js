@@ -123,4 +123,35 @@ describe('director', () => {
     expect(r.d.cue).toBe('phonk');
     expect(r.out.gain.events[r.out.gain.events.length - 1][1]).toBe(1);
   });
+
+  it('plays one warp landing sting in the key of the cue it lands in, never twice, never muted (0217)', () => {
+    const pc = (key, hz) => ((Math.round(69 + 12 * Math.log2(hz / 440)) - key.root) % 12 + 12) % 12;
+    for (const style of ['street', 'synthwave']) {
+      const state = { status: 'PLAYING', racePhase: 'RACING', style, eraId: '2026', mode: 'ARCADE', tier: 1, speed: 90, warp: false, warps: 0 };
+      const r = rig(state);
+      tick(r, 4);
+      Object.assign(state, { eraId: '2061', warp: true, warps: 1 });
+      const before = r.ctx.nodes.length;
+      tick(r);
+      expect(r.d.stings, style).toBe(1);
+      const key = style === 'street' ? STREET_TRACKS[streetTrackFor('2061', 'ARCADE', 1)] : synth.ERA_SCORES['2061'];
+      expect(r.d.stingKey).toBe(key);
+      // Every sting oscillator is in that key.
+      const oscs = r.ctx.nodes.slice(before).filter((n) => n.kind === 'osc' && n.frequency.events[0][2] >= r.ctx.currentTime + synth.STING_DELAY - 1e-9);
+      expect(oscs.length).toBeGreaterThanOrEqual(synth.stingNotes(key).length);
+      for (const o of oscs.slice(0, synth.stingNotes(key).length)) expect(key.scale, style).toContain(pc(key, o.frequency.events[0][1]));
+      tick(r, 40); // the rest of the warp, a cue switch on the bar line included
+      expect(r.d.stings, style).toBe(1); // one, never one per scheduler
+      Object.assign(state, { eraId: '2088' }); // an Endless tier-up while the warp is still on
+      tick(r, 4);
+      expect(r.d.stings, style).toBe(1);
+    }
+    const state = { status: 'PLAYING', racePhase: 'RACING', style: 'street', eraId: '2026', mode: 'ARCADE', tier: 1, speed: 90, warp: false, warps: 0, muted: true };
+    const r = rig(state);
+    tick(r, 4);
+    Object.assign(state, { eraId: '1985', warp: true, warps: 1 });
+    tick(r, 10);
+    expect(r.d.stings).toBe(0);
+    expect(r.ctx.started.length).toBe(0);
+  });
 });
