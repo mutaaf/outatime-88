@@ -113,14 +113,18 @@ describe('arrival stretch (0218)', () => {
       for (const it of seg.items) expect(Math.abs(it.offset), it.type).toBeGreaterThanOrEqual(1.4);
       expect(hasSetPieceBetween(z, z + 1)).toBe(true);
     }
-    // Lined with signs along the straight, lamps all the way.
+    // Lined along the straight with the era's roadside kit, both sides; lamps the whole way but
+    // never more than the 3D lamp pool (48) holds; no clock towers (ticket 0189 is the operator's).
     const items = track.liveSegments().filter((s) => s.feature && s.feature.kind === 'ARRIVAL').flatMap((s) => s.items);
-    const signs = items.filter((it) => it.type === 'CLOCK_TOWER_BILLBOARD');
-    expect(signs.length).toBeGreaterThanOrEqual(6);
-    expect(new Set(signs.map((s) => Math.sign(s.offset))).size).toBe(2);
-    expect(items.filter((it) => it.type === 'STREET_LAMP').length).toBeGreaterThanOrEqual(20);
+    const kit = items.filter((it) => it.type === 'ARCH_HW' || it.type === 'PALM_TREE');
+    expect(kit.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(kit.map((s) => Math.sign(s.offset))).size).toBe(2);
+    const lamps = items.filter((it) => it.type === 'STREET_LAMP').length;
+    expect(lamps).toBeGreaterThanOrEqual(20);
+    expect(lamps).toBeLessThanOrEqual(40);
+    expect(items.some((it) => it.type === 'CLOCK_TOWER_BILLBOARD')).toBe(false);
     // No sponsor boards (docs/ADS.md slots stay where they are documented).
-    expect(items.some((it) => it.board)).toBe(false);
+    expect(items.some((it) => it.type === 'BILLBOARD')).toBe(false);
   });
 
   it('with nothing queued the road is exactly the generator\'s', () => {

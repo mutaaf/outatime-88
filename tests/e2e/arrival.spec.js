@@ -26,16 +26,22 @@ test('the first warp of a run lands on the 1985 stretch: clear lanes, the player
   expect(await page.evaluate(() => window.__OT.GameState.eraIndex)).toBe(0); // level 1 starts in 2026
   await warp(page);
   await expect(page.locator('#eraBadge')).toContainText('1985');
-  expect(await page.evaluate(() => window.__OT.track().run.arrival)).toBe('1985');
+  expect(await page.evaluate(() => window.__OT.track().run.arrivalDone)).toBe(true);
 
-  // Move up to the end of the built road: the next road the race builds is the stretch.
-  const at = await page.evaluate(([SEG, CAM]) => {
-    const t = window.__OT.track();
-    window.__OT.sim(1, () => { window.__OT.GameState.trackPos = (t.end - 200) * SEG - CAM; });
-    return t.run.arrivalAt;
+  // Move up to the end of the built road: the next road the race builds is the stretch. An
+  // obstacle the planner had already put past the old road end (where the set-piece check can't
+  // see the stretch yet) sits on the line in the middle of it; the build must move it off.
+  const { at, planted } = await page.evaluate(([SEG, CAM]) => {
+    const O = window.__OT, t = O.track(), ob = O.traffic().obstacles[0];
+    O.sim(1, () => {
+      O.GameState.trackPos = (t.end - 200) * SEG - CAM;
+      ob.reset(O.traffic().obstacleOpts(0, ob.type || 'OIL_BARREL', (t.end + 60) * SEG, 0));
+    });
+    return { at: t.run.arrivalAt, planted: ob.worldZ };
   }, [SEG, CAM]);
   expect(at.era).toBe('1985');
   expect(at.z1 - at.z0).toBe(STRETCH * SEG);
+  expect(planted).toBeGreaterThan(at.z1);
 
   // Drive it, holding left part of the way: the car steers, nothing on the road, race on.
   await page.keyboard.down('ArrowLeft');
@@ -45,7 +51,7 @@ test('the first warp of a run lands on the 1985 stretch: clear lanes, the player
     O.sim(1, () => { g.trackPos = at.z0 - CAM + 400; g.playerX = 0; });
     out.x0 = g.playerX;
     for (let n = 0; n < 2400; n++) {
-      if (n === 60) O.input.left = false; // the key goes up mid-stretch: lateral control both ways
+      if (n === 60) O.input.left = false; // let go after half a second of steering
       O.sim(1, () => { g.speed = 88; g.hp = g.maxHp; g.invulnTimer = 1; g.fluxCharge = 0; });
       const z = g.trackPos + CAM;
       if (z >= at.z1) break;
@@ -68,11 +74,14 @@ test('the first warp of a run lands on the 1985 stretch: clear lanes, the player
   expect(drive.x1).toBeLessThan(drive.x0 - 0.05); // the player steered while in the stretch
   expect([...new Set(drive.blocked)]).toEqual([]);
 
-  // A second warp gets no second stretch.
-  await page.evaluate(() => window.__OT.release());
+  // A second warp gets no second stretch, even one that lands in 1985 again.
+  await page.evaluate(() => { window.__OT.release(); window.__OT.GameState.eraIndex = 0; });
   await nextFrames(page, 3);
   await warp(page);
-  expect(await page.evaluate(() => window.__OT.track().run.arrival)).toBeFalsy();
+  await expect(page.locator('#eraBadge')).toContainText('1985');
+  const run = await page.evaluate(() => { const r = window.__OT.track().run; return { arrival: r.arrival, at: r.arrivalAt }; });
+  expect(run.arrival).toBeFalsy();
+  expect(run.at).toEqual(at);
   expect(problems).toEqual([]);
 });
 

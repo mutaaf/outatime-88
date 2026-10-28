@@ -43,5 +43,10 @@ Other eras, cutscenes, anything that takes control from the player.
 - It plays when the run's first warp lands in 1985 (levels 1 and 5); a first warp into another
   era uses up the run's arrival until those eras get their own stretches.
 - The whole stretch is one `ARRIVAL` feature, so the set-piece rules keep obstacles, props, era
-  spills and Endless hazards off it and traffic steps off it; no pickups. The signs are the era's
-  own clock-tower boards (never sold), so no sponsor slot moves (docs/ADS.md).
+  spills and Endless hazards off it; the race step also moves an obstacle the planner had put past
+  the old end of the road (where that check can't see the stretch yet). Traffic still drives it,
+  off the racing line as everywhere (parking it would make cars blink out on a straight). No pickups.
+- "Lined with signs" is done with the era's roadside kit (maples and mailboxes in 1985) instead of
+  boards: in 3D the era board is a clock tower, and a row of them right after the 88 mph warp
+  leans on the combination ticket 0189 leaves to the operator; sponsor slots stay as docs/ADS.md
+  documents. Lamps every 8 segments keep the 3D lamp pool (48) from overflowing.

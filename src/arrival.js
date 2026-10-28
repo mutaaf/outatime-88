@@ -10,11 +10,11 @@
  * One stretch per era id (1985 is the first; other eras are their own tickets). `rows` are the
  * authored sections, built in order with track.js addRoadSection:
  * [enter, hold, leave, curve, rise, bank] (segments, segments, segments, curve, world Y, bank).
- * `straight` marks the rows lined with signs.
+ * `straight` marks the rows lined with roadside props.
  */
 export const ARRIVALS = {
   // 1985 · Cedar Ridge at night: settle after the tunnel, a long gentle sweeper to the right,
-  // then a short straight past the mall signs with every lane open.
+  // then a short suburban straight with every lane open.
   1985: {
     rows: [
       [4, 6, 4, 0, 0, 0],
@@ -55,9 +55,12 @@ export function queueArrival(run, eraId, { warps, shared, seed }) {
  * return it as { era, z0, z1 } (also kept on run.arrivalAt), or null if nothing is queued.
  * `t` = { track, addRoadSection, addItem, segLength }. Every segment shares one ARRIVAL feature,
  * so nothing that keeps set pieces clean places an obstacle, prop or hazard on it
- * (hasSetPieceBetween) and traffic steps off it like it does off a loop; no pickups either.
- * Roadside only: lamps along the whole stretch, the era's own boards (never sold, docs/ADS.md)
- * alternating sides along the straight, all outside the rails.
+ * (hasSetPieceBetween; the race step also moves an obstacle placed past the old road end) and
+ * no pickups. Traffic still drives it, off the racing line as everywhere. Roadside only: lamps
+ * every 8 segments (the 3D lamp pool holds 48), and the era's roadside kit (src/scenes/roadside.js:
+ * maples and mailboxes in 1985) alternating sides along the straight, all outside the rails. No
+ * boards: clock towers would lean on the combination ticket 0189 leaves to the operator, and
+ * sponsor slots stay where docs/ADS.md says.
  */
 export function buildArrival(t) {
   const { track, addRoadSection, addItem, segLength } = t;
@@ -79,8 +82,8 @@ export function buildArrival(t) {
     const seg = track.seg(i);
     seg.feature = feature;
     const k = i - i0;
-    if (k % 4 === 0) { addItem(seg, -1.42, 'STREET_LAMP'); addItem(seg, 1.42, 'STREET_LAMP'); }
-    if (i >= straightAt && k % 6 === 3) addItem(seg, (((i - straightAt) / 6) | 0) % 2 ? -1.42 : 1.42, 'CLOCK_TOWER_BILLBOARD');
+    if (k % 8 === 0) { addItem(seg, -1.42, 'STREET_LAMP'); addItem(seg, 1.42, 'STREET_LAMP'); }
+    if (i >= straightAt && k % 4 === 2) addItem(seg, ((i - straightAt) >> 2) % 2 ? -1.42 : 1.42, k % 8 === 2 ? 'ARCH_HW' : 'PALM_TREE');
   }
   run.arrivalAt = { era, z0, z1 };
   return run.arrivalAt;
