@@ -14,7 +14,7 @@ import {
 const {
   CAR_SPECS, CONTINUE, ENDLESS, ERAS, FLUX, GameState, InputState, PACE_MODES,
   PICKUP, PICKUPS, POP_CULTURE_ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
-  WORLD_LEVELS, addItem, addNos, boostOutcome, canContinue,
+  WORLD_LEVELS, addItem, addNos, addRoadSection, boostOutcome, canContinue,
   continueCost, createGhostRecorder, createHitStop, createNos, createSteer, createStorm,
   crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, forkCueState, forkLean, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
   impactVelocities, landingKeep, logHit, logWall, loopStep,
@@ -28,6 +28,7 @@ import { createReadyCue } from './warp-cue.js';
 import { foldChain, startChain, chainLabel } from './chain-plate.js';
 import { createProximityCue } from './proximity-cue.js';
 import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
+import { buildArrival, queueArrival } from './arrival.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
@@ -665,6 +666,8 @@ export function triggerTimeWarp() {
   GameState.fluxCharge = 0;
   GameState.eraIndex = (GameState.eraIndex + 1) % ERAS.length;
   const newEra = ERAS[GameState.eraIndex];
+  // The run's first warp lands on an authored stretch (0218): solo races only, never shared roads.
+  queueArrival(track.run, newEra.id, { warps: GameState.timeWarps, shared: !!(GameState.daily || GameState.mode === 'LIVE'), seed: track.seed });
 
   const warpBonus = 3000 * GameState.combo;
   GameState.score += warpBonus;
@@ -776,7 +779,8 @@ export function updateGame(rawDt) {
   const cameraSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
   const currentSegIdx = Math.floor((GameState.trackPos + ROAD_CFG.playerZOffset) / ROAD_CFG.segLength);
   if (track.end - currentSegIdx < ROAD_CFG.drawDistance + 85) {
-    generateNextTrackBiome();
+    // The first warp's authored stretch (0218), when one is queued, in place of the next biome.
+    if (!(track.run.arrival && buildArrival({ track, addRoadSection, addItem, segLength: ROAD_CFG.segLength }))) generateNextTrackBiome();
   }
 
   const currentSeg = track.seg(currentSegIdx) || track.seg(track.start);
