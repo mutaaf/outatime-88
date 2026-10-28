@@ -143,3 +143,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-27 · 0211 · New Settings → RIVALS choice: FAIR FIELD turns the rivals' catch-up down to 40%, so rivals you drop push less to get back and leaders wait less for you; CLOSE PACK stays the default, and live races and the daily always race the close pack
 2026-10-28 · 0213 · A browser that can't save (private window, blocked site data, full storage) now says so once on the results card, instead of silently losing medals and times
 2026-10-28 · 0215 · On a phone the start grid shows one thing at a time: the six-car lineup, then your car's stats (skipped when you race the same car again), and the steering tip only once both are gone
+2026-10-28 · 0216 · New Settings → Camera effects: FULL, GENTLE (40%) or OFF tones down the camera shake and the push-in at speed without losing the speed lines or the warp colours; CALM motion still turns them off

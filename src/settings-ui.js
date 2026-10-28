@@ -236,8 +236,9 @@ export function initSettings({ announce } = {}) {
   // A tap on the title chip is the gesture iOS needs for the permission prompt.
   if (chip) chip.addEventListener('click', (e) => { e.stopPropagation(); toggleTilt(); });
   // Tilt was on last visit: Android/desktop resume at once; iOS re-asks on the first tap.
-  // Rebound keys (0013): the panel's chunk applies them, so it loads at boot only when a save has some.
-  if (settings().keys) loadPanel();
+  // Rebound keys (0013) and calmer camera effects (0216): the panel's chunk applies them, so it
+  // loads at boot only when a save has some.
+  if (settings().keys || settings().cameraFx !== 'full') loadPanel();
   setTiltStatus('off');
   if (settings().tilt) {
     const DOE = window.DeviceOrientationEvent;
