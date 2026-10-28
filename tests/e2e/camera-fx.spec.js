@@ -4,30 +4,52 @@
 import { test, expect } from '@playwright/test';
 import { APP, watchPage, racing } from './helpers.js';
 
+// The hit-shake (screenShake) is a translate on the pixel buffer right after renderScene's
+// setTransform + save, so the probe watches that exact sequence too.
 const probe = (page) => page.addInitScript(() => {
-  const draw = CanvasRenderingContext2D.prototype.drawImage;
+  const P = CanvasRenderingContext2D.prototype;
+  const { drawImage, setTransform, save, translate, fillRect } = P;
   window.__blit = null;
-  CanvasRenderingContext2D.prototype.drawImage = function (img, sx, sy, sw, sh, dx, dy, dw) {
+  window.__hit = 0;
+  let step = 0;
+  P.drawImage = function (img, sx, sy, sw, sh, dx, dy, dw) {
+    step = 0;
     if (arguments.length === 9 && this.canvas.id === 'gameCanvas' && img && img.width && !window.__blit) {
       window.__blit = { fov: img.width / sw, shake: Math.hypot(dx, dy) * 1280 / dw }; // first draw of the frame
     }
-    return draw.apply(this, arguments);
+    return drawImage.apply(this, arguments);
+  };
+  P.fillRect = function () { step = 0; return fillRect.apply(this, arguments); };
+  P.setTransform = function () { step = this.canvas.id ? 0 : 1; return setTransform.apply(this, arguments); };
+  P.save = function () { step = step === 1 ? 2 : 0; return save.apply(this, arguments); };
+  P.translate = function (x, y) {
+    if (step === 2 && Math.abs(x) < 4 && Math.abs(y) < 4) window.__hit = Math.max(window.__hit, Math.hypot(x, y));
+    step = 0;
+    return translate.apply(this, arguments);
   };
 });
 
-/** Max FOV and shake over ~48 frames at 130 mph, plus whether speed lines drew. */
-const sample = (page) => page.evaluate(async () => {
-  const g = window.__OT.GameState;
-  let fov = 0, shake = 0;
-  const lines0 = g.fxLinesDrawn;
-  for (let i = 0; i < 48; i++) {
-    g.speed = 130;
-    window.__blit = null;
-    await new Promise((r) => requestAnimationFrame(r));
-    if (window.__blit) { fov = Math.max(fov, window.__blit.fov); shake = Math.max(shake, window.__blit.shake); }
-  }
-  return { fov, shake, lines: g.fxLinesDrawn > lines0 };
-});
+/** Max FOV, speed shake and hit-shake over ~48 frames at 130 mph with NOS held (Shift) and a
+ *  crash-sized screenShake kept up, plus whether speed lines drew. */
+async function sample(page) {
+  await page.keyboard.down('Shift');
+  const out = await page.evaluate(async () => {
+    const g = window.__OT.GameState;
+    let fov = 0, shake = 0, nos = false, lines = 0;
+    window.__hit = 0;
+    for (let i = 0; i < 48; i++) {
+      g.speed = 130; g.screenShake = 0.6;
+      window.__blit = null;
+      await new Promise((r) => requestAnimationFrame(r));
+      nos = nos || g.nosBurning;
+      lines = Math.max(lines, g.fxLinesDrawn); // speed lines this frame
+      if (window.__blit) { fov = Math.max(fov, window.__blit.fov); shake = Math.max(shake, window.__blit.shake); }
+    }
+    return { fov, shake, hit: window.__hit, nos, lines: lines > 0 };
+  });
+  await page.keyboard.up('Shift');
+  return out;
+}
 
 async function race(page, mode) {
   await page.goto(`${APP}?debug&view=2d`);
@@ -50,8 +72,12 @@ test('camera effects: full, gentle (≈40%) and off scale shake and push-in, nev
     out[mode] = await sample(page);
     expect(await page.evaluate(() => window.__OT.save().settings.cameraFx)).toBe(mode);
   }
-  expect(out.full.fov).toBeGreaterThan(1.065); // 1 + 0.07 at full speed
+  expect(out.full.nos).toBe(true);
+  expect(out.full.fov).toBeGreaterThan(1.1); // 1 + 0.07 at full speed + 0.045 NOS
   expect(out.full.shake).toBeGreaterThan(1.5); // 2.2 px peak at 1280 wide
+  expect(out.full.hit).toBeGreaterThan(0.3); // crash shake: up to 0.75 px each way
+  expect(out.gentle.hit).toBeLessThan(out.full.hit * 0.6);
+  expect(out.off.hit).toBe(0);
   expect(out.gentle.fov - 1).toBeCloseTo((out.full.fov - 1) * 0.4, 2);
   expect(out.gentle.shake).toBeLessThan(out.full.shake * 0.45);
   expect(out.gentle.shake).toBeGreaterThan(out.full.shake * 0.25);
@@ -68,6 +94,7 @@ test('calm motion forces camera effects off even when set to full', async ({ pag
   const s = await sample(page);
   expect(s.fov).toBe(1);
   expect(s.shake).toBe(0);
+  expect(s.hit).toBe(0);
 });
 
 test('a saved OFF applies from boot, before the settings panel is ever opened', async ({ page }) => {
@@ -87,5 +114,6 @@ test('a saved OFF applies from boot, before the settings panel is ever opened', 
   const s = await sample(page);
   expect(s.fov).toBe(1);
   expect(s.shake).toBe(0);
+  expect(s.hit).toBe(0);
   expect(s.lines).toBe(true);
 });

@@ -29,6 +29,9 @@ describe('camera effects (0216)', () => {
     expect(fxSrc).toMatch(/if \(reducedMotion \|\| speedMph < 40\)/); // speed shake + push-in → 0
     expect(fx).toMatch(/nosBurning && GameState.status === 'PLAYING' && !GameState.reducedMotion/); // NOS push-in
     expect(readFileSync('src/render/scene.js', 'utf8')).toMatch(/screenShake > 0 && !GameState.reducedMotion/);
+    const v3 = readFileSync('src/render3d/view.js', 'utf8');
+    expect(v3).toMatch(/if \(!s\.reducedMotion\) \{\n\s+const mag = .*s\.cameraFx/); // 3D shake
+    expect(v3).toMatch(/const warpKick = \(!s\.reducedMotion && .*s\.cameraFx/); // 3D warp FOV kick
   });
 
   it('only renderers and the settings panel read it: the sim never does', () => {

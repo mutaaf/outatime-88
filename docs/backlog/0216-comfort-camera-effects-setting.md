@@ -30,11 +30,17 @@ and the warp colour shift are untouched. A row in the lazy settings panel (VIEW 
 change to the sim and nothing in main beyond the one scale read.
 
 ## Acceptance criteria
-- [ ] `cameraFx: 'off'` leaves the canvas shake offset at 0 and FOV kick at 1.0 through a crash, a NOS burn and a warp; `'gentle'` is ≈40% of `'full'`.
-- [ ] `motion: 'reduce'` (or OS reduce with `auto`) still forces the scale to 0 whatever `cameraFx` says.
-- [ ] Speed lines, flash guard (0188) and the sim are unchanged: a seeded race ends with identical score and time in all three modes.
-- [ ] Old saves (no `cameraFx`) load as `'full'`; no save key changes (invariant 6).
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse; main startup JS stays ≤ 59 kB gz (put the row in the lazy settings chunk).
+- [x] `cameraFx: 'off'` leaves the canvas shake offset at 0 and FOV kick at 1.0 through a crash, a NOS burn and a warp; `'gentle'` is ≈40% of `'full'`.
+- [x] `motion: 'reduce'` (or OS reduce with `auto`) still forces the scale to 0 whatever `cameraFx` says.
+- [x] Speed lines, flash guard (0188) and the sim are unchanged: a seeded race ends with identical score and time in all three modes.
+- [x] Old saves (no `cameraFx`) load as `'full'`; no save key changes (invariant 6).
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse; main startup JS stays ≤ 59 kB gz (put the row in the lazy settings chunk).
+
+As shipped (#181): the scale is `cameraFxScale(mode)` in `src/camera-fx.js` (lazy settings-panel
+chunk, which loads at boot when a save calms the camera) and lands on `GameState.cameraFx`. Calm
+motion wins through the renderers' existing `reducedMotion` gates rather than being folded into
+the scale, so an OS reduce flag that turns off mid-session never leaves the camera stuck calm.
+Sim parity holds by construction: no sim module reads `cameraFx` (unit-tested).
 
 ## Test plan
 Unit: `cameraFxScale` table (modes × reduce flags) and `normalise` defaults on an old-shape save.
