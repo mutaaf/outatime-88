@@ -1,12 +1,12 @@
 ---
 id: 0215
 title: The phone start grid stacks four banners over the skyline; show one at a time
-status: in-progress
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-27
-pr:
+pr: 180
 ---
 
 ## Why
