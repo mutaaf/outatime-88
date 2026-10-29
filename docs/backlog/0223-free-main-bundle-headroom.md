@@ -1,12 +1,12 @@
 ---
 id: 0223
 title: Free at least 1.5 kB gz of main startup JS so the next features are not blocked
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: tech-health
 created: 2026-10-29
-pr:
+pr: 189
 ---
 
 ## Why
