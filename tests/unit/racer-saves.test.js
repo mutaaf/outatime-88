@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { swapSave, mergeServerBests } from '../../src/racer-saves.js';
+import { swapSave } from '../../src/racer-saves.js';
+import { mergeServerBests } from '../../src/progress.js';
 
 describe('per-racer saves', () => {
   it('normalises the swapped-in save through the store before anything draws with it', () => {

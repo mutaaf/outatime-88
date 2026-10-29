@@ -12,6 +12,8 @@ import {
   withResults
 } from './main.js';
 import { createFair, fairPayload } from './fairplay.js';
+// Only the race chunks use these, so they import them directly and never ship at startup (0223).
+import { createPenaltyLog, penaltyPoints, breakdown, logPayload } from './scoring.js';
 import { catchUpScale } from './fair-field.js';
 import { wakeFrame } from './slipstream.js';
 import { playHint } from './play-hints.js';
@@ -23,9 +25,9 @@ import {
 } from './race-step.js';
 const {
   CAR_SPECS, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, POP_CULTURE_ROSTER,
-  ROAD_CFG, SaveStore, SoundEngine, WORLD_LEVELS, applyRunResult, beginRun, breakdown,
-  createDrive, createHud, createLateral, createOnboarding, createPenaltyLog, createRaceClock,
-  finishBonus, isNewPlayer, lapOf, logPayload, missionsDone, mulberry32, ordinal, penaltyPoints,
+  ROAD_CFG, SaveStore, SoundEngine, WORLD_LEVELS, applyRunResult, beginRun,
+  createDrive, createHud, createLateral, createOnboarding, createRaceClock,
+  finishBonus, isNewPlayer, lapOf, missionsDone, mulberry32, ordinal,
   pickMissions, preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace,
   resetBackdrop, utcDay
 } = RACE_DEPS;

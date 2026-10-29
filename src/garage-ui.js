@@ -2,7 +2,8 @@
 // unlock, buy, paint and upgrade, plus the full-screen reveal when a new car unlocks.
 // DOM only; the rules live in src/cars.js and main.js passes in what it owns.
 
-import { CAR_SPECS, STATS, STAT_LABELS, displayStats, isOwned, unlockProgress, buyCar, ensureGarage } from './cars.js';
+import { CAR_SPECS, isOwned, unlockProgress, ensureGarage } from './cars.js';
+import { STATS, STAT_LABELS, displayStats, buyCar } from './car-shop.js';
 import { createTurntable } from './car-art.js';
 import './garage.css';
 

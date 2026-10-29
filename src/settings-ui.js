@@ -6,24 +6,23 @@ import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState } from './input.js';
 import { SoundEngine } from './audio.js';
-import { normalizeSettings, reducedMotionFor, screenAngle, tiltAngle, tiltSteer, difficultyOf } from './settings.js';
+import { normalizeSettings, reducedMotionFor, difficultyOf } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 let tiltStatus = 'off';
 let systemReduce = false;
 let resumeOnClose = false;
-let gotSignal = false;
 let signalTimer = 0;
 let hooks = { announce() {} };
-// Tilt goes through a One Euro filter (ticket 0183): steady when you hold the phone still,
-// no lag when you swing it. Tuned on a 60 Hz sensor with 0.5° noise and a 9 Hz hand tremor:
-// jitter at rest drops ~2.5×, and a swerve reaches 90% within one sensor sample, as unfiltered.
-// The filter is its own tiny chunk, fetched when tilt is turned on (main stays in budget).
-let tiltFilter = null;
-const loadTiltFilter = () => import('./onefilter.js').then(({ createOneEuro }) => {
-  tiltFilter = tiltFilter || createOneEuro({ minCutoff: 0.8, beta: 0.5, snap: 6 }); // a 6°+ jump is a swerve, never jitter
-}).catch(() => {});
-let tiltDotPct = -1;
+// The sensor maths, its One Euro filter and the reader are their own chunk (src/tilt.js),
+// fetched when tilt is turned on (0223: main stays in budget). A reading that lands before the
+// chunk is kept, so the first one still sets the zero; a failed fetch is retried on the next one.
+let tilt = null;
+let tiltLoading = null;
+let pending = null;
+const loadTilt = () => (tiltLoading = tiltLoading || import('./tilt.js').then(({ createTiltReader }) => {
+  tilt = createTiltReader(InputState, SaveStore, () => { clearTimeout(signalTimer); setTiltStatus('on'); });
+}).catch((e) => { tiltLoading = null; throw e; }));
 
 export const settings = () => SaveStore.data.settings;
 export const currentDifficulty = () => difficultyOf(SaveStore.data.settings);
@@ -35,30 +34,19 @@ function save() { SaveStore.save(); }
 // --- Tilt ---------------------------------------------------------------------------------
 
 function onOrientation(e) {
-  if (e.beta == null && e.gamma == null) return;
-  const angle = tiltAngle(e.beta, e.gamma, screenAngle(window));
-  if (!gotSignal) {
-    gotSignal = true;
-    clearTimeout(signalTimer);
-    if (tiltFilter) tiltFilter.reset();
-    InputState.tiltZeroOffset = angle;
-    setTiltStatus('on');
-  }
-  if (!InputState.tiltEnabled) return;
-  const raw = tiltFilter ? tiltFilter.filter(angle, e.timeStamp || performance.now()) : angle;
-  InputState.tiltRawAngle = raw;
-  InputState.tiltSteerVal = tiltSteer(raw, InputState.tiltZeroOffset, {
-    sensitivity: SaveStore.data.tiltSensitivity || 1,
-    invert: settings().tiltInvert,
-  });
-  // The meters move in whole percent: no style write (and layout) for sub-pixel jitter.
-  const pct = Math.round(Math.max(6, Math.min(94, 50 + InputState.tiltSteerVal * 44)));
-  if (pct === tiltDotPct) return;
-  tiltDotPct = pct;
-  for (const id of ['tiltIndicatorDot', 'setTiltDot']) {
-    const dot = $(id);
-    if (dot) dot.style.left = `${pct}%`;
-  }
+  if (tilt) { tilt.read(e); return; }
+  if (e.beta == null && e.gamma == null) return; // no angles (some browsers send one as you listen)
+  pending = e;
+  if (!tiltLoading) startTilt();
+}
+
+/** Fetches the reader, then arms it and reads the reading held while it loaded. */
+function startTilt() {
+  loadTilt().then(() => {
+    if (tiltStatus !== 'waiting') return;
+    tilt.arm();
+    if (pending) { const e = pending; pending = null; tilt.read(e); }
+  }).catch(() => {});
 }
 
 function setTiltStatus(status) {
@@ -98,13 +86,14 @@ export async function enableTilt() {
     try { resp = await DOE.requestPermission(); } catch (e) { resp = 'denied'; }
     if (resp !== 'granted') { setTiltStatus('denied'); return false; }
   }
-  loadTiltFilter();
   window.removeEventListener('deviceorientation', onOrientation, true);
   window.addEventListener('deviceorientation', onOrientation, true);
-  gotSignal = false;
   setTiltStatus('waiting');
+  if (tilt) tilt.arm();
+  else startTilt();
   clearTimeout(signalTimer);
-  signalTimer = setTimeout(() => { if (!gotSignal) setTiltStatus('nosignal'); }, 1500);
+  // No reading at all in 1.5 s (one held for the chunk counts) = no sensor.
+  signalTimer = setTimeout(() => { if (tilt ? tilt.armed : !pending) setTiltStatus('nosignal'); }, 1500);
   settings().tilt = true;
   save();
   return true;
@@ -112,6 +101,7 @@ export async function enableTilt() {
 
 export function disableTilt() {
   window.removeEventListener('deviceorientation', onOrientation, true);
+  pending = null;
   clearTimeout(signalTimer);
   settings().tilt = false;
   save();
