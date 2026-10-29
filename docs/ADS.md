@@ -36,7 +36,9 @@ are not optional.
 
 Slots are placed by the endless generator (`src/track.js` `addBoard`), pooled with the road
 ring (they never accumulate), always outside the rails or overhead, so they never block the
-racing line. The clock-tower boards (`ERA`) carry the era's own pop-culture nods and are not
+racing line. In 2D a board beside the road (not the overhead ones) is never drawn wider than 28% of the
+view, and one crossing the edge of the view fades with the share of its face off screen, gone at
+35% (ticket 0221, `src/board-fade.js`), so a creative is never shown cut in half. The clock-tower boards (`ERA`) carry the era's own pop-culture nods and are not
 for sale.
 
 ## Creative specs
@@ -61,7 +63,7 @@ for sale.
 An impression is counted when **at least 50% of the board is on screen**, the board covers
 **at least 0.25% of the screen** (big enough to read), **for one continuous second**, during a
 race (not on the title screen). A 2D board drawn see-through because a car, obstacle or pickup
-is behind it (ticket 0203) is not being viewed: that time doesn't count. Each board counts at most once per race. Counts are batched:
+is behind it (ticket 0203) is not being viewed: that time doesn't count. Nor is a 2D board more than ~17% off the edge of the view, which is drawn faded (ticket 0221). Each board counts at most once per race. Counts are batched:
 sent when a race ends (a new road starts), every 40 impressions, and when the tab is hidden.
 
 ## Adding a campaign
