@@ -886,7 +886,7 @@ function bindAllControls() {
     }
     const racing = GameState.status === 'PLAYING';
     if (c === 'KeyN' && !racing) selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
-    if (['ShiftLeft', 'ShiftRight'].includes(c) || (c === 'KeyN' && racing)) InputState.nosHeld = true;
+    if (['ShiftLeft', 'ShiftRight'].includes(c) || (c === 'KeyN' && racing)) { InputState.nosHeld = true; if (!e.repeat) InputState.nosTap = true; }
     if (['ArrowDown', 'KeyS'].includes(c)) { if (GameState.playerY > 12 && !e.repeat) performHumanTrick('DOWN'); InputState.down = true; }
     if (c === 'Space') { e.preventDefault(); if (!e.repeat) InputState.boostPressed = true; }
     if (['KeyH', 'KeyE'].includes(c) && !e.repeat) { if (GameState.playerY > 12) performHumanTrick('UP'); else InputState.hoverPressed = true; }
@@ -1202,6 +1202,7 @@ function cycleVisualMode() {
 }
 
 function openGarageModal(focusCarId) {
+  InputState.nosOn = false; // a tapped-on NOS (0222) stops when the menu opens, live races included
   if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE') GameState.status = 'PAUSED'; // live races can't pause
   const focus = typeof focusCarId === 'string' ? focusCarId : null;
   // Show it once its chunk (and styles) are in, so it never flashes unstyled.
@@ -1473,6 +1474,7 @@ function mainLoop(timestamp) {
     updateLiveHud();
   } else {
     simClock.reset();
+    InputState.nosOn = InputState.nosTap = false; // a tapped-on NOS (0222) stops on pause and off the road
     // Live race countdown (GRID): on the line, road still. A pause freezes it too; otherwise
     // attract mode rolls the road.
     if (GameState.status !== 'PAUSED' && GameState.status !== 'GRID') {

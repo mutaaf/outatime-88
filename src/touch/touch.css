@@ -53,6 +53,11 @@ html, body { overscroll-behavior: none; }
 .tc-special { --c: #a3e635; }
 .tc-accel { --c: #34d399; }
 .tc-horn { --c: #fbbf24; }
+/* NOS TAP ON/OFF switched on (0222): a double border and the NOS ON label, not just colour; a shortcut shows the label too. */
+.tc-horn.tc-on { border: 4px double #fbbf24; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--c) 45%, #0b1020), color-mix(in srgb, var(--c) 15%, #05050d) 75%); }
+.tc-horn.tc-on .tc-lbl { display: block; color: #fde68a; }
+.tc-shortcut.tc-horn.tc-on { --c: #fbbf24; }
+.tc-shortcut.tc-horn.tc-on .tc-lbl { font-size: 7px; letter-spacing: 0; }
 .tc-shortcut { --c: #94a3b8; background: rgba(5, 5, 18, 0.72); }
 .tc-shortcut .tc-ico { width: 48%; height: 48%; }
 .tc-shortcut .tc-lbl { display: none; }

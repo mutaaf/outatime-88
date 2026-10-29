@@ -1,12 +1,12 @@
 ---
 id: 0222
 title: Settings → NOS can be a tap-to-toggle instead of a hold (keys, pad and touch)
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-10-29
-pr:
+pr: 190
 ---
 
 ## Why
@@ -31,12 +31,12 @@ the touch button and in the pause controls card so it is never a hidden mode. To
 grow beyond its budget (see 0223); put the toggle logic in a lazy chunk or an existing one.
 
 ## Acceptance criteria
-- [ ] Default is HOLD and behaves exactly as today (existing nos tests unchanged)
-- [ ] In TOGGLE one press turns NOS on and the next press turns it off, from keys, pad and touch
-- [ ] Toggle clears on NOS empty, crash cut, warp, pause and race end (unit test per case)
-- [ ] The touch NOS button and the pause controls card show the toggled-on state in text, not only colour
-- [ ] Works at 390x844 touch and 1280x720 keyboard; old save without the field loads as HOLD
-- [ ] No frame-time regression; main startup JS stays within budget
+- [x] Default is HOLD and behaves exactly as today (existing nos tests unchanged)
+- [x] In TOGGLE one press turns NOS on and the next press turns it off, from keys, pad and touch
+- [x] Toggle clears on NOS empty, crash cut, warp, pause and race end (unit test per case)
+- [x] The touch NOS button and the pause controls card show the toggled-on state in text, not only colour
+- [x] Works at 390x844 touch and 1280x720 keyboard; old save without the field loads as HOLD
+- [x] No frame-time regression; main startup JS stays within budget
 
 ## Test plan
 Unit: a pure `nosToggle(state, press, ctx)` reducer covering press, empty, crash, warp, pause.

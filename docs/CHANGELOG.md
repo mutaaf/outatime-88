@@ -150,3 +150,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-28 · 0219 · Settings → Sound → Lane guide (off by default): when your lane is about to close, a soft tone pans toward the nearest open lane and rises in pitch as the gap shrinks, so you can steer by ear
 2026-10-29 · 0221 · Roadside sponsor boards fade out as they slide off the edge of the screen instead of showing a cut-off name, and never grow past a quarter of the view
 2026-10-29 · 0223 · The game's first download is about 1.7 kB smaller: race-only scoring, the tilt sensor, the garage's car shop and the racer panel's save swapping now load when you need them
+2026-10-29 · 0222 · Settings → Race → NOS button: TAP ON/OFF lets one tap of Shift, N, pad LB or the touch NOS button burn NOS until you tap again (it stops by itself on an empty tank, a crash, a warp or a pause), so you never have to hold it down

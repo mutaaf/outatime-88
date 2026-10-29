@@ -174,6 +174,9 @@ src/arrival.js      Arrival stretch (0218), pure, race-step chunk only: the run'
 src/camera-fx.js    "Camera effects" (0216), pure, settings-panel chunk only: Settings → Camera effects sets GameState.cameraFx
                       (full 1 / gentle 0.4 / off 0); nosFeel, the 2D hit-shake and the 3D shake/warp kick multiply by it.
                       Speed lines, flashes and warp colours stay; calm motion still turns all of it off; the sim never reads it
+src/nos-toggle.js   NOS TAP ON/OFF (0222), pure, race-step chunk only: Settings → NOS button (settings.nos 'hold' | 'toggle'); a press
+                      (InputState.nosTap: keydown, touch NOS, pad LB edge) flips InputState.nosOn; a crash, a warp, not racing or
+                      not burning (tank dry) turns it off, and main's loop clears it whenever the race isn't stepping (pause)
 src/powerups.js     Runner power-ups (0177): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
                       Road placement is pickups.js powerupAt (track.power = Endless tier, 0 off)
 src/popups.js       Floating pickup / score labels (0114), pure layout: above the car's roofline (GameState.carBox from

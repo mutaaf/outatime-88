@@ -46,6 +46,11 @@ export function aidsNote(settings) {
   return settings && settings.laneGuide === true ? 'LANE GUIDE ON · a tone pans toward the open lane' : '';
 }
 
+/** The card's line when NOS is a tap toggle (0222), so it is never a hidden mode, or ''. */
+export function nosNote(settings) {
+  return settings && settings.nos === 'toggle' ? 'NOS TAP ON/OFF · tap NOS to burn, tap again to stop' : '';
+}
+
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 function padConnected() {
@@ -77,4 +82,6 @@ export function renderControlsRef(el) {
     + '</dl>';
   const note = aidsNote(SaveStore.data.settings);
   if (note) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="laneGuide"><span aria-hidden="true">🔊 </span>${esc(note)}</p>`);
+  const nos = nosNote(SaveStore.data.settings);
+  if (nos) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="nos"><span aria-hidden="true">🔥 </span>${esc(nos)}</p>`);
 }

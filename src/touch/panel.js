@@ -6,6 +6,7 @@ import { openLayoutEditor } from './editor.js';
 
 export { openLayoutEditor };
 import { ICONS } from './icons.js';
+import { SaveStore } from '../save.js';
 import { placeTips } from './guide-tips.js';
 
 const MOVEMENT_INFO = {
@@ -193,7 +194,7 @@ export function showThumbGuide({ settings, save, controls, done }) {
   const steer = { x: s.x, y: s.y, d: sd };
   const tips = [[steer, stickLabel, 'tc-guide-tip-steer']];
   if (b && !b.hidden) tips.push([b, 'WARP', 'tc-guide-tip-warp']);
-  if (n && !n.hidden) tips.push([n, 'HOLD = NOS', 'tc-guide-tip-nos']);
+  if (n && !n.hidden) tips.push([n, SaveStore.data.settings?.nos === 'toggle' ? 'TAP = NOS ON/OFF' : 'HOLD = NOS', 'tc-guide-tip-nos']); // 0222
   g.innerHTML = `
     <div class="tc-guide-thumb${swipe ? ' tc-guide-swipe' : ''}" style="left:${s.x}px;top:${s.y}px">${ICONS.recenter}</div>
     ${b && !b.hidden ? ring(b, 'tc-guide-warp') : ''}

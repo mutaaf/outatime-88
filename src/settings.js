@@ -24,6 +24,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   graphics: 'auto',       // 'auto' (device-picked tier, src/perf/) | 'low' | 'medium' | 'high' | 'ultra'
   steer: '',              // steering mode (src/steermode.js): '' = this device's natural one
   assist: '',             // co-pilot: 'off' | 'assist' | 'auto'; '' = the touch kit's old switch
+  nos: 'hold',            // NOS button: 'hold' | 'toggle' (0222, a tap turns it on and off; src/nos-toggle.js)
   keys: null,             // rebound keyboard keys { left: 'KeyJ', … } (0013, src/keybinds.js); null = defaults
 });
 
@@ -37,7 +38,7 @@ const CHOICES = {
   motion: ['auto', 'reduce', 'full'], difficulty: Object.keys(DIFFICULTY), graphics: ['auto', 'low', 'medium', 'high', 'ultra'],
   steer: ['', 'keys', 'mouse', 'stick', 'dpad', 'tilt'], assist: ['', 'off', 'assist', 'auto'],
   musicStyle: ['auto', 'synthwave', 'street'], hud: ['normal', 'large'], rivals: ['pack', 'fair'],
-  cameraFx: ['full', 'gentle', 'off'],
+  cameraFx: ['full', 'gentle', 'off'], nos: ['hold', 'toggle'],
 };
 const clamp01 = (v, d) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : d);
 
