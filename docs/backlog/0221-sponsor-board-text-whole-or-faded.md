@@ -1,12 +1,12 @@
 ---
 id: 0221
 title: A roadside sponsor board never shows half its text at the screen edge
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-28
-pr:
+pr: 188
 ---
 
 ## Why
@@ -24,10 +24,10 @@ sponsor-board module (find with `grep -rn "MORE FREE GAMES" src`). No new hosts 
 (see docs/ADS.md).
 
 ## Acceptance criteria
-- [ ] A pure `edgeFade(rect, canvasW)` helper returns 1 inside, falls to ≤0.1 at 40 % clipped (unit test)
-- [ ] Probe: no board with >15 % of its width outside the canvas has alpha above 0.6, at 390x844 and 1280x720
-- [ ] Board width ≤ 28 % of canvas at both sizes
-- [ ] Zero overlaps and the console guard still pass; frame-time probe within budget
+- [x] A pure `edgeFade(rect, canvasW)` helper returns 1 inside, falls to ≤0.1 at 40 % clipped (unit test)
+- [x] Probe: no board with >15 % of its width outside the canvas has alpha above 0.6, at 390x844 and 1280x720
+- [x] Board width ≤ 28 % of canvas at both sizes
+- [x] Zero overlaps and the console guard still pass; frame-time probe within budget
 
 ## Test plan
 Unit test for the helper; a short e2e drive on level 1 sampling board rects through the
@@ -35,3 +35,18 @@ Unit test for the helper; a short e2e drive on level 1 sampling board rects thro
 
 ## Out of scope
 Board copy, campaigns, or reporting.
+
+## Notes (build)
+- `edgeFade(l, r, vw, crop)` in `src/board-fade.js` takes the face's left/right edges instead of a
+  rect object (no allocation per board per frame) and the FOV push-in crop, mirrored from
+  speedFeel + nosFeel in `billboard-art.js viewCrop()` so main gains nothing. Linear to 0 at 35%
+  off screen: 15% off → 0.57, 40% off → 0 (not drawn at all).
+- The cap and the fade apply to boards beside the road (ROADSIDE, LOOP_BANNER, GATE_SIGN, the era
+  board). GANTRY and START_ARCH span the road by design: their text is centred and never cut, and
+  on a tall phone fading them would dissolve every gantry ~5 segments before you drive under it,
+  so they keep their width and stay solid.
+- Not allowed for: roll set pieces (CORKSCREW / WALLRIDE draw the road under rotate + scale 1.5 in
+  scene.js), where a board can still be cut at full alpha for those few seconds. Fixing it means
+  publishing the roll scale from main (bytes main doesn't have, see LESSONS).
+- A capped board's height above the road shrinks with it, so it stays in proportion.
+- Viewability: a board drawn below 0.5 edge alpha (> ~17% off) is not counted as viewed.

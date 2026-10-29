@@ -14,7 +14,7 @@
 import { GameState } from './state.js';
 import { track } from './track.js';
 import { drawRoadsideAd } from './backdrop.js';
-import { covers, boardAlpha } from './board-fade.js';
+import { covers, boardAlpha, edgeFade, EDGE } from './board-fade.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -156,6 +156,9 @@ let faceGen = 0;
 const stats = { impressions: 0, posted: 0, painted: 0, boards: 0, faded: 0, covered: 0 };
 // ?debug (0203): the last board that faded for something behind it, and that thing's rect.
 const lastFade = { alpha: 1, kind: '', item: null, board: [0, 0, 0, 0], behind: [0, 0, 0, 0] };
+// ?debug (0221): boards met with > 15% of the face off screen, and the widest board beside the
+// road as a share of the view.
+const edge = { clipped: 0, maxW: 0 };
 let lastBucket = 0, lastPx = 0;
 
 function clearFaces() { faces.clear(); faceGen++; }
@@ -437,7 +440,16 @@ if (typeof window !== 'undefined') {
 }
 
 export function debug() {
-  return { ...stats, lastFade, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
+  return { ...stats, lastFade, edge, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
+}
+
+/** The FOV push-in the blit will crop the road buffer by this frame (src/render/scene.js:
+ *  speedFeel + nosFeel). Mirrored here so the lazy chunk adds nothing to main; keep in step. */
+function viewCrop() {
+  const g = GameState;
+  if (g.reducedMotion || g.status !== 'PLAYING') return 1;
+  const t = Math.min(1, Math.max(0, (g.speed - 40) / 48));
+  return 1 + (0.07 * t * t + (g.nosBurning ? 0.045 : 0)) * g.cameraFx;
 }
 
 // ── 2D ─────────────────────────────────────────────────────────────────────────────────
@@ -450,22 +462,33 @@ export function debug() {
 export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now = performance.now()) {
   const kind = item.type === 'CLOCK_TOWER_BILLBOARD' ? 'ERA' : (SPEC[item.kind] ? item.kind : 'ROADSIDE');
   const s = SPEC[kind];
-  const w = s.w * roadW;
+  // A board beside the road stops growing at EDGE.maxW of the view (0221); its height above the
+  // road shrinks with it, so a capped board stays in proportion on shorter legs.
+  const w = s.overhead ? s.w * roadW : Math.min(s.w * roadW, rw * EDGE.maxW);
   if (w < 3) return;
   const h = w / s.aspect;
-  const bottom = roadY - s.lift * roadW;
+  const bottom = roadY - s.lift * (w / s.w);
   const top = bottom - h;
   const left = x - w / 2;
   if (top > rh || roadY < 0 || left > rw || left + w < 0) return;
+  // Beside the road, crossing the edge of the view, it fades with the share of its face off
+  // screen (0221). Overhead boards keep their centred text whole and stay solid until you pass
+  // under them. Roll set pieces (scene.js rotate + scale) aren't allowed for: the fade assumes the
+  // flat view.
+  const ef = s.overhead ? 1 : edgeFade(left, left + w, rw, viewCrop());
+  if (ef < 1 - 0.15 / EDGE.fade) edge.clipped++; // more than 15% of it off screen
+  if (!s.overhead && w / rw > edge.maxW) edge.maxW = w / rw;
+  if (ef <= 0) return;
   stats.boards++;
   const night = String(eraId) !== '1955';
   const b = Math.max(1, w * 0.022);
   const hit = drawn ? covers(drawn, left - b, top - b, left + w + b, bottom + b) : -1;
   if (hit >= 0) item.bh = now;
-  const alpha = boardAlpha(item.bh ? (now - item.bh) / 1000 : Infinity);
+  const cover = boardAlpha(item.bh ? (now - item.bh) / 1000 : Infinity);
+  const alpha = cover * ef;
   const prevAlpha = ctx.globalAlpha;
-  if (alpha < 1) {
-    ctx.globalAlpha = prevAlpha * alpha;
+  if (alpha < 1) ctx.globalAlpha = prevAlpha * alpha;
+  if (cover < 1) {
     stats.faded++;
     if (hit >= 0) {
       stats.covered++;
@@ -506,7 +529,8 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now 
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(item.fc, left, top, w, h);
     ctx.imageSmoothingEnabled = smooth;
-    if (alpha === 1) noteView(item, cid, left, top, w, h, rw, rh, now); // a see-through face isn't a viewed ad
+    // A see-through face (0203) or one mostly faded at the edge (0221) isn't a viewed ad.
+    if (cover === 1 && ef >= 0.5) noteView(item, cid, left, top, w, h, rw, rh, now);
   }
   if (night && w > 20) {
     // Two lamp heads on the top bezel washing the face with warm light.
