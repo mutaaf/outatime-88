@@ -12,6 +12,7 @@ export const InputState = {
   // (left out here so the startup bundle stays in budget).
   nosHeld: false,      // NOS (ticket 0122): Shift / N while racing, gamepad LB, touch NOS
   touchNos: false,
+  // nosTap / nosOn (0222, NOS TAP ON/OFF): a press this step, and the switch; unset reads as off
   hoverPressed: false,
   zonePressed: false,
   agroPressed: false,

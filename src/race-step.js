@@ -31,6 +31,7 @@ import { createReadyCue } from './warp-cue.js';
 import { foldChain, startChain, chainLabel } from './chain-plate.js';
 import { createProximityCue } from './proximity-cue.js';
 import { createLaneGuide } from './lane-guide.js';
+import { nosToggle, nosSettle } from './nos-toggle.js';
 import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
 import { buildArrival, queueArrival } from './arrival.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
@@ -129,6 +130,7 @@ export function chargePenalty(pts, label) {
 export function applyPlayerDamage(rawDmg, reasonText) {
   if (GameState.invulnTimer > 0 || GameState.agroTimer > 0 || GameState.warpActiveTimer > 0) return;
   if (shieldBreak(0)) return;
+  RS.nosCut = true; // a crash stops a tapped-on NOS (0222)
   const hitKind = reasonText.includes('TRAFFIC') ? 'traffic' : 'obstacle';
   const impactMph = Math.max(GameState.speed, GameState.prevSpeed || 0);
   chargePenalty(logHit(GameState.penaltyLog, hitKind, impactMph), hitKind === 'traffic' ? 'TRAFFIC CRASH' : reasonText.replace('IMPACT', 'HIT'));
@@ -684,6 +686,7 @@ function clearArrival(at) {
 // --- TIME WARP AT 88 MPH ---
 export function triggerTimeWarp() {
   SoundEngine.playTimeWarp88();
+  RS.nosCut = true; // so does a warp (0222)
   GameState.timeWarps++;
   GameState.sinceWarp = 0;
   GameState.warpFxTimer = 0.9;
@@ -773,6 +776,10 @@ export function updateGame(rawDt) {
   const gp = pollGamepad();
   if (gp.boost && !RS.gpBoost && (RS.startSeq || GameState.racePhase !== 'START')) InputState.boostPressed = true;
   RS.gpBoost = gp.boost;
+  // NOS pressed this step (0222): a key or touch press main/the touch kit flagged, or the pad's LB going down.
+  const nosTap = InputState.nosTap || (gp.nos && !RS.gpNos);
+  InputState.nosTap = false;
+  RS.gpNos = gp.nos;
   if (GameState.racePhase === 'START') { if (RS.startSeq) RF.updateRaceStart(rawDt); return; }
   RF.updateRaceCeremony(rawDt);
 
@@ -880,10 +887,15 @@ export function updateGame(rawDt) {
   GameState.wheelSpin = drive.spin;
 
   // NOS (ticket 0122): hold to burn the tank for extra thrust past top speed, capped at the
-  // warp ceiling that live rooms and the leaderboard already allow.
-  const nosHeld = InputState.nosHeld || InputState.touchNos || gp.nos;
+  // warp ceiling that live rooms and the leaderboard already allow. Settings → NOS TAP ON/OFF
+  // (0222) turns a press into a switch that a crash, a warp or the end of racing turns off.
+  const nosTapMode = SaveStore.data.settings.nos === 'toggle';
+  const nosHeld = nosTapMode ? nosToggle(InputState, nosTap, RS.nosCut || GameState.racePhase !== 'RACING')
+    : InputState.nosHeld || InputState.touchNos || gp.nos;
+  RS.nosCut = false;
   const wasBurning = RS.nos.burning;
   const burning = stepNos(RS.nos, nosHeld && GameState.speed > 10, rawDt, { drifting: GameState.isDrifting, airborne: GameState.playerY > 10 && airRefills(RS.fair), penalised: RS.penaltyThisStep });
+  if (nosTapMode) nosSettle(InputState, burning);
   RS.penaltyThisStep = false;
   if (burning) { GameState.speed = nosSpeed(GameState.speed, rawDt, baseMaxMph, warpMaxMph + 8); runStats.nosSecs += rawDt; }
   if (burning && !wasBurning) {

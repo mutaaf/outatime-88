@@ -239,7 +239,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       case 'jump': h.onJump(); break;
       case 'drift': driftLatch = true; h.onDrift(); break;
       case 'accel': accelLatch = true; break;
-      case 'horn': if (h.onNos) h.onNos(); break; // NOS: held, read in sample()
+      case 'horn': InputState.nosTap = true; if (h.onNos) h.onNos(); break; // NOS: held, read in sample(); a tap for TAP ON/OFF (0222)
       case 'pause': h.onPause(); break;
       case 'camera': h.onCamera(); break;
       case 'respawn': h.onRespawn(); break;
@@ -562,6 +562,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       const n = String(st.specials);
       if (specialBadge.textContent !== n) specialBadge.textContent = n;
       el.jump.classList.toggle('tc-dim', !!st.airborne);
+      if (!!st.nosOn !== nosOn) setNosOn(!!st.nosOn);
     }
     const showMirror = InputState.lookBack && !h.is3D();
     if (mirror.classList.contains('tc-open') !== showMirror) mirror.classList.toggle('tc-open', showMirror);
@@ -577,6 +578,16 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     el.boost.dataset.ready = on ? 'true' : 'false';
     boostLbl.textContent = on ? 'READY' : LABELS.boost;
     el.boost.setAttribute('aria-label', on ? `${LABELS.boost} ready` : LABELS.boost);
+  }
+  // NOS TAP ON/OFF (0222): a tapped-on burn says so in text on the button, not only in colour.
+  let nosOn = false;
+  const nosLbl = el.horn.querySelector('.tc-lbl');
+  function setNosOn(on) {
+    nosOn = on;
+    el.horn.classList.toggle('tc-on', on);
+    el.horn.dataset.on = on ? 'true' : 'false';
+    nosLbl.textContent = on ? 'NOS ON' : LABELS.horn;
+    el.horn.setAttribute('aria-label', on ? `${LABELS.horn} on` : LABELS.horn);
   }
   function setRing(id, v) {
     const r = ring[id];
