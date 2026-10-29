@@ -1,12 +1,12 @@
 ---
 id: 0224
 title: The 1985 strip-mall signs quote a real video chain's slogan and a real karate film — rename them
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: authenticity
 created: 2026-10-29
-pr:
+pr: 192
 ---
 
 ## Why
