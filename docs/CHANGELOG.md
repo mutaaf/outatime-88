@@ -149,3 +149,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-28 · 0218 · The first warp of a run into 1985 now arrives somewhere: a lamp-lit sweeper into a tree-lined Cedar Ridge straight, every lane open, before the road goes back to normal
 2026-10-28 · 0219 · Settings → Sound → Lane guide (off by default): when your lane is about to close, a soft tone pans toward the nearest open lane and rises in pitch as the gap shrinks, so you can steer by ear
 2026-10-29 · 0221 · Roadside sponsor boards fade out as they slide off the edge of the screen instead of showing a cut-off name, and never grow past a quarter of the view
+2026-10-29 · 0223 · The game's first download is about 1.7 kB smaller: race-only scoring, the tilt sensor, the garage's car shop and the racer panel's save swapping now load when you need them

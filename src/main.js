@@ -52,12 +52,10 @@ import { beginRun, fetchGhost, normalizeInitials } from './leaderboard.js';
 import { createGhostRecorder, createGhostRace } from './ghost.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
-import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
 import { carParams, isOwned, unlockProgress, recordRace, ensureGarage, CAR_SPECS } from './cars.js';
 import { initRacer } from './racer-ui.js';
 import { setProfile } from './identity.js';
 import { LIVE } from './worker/live-rules.js';
-import { forkLean, forkCueState } from './fork.js';
 /** Race state the lazy race step (race-step.js) writes as well as main: one shared object. */
 export const RS = {};
 // The race step itself (src/race-step.js) is a lazy chunk: fetched now, in parallel with the
@@ -1644,17 +1642,19 @@ function renderRacerPill(p) {
 }
 
 // Shared-module bindings the lazy race-step.js chunk uses, as one object (see there).
+// Only for modules main itself needs: one that only the race chunks use is imported there
+// directly, or this object keeps it in the startup bundle (0223).
 export const RACE_DEPS = {
   CAR_SPECS, CONTINUE, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, PACE_MODES,
   PICKUP, PICKUPS, POP_CULTURE_ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
-  WORLD_LEVELS, addItem, addNos, addRoadSection, applyRunResult, beginRun, boostOutcome, breakdown, canContinue,
+  WORLD_LEVELS, addItem, addNos, addRoadSection, applyRunResult, beginRun, boostOutcome, canContinue,
   continueCost, createDrive, createGhostRecorder, createHitStop, createHud, createLateral,
-  createNos, createOnboarding, createPenaltyLog, createRaceClock, createSteer, createStorm,
+  createNos, createOnboarding, createRaceClock, createSteer, createStorm,
   crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, finishBonus,
-  forkCueState, forkLean, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
-  impactVelocities, isNewPlayer, landingKeep, lapOf, logHit, logPayload, logWall, loopStep,
+  generateNextTrackBiome, handlingFor, hasSetPieceBetween,
+  impactVelocities, isNewPlayer, landingKeep, lapOf, loopStep,
   magnetPull, materialFor, missionsDone, mulberry32, nearMissChain, nosFill, nosFor, nosSpeed,
-  ordinal, passiveFluxRate, penaltyPoints, pickMissions, pickupReach, pollGamepad,
+  ordinal, passiveFluxRate, pickMissions, pickupReach, pollGamepad,
   preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace, resetBackdrop,
   rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, setTrackPowerups, stepDrive, stepLateral, stepNos,
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, utcDay, wallContact, warpReady

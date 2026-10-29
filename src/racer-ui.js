@@ -3,7 +3,7 @@
 // (and the QR encoder) loads only when it's first opened, so the title stays light.
 
 import { initIdentity, profile, onIdentity, setProfile, addFriends, PUB_RE } from './identity.js';
-import { mergeServerBests } from './racer-saves.js';
+import { mergeServerBests } from './progress.js';
 
 let deps = null; // { SaveStore, freshSaveData, levels, reload, onChange }
 let panel = null;

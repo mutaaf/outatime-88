@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   SETTINGS_DEFAULTS, normalizeSettings, difficultyOf, reducedMotionFor,
-  screenAngle, tiltAngle, tiltSteer, TILT,
 } from '../../src/settings.js';
+import { screenAngle, tiltAngle, tiltSteer, TILT } from '../../src/tilt.js';
 import { tiltStatusText } from '../../src/tilt-text.js';
 
 describe('settings (ticket 0050)', () => {

@@ -31,7 +31,11 @@ test('main bundle stays in budget and does not contain three.js', () => {
   // 58 → 59 (0183, 2026-10-19): TV mode, runner power-ups and handling v4 took main to ~57.9 on
   // CI; the analog gamepad (it runs every sim step) and the hooks for the lazy force-feel and
   // tilt-filter chunks add ~0.4. The features themselves are lazy.
-  expect(total).toBeLessThan(59);
+  // 59 → 58 (0223, 2026-10-29): main was 58.98 with ~13 bytes free. Scoring and the fork cue moved
+  // into the race chunks, the tilt sensor into its own chunk (src/tilt.js), the garage's ratings
+  // and buying (src/car-shop.js) and the RACER panel's save parking out of startup: ~57.3 today.
+  console.log(`[budget] main startup ${total.toFixed(2)} kB gzipped (limit 58)`); // the CI number, in the CI log
+  expect(total).toBeLessThan(58);
   for (const f of files) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('WebGLRenderer');
 });
 

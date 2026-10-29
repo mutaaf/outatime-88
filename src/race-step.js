@@ -16,14 +16,17 @@ const {
   PICKUP, PICKUPS, POP_CULTURE_ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
   WORLD_LEVELS, addItem, addNos, addRoadSection, boostOutcome, canContinue,
   continueCost, createGhostRecorder, createHitStop, createNos, createSteer, createStorm,
-  crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, forkCueState, forkLean, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
-  impactVelocities, landingKeep, logHit, logWall, loopStep,
+  crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
+  impactVelocities, landingKeep, loopStep,
   magnetPull, materialFor, nearMissChain, nosFill, nosFor, nosSpeed,
   ordinal, passiveFluxRate, pickupReach, pollGamepad,
   rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, setTrackPowerups, stepDrive, stepLateral, stepNos,
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, wallContact, warpReady
 } = RACE_DEPS;
 import { createFormationStream } from './formations.js';
+// Only the race chunks use these, so they import them directly and never ship at startup (0223).
+import { logHit, logWall } from './scoring.js';
+import { forkLean, forkCueState } from './fork.js';
 import { createReadyCue } from './warp-cue.js';
 import { foldChain, startChain, chainLabel } from './chain-plate.js';
 import { createProximityCue } from './proximity-cue.js';

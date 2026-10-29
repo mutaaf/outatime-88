@@ -62,3 +62,22 @@ export function applyRunResult(save, { levelIndex, levelId, score }, levelCount 
   }
   return { medal, newBest, improvedMedal, unlocked };
 }
+
+/**
+ * Fold the racer's server-side personal bests (from another device) into this device's
+ * save: best scores, medals and the levels they unlock. Never lowers anything. Ticket 0090.
+ */
+export function mergeServerBests(save, serverBests, levels) {
+  let changed = false;
+  for (const b of serverBests || []) {
+    if (b.mode !== 'ARCADE' && b.mode !== 'INFINITE') continue;
+    const lvl = levels[b.level];
+    if (!lvl) continue;
+    if (b.best > (save.bestScore || 0)) { save.bestScore = b.best; changed = true; }
+    if (b.best > (save.progress?.[lvl.id]?.best || 0)) {
+      applyRunResult(save, { levelIndex: b.level, levelId: lvl.id, score: b.best }, levels.length);
+      changed = true;
+    }
+  }
+  return changed;
+}

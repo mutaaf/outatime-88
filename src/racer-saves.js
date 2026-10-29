@@ -1,9 +1,8 @@
 // One local save per racer on a shared device (ticket 0090). The live save stays under the
 // main key (AGENTS.md invariant 6, never renamed); racers who aren't playing right now are
 // parked under a separate versioned key, so siblings on one iPad each keep their own coins,
-// garage and medals.
-
-import { applyRunResult } from './progress.js';
+// garage and medals. Only the RACER panel's chunk uses this module; merging server bests is
+// src/progress.js mergeServerBests (0223).
 
 export const SAVES_KEY = 'outatime88_racer_saves_v1';
 
@@ -32,23 +31,4 @@ export function dropSave(pub) {
   const all = readAll();
   delete all[pub];
   writeAll(all);
-}
-
-/**
- * Fold the racer's server-side personal bests (from another device) into this device's
- * save: best scores, medals and the levels they unlock. Never lowers anything.
- */
-export function mergeServerBests(save, serverBests, levels) {
-  let changed = false;
-  for (const b of serverBests || []) {
-    if (b.mode !== 'ARCADE' && b.mode !== 'INFINITE') continue;
-    const lvl = levels[b.level];
-    if (!lvl) continue;
-    if (b.best > (save.bestScore || 0)) { save.bestScore = b.best; changed = true; }
-    if (b.best > (save.progress?.[lvl.id]?.best || 0)) {
-      applyRunResult(save, { levelIndex: b.level, levelId: lvl.id, score: b.best }, levels.length);
-      changed = true;
-    }
-  }
-  return changed;
 }
