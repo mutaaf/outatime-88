@@ -7,14 +7,16 @@ import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, EGGS } from './eggs.js';
 
 // The strip mall's shop fronts: [label, unit width in u, colour]. Labels are 2.2u Courier
-// (~1.32u a glyph) and must fit their unit with a 1u margin each side (tests/unit/s1985-signs.test.js).
+// (~1.32u a glyph) and fit their unit with a 1u margin each side wherever u ≥ 2.5 px, i.e. above
+// sign()'s 6 px font floor (tests/unit/s1985-signs.test.js).
 export const SHOPS = [
   ['ARCADE 88', 18, '#f472b6'],
   ['VIDEO VORTEX', 20, '#fde047'],
   ['LOTUS DOJO', 18, '#f87171'],
 ];
 // The mall pylon: the fixed words, and the count word before / after history changes on lap 2.
-export const MALL = { name: 'ELMS MALL', before: 'SIX', after: 'FIVE', trees: [6, 5] };
+// Elms are w x h u, one every gap·w, centred on the pylon; the last one goes after lap 1.
+export const MALL = { name: 'ELMS MALL', before: 'SIX', after: 'FIVE', trees: [6, 5], elm: { w: 3, h: 5, gap: 1.2 } };
 
 const C = {
   sky: ERA_PALETTES[1985].sky,
@@ -93,7 +95,7 @@ function build(o) {
     layers: [{ c: far, f: 0.1 }, { c: mid, f: 0.3 }, { c: near, f: 0.6 }],
     spots, moon: moonSpot,
     before: word(MALL.before), after: word(MALL.after),
-    elm: sprite(3.4 * unitOf(o.hz0 * o.k), 5 * unitOf(o.hz0 * o.k), (ctx, w, h) => {
+    elm: sprite(MALL.elm.w * unitOf(o.hz0 * o.k), MALL.elm.h * unitOf(o.hz0 * o.k), (ctx, w, h) => {
       ctx.fillStyle = '#3b2a1a'; ctx.fillRect(w * 0.42, h * 0.55, w * 0.16, h * 0.45);
       ctx.fillStyle = '#1f6f4a'; ctx.beginPath(); ctx.ellipse(w / 2, h * 0.4, w * 0.48, h * 0.38, 0, 0, Math.PI * 2); ctx.fill();
     }),
@@ -116,7 +118,7 @@ function anim(ctx, F, B) {
   const ww = w.width / k, wh = w.height / k;
   ctx.drawImage(w, F.x(1, s.pylon.x) - ww / 2, F.y(s.pylon.y) - wh / 2, ww, wh);
   const n = MALL.trees[B.flags[EGGS.ELMS] ? 1 : 0], pw = B.elm.width / k, ph = B.elm.height / k;
-  for (let i = 0; i < n; i++) ctx.drawImage(B.elm, F.x(1, s.elms.x) + (i - (MALL.trees[0] - 1) / 2) * pw * 1.05 - pw / 2, F.y(s.elms.base) - ph, pw, ph);
+  for (let i = 0; i < n; i++) ctx.drawImage(B.elm, F.x(1, s.elms.x) + (i - (MALL.trees[0] - 1) / 2) * pw * MALL.elm.gap - pw / 2, F.y(s.elms.base) - ph, pw, ph);
   // maze-chaser cabinet glow
   const cx = F.x(1, s.cab.x), cy = F.y(s.cab.y), cu = s.cab.u / k;
   ctx.fillStyle = F.reduced ? '#22d3ee' : (blink(F.t, 0.8, 0.5) ? '#22d3ee' : '#a78bfa');
