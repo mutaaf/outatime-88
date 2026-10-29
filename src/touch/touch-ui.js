@@ -229,7 +229,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   const haptics = createHaptics({ win, doc, settings: S, calm: () => h.calm() });
   const buzz = haptics.pulse;
 
-  function pressButton(p, id) {
+  function pressButton(p, id, slid = false) {
     p.btn = id;
     pressCount[id]++;
     el[id].classList.add('tc-pressed');
@@ -239,7 +239,8 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       case 'jump': h.onJump(); break;
       case 'drift': driftLatch = true; h.onDrift(); break;
       case 'accel': accelLatch = true; break;
-      case 'horn': InputState.nosTap = true; if (h.onNos) h.onNos(); break; // NOS: held, read in sample(); a tap for TAP ON/OFF (0222)
+      // NOS: held, read in sample(). For TAP ON/OFF (0222) only a fresh touch is a tap; a thumb sliding over from DRIFT never flips it.
+      case 'horn': if (!slid) InputState.nosTap = true; if (h.onNos) h.onNos(); break;
       case 'pause': h.onPause(); break;
       case 'camera': h.onCamera(); break;
       case 'respawn': h.onRespawn(); break;
@@ -425,7 +426,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       }
       const next = hitButton(btnList, p.x, p.y, 2);
       const t = slideTransition(p.btn, next, (id) => SLIDABLE.has(id));
-      if (t.press) { releaseButton(p, t.release === 'special'); pressButton(p, t.press); }
+      if (t.press) { releaseButton(p, t.release === 'special'); pressButton(p, t.press, true); }
       return;
     }
     if (p.kind === 'look') {

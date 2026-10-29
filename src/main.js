@@ -1202,6 +1202,7 @@ function cycleVisualMode() {
 }
 
 function openGarageModal(focusCarId) {
+  InputState.nosOn = false; // a tapped-on NOS (0222) stops when the menu opens, live races included
   if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE') GameState.status = 'PAUSED'; // live races can't pause
   const focus = typeof focusCarId === 'string' ? focusCarId : null;
   // Show it once its chunk (and styles) are in, so it never flashes unstyled.

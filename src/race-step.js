@@ -892,6 +892,7 @@ export function updateGame(rawDt) {
   const nosTapMode = SaveStore.data.settings.nos === 'toggle';
   const nosHeld = nosTapMode ? nosToggle(InputState, nosTap, RS.nosCut || GameState.racePhase !== 'RACING')
     : InputState.nosHeld || InputState.touchNos || gp.nos;
+  if (!nosTapMode) InputState.nosOn = false; // switched to HOLD mid-race: no stale NOS ON
   RS.nosCut = false;
   const wasBurning = RS.nos.burning;
   const burning = stepNos(RS.nos, nosHeld && GameState.speed > 10, rawDt, { drifting: GameState.isDrifting, airborne: GameState.playerY > 10 && airRefills(RS.fair), penalised: RS.penaltyThisStep });

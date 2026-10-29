@@ -176,6 +176,7 @@ export function openSettings() {
   // A live race (sprint 3) can't pause — friends are still driving — so settings open over it.
   // Already paused counts too: the back gesture, the controls panel and the layout editor all
   // reopen this panel over a paused race, and RESUME must still resume it.
+  InputState.nosOn = false; // a tapped-on NOS (0222) stops when the menu opens, live races included
   resumeOnClose = GameState.mode !== 'LIVE' && (GameState.status === 'PLAYING' || GameState.status === 'PAUSED');
   if (GameState.status === 'PLAYING' && resumeOnClose) GameState.status = 'PAUSED';
   return loadPanel().then((p) => p.open());

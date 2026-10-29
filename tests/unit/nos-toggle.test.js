@@ -46,13 +46,6 @@ describe('nosToggle (0222)', () => {
     nosSettle(t, stepNos(n, on, DT));
     expect(t.nosOn).toBe(false);
   });
-
-  it('hold mode is untouched: the tank burns exactly as it did from the held input', () => {
-    const a = createNos(nosFor(5));
-    const b = createNos(nosFor(5));
-    for (let i = 0; i < 60; i++) { stepNos(a, true, DT); stepNos(b, true, DT); }
-    expect(a).toEqual(b);
-  });
 });
 
 describe('Settings → NOS (0222)', () => {

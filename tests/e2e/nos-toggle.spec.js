@@ -57,6 +57,32 @@ test('keys: a quick tap of Shift burns NOS with the key up; the next tap stops i
   expect(problems).toEqual([]);
 });
 
+test('keys: a warp and the end of the race each turn a tapped-on NOS off', async ({ page }) => {
+  const problems = watchPage(page);
+  await race(page);
+  await refill(page);
+  await page.keyboard.press('Shift');
+  await page.waitForFunction(() => window.__OT.GameState.nosBurning, null, { timeout: 15000 });
+  // Force one warp (re-armed on every poll, as in arrival.spec).
+  const before = await page.evaluate(() => window.__OT.GameState.timeWarps);
+  await page.waitForFunction((b) => {
+    const g = window.__OT.GameState;
+    if (g.timeWarps > b) return true;
+    g.fluxCharge = 100; g.speed = 100; g.sinceWarp = 99; g.warpActiveTimer = 0;
+    return false;
+  }, before, { timeout: 15000 });
+  await page.waitForFunction(() => !window.__OT.input.nosOn, null, { timeout: 15000 });
+  await simWait(page, 0.3);
+  expect(await burning(page)).toBe(false);
+
+  await refill(page);
+  await page.keyboard.press('Shift');
+  await page.waitForFunction(() => window.__OT.input.nosOn && window.__OT.GameState.nosBurning, null, { timeout: 15000 });
+  await page.evaluate(() => window.__OT.finishRun());
+  await page.waitForFunction(() => !window.__OT.input.nosOn, null, { timeout: 15000 });
+  expect(problems).toEqual([]);
+});
+
 test('keys: pausing turns a tapped-on NOS off, and the pause card says NOS is TAP ON/OFF', async ({ page }) => {
   const problems = watchPage(page);
   await race(page);
@@ -100,9 +126,15 @@ test('pad: LB going down toggles NOS; holding LB through the burn does not flip 
 test('HOLD (the default) is unchanged: a quick tap gives no lasting burn and the card has no NOS note', async ({ page }) => {
   const problems = watchPage(page);
   await race(page, 'hold');
+  await refill(page);
+  await page.keyboard.down('Shift'); // held: burns, as before 0222
+  await page.waitForFunction(() => window.__OT.GameState.nosBurning, null, { timeout: 15000 });
+  await page.keyboard.up('Shift');
+  await page.waitForFunction(() => !window.__OT.GameState.nosBurning, null, { timeout: 15000 });
   await page.keyboard.press('Shift');
   await simWait(page, 0.3);
   expect(await burning(page)).toBe(false);
+  expect(await page.evaluate(() => Boolean(window.__OT.input.nosOn))).toBe(false);
   await page.locator('#btnHudSettings').click();
   await expect(page.locator('#pauseControls')).toBeVisible();
   await expect(page.locator('#pauseControls [data-aid="nos"]')).toHaveCount(0);
@@ -132,6 +164,27 @@ test.describe('phone', () => {
     await horn.tap();
     await page.waitForFunction(() => !window.__OT.GameState.nosBurning, null, { timeout: 15000 });
     await expect(horn.locator('.tc-lbl')).toHaveText('NOS');
+    expect(problems).toEqual([]);
+  });
+
+  test('a thumb sliding onto NOS from DRIFT does not switch it on (only a fresh touch is a tap)', async ({ page }) => {
+    const problems = watchPage(page);
+    await race(page);
+    await touchReady(page);
+    await refill(page);
+    const centre = async (sel) => { const b = await page.locator(sel).boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+    const drift = await centre('#tcDrift');
+    const horn = await centre('#tcHorn');
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((q) => ({ ...q, id: 1, radiusX: 8, radiusY: 8, force: 1 })) });
+    await touch('touchStart', [drift]);
+    await touch('touchMove', [{ x: (drift.x + horn.x) / 2, y: (drift.y + horn.y) / 2 }]);
+    await touch('touchMove', [horn]);
+    await expect(page.locator('#tcHorn')).toHaveClass(/tc-pressed/); // the slide reached NOS
+    await touch('touchEnd', []);
+    await simWait(page, 0.3);
+    expect(await page.evaluate(() => Boolean(window.__OT.input.nosOn))).toBe(false);
+    expect(await burning(page)).toBe(false);
     expect(problems).toEqual([]);
   });
 });
