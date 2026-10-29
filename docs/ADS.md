@@ -36,8 +36,8 @@ are not optional.
 
 Slots are placed by the endless generator (`src/track.js` `addBoard`), pooled with the road
 ring (they never accumulate), always outside the rails or overhead, so they never block the
-racing line. In 2D a board beside the road (not the overhead ones) is never drawn wider than 28% of the
-view, and one crossing the edge of the view fades with the share of its face off screen, gone at
+racing line. In 2D a board beside the road (not the overhead ones, whose centred text is never cut) is never
+drawn wider than 28% of the view, and one crossing the edge of the view fades with the share of its face off screen, gone at
 35% (ticket 0221, `src/board-fade.js`), so a creative is never shown cut in half. The clock-tower boards (`ERA`) carry the era's own pop-culture nods and are not
 for sale.
 

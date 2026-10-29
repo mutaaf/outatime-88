@@ -41,8 +41,12 @@ Board copy, campaigns, or reporting.
   rect object (no allocation per board per frame) and the FOV push-in crop, mirrored from
   speedFeel + nosFeel in `billboard-art.js viewCrop()` so main gains nothing. Linear to 0 at 35%
   off screen: 15% off → 0.57, 40% off → 0 (not drawn at all).
-- The 28% cap applies to boards beside the road (ROADSIDE, LOOP_BANNER, GATE_SIGN, the era board).
-  GANTRY and START_ARCH span the road by design and keep their width; their faces sit over the
-  lanes, so they rarely cross the side edges, and they fade the same way when they do.
+- The cap and the fade apply to boards beside the road (ROADSIDE, LOOP_BANNER, GATE_SIGN, the era
+  board). GANTRY and START_ARCH span the road by design: their text is centred and never cut, and
+  on a tall phone fading them would dissolve every gantry ~5 segments before you drive under it,
+  so they keep their width and stay solid.
+- Not allowed for: roll set pieces (CORKSCREW / WALLRIDE draw the road under rotate + scale 1.5 in
+  scene.js), where a board can still be cut at full alpha for those few seconds. Fixing it means
+  publishing the roll scale from main (bytes main doesn't have, see LESSONS).
 - A capped board's height above the road shrinks with it, so it stays in proportion.
 - Viewability: a board drawn below 0.5 edge alpha (> ~17% off) is not counted as viewed.

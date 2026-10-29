@@ -156,9 +156,9 @@ let faceGen = 0;
 const stats = { impressions: 0, posted: 0, painted: 0, boards: 0, faded: 0, covered: 0 };
 // ?debug (0203): the last board that faded for something behind it, and that thing's rect.
 const lastFade = { alpha: 1, kind: '', item: null, board: [0, 0, 0, 0], behind: [0, 0, 0, 0] };
-// ?debug (0221): boards drawn with > 15% of the face off screen, how many of those drew brighter
-// than 0.6 (should stay 0), and the widest board beside the road as a share of the view.
-const edge = { clipped: 0, bright: 0, maxW: 0 };
+// ?debug (0221): boards met with > 15% of the face off screen, and the widest board beside the
+// road as a share of the view.
+const edge = { clipped: 0, maxW: 0 };
 let lastBucket = 0, lastPx = 0;
 
 function clearFaces() { faces.clear(); faceGen++; }
@@ -471,12 +471,12 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now 
   const top = bottom - h;
   const left = x - w / 2;
   if (top > rh || roadY < 0 || left > rw || left + w < 0) return;
-  // Crossing the edge of the view, it fades with the share of its face off screen (0221).
-  const ef = edgeFade(left, left + w, rw, viewCrop());
-  if (ef < 1 - 0.15 / EDGE.fade) { // more than 15% of it off screen
-    edge.clipped++;
-    if (ef > 0.6) edge.bright++;
-  }
+  // Beside the road, crossing the edge of the view, it fades with the share of its face off
+  // screen (0221). Overhead boards keep their centred text whole and stay solid until you pass
+  // under them. Roll set pieces (scene.js rotate + scale) aren't allowed for: the fade assumes the
+  // flat view.
+  const ef = s.overhead ? 1 : edgeFade(left, left + w, rw, viewCrop());
+  if (ef < 1 - 0.15 / EDGE.fade) edge.clipped++; // more than 15% of it off screen
   if (!s.overhead && w / rw > edge.maxW) edge.maxW = w / rw;
   if (ef <= 0) return;
   stats.boards++;

@@ -99,10 +99,12 @@ describe('draw2D at the edge of the view', () => {
     }
   });
 
-  it('leaves overhead boards spanning the road', () => {
+  it('leaves overhead boards spanning the road, solid until you pass under them', () => {
     const r = face({ type: 'BILLBOARD', kind: 'GANTRY', slot: 5, cid: '', mv: -1 }, 640, 300); // 510 px
     expect(r.rect[2]).toBeCloseTo(SPEC.GANTRY.w * 300, 5);
     expect(r.alpha).toBe(1);
+    const near = face({ type: 'BILLBOARD', kind: 'START_ARCH', slot: 6, cid: '', mv: -1 }, 640, 1000); // 1900 px: 33% off each side
+    expect(near.alpha).toBe(1);
   });
 
   it('counts no ad view for a board mostly faded at the edge', () => {
@@ -114,16 +116,18 @@ describe('draw2D at the edge of the view', () => {
       // 30% off the left: still ≥ 50% on screen, but faded close to nothing.
       for (let t = 0; t <= 2000; t += 100) face(roadside(30), -0.3 * w + w / 2, 200, 1280, 720, 5000 + t);
       expect(debug().impressions).toBe(n0);
+      // 10% off the left still reads (alpha ~0.71): it counts once after a second.
+      for (let t = 0; t <= 2000; t += 100) face(roadside(31), -0.1 * w + w / 2, 200, 1280, 720, 9000 + t);
+      expect(debug().impressions).toBe(n0 + 1);
     } finally { GameState.status = prev; }
   });
 
   it('?debug tallies boards drawn past the edge', () => {
-    const d0 = debug().edge, w = SPEC.ROADSIDE.w * 200;
-    const n0 = d0.clipped, bad0 = d0.bright;
+    const w = SPEC.ROADSIDE.w * 200, n0 = debug().edge.clipped;
     face(roadside(40), -0.2 * w + w / 2, 200);
+    face(roadside(41), -0.1 * w + w / 2, 200); // 10% off: not counted
     const d = debug().edge;
     expect(d.clipped).toBe(n0 + 1);
-    expect(d.bright).toBe(bad0);
     expect(d.maxW).toBeGreaterThan(0);
   });
 });
