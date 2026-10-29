@@ -16,7 +16,7 @@ let signalTimer = 0;
 let hooks = { announce() {} };
 // The sensor maths, its One Euro filter and the reader are their own chunk (src/tilt.js),
 // fetched when tilt is turned on (0223: main stays in budget). A reading that lands before the
-// chunk is kept, so the first one still sets the zero.
+// chunk is kept, so the first one still sets the zero; a failed fetch is retried on the next one.
 let tilt = null;
 let tiltLoading = null;
 let pending = null;
@@ -34,8 +34,19 @@ function save() { SaveStore.save(); }
 // --- Tilt ---------------------------------------------------------------------------------
 
 function onOrientation(e) {
-  if (tilt) tilt.read(e);
-  else pending = e;
+  if (tilt) { tilt.read(e); return; }
+  if (e.beta == null && e.gamma == null) return; // no angles (some browsers send one as you listen)
+  pending = e;
+  if (!tiltLoading) startTilt();
+}
+
+/** Fetches the reader, then arms it and reads the reading held while it loaded. */
+function startTilt() {
+  loadTilt().then(() => {
+    if (tiltStatus !== 'waiting') return;
+    tilt.arm();
+    if (pending) { const e = pending; pending = null; tilt.read(e); }
+  }).catch(() => {});
 }
 
 function setTiltStatus(status) {
@@ -77,20 +88,12 @@ export async function enableTilt() {
   }
   window.removeEventListener('deviceorientation', onOrientation, true);
   window.addEventListener('deviceorientation', onOrientation, true);
-  pending = null;
-  if (tilt) tilt.arm();
   setTiltStatus('waiting');
+  if (tilt) tilt.arm();
+  else startTilt();
   clearTimeout(signalTimer);
-  const armed = () => {
-    clearTimeout(signalTimer);
-    signalTimer = setTimeout(() => { if (tilt.armed) setTiltStatus('nosignal'); }, 1500);
-    if (pending) { const e = pending; pending = null; tilt.read(e); }
-  };
-  if (tilt) armed();
-  else {
-    loadTilt().then(() => { if (tiltStatus !== 'waiting') return; tilt.arm(); armed(); })
-      .catch(() => { if (tiltStatus === 'waiting') setTiltStatus('nosignal'); });
-  }
+  // No reading at all in 1.5 s (one held for the chunk counts) = no sensor.
+  signalTimer = setTimeout(() => { if (tilt ? tilt.armed : !pending) setTiltStatus('nosignal'); }, 1500);
   settings().tilt = true;
   save();
   return true;

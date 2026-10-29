@@ -988,7 +988,7 @@ export function updateGame(rawDt) {
   if (InputState.mouseSteerVal) steerInput += InputState.mouseSteerVal; // mouse mode (ticket 0130)
   if (Math.abs(InputState.touchSteerVal) > 0.01) steerInput += InputState.touchSteerVal;
   if (InputState.tiltEnabled && Math.abs(InputState.tiltSteerVal) > 0.03) {
-    steerInput += InputState.tiltSteerVal; // sensitivity and invert are already applied (src/settings.js)
+    steerInput += InputState.tiltSteerVal; // sensitivity and invert are already applied (src/tilt.js)
   }
   steerInput += gp.steer; // deadzone and response curve already applied (src/input.js)
 

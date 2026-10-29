@@ -57,5 +57,6 @@ A scan for exports of startup modules that only lazy chunks reference found the 
 
 Main startup 58.982 → 57.281 kB gz (−1,742 B); budget lowered 59 → 58. race-step 21.46 → 22.12 kB
 (limit 23), race-flow 8.64 → 8.58 (limit 9). `src/hud.js` (~1.4 kB) is race-only too but fits in
-neither race budget, so it stays in main for now. Tilt behaviour: a reading that arrives before
-the chunk is kept and read once it lands, and the 1.5 s no-signal clock starts then.
+neither race budget, so it stays in main for now. Tilt behaviour: the 1.5 s no-signal clock starts
+on the tap as before (a reading held for the chunk counts as a signal); a reading that arrives
+before the chunk is kept and read once it lands; tilt steers from then (before, unfiltered at once).
