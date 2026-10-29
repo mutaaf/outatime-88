@@ -1,7 +1,7 @@
 ---
 id: 0189
 title: IP combination audit — the 2026 square and the 1955 clock-tower wire reference one film too closely
-status: ready
+status: proposed
 priority: P1
 size: S
 lens: authenticity
