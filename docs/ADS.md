@@ -7,9 +7,10 @@ are not optional.
 
 ## Kid-safety policy (COPPA-minded)
 
-- **First party only.** No ad networks, exchanges, SDKs, pixels, tags or scripts. Every
-  creative is a file bundled into the game under `/outatime/ads/` (or a house design painted
-  in code). No request ever leaves our origin (AGENTS.md §3).
+- **First party only in a race.** The boards use no ad networks, exchanges, SDKs, pixels, tags or
+  scripts. Every creative is a file bundled into the game under `/outatime/ads/` (or a house
+  design painted in code). No board request ever leaves our origin (AGENTS.md §3). Menu ads
+  are the one exception: see § Marquee menu ads below.
 - **Contextual, never behavioural.** Which campaign a board shows depends only on the road:
   the track seed, the level, the board's slot and the era. Nothing about the player, the
   device or their history is used. Everyone on the same road sees the same boards (live
@@ -108,3 +109,31 @@ adds the counts into a D1 table `ad_impressions(day, campaign, n)`. It stores no
 The endpoint lives in `src/worker/` (operator-only); turn `report` on in the manifest only
 after it is deployed. `GET /outatime/api/ads/impressions?day=YYYY-MM-DD` returns that day's
 totals for invoicing.
+
+## Marquee menu ads (owner decision, 2026-10-30)
+
+The owner decided to "split by audience" for the kids' games: Google ads may appear **only
+outside gameplay**; during a race only the first-party boards above appear. They are served by
+Marquee (`mutaafaziz.com/ads`, its own repo and Worker) through the same-origin loader in
+index.html: `<script async src="../ads/v1/ads.js" data-app="outatime" data-slots="…">`.
+
+| Slot | Kind | Context | Where it fires |
+|---|---|---|---|
+| `title` | banner | menu | `#titleAd` on the title screen; collapsed (`:empty`) until the loader fills it |
+| `postrace` | interstitial | menu | Back to the title from a solo race's results, from the session's **second** race on; Marquee caps it per slot (`frequency_sec`, 120 s default, set in the Marquee console) |
+| `bonus` | rewarded | menu | Results card: "Watch a short ad for 2× coins" doubles that run's FLUX cash; the button shows only when the run earned cash and the slot has fill (`marquee.ready()` → `slots.bonus.source !== 'none'`) |
+
+Rules:
+- **Google, child-directed, menus only.** Marquee tags every Google request
+  `data-tag-for-child-directed-treatment=1` for this kids app, never fills a `gameplay` slot with
+  Google, and runs only `kid_safe` direct sponsors here. We declare no gameplay slot at all.
+- **Rewarded is opt-in only.** It runs only after the player taps the button.
+- **No ad ever shows mid-race.** `src/ads.js` asks only while the game is on the title or the
+  results (status TITLE / GAMEOVER), never in a live room (mode LIVE) or TV mode (`?tv`). While a
+  break is up, `beforeAd` holds the frame loop and silences the mix (not the saved mute), and
+  `startNewRace` refuses to start; `afterAd` restores both.
+- **Never blocking.** Every call is fire-and-forget; with no loader (offline, blocked, local
+  dev, where `/ads/v1/ads.js` 404s) `window.marquee` is missing and every cue is a no-op.
+- Tests: `tests/e2e/marquee.spec.js` stubs the loader and checks each call's moment;
+  `stubAds()` in tests/e2e/helpers.js answers the same-origin `/ads/v1/ads.js` for every page so
+  the no-external-request guard stays as strict as before.
