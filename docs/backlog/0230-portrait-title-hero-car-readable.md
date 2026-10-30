@@ -1,12 +1,12 @@
 ---
 id: 0230
 title: Portrait phone title: the hero car is a thumbnail under four stacked buttons
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: authenticity
 created: 2026-10-30
-pr:
+pr: 200
 ---
 
 ## Why
