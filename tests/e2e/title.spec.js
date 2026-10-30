@@ -166,8 +166,10 @@ for (const { vp, first, challenge } of HERO_CASES) {
 // Ticket 0226: on a phone on its side (≤ 430 px tall) the title's controls sit above and beside
 // the hero car instead of stacking over it: at most 30% of carBox is under a title control or
 // text, every control stays on screen, ≥ 44x44 px and clear of the others, and nothing scrolls.
-for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { width: 667, height: 375 }, { width: 568, height: 320 }]) {
-  test.describe(`landscape phone title at ${vp.width}x${vp.height}`, () => {
+// Ticket 0230: the same on portrait phones, where the hero car is also ≥ 38% of the width.
+for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { width: 667, height: 375 }, { width: 568, height: 320 }, { width: 390, height: 844 }, { width: 360, height: 640 }]) {
+  const portrait = vp.height > vp.width;
+  test.describe(`${portrait ? 'portrait' : 'landscape'} phone title at ${vp.width}x${vp.height}`, () => {
     test.use({ viewport: vp, hasTouch: true, isMobile: true });
     for (const [first, challenge] of [[false, false], [true, false], [false, true]]) {
       test(`the hero car stays in view (${first ? 'first visit' : 'returning'}${challenge ? ', challenge banner' : ''})`, async ({ page }, info) => {
@@ -190,7 +192,7 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
           });
           car.x0 = Math.min(car.x0, b.x0); car.y0 = Math.min(car.y0, b.y0); car.x1 = Math.max(car.x1, b.x1); car.y1 = Math.max(car.y1, b.y1);
         }
-        expect(car.x1 - car.x0).toBeGreaterThan(vp.width * 0.2);
+        expect(car.x1 - car.x0).toBeGreaterThanOrEqual(vp.width * (portrait ? 0.38 : 0.2));
         expect(car.y0).toBeGreaterThan(vp.height * 0.4);
         const { boxes, controls } = await page.evaluate(() => {
           const vis = (e) => { const c = getComputedStyle(e); const r = e.getBoundingClientRect(); return c.display !== 'none' && c.visibility !== 'hidden' && r.width > 0 && r.height > 0; };
@@ -224,9 +226,28 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
           expect(overlap, `${a.id} overlaps ${b.id}`).toBe(false);
         }
         expect(await page.evaluate(() => document.scrollingElement.scrollHeight <= innerHeight && document.scrollingElement.scrollWidth <= innerWidth)).toBe(true);
-        await info.attach(`title-landscape-${vp.width}x${vp.height}${first ? '-first' : ''}${challenge ? '-challenge' : ''}`, { body: await page.screenshot(), contentType: 'image/png' });
+        await info.attach(`title-${portrait ? 'portrait' : 'landscape'}-${vp.width}x${vp.height}${first ? '-first' : ''}${challenge ? '-challenge' : ''}`, { body: await page.screenshot(), contentType: 'image/png' });
         expect(problems).toEqual([]);
       });
     }
   });
 }
+
+// Ticket 0230: TILT and VIEW share one row on portrait phones, but on a 320 px phone they wrap
+// rather than run off the screen's edges.
+test.describe('portrait title chips at 320x568', () => {
+  test.use({ viewport: { width: 320, height: 568 }, hasTouch: true, isMobile: true });
+  test('TILT and VIEW stay whole on screen', async ({ page }) => {
+    const problems = watchPage(page);
+    await page.goto(`${APP}?debug`);
+    await page.waitForFunction(() => window.__OT && window.__OT.home());
+    await expect(page.locator('#btnTitleTilt')).toBeVisible();
+    for (const id of ['#btnTitleTilt', '#btnViewMode']) {
+      const b = await page.locator(id).boundingBox();
+      expect(b.x, id).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width, id).toBeLessThanOrEqual(320);
+      expect(b.height, id).toBeGreaterThanOrEqual(44);
+    }
+    expect(problems).toEqual([]);
+  });
+});

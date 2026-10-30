@@ -125,7 +125,7 @@ export function renderScene() {
   } else { GameState.loopRide = 0; GameState.loopFall = 0; }
   if (GameState.cameraMode !== 2 && !rideOwnsCar) {
     drawPlayerCar(ctx, rw, rh, eraCfg);
-    if (smoke2d) smoke2d.draw(ctx, rw, rh, smokeRoadX, smokeRoadW, SaveStore.data.underglow);
+    if (smoke2d) smoke2d.draw(ctx, rw, rh, smokeRoadX, smokeRoadW, SaveStore.data.underglow, GameState.carW);
   }
 
   drawCarFx(ctx, rw, rh);
