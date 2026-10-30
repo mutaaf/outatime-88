@@ -44,6 +44,17 @@ export const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', 
 
 export const COACH_LEARNED_AFTER = 2;
 
+// Portrait phones (0228): the first-race thumb guide (body.tc-guiding) and the coach take turns.
+// The coach waits while the guide is up; the GO tip it held back shows once after, for TIP_OWED_MS,
+// if nothing else has the card within TIP_OWED_WITHIN ms of the guide going (it is a GO tip, not a
+// mid-race one). 480 px is the ticket's line, narrower than the compact HUD's 599 px.
+const phoneTall = typeof matchMedia === 'function' ? matchMedia('(max-width: 480px) and (orientation: portrait)') : null;
+export const TIP_OWED_MS = 4000;
+const TIP_OWED_WITHIN = 2000;
+let tipOwed = false;
+let tipUntil = 0;
+let guideAt = 0;
+
 export function updateInteractiveCoach(currentSegIdx) {
   const banner = document.getElementById('interactiveCoachBanner');
   if (!banner) return;
@@ -56,6 +67,17 @@ export function updateInteractiveCoach(currentSegIdx) {
   const nowMs = performance.now();
   if (announcer.isVisible()) { RS.coachYieldUntil = nowMs + 350; hideCoach(banner); return; }
   if (nowMs < RS.coachYieldUntil) { hideCoach(banner); return; }
+  // The guide's chunk loads after GO on a slow phone: while it is still due (touch, not yet seen,
+  // early in the race) the coach waits for it too, so it never shows first and fades under it.
+  const guideDue = document.body.classList.contains('tc-guiding') || (GameState.raceTime < 5 && GameState.mode !== 'LIVE'
+    && SaveStore.data.controls && !SaveStore.data.controls.coachSeen && document.documentElement.classList.contains('touch-ui'));
+  if (guideDue && phoneTall && phoneTall.matches) {
+    if (GameState.distance < 300) tipOwed = true;
+    guideAt = nowMs;
+    hideCoach(banner);
+    return;
+  }
+  if (tipOwed && nowMs - guideAt > TIP_OWED_WITHIN) tipOwed = false;
 
   // Nearest un-hit obstacle within ~2,800 Z-units that the player still needs coaching on.
   let foundObs = null;
@@ -76,6 +98,7 @@ export function updateInteractiveCoach(currentSegIdx) {
   const descEl = document.getElementById('coachDesc');
   if (!iconEl || !titleEl || !descEl) return;
 
+  if (foundObs || GameState.warpReady) tipUntil = 0; // another card took over: the owed tip is spent
   if (foundObs) {
     const t = foundObs.item.type;
     const open = foundObs.item.offset >= 0 ? '◀ LEFT' : 'RIGHT ▶';
@@ -102,7 +125,8 @@ export function updateInteractiveCoach(currentSegIdx) {
   } else if (GameState.warpReady && GameState.timeWarps === 0) {
     iconEl.textContent = '⚡'; titleEl.textContent = 'FLUX FULL';
     descEl.textContent = hintNow().coachFlux;
-  } else if (GameState.distance < 300) { // just after the green light
+  } else if (GameState.distance < 300 || tipOwed || nowMs < tipUntil) { // just after the green light
+    if (tipOwed) { tipOwed = false; tipUntil = nowMs + TIP_OWED_MS; }
     iconEl.textContent = '🎓'; titleEl.textContent = 'TIP';
     descEl.textContent = 'Draft the green wake behind rivals for a slingshot';
   } else {
@@ -422,6 +446,8 @@ export function startNewRace(opts) {
   const coachBanner = document.getElementById('interactiveCoachBanner');
   if (coachBanner) hideCoach(coachBanner);
   RS.coachYieldUntil = performance.now() + 350;
+  tipOwed = false;
+  tipUntil = 0;
   document.getElementById('leaderboardModal').classList.add('hidden');
   GameState.autoGas = SaveStore.data.controls.autoAccel !== false;
   if (touch) touch.raceStart();
