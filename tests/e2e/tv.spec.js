@@ -5,12 +5,14 @@
 // the steering assertions hold on either path and the path used is recorded.
 import { test, expect } from '@playwright/test';
 import { LIVE_PORT } from '../../playwright.config.js';
+import { stubAds } from './helpers.js';
 
 const BASE = `http://127.0.0.1:${LIVE_PORT}`;
 test.describe.configure({ mode: 'serial' });
 
 function watch(page) {
   const problems = [];
+  stubAds(page); // the same-origin Marquee loader 404s locally (helpers.js)
   page.on('console', (m) => { if (m.type() === 'error') problems.push(`console.error: ${m.text()}`); });
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   page.on('request', (r) => {

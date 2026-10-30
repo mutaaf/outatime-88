@@ -76,8 +76,22 @@ Depth over breadth: polish one moment until it sings before adding three.
    src/worker/). No third-party host, ever. QR codes are drawn locally (`src/qr.js`). The e2e smoke test fails on any non-localhost request. No accounts and no
    personal data: see § Privacy model.
    No analytics, ad networks, trackers, fonts or scripts from CDNs. Everything else is bundled.
-   The only ads are first-party sponsor boards bundled under `/outatime/ads/`, chosen by
-   context only, reporting aggregate per-campaign counts (docs/ADS.md).
+   In a race the only ads are first-party sponsor boards bundled under `/outatime/ads/`, chosen
+   by context only, reporting aggregate per-campaign counts (docs/ADS.md).
+   **One exception (owner decision, 2026-10-30, "split by audience"):** index.html loads the
+   Marquee ad loader from the same origin, relative to the base path (`../ads/v1/ads.js` →
+   `mutaafaziz.com/ads/v1/ads.js`, the separate Marquee Worker; `data-app="outatime"`). Only
+   menu-context slots are declared (`title` banner, `postrace` interstitial, `bonus` rewarded),
+   and the glue is the lazy `src/ads.js`. Through Marquee, Google ads tagged child-directed
+   (`data-tag-for-child-directed-treatment=1`) may appear **only outside gameplay**: the title,
+   results / back to the title, and an opt-in rewarded video. Rewarded is **opt-in only** (the
+   player taps "Watch a short ad for 2× coins"; the button shows only when the slot has fill).
+   **No ad ever shows mid-race**: the app never calls Marquee while a race is on (PLAYING,
+   PAUSED, GRID), never in a live room or TV mode, and Marquee itself refuses Google for any
+   `gameplay` slot. Every call is fire-and-forget and a missing `window.marquee` is a no-op; the
+   game never waits on an ad. Gameplay requests stay first-party. The e2e guard still fails on any
+   non-localhost request; tests answer the same-origin `/ads/v1/ads.js` with a stub
+   (`stubAds` in tests/e2e/helpers.js), which locally would 404. Allow-list nothing else.
 4. **Frame budget.** The render loop must hold 60fps on a mid-range laptop and stay
    playable on a recent phone. No per-frame allocations in hot paths (reuse vectors and
    arrays), no layout thrash from the HUD.
@@ -119,6 +133,9 @@ Depth over breadth: polish one moment until it sings before adding three.
   Both are stored only as salted hashes, and redemption is rate-limited.
 - **Shared devices:** "Switch racer" keeps each sibling's racer and local save on one iPad.
   "Forget this device" removes the racer from every local store and clears the cookie.
+- **Ads (2026-10-30):** Marquee counts are aggregate only (slot | campaign | source → n); no
+  racer id, cookie, IP or device data is sent to it, and the racer credential never reaches it.
+  Google ads are child-directed and menu-only (§3.3); nothing about the player picks an ad.
 - **For other features:** `src/identity.js` is the client API (publicId, profile, addFriends,
   saveProfileData…); `src/worker/identity.js` is the server side. Reuse them — don't invent
   another id.
@@ -255,6 +272,9 @@ src/slipstream.js   Slipstream charge cue (0197), lazy (race flow + tuner): draf
                       lines, an eased edge tint and a 2 Hz READY pulse; main only calls RS.wake from drawSpeedLines
 src/focus-scope.js  Menu focus scope (0207), lazy via home.js: a shown menu takes focus, Tab/Shift+Tab loop inside, focus goes back to
                       its opener on close (never while racing); Ranks/share close on Escape. Watches each menu's `hidden` class
+src/ads.js          Marquee ad glue (2026-10-30), lazy: onResults (2× COINS rewarded offer, opt-in, only with fill),
+                      onMenuReturn (postrace interstitial from the session's 2nd race on; never live/TV), beforeAd/afterAd hold
+                      the frame loop (main's adHeld, which also refuses race starts) and silence the mix. Main only has adCue()
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/play-hints.js   In-race prompts worded for the input in hand (0007), pure: pad X/RB/Y, phone BOOST, else keys;
                       InputState.lastInput is set only through setLastInput (src/input.js), which keeps body.input-pad

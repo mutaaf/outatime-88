@@ -31,6 +31,9 @@
   <meta name="twitter:title" content="OUTATIME 88 — race me" />
   <meta name="twitter:description" content="Six racers, three laps, hit 88 mph. Can you beat my time?" />
   <meta name="twitter:image" content="https://mutaafaziz.com/outatime/og.jpg" />
+  <!-- Marquee ads (owner decision 2026-10-30, AGENTS.md §3.3, docs/ADS.md): the same-origin loader
+       at mutaafaziz.com/ads/v1/ads.js. Menu slots only; races show only first-party sponsor boards. -->
+  <script async src="../ads/v1/ads.js" data-app="outatime" data-slots="title:banner:menu,postrace:interstitial:menu,bonus:rewarded:menu"></script>
 </head>
 <body class="on-title relative w-full h-full select-none overflow-hidden bg-slate-950">
 
@@ -415,6 +418,8 @@
       <div id="titleRival" class="title-rival font-arcade" role="status" aria-live="polite"></div>
       <!-- Offline play (ticket 0150): how much of the game is saved for a flight. -->
       <button id="offlinePill" type="button" class="offline-pill hidden font-arcade" aria-live="polite"></button>
+      <!-- Marquee banner (2026-10-30): menu context only; collapsed until the loader fills it. -->
+      <div id="titleAd" class="title-ad" data-marquee="title" data-marquee-context="menu"></div>
     </div>
 
     <!-- Icons live in the bottom corners so the car between them stays the hero. -->
@@ -881,6 +886,8 @@
         <ul id="endGoals" class="end-goals hidden" aria-label="Endless goals"></ul>
         <!-- Power-up upgrades (ticket 0177): longer magnet / shield / 2X, paid in earned FLUX cash only. -->
         <div id="endShop" class="power-shop hidden" role="group" aria-label="Power-up upgrades"></div>
+        <!-- Opt-in rewarded ad (Marquee, 2026-10-30): shown only when the bonus slot has fill (src/ads.js). -->
+        <button id="btnBonusAd" type="button" class="bonus-ad hidden">🎬 Watch a short ad for 2× coins</button>
 
         <!-- Leaderboard submission (ticket 0025): initials once, then every run posts itself. -->
         <div id="endBoardBox" class="end-board">

@@ -5,7 +5,7 @@
 // and the race step calls back in through RF (set by useFlow), never a static import, so the
 // bundler keeps them separate.
 import {
-  RACE_DEPS, DEBUG_MODE, LiveTraffic, RAI, RC, RS, activeCarParams, announcer, burstSparks,
+  RACE_DEPS, DEBUG_MODE, LiveTraffic, adCue, RAI, RC, RS, activeCarParams, announcer, burstSparks,
   callouts, carPaint, ceremonyReady, drive, ghostRace, hideCoach, hudView, initTrack, lateral,
   live, loadGarageUI, loadShareUi, restoreSoloSettings, smoke2d, sparks, steerModes, syncAudioUI,
   syncModeButtons, syncRunnerUi, todaysDaily, touch, triggerAnnouncement, updateEraHud,
@@ -704,6 +704,7 @@ export function endRaceRun(customBadgeText = null) {
     document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
     document.getElementById('gameOverModal').classList.remove('hidden');
   });
+  adCue('onResults'); // opt-in 2× COINS offer when Marquee has fill (src/ads.js; menus only)
 }
 
 /** LiveTraffic's race-time methods: main.js keeps its data fields and assigns these on load. */

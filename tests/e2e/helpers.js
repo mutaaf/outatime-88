@@ -18,9 +18,22 @@ export function stubApi(page) {
   });
 }
 
+/** Marquee (AGENTS.md §3.3, 2026-10-30): index.html loads the same-origin loader ../ads/v1/ads.js,
+ *  which lives in another Worker (mutaafaziz.com/ads) and 404s locally (a console error). Only that
+ *  same-origin /ads/ path is answered here, with an empty script: window.marquee stays undefined, so
+ *  every ad cue is a no-op, as when the loader is blocked. Any other host still fails the guard. */
+export function stubAds(page, body = '/* marquee loader stub */') {
+  return page.route(/\/ads\/v1\/ads\.js(\?|$)/, (route) => {
+    const u = new URL(route.request().url());
+    if (!['localhost', '127.0.0.1'].includes(u.hostname)) return route.continue();
+    return route.fulfill({ status: 200, contentType: 'text/javascript', body });
+  });
+}
+
 export function watchPage(page) {
   const problems = [];
   stubApi(page);
+  stubAds(page);
   page.on('console', (m) => { if (m.type() === 'error') problems.push(`console.error: ${m.text()}`); });
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   page.on('request', (r) => {

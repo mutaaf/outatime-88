@@ -1044,3 +1044,11 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
   .garage-thumb.is-view::before, .steer-picker button[aria-pressed="true"]::before, .tc-seg button.on::before,
   .tc-presets button.on::before { position: absolute; top: 2px; left: 5px; font-size: 10px; line-height: 1; }
 }
+
+/* Marquee ads (2026-10-30, src/ads.js): menus only. The title banner takes no room until filled. */
+.title-ad { width: min(100%, 728px); max-height: 120px; overflow: hidden; }
+.title-ad:empty, .title-ad[hidden] { display: none; }
+.bonus-ad { display: block; margin: 8px auto 0; min-height: 44px; padding: 8px 16px; border-radius: 999px; font: 900 clamp(10px, 1.6vmin, 13px)/1.2 'Orbitron', sans-serif;
+  color: #052e16; background: linear-gradient(180deg, #86efac, #22c55e); border: 1px solid #bbf7d0; cursor: pointer; }
+.bonus-ad.hidden { display: none; }
+.bonus-ad:disabled { opacity: 0.6; cursor: wait; }

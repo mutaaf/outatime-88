@@ -92,6 +92,7 @@ const endRaceRun = raceCall('endRaceRun');
 let startWanted, startWait = null;
 const NO_START = {}; // going home while the race step loads cancels the queued start (0185)
 function startNewRace(opts) {
+  if (adHeld) return undefined; // a menu ad is on screen (src/ads.js): no race starts under it
   if (raceStep) return raceStep.startNewRace(opts);
   startWanted = opts;
   startWait = startWait || loadRaceStep().then((m) => { startWait = null; return startWanted === NO_START ? null : m.startNewRace(startWanted); });
@@ -770,8 +771,19 @@ const liveHooks = {
   leaveLive: () => showTitle(),
 };
 
+// Marquee ads (2026-10-30, AGENTS.md §3.3): menus only, never in a race. The glue is the lazy
+// src/ads.js; main only holds these hooks. With no loader (local, blocked) every cue is a no-op.
+const adsChunk = new Promise((r) => setTimeout(r, 0)).then(() => import('./ads.js')).then((m) => {
+  m.initAds({ state: GameState, save: SaveStore, sound: SoundEngine, tv: /[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search),
+    hold: (on) => { adHeld = on; lastFrameTime = 0; } });
+  return m;
+}).catch(() => null);
+/** Fire-and-forget ad cue (onResults, onMenuReturn): never awaited by the game. */
+export function adCue(name, arg) { adsChunk.then((m) => m && m[name](arg)).catch(() => {}); }
+
 /** Home (ticket 0185): the one way back to the title from results, pause or a live room. */
 export function showTitle() {
+  const fromResults = GameState.status === 'GAMEOVER', wasLive = GameState.mode === 'LIVE';
   if (GameState.savedLevelIndex !== undefined) restoreSoloSettings();
   else if (GameState.mode === 'LIVE') GameState.mode = 'ARCADE';
   if (startWait) startWanted = NO_START;
@@ -786,6 +798,7 @@ export function showTitle() {
   renderRacerPill();
   syncRunnerUi(true);
   refreshRival();
+  if (fromResults) adCue('onMenuReturn', { live: wasLive });
 }
 let home = null; // src/home.js: hooks, results → home, history, the attract driver (lazy)
 
@@ -1405,6 +1418,7 @@ function initTouchControls() {
 let lastFrameTime = 0;
 let raceOn = false; // body.race-on while the race steps: CSS hides title/garage-only UI (0229)
 let simHeld = false; // the balance harness steps the sim itself (?debug, tests/balance)
+let adHeld = false; // a menu ad (src/ads.js) is on screen: the loop holds its frame until it closes
 let rafId = null;
 
 // Fixed-timestep simulation (ticket 0070): the race always advances in 1/120 s steps, so
@@ -1458,7 +1472,7 @@ function renderBlended(alpha, frameDt) {
 const garageModalEl = document.getElementById('garageModal');
 
 function mainLoop(timestamp) {
-  if (simHeld) { rafId = requestAnimationFrame(mainLoop); return; }
+  if (simHeld || adHeld) { rafId = requestAnimationFrame(mainLoop); return; }
   if (!lastFrameTime) lastFrameTime = timestamp;
   const frameSeconds = (timestamp - lastFrameTime) / 1000;
   const dt = Math.min(0.05, frameSeconds); // wall-clock frame time for attract mode and render FX
