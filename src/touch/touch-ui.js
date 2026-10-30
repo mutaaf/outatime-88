@@ -24,6 +24,10 @@ const MAX_POINTERS = 10;
 const STICK_TRAVEL = 0.42;   // knob travel radius as a fraction of the base diameter
 const EDGE_STEER = 0.75;     // stick deflection that counts as a "press" (tricks, jukes)
 const LOOK_RANGE = 0.35;     // fraction of the screen for a full look-around
+// Landscape coach chip (0225): every tip fits two lines from 198 px. It docks from 222 px and stays
+// docked down to 204 px, so a score gaining digits mid-race doesn't throw the card back onto the road.
+const COACH_DOCK_AT = 222;
+const COACH_UNDOCK_UNDER = 204;
 
 /** True on devices that can touch; desktop mice never see the controls unless they touch. */
 export function canTouch(win = window) {
@@ -172,7 +176,8 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   function dockCoach() {
     const box = (id) => { const e = doc.getElementById(id); const r = e && e.getBoundingClientRect(); return r && r.width && r.height ? r : null; };
     const pos = box('hudPosCard'), strip = box('hudTrack'), header = doc.querySelector('header');
-    if (!pos || !header || !win.matchMedia('(max-height: 479.98px)').matches) return;
+    if (!pos || !header) return;
+    if (!win.matchMedia('(max-height: 479.98px)').matches) { doc.getElementById('interactiveCoachBanner')?.classList.remove('tc-coach-docked'); return; }
     let right = win.innerWidth - 8;
     for (const id of ['hudTimes', 'hudSpeedCard', 'btnHudSettings']) {
       const r = box(id);
@@ -180,9 +185,14 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     }
     const top = (strip ? strip.bottom : pos.top) + 2;
     const left = pos.right + 8;
+    const banner = doc.getElementById('interactiveCoachBanner');
+    if (!banner) return;
+    // Too narrow for two lines of a tip (568x320, 640x360, HUD LARGE on small phones): the card stays where it was.
+    const room = right - left;
+    banner.classList.toggle('tc-coach-docked', room >= (banner.classList.contains('tc-coach-docked') ? COACH_UNDOCK_UNDER : COACH_DOCK_AT));
     // On the banner, not :root (a root custom property restyles the whole page), and only on change.
-    const st = doc.getElementById('interactiveCoachBanner')?.style;
-    const set = (k, v) => { if (st && st.getPropertyValue(k) !== v) st.setProperty(k, v); };
+    const st = banner.style;
+    const set = (k, v) => { if (st.getPropertyValue(k) !== v) st.setProperty(k, v); };
     set('--tc-chip-l', `${Math.round(left)}px`);
     set('--tc-chip-t', `${Math.round(top)}px`);
     set('--tc-chip-w', `${Math.round(Math.max(0, right - left))}px`);

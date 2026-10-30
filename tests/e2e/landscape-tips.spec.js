@@ -105,12 +105,15 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 740, height: 360 }
       const box = await page.evaluate(() => {
         const b = document.getElementById('btnDismissCoach');
         const r = b.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        let y0 = r.top + r.height / 2, y1 = y0;
-        const on = (y) => { const e = document.elementFromPoint(cx, y); return !!e && (e === b || b.contains(e)); };
-        while (on(y0 - 1)) y0--;
-        while (on(y1 + 1)) y1++;
-        return { w: r.width, h: y1 - y0 + 1 };
+        // Its hit box (target-size.spec's definition): the chip draws a slim ✓, a ::after takes the taps.
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const on = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && (e === b || b.contains(e)); };
+        let y0 = cy, y1 = cy, x0 = cx, x1 = cx;
+        while (on(cx, y0 - 1)) y0--;
+        while (on(cx, y1 + 1)) y1++;
+        while (on(x0 - 1, cy)) x0--;
+        while (on(x1 + 1, cy)) x1++;
+        return { w: x1 - x0 + 1, h: y1 - y0 + 1 };
       });
       expect(box.h).toBeGreaterThanOrEqual(44);
       expect(box.w).toBeGreaterThanOrEqual(44);
@@ -153,45 +156,85 @@ test('1280x720 keyboard: the coach card still docks top-left under the place car
   expect(problems).toEqual([]);
 });
 
-/** The docked chip and the HUD cards beside it, read two frames after the HUD last changed. */
-const chipVsCards = (page) => page.evaluate(async () => {
+/** Every line the coach can show on a phone (src/race-flow.js), the widest direction for each. */
+const COACH_LINES = [
+  'Graze the gold ring for a slingshot — or go RIGHT ▶', 'Hop it (W / ▲ / swipe up) — or go RIGHT ▶',
+  'Hold drift to duck (S / ▼ / swipe down) — or go RIGHT ▶', 'Smash straight through it for flux + HP',
+  'Grab the wrench (center) for +25 HP', 'Go RIGHT ▶, jump it, or boost-smash it',
+  'Hold 88 mph — or hit BOOST — to jump eras', 'Draft the green wake behind rivals for a slingshot',
+];
+
+/** Where the coach is, two frames after the HUD last changed: docked in the HUD row (with each coach
+ *  line tried for fit) or in its old centred spot. */
+const coachSpot = (page) => page.evaluate(async (lines) => {
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const rect = (el) => { const r = el.getBoundingClientRect(); return { x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; };
   const shown = (el) => !!el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).display !== 'none';
   const card = document.getElementById('coachCard');
+  const d = document.getElementById('coachDesc'), b = document.getElementById('btnDismissCoach');
+  // Cut off by the two-line clamp, or spilling out of the chip (not the card's own scroll size:
+  // GOT IT's hit area reaches below the card on purpose).
+  const inside = (el) => { const c = card.getBoundingClientRect(), r = el.getBoundingClientRect(); return r.left >= c.left - 0.5 && r.right <= c.right + 0.5 && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5; };
+  const was = d.textContent;
+  const clipped = [];
+  for (const t of lines) {
+    d.textContent = t;
+    if (d.scrollHeight > d.clientHeight + 1 || d.scrollWidth > d.clientWidth + 1 || !inside(d) || !inside(b)) clipped.push(t);
+  }
+  d.textContent = was;
   return {
+    docked: document.getElementById('interactiveCoachBanner').classList.contains('tc-coach-docked'),
     coach: rect(card),
     cards: ['hudPosCard', 'hudTrack', 'hudTimes', 'hudSpeedCard', 'btnHudSettings'].map((id) => document.getElementById(id)).filter(shown).map(rect),
     header: document.querySelector('header').getBoundingClientRect().bottom,
-    // Text cut off inside the chip: wider or taller than the room it has.
-    clipped: card.scrollWidth > card.clientWidth + 1 || card.scrollHeight > card.clientHeight + 1,
+    clipped,
   };
-});
+}, COACH_LINES);
 
 const coachUp = (page) => page.waitForFunction(() => document.getElementById('interactiveCoachBanner').style.opacity === '1', null, { timeout: 30_000 });
 
-for (const [viewport, hud] of [[{ width: 568, height: 320 }, 'normal'], [{ width: 844, height: 390 }, 'large'], [{ width: 667, height: 375 }, 'large']]) {
+async function coachInRace(page, hud) {
+  await page.addInitScript((h) => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ settings: { hud: h } })), hud);
+  await page.goto(`${APP}?debug`);
+  await ready(page);
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+  await coachUp(page);
+  await page.evaluate(() => window.__OT.pause());
+}
+
+/** Docked: in the HUD row, on no card, every line readable. Not docked: the old centred card. */
+function expectSpot(r, when, width) {
+  if (r.docked) {
+    for (const c of r.cards) expect(hit(r.coach, c), `${when}: chip ${JSON.stringify(r.coach)} on a card ${JSON.stringify(c)}`).toBe(false);
+    expect(r.coach.y1, `${when}: chip inside the HUD row`).toBeLessThanOrEqual(r.header + 0.5);
+    expect(r.clipped, `${when}: coach lines cut off in the chip`).toEqual([]);
+  } else {
+    expect(r.coach.y0, `${when}: card under the HUD`).toBeGreaterThanOrEqual(r.header);
+    expect(Math.abs((r.coach.x0 + r.coach.x1) / 2 - width / 2), `${when}: card centred`).toBeLessThan(4);
+  }
+}
+
+// Docked where the HUD row has room for every coach line in two lines (from 222 px, and it stays
+// docked down to 204 px as the HUD's numbers grow); under that
+// (568x320, 640x360, HUD LARGE on small phones) the card keeps its old centred spot.
+for (const [viewport, hud, docked] of [
+  [{ width: 667, height: 375 }, 'normal', true], [{ width: 844, height: 390 }, 'large', true], [{ width: 740, height: 360 }, 'large', true],
+  [{ width: 568, height: 320 }, 'normal', false], [{ width: 640, height: 360 }, 'normal', false], [{ width: 667, height: 375 }, 'large', false],
+]) {
   test.describe(`landscape ${viewport.width}x${viewport.height}, HUD ${hud}`, () => {
     test.use({ viewport, hasTouch: true, isMobile: true });
 
-    test('the chip fits in the HUD row and follows the cards as they grow', async ({ page }) => {
+    test(`the coach ${docked ? 'docks and every line fits' : 'keeps its centred card'}, and follows the cards as they grow`, async ({ page }) => {
       const problems = watchPage(page);
-      await page.addInitScript((h) => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ settings: { hud: h } })), hud);
-      await page.goto(`${APP}?debug`);
-      await ready(page);
-      await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
-      await coachUp(page);
-      await page.evaluate(() => window.__OT.pause());
-      const check = async (when) => {
-        const r = await chipVsCards(page);
-        for (const c of r.cards) expect(hit(r.coach, c), `${when}: chip ${JSON.stringify(r.coach)} on a card ${JSON.stringify(c)}`).toBe(false);
-        expect(r.coach.y1, `${when}: chip inside the HUD row`).toBeLessThanOrEqual(r.header + 0.5);
-        expect(r.clipped, `${when}: chip text fits`).toBe(false);
-      };
-      await check('start');
+      await coachInRace(page, hud);
+      const r = await coachSpot(page);
+      expect(r.docked).toBe(docked);
+      expectSpot(r, 'start', viewport.width);
       // The speed card widens as the score gains digits: the times card moves left without resizing.
-      await page.evaluate(() => { document.getElementById('hudSpeedCard').style.minWidth = `${document.getElementById('hudSpeedCard').getBoundingClientRect().width + 40}px`; });
-      await check('speed card +40 px');
+      for (const grow of [20, 40, 80]) {
+        await page.evaluate((g) => { const c = document.getElementById('hudSpeedCard'); c.style.minWidth = ''; c.style.minWidth = `${c.getBoundingClientRect().width + g}px`; }, grow);
+        expectSpot(await coachSpot(page), `speed card +${grow} px`, viewport.width);
+      }
       expect(problems).toEqual([]);
     });
   });
