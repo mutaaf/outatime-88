@@ -166,11 +166,11 @@ for (const { vp, first, challenge } of HERO_CASES) {
 // Ticket 0226: on a phone on its side (≤ 430 px tall) the title's controls sit above and beside
 // the hero car instead of stacking over it: at most 30% of carBox is under a title control or
 // text, every control stays on screen, ≥ 44x44 px and clear of the others, and nothing scrolls.
-for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { width: 667, height: 375 }]) {
+for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { width: 667, height: 375 }, { width: 568, height: 320 }]) {
   test.describe(`landscape phone title at ${vp.width}x${vp.height}`, () => {
     test.use({ viewport: vp, hasTouch: true, isMobile: true });
-    for (const first of [false, true]) {
-      test(`the hero car stays in view (${first ? 'first visit' : 'returning'})`, async ({ page }, info) => {
+    for (const [first, challenge] of [[false, false], [true, false], [false, true]]) {
+      test(`the hero car stays in view (${first ? 'first visit' : 'returning'}${challenge ? ', challenge banner' : ''})`, async ({ page }, info) => {
         const problems = watchPage(page);
         if (!first) await page.addInitScript((s) => localStorage.setItem('outatime_cruisn_88_save_v2', s), JSON.stringify(RETURNING_SAVE));
         await page.goto(`${APP}?debug`);
@@ -178,6 +178,7 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
         await expect(page.locator(first ? '.home-pitch li' : '#homeHooks .home-hook').first()).toBeVisible();
         await expect(page.locator('#btnTitleTilt')).toBeVisible(); // touch screens get the TILT chip
         await page.evaluate(() => { const p = document.getElementById('offlinePill'); p.textContent = '✈️ READY FOR OFFLINE'; p.classList.remove('hidden'); });
+        if (challenge) await page.evaluate(() => { document.getElementById('challengeText').textContent = 'BEAT ACE · 1:23.4'; document.getElementById('challengeTrack').textContent = 'NEON STRIP'; document.getElementById('challengeBanner').classList.remove('hidden'); });
         await page.waitForTimeout(2400); // entrance animations settle
         const car = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
         for (let i = 0; i < 6; i++) {
@@ -190,12 +191,13 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
           car.x0 = Math.min(car.x0, b.x0); car.y0 = Math.min(car.y0, b.y0); car.x1 = Math.max(car.x1, b.x1); car.y1 = Math.max(car.y1, b.y1);
         }
         expect(car.x1 - car.x0).toBeGreaterThan(vp.width * 0.2);
+        expect(car.y0).toBeGreaterThan(vp.height * 0.4);
         const { boxes, controls } = await page.evaluate(() => {
           const vis = (e) => { const c = getComputedStyle(e); const r = e.getBoundingClientRect(); return c.display !== 'none' && c.visibility !== 'hidden' && r.width > 0 && r.height > 0; };
           const own = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
           const box = (e) => { const r = e.getBoundingClientRect(); return { id: e.id || String(e.className).slice(0, 40) || e.textContent.trim().slice(0, 20), x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; };
           const els = [...document.querySelectorAll('#titleScreen *')].filter((e) => vis(e) && (own(e) || e.matches('button, .home-hook, .home-pitch li')));
-          return { boxes: els.map(box), controls: [...document.querySelectorAll('#titleScreen button, #titleScreen .home-hook')].filter(vis).map(box) };
+          return { boxes: els.map(box), controls: [...document.querySelectorAll('#titleScreen button, #titleScreen .home-hook, #titleScreen .home-pitch li, #challengeBanner')].filter(vis).map(box) };
         });
         // Share of the car under any title control or text (sampled on a 2 px grid, union of boxes).
         let n = 0, hit = 0;
@@ -217,11 +219,12 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
         }
         for (let i = 0; i < controls.length; i++) for (let j = i + 1; j < controls.length; j++) {
           const a = controls[i], b = controls[j];
+          if ([a.id, b.id].sort().join() === 'btnAcceptChallenge,challengeBanner') continue; // the banner holds its RACE button
           const overlap = a.x0 < b.x1 - 0.5 && b.x0 < a.x1 - 0.5 && a.y0 < b.y1 - 0.5 && b.y0 < a.y1 - 0.5;
           expect(overlap, `${a.id} overlaps ${b.id}`).toBe(false);
         }
         expect(await page.evaluate(() => document.scrollingElement.scrollHeight <= innerHeight && document.scrollingElement.scrollWidth <= innerWidth)).toBe(true);
-        await info.attach(`title-landscape-${vp.width}x${vp.height}${first ? '-first' : ''}`, { body: await page.screenshot(), contentType: 'image/png' });
+        await info.attach(`title-landscape-${vp.width}x${vp.height}${first ? '-first' : ''}${challenge ? '-challenge' : ''}`, { body: await page.screenshot(), contentType: 'image/png' });
         expect(problems).toEqual([]);
       });
     }
