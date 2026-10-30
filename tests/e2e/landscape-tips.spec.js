@@ -74,7 +74,7 @@ async function firstRace(page, { reduce = false, intro = true } = {}) {
   await page.goto(`${APP}?debug${intro ? '&intro' : ''}`);
   await ready(page);
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
-  await expect(page.locator('#tcGuide')).toBeAttached({ timeout: 5000 });
+  await expect(page.locator('#tcGuide')).toBeAttached({ timeout: 10_000 });
   return problems;
 }
 
@@ -149,6 +149,8 @@ test.describe('portrait phone 390x844', () => {
 
   test('the coach waits for the thumb guide, then shows its tip once', async ({ page }) => {
     test.setTimeout(120_000);
+    // As on a slow phone (and CI): the guide's chunk lands after GO, so the coach must wait for it.
+    await page.route(/\/assets\/panel-[^/]*\.js$/, async (route) => { await new Promise((r) => setTimeout(r, 3000)); await route.continue(); });
     const problems = await firstRace(page, { intro: false });
     const s = await sampleTips(page, { coachAfterGuide: true });
     const bubbles = (x) => x.on.some((k) => ['steer', 'nos', 'warp'].includes(k));

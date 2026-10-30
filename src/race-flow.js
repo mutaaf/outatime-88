@@ -67,7 +67,11 @@ export function updateInteractiveCoach(currentSegIdx) {
   const nowMs = performance.now();
   if (announcer.isVisible()) { RS.coachYieldUntil = nowMs + 350; hideCoach(banner); return; }
   if (nowMs < RS.coachYieldUntil) { hideCoach(banner); return; }
-  if (document.body.classList.contains('tc-guiding') && phoneTall && phoneTall.matches) {
+  // The guide's chunk loads after GO on a slow phone: while it is still due (touch, not yet seen,
+  // early in the race) the coach waits for it too, so it never shows first and fades under it.
+  const guideDue = document.body.classList.contains('tc-guiding') || (GameState.raceTime < 5 && GameState.mode !== 'LIVE'
+    && SaveStore.data.controls && !SaveStore.data.controls.coachSeen && document.documentElement.classList.contains('touch-ui'));
+  if (guideDue && phoneTall && phoneTall.matches) {
     if (GameState.distance < 300) tipOwed = true;
     guideAt = nowMs;
     hideCoach(banner);
