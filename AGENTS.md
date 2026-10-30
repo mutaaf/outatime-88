@@ -138,8 +138,11 @@ src/render/         The 2D-canvas pseudo-3D renderer (0015), in the startup bund
                       sprites.js (items, obstacles, cars + tags, wrecks, AR) · player.js (drawPlayerCar) ·
                       fx.js (car FX, speed lines, warp tunnel, sparks, the 3D overlay). Each file ≤ 500 lines
 src/race-step.js    Lazy race step (0170): updateGame(dt), LiveTraffic.update, race rules (damage,
-                      streaks, takedowns, specials, time warp), race start/finish, race HUD;
+                      streaks, time warp), race start/finish, race HUD; takedowns + specials in src/race-specials.js;
                       imports only from ./main.js
+src/race-specials.js Race-step chunk only (0227): side-slam takedown (triggerRivalTakedown), the crew specials
+                      ZONE / AGRO / ROAR + their tint fade, the pulse beam, the obstacle shatter FX. Imported only by
+                      race-step.js (so it merges into that chunk), which re-exports what main calls
 src/data.js         Pure content tables: levels, eras, roster, upgrades, road/pace/camera config
 src/backdrop.js     Main-bundle shim for the 2D era worlds (0100): lazy-loads src/scenes/stage.js, flat fallback
 src/scenes/         Lazy: stage.js (layer cache, parallax, per-frame set pieces), s<era>.js (one scene per

@@ -1,7 +1,7 @@
 ---
 id: 0227
 title: Carve the street-crew specials and rival takedown out of race-step.js
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: tech-health
