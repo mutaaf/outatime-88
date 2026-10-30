@@ -155,3 +155,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-30 · 0225 · On landscape phones the driving tip is a slim line in the HUD under the track strip instead of a card over the road, and the first-race tips (steer, NOS, WARP) take turns instead of all showing at once
 2026-10-30 · 0226 · On a phone on its side the title puts PLAY, RACE FRIENDS, TILT and VIEW in one row above your car and the cards beside it, so the hero car is the star of the first screen
 2026-10-30 · 0227 · Under the hood: the takedown and crew-special code moved into its own module, with no change to how they play
+2026-10-30 · 0228 · On a phone held upright, the first race's driving tip waits until the steer and WARP bubbles have gone, then shows, so the opening seconds teach one thing at a time

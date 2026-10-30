@@ -8,9 +8,10 @@ import { APP, watchPage } from './helpers.js';
 const ready = (page) => page.evaluate(() => window.__OT.ready());
 
 /** Samples every 250 ms from the race start until 10 s into the race and the thumb guide is gone,
- *  or, with `together`, until the coach and two guide bubbles at once have both been seen. */
-function sampleTips(page, { together = false } = {}) {
-  return page.evaluate((together) => new Promise((done) => {
+ *  or, with `together`, until the coach and two guide bubbles at once have both been seen, or, with
+ *  `coachAfterGuide`, until the guide is gone and the coach has shown after it. */
+function sampleTips(page, { together = false, coachAfterGuide = false } = {}) {
+  return page.evaluate(({ together, coachAfterGuide }) => new Promise((done) => {
     const shown = (el) => {
       if (!el || !el.getClientRects().length) return false;
       if (getComputedStyle(el).visibility !== 'visible') return false;
@@ -35,6 +36,8 @@ function sampleTips(page, { together = false } = {}) {
         const x = {
           on, t: gs.raceTime || 0, racing: gs.racePhase === 'RACING',
           coach: on.includes('coach') ? rect(document.getElementById('coachCard')) : null,
+          desc: on.includes('coach') ? document.getElementById('coachDesc').textContent : '',
+          guide: !!document.getElementById('tcGuide'),
           cards: on.includes('coach') ? cardsNow() : [],
           header: document.querySelector('header').getBoundingClientRect().bottom,
           car: gs.racePhase === 'RACING' && b.x1 > b.x0 ? { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 } : null,
@@ -48,13 +51,16 @@ function sampleTips(page, { together = false } = {}) {
         }
         out.push(x);
         const guide = document.getElementById('tcGuide');
-        if ((gs.racePhase === 'RACING' && gs.raceTime > 10 && !guide) || gs.status !== 'PLAYING' || out.length > 360) break;
+        if (coachAfterGuide) {
+          if (x.coach && !x.guide && out.some((o) => o.guide)) break;
+          if (gs.status !== 'PLAYING' || out.length > 360) break;
+        } else if ((gs.racePhase === 'RACING' && gs.raceTime > 10 && !guide) || gs.status !== 'PLAYING' || out.length > 360) break;
         if (together && out.some((o) => o.coach) && out.some((o) => o.on.filter((k) => ['steer', 'nos', 'warp'].includes(k)).length > 1)) break;
         await new Promise((r) => setTimeout(r, 250));
       }
       done(out);
     })();
-  }), together);
+  }), { together, coachAfterGuide });
 }
 
 const hit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
@@ -135,19 +141,30 @@ for (const [viewport, runs] of [
   });
 }
 
-test.describe('portrait phone 390x844 (unchanged)', () => {
+// Portrait phones (0228): the guide's bubbles still show together, but the coach waits for the
+// guide to go (steered past or its 14 s cap), then shows (the GO tip it held back is owed once,
+// race-flow.js TIP_OWED_MS), centred under the HUD.
+test.describe('portrait phone 390x844', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
-  test('the guide still shows its bubbles together and the coach stays centred under the HUD', async ({ page }) => {
+  test('the coach waits for the thumb guide, then shows its tip once', async ({ page }) => {
     test.setTimeout(120_000);
-    const problems = await firstRace(page);
-    const s = await sampleTips(page, { together: true });
-    // The portrait layout has no NOS pad, so the guide has two bubbles there.
+    const problems = await firstRace(page, { intro: false });
+    const s = await sampleTips(page, { coachAfterGuide: true });
+    const bubbles = (x) => x.on.some((k) => ['steer', 'nos', 'warp'].includes(k));
+    // The portrait layout has no NOS pad, so the guide has two bubbles there, shown together.
     expect(s.some((x) => ['steer', 'warp'].every((k) => x.on.includes(k)))).toBe(true);
-    const c = s.find((x) => x.coach);
-    expect(c).toBeTruthy();
+    expect(s.filter((x) => x.coach && (bubbles(x) || x.guide)).map((x) => x.on)).toEqual([]);
+    const first = s.findIndex((x) => x.coach);
+    expect(first).toBeGreaterThan(0);
+    expect(s.slice(0, first).some((x) => x.guide)).toBe(true); // the guide had its turn first
+    const c = s[first];
+    expect(c.desc).not.toBe(''); // the GO tip it held back, or an obstacle's if one is closer
     expect(c.coach.y0).toBeGreaterThanOrEqual(c.header);
     expect(Math.abs((c.coach.x0 + c.coach.x1) / 2 - 195)).toBeLessThan(4);
+    // GOT IT still dismisses it.
+    await page.locator('#btnDismissCoach').click();
+    await expect.poll(() => page.evaluate(() => window.__OT.GameState.coachDismissed)).toBe(true);
     expect(problems).toEqual([]);
   });
 });

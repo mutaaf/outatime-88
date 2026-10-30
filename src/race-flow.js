@@ -44,6 +44,13 @@ export const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', 
 
 export const COACH_LEARNED_AFTER = 2;
 
+// Portrait phones (0228): the first-race thumb guide (body.tc-guiding) and the coach take turns.
+// The coach waits while the guide is up; the GO tip it held back shows once after, for TIP_OWED_MS.
+const phoneTall = typeof matchMedia === 'function' ? matchMedia('(max-width: 480px) and (orientation: portrait)') : null;
+export const TIP_OWED_MS = 4000;
+let tipOwed = false;
+let tipUntil = 0;
+
 export function updateInteractiveCoach(currentSegIdx) {
   const banner = document.getElementById('interactiveCoachBanner');
   if (!banner) return;
@@ -56,6 +63,11 @@ export function updateInteractiveCoach(currentSegIdx) {
   const nowMs = performance.now();
   if (announcer.isVisible()) { RS.coachYieldUntil = nowMs + 350; hideCoach(banner); return; }
   if (nowMs < RS.coachYieldUntil) { hideCoach(banner); return; }
+  if (phoneTall && phoneTall.matches && document.body.classList.contains('tc-guiding')) {
+    if (GameState.distance < 300) tipOwed = true;
+    hideCoach(banner);
+    return;
+  }
 
   // Nearest un-hit obstacle within ~2,800 Z-units that the player still needs coaching on.
   let foundObs = null;
@@ -102,7 +114,8 @@ export function updateInteractiveCoach(currentSegIdx) {
   } else if (GameState.warpReady && GameState.timeWarps === 0) {
     iconEl.textContent = '⚡'; titleEl.textContent = 'FLUX FULL';
     descEl.textContent = hintNow().coachFlux;
-  } else if (GameState.distance < 300) { // just after the green light
+  } else if (GameState.distance < 300 || tipOwed || nowMs < tipUntil) { // just after the green light
+    if (tipOwed) { tipOwed = false; tipUntil = nowMs + TIP_OWED_MS; }
     iconEl.textContent = '🎓'; titleEl.textContent = 'TIP';
     descEl.textContent = 'Draft the green wake behind rivals for a slingshot';
   } else {
@@ -422,6 +435,8 @@ export function startNewRace(opts) {
   const coachBanner = document.getElementById('interactiveCoachBanner');
   if (coachBanner) hideCoach(coachBanner);
   RS.coachYieldUntil = performance.now() + 350;
+  tipOwed = false;
+  tipUntil = 0;
   document.getElementById('leaderboardModal').classList.add('hidden');
   GameState.autoGas = SaveStore.data.controls.autoAccel !== false;
   if (touch) touch.raceStart();
