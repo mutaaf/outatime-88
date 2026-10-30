@@ -110,6 +110,11 @@ html, body {
    for controls (ticket 0061). Steer prompt: bottom-left until the touch controller moves it. */
 #driverBadgeBar { left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: 46vw; }
 .touch-ui #driverBadgeBar { display: none !important; }
+/* 0229: the badge (car name, NEXT CAR) is title/garage information: it fades out while the race steps
+   (main.js sets body.race-on) and is back on pause and results. */
+#driverBadgeBar { transition: opacity 0.25s ease-out, visibility 0s; }
+body.race-on #driverBadgeBar { opacity: 0; visibility: hidden; transition: opacity 0.25s ease-out, visibility 0s 0.25s; }
+[data-motion="reduce"] #driverBadgeBar, [data-motion="reduce"] body.race-on #driverBadgeBar { transition: none; }
 #steerHint { left: max(16px, env(safe-area-inset-left)); bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)); }
 
 /* Compact HUD: phones (either orientation) and small tablets. One slim HUD row, no driver
@@ -139,6 +144,20 @@ html, body {
 /* 32px down: clear of the ±N HP pop that drops from under the place card (≤ 20px + 14px drift). */
 :root[data-hud="full"]:not(.touch-ui) #coachCard { max-width: min(300px, 26vw); margin-top: 32px; }
 :root[data-hud="full"]:not(.touch-ui) #btnDismissCoach { white-space: nowrap; }
+/* 0229: with room in the HUD row (coach-dock.js dockDeskCoach sets .coach-desk and the --cd-* box), the tip is a
+   chip under the track strip, between the place card and the time pills: off the road, the start arch and the
+   announcer's lane. Short of ~240 px of room (narrow windows, HUD LARGE) it keeps the spot above. */
+:root[data-hud="full"]:not(.touch-ui) .hud-times { justify-self: center; }
+:root[data-hud="full"]:not(.touch-ui) #interactiveCoachBanner.coach-desk {
+  top: var(--cd-t, 54px); left: var(--cd-l, 210px); right: auto; width: var(--cd-w, 260px); padding: 0;
+}
+:root[data-hud="full"]:not(.touch-ui) .coach-desk #coachCard {
+  margin-top: 0; max-width: 100%; max-height: var(--cd-h, 66px); padding: 3px 5px 3px 10px !important; gap: 8px !important;
+  border-width: 1.5px; box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+}
+:root[data-hud="full"]:not(.touch-ui) .coach-desk #coachIcon { display: none; }
+:root[data-hud="full"]:not(.touch-ui) .coach-desk #coachTitle { font-size: 10px; line-height: 1.2; }
+:root[data-hud="full"]:not(.touch-ui) .coach-desk #coachDesc { font-size: 11px; line-height: 1.25; margin-top: 1px; }
 [data-hud="compact"] #forkChoiceBanner > div { font-size: 10px !important; padding: 3px 7px !important; max-width: 32vw; }
 /* The branch you are lined up for leans forward (scale, never transform: see LESSONS). */
 .fork-cue { scale: 0.92; opacity: 0.85; transition: scale 120ms ease-out, opacity 120ms ease-out; }
@@ -390,7 +409,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-time { font-size: calc(clamp(13px, 2.4vmin, 26px) * var(--hk)); font-weight: 900; font-variant-numeric: tabular-nums; color: #f8fafc; }
 .hud-clock { font-size: calc(clamp(11px, 2vmin, 20px) * var(--hk)); font-weight: 800; color: #fcd34d; }
 .hud-clock.hidden { display: none; }
-.gap { flex: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 9999px;
+.gap { flex: none; min-width: 0; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 9999px;
   font-size: calc(clamp(10px, 1.7vmin, 17px) * var(--hk)); font-weight: 800; background: rgba(2, 6, 23, 0.8); }
 .gap:empty { display: none; }
 .gap-ahead { color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.45); }

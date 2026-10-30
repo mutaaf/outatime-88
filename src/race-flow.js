@@ -21,7 +21,7 @@ import { createPlaceCall } from './place-call.js';
 import { stripMarks, createStripFan } from './strip-marks.js';
 import {
   endlessSolo, nearMisses, cashAcc, earnCash, resetRunner, steerWheel, resetNos, showForkCue,
-  ghostRecorder
+  ghostRecorder, dockDeskCoach
 } from './race-step.js';
 const {
   CAR_SPECS, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, POP_CULTURE_ROSTER,
@@ -133,6 +133,7 @@ export function updateInteractiveCoach(currentSegIdx) {
     hideCoach(banner);
     return;
   }
+  if (!document.body.classList.contains('coach-up')) dockDeskCoach(banner);
   banner.style.opacity = '1';
   banner.style.pointerEvents = '';
   document.body.classList.add('coach-up');

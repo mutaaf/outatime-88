@@ -172,7 +172,9 @@ test.describe('portrait phone 390x844', () => {
   });
 });
 
-test('1280x720 keyboard: the coach card still docks top-left under the place card', async ({ page }) => {
+// 0229 moved the desktop card into the HUD row beside the place card (tests/e2e/desk-race.spec.js
+// checks the full fit); landscape phones' chip rules must not take it.
+test('1280x720 keyboard: the coach card docks in the HUD row beside the place card', async ({ page }) => {
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
   await ready(page);
@@ -180,10 +182,13 @@ test('1280x720 keyboard: the coach card still docks top-left under the place car
   await page.waitForFunction(() => document.getElementById('interactiveCoachBanner').style.opacity === '1', null, { timeout: 30_000 });
   const r = await page.evaluate(() => {
     const c = document.getElementById('coachCard').getBoundingClientRect();
-    return { x0: c.left, y0: c.top, header: document.querySelector('header').getBoundingClientRect().bottom };
+    return { x0: c.left, y1: c.bottom, pos: document.getElementById('hudPosCard').getBoundingClientRect().right,
+      docked: document.getElementById('interactiveCoachBanner').classList.contains('tc-coach-docked'),
+      header: document.querySelector('header').getBoundingClientRect().bottom };
   });
-  expect(r.x0).toBeLessThan(40);
-  expect(r.y0).toBeGreaterThan(r.header);
+  expect(r.docked).toBe(false);
+  expect(r.x0).toBeGreaterThan(r.pos);
+  expect(r.y1).toBeLessThanOrEqual(r.header + 1);
   expect(problems).toEqual([]);
 });
 

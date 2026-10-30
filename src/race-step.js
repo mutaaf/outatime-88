@@ -41,6 +41,7 @@ import {
 // Takedown, crew specials and the pulse beam (0227); main and the touch kit call the last two on this module.
 import { spawnObstacleShatter, triggerRivalTakedown, activateMidnightSpecial, fireUnibeam, fadeAbilityTint } from './race-specials.js';
 export { activateMidnightSpecial, fireUnibeam };
+export { dockDeskCoach } from './coach-dock.js'; // race-flow's coach (0229): lands in this chunk, which has the room
 
 RS.fair = createFair();
 // WARP READY (0112): GameState.warpReady says a boost would fire the warp right now (meter in
