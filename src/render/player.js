@@ -11,7 +11,8 @@ let playerThrust = null;
 export const thrustState = { nos: 0, plume: 0, color: '', t: 0, calm: false, hover: false };
 let beamGrad = null, beamGradH = -1;
 export function drawPlayerCar(ctx, rw, rh, eraCfg) {
-  const carW = Math.max(58, Math.floor(rw * 0.22));
+  // A portrait phone's title shows the car ~50vw wide instead of ~36vw: it is the hero there (0230).
+  const carW = Math.max(58, Math.floor(rw * (GameState.status === 'TITLE' && rh > rw * 1.5 ? 0.3 : 0.22)));
   const carH = Math.max(32, Math.floor(carW * 0.54));
   const cx = GameState.playerScreenX || Math.floor(rw * 0.5);
   const jumpOffset = Math.floor((GameState.playerY / 220) * (rh * 0.26));
