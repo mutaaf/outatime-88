@@ -7,9 +7,10 @@ import { APP, watchPage } from './helpers.js';
 
 const ready = (page) => page.evaluate(() => window.__OT.ready());
 
-/** Samples every 250 ms from the race start until 10 s into the race and the thumb guide is gone. */
-function sampleTips(page) {
-  return page.evaluate(() => new Promise((done) => {
+/** Samples every 250 ms from the race start until 10 s into the race and the thumb guide is gone,
+ *  or, with `together`, until the coach and two guide bubbles at once have both been seen. */
+function sampleTips(page, { together = false } = {}) {
+  return page.evaluate((together) => new Promise((done) => {
     const shown = (el) => {
       if (!el || !el.getClientRects().length) return false;
       if (getComputedStyle(el).visibility !== 'visible') return false;
@@ -48,34 +49,44 @@ function sampleTips(page) {
         out.push(x);
         const guide = document.getElementById('tcGuide');
         if ((gs.racePhase === 'RACING' && gs.raceTime > 10 && !guide) || gs.status !== 'PLAYING' || out.length > 360) break;
+        if (together && out.some((o) => o.coach) && out.some((o) => o.on.filter((k) => ['steer', 'nos', 'warp'].includes(k)).length > 1)) break;
         await new Promise((r) => setTimeout(r, 250));
       }
       done(out);
     })();
-  }));
+  }), together);
 }
 
 const hit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 
-async function firstRace(page, { reduce = false } = {}) {
+// `intro`: the lineup and lights a real first race opens with (~8.5 s, the guide's first turns).
+// Without it the race starts at once, which is all a layout check needs (CI time: the flake guard
+// runs this spec 5×).
+async function firstRace(page, { reduce = false, intro = true } = {}) {
   const problems = watchPage(page);
   if (reduce) await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto(`${APP}?debug&intro`);
+  await page.goto(`${APP}?debug${intro ? '&intro' : ''}`);
   await ready(page);
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await expect(page.locator('#tcGuide')).toBeAttached({ timeout: 5000 });
   return problems;
 }
 
-// 667x375: the narrowest landscape phone, where the chip's text takes two lines.
-for (const viewport of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { width: 667, height: 375 }]) {
+// 667x375: the narrowest landscape phone, where the chip's text takes two lines. The whole first
+// race (lineup and lights) at 844x390, in both motion modes; the other sizes check the layout
+// from GO, since reduced motion changes the timing, not where things go.
+for (const [viewport, runs] of [
+  [{ width: 844, height: 390 }, [{ reduce: false, intro: true }, { reduce: true, intro: true }]],
+  [{ width: 740, height: 360 }, [{ reduce: false, intro: false }]],
+  [{ width: 667, height: 375 }, [{ reduce: false, intro: false }]],
+]) {
   test.describe(`landscape phone ${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport, hasTouch: true, isMobile: true });
 
-    for (const reduce of [false, true]) {
-      test(`one label at a time, the coach clear of the road and car${reduce ? ' (reduced motion)' : ''}`, async ({ page }) => {
+    for (const { reduce, intro } of runs) {
+      test(`one label at a time, the coach clear of the road and car${reduce ? ' (reduced motion)' : ''}${intro ? '' : ' (from GO)'}`, async ({ page }) => {
         test.setTimeout(120_000);
-        const problems = await firstRace(page, { reduce });
+        const problems = await firstRace(page, { reduce, intro });
         const s = await sampleTips(page);
         const W = viewport.width, H = viewport.height;
         // The lane band: the road's centre ±25% of the view, from under the HUD (as tall as it is
@@ -100,7 +111,7 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 740, height: 360 }
     }
 
     test('the docked chip keeps GOT IT a 44 px target and still dismisses the tip', async ({ page }) => {
-      const problems = await firstRace(page);
+      const problems = await firstRace(page, { intro: false });
       await page.waitForFunction(() => document.getElementById('interactiveCoachBanner').style.opacity === '1', null, { timeout: 30_000 });
       const box = await page.evaluate(() => {
         const b = document.getElementById('btnDismissCoach');
@@ -130,7 +141,7 @@ test.describe('portrait phone 390x844 (unchanged)', () => {
   test('the guide still shows its bubbles together and the coach stays centred under the HUD', async ({ page }) => {
     test.setTimeout(120_000);
     const problems = await firstRace(page);
-    const s = await sampleTips(page);
+    const s = await sampleTips(page, { together: true });
     // The portrait layout has no NOS pad, so the guide has two bubbles there.
     expect(s.some((x) => ['steer', 'warp'].every((k) => x.on.includes(k)))).toBe(true);
     const c = s.find((x) => x.coach);
