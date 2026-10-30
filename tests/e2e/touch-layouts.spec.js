@@ -102,8 +102,11 @@ for (const [width, height, controls] of GUIDE_CASES) {
     const r = await page.evaluate(() => {
       const box = (el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
       const shown = (el) => { const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden' && el.getBoundingClientRect().width > 0; };
+      // Landscape phones show the bubbles one at a time (0225), so every bubble the guide placed is
+      // checked, whether it is shown now or waits for its turn.
+      const placed = (el) => el.style.visibility === 'visible' && el.getBoundingClientRect().width > 0;
       const bubbles = [...document.querySelectorAll('#tcGuide .tc-guide-tip')]
-        .filter(shown).map((el) => ({ text: el.textContent, ...box(el) }));
+        .filter(placed).map((el) => ({ text: el.textContent, ...box(el) }));
       const pads = {};
       const hint = document.getElementById('steerHint');
       if (hint && shown(hint)) bubbles.push({ text: 'steer hint (a second steer text)', ...box(hint) });

@@ -111,6 +111,7 @@ export function updateInteractiveCoach(currentSegIdx) {
   }
   banner.style.opacity = '1';
   banner.style.pointerEvents = '';
+  document.body.classList.add('coach-up');
 }
 
 // Race HUD (ticket 0051): one reused view object, repainted ~20 times a second.

@@ -1,7 +1,7 @@
 ---
 id: 0225
 title: Landscape phones show five overlays in the first seconds; the coach card hides the road and car
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel

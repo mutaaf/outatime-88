@@ -257,3 +257,27 @@ body.tc-guiding #steerHint { visibility: hidden; }
 @media (max-height: 520px) { .tc-edit-tip { display: none; } }
 @media (prefers-reduced-motion: reduce) { .tc-coach-thumb { animation: none; } }
 .tc-respawn:not(.tc-cool) .tc-ring { display: none; }
+
+/* Landscape phones (0225): the coach tip is a slim chip in the HUD row, under the track strip
+   (touch-ui.js dockCoach sets the --tc-chip-* box), never over the road ahead or the car. Only one
+   of {coach tip, steer tip, the guide's bubbles} shows at a time: the coach first, the rest wait
+   while it shows and come back a beat after its fade; the guide's bubbles take turns (panel.js). */
+@media (max-height: 479.98px) {
+  :root.touch-ui #interactiveCoachBanner {
+    top: var(--tc-chip-t, 61px); left: var(--tc-chip-l, 123px); right: auto; width: var(--tc-chip-w, 240px);
+    padding: 0; justify-content: flex-start;
+  }
+  :root.touch-ui #coachCard {
+    max-width: 100%; height: var(--tc-chip-h, 30px); padding: 2px 3px 2px 10px !important; gap: 6px !important;
+    border-width: 1px; border-radius: 12px; box-shadow: none;
+  }
+  :root.touch-ui #coachDesc { font-size: 10.5px; line-height: 1.15; }
+  /* Drawn slim, hit as a 44 px target: the hit area reaches down into the sky under the HUD. */
+  :root.touch-ui #btnDismissCoach { position: relative; min-height: 0; padding: 3px 8px; white-space: nowrap; }
+  :root.touch-ui #btnDismissCoach::after { content: ''; position: absolute; inset: -4px -2px -22px; }
+  :root.touch-ui #steerHint, .tc-guide-tip, .tc-guide-lead, .tc-guide-ring { transition: visibility 0s 0.25s; }
+  body.coach-up #steerHint, body.coach-up .tc-guide-tip, body.coach-up .tc-guide-lead, body.coach-up .tc-guide-ring,
+  .tc-guide-off { visibility: hidden !important; transition: none !important; }
+  [data-motion="reduce"] #interactiveCoachBanner, [data-motion="reduce"] #steerHint,
+  [data-motion="reduce"] .tc-guide-tip, [data-motion="reduce"] .tc-guide-lead, [data-motion="reduce"] .tc-guide-ring { transition: none !important; }
+}

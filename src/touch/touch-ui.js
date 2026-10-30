@@ -167,8 +167,28 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     node.style.translate = `${it.x - it.d / 2}px ${it.y - it.d / 2}px`;
   }
 
+  // Landscape phones (0225): the coach tip docks in the HUD row as a slim chip, under the track
+  // strip and between the place card and the next card to its right. touch.css reads these.
+  function dockCoach() {
+    const box = (id) => { const e = doc.getElementById(id); const r = e && e.getBoundingClientRect(); return r && r.width && r.height ? r : null; };
+    const pos = box('hudPosCard'), strip = box('hudTrack'), header = doc.querySelector('header');
+    if (!pos || !header) return;
+    let right = win.innerWidth - 8;
+    for (const id of ['hudTimes', 'hudSpeedCard', 'btnHudSettings']) {
+      const r = box(id);
+      if (r && r.left > pos.right) right = Math.min(right, r.left - 8);
+    }
+    const top = (strip ? strip.bottom : pos.top) + 2;
+    const left = pos.right + 8;
+    root.style.setProperty('--tc-chip-l', `${Math.round(left)}px`);
+    root.style.setProperty('--tc-chip-t', `${Math.round(top)}px`);
+    root.style.setProperty('--tc-chip-w', `${Math.round(Math.max(0, right - left))}px`);
+    root.style.setProperty('--tc-chip-h', `${Math.round(Math.max(26, header.getBoundingClientRect().bottom - top))}px`);
+  }
+
   function relayout() {
     if (!active) return;
+    dockCoach(); // before measureEnv: the controls avoid the coach where it really shows
     env = measureEnv();
     movement = effectiveMovement();
     tiltWas = h.tiltOn();
@@ -518,6 +538,9 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   if (typeof win.ResizeObserver === 'function') {
     const header = doc.querySelector('header');
     if (header) new win.ResizeObserver(headerResized).observe(header);
+    // The cards beside the docked coach change width within the header (the race clock): re-dock only.
+    const dock = new win.ResizeObserver(() => { if (active) dockCoach(); });
+    for (const id of ['hudPosCard', 'hudTimes']) { const e = doc.getElementById(id); if (e) dock.observe(e); }
   }
 
   // --- Per-frame ----------------------------------------------------------------------------
