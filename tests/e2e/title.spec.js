@@ -232,3 +232,22 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
     }
   });
 }
+
+// Ticket 0230: TILT and VIEW share one row on portrait phones, but on a 320 px phone they wrap
+// rather than run off the screen's edges.
+test.describe('portrait title chips at 320x568', () => {
+  test.use({ viewport: { width: 320, height: 568 }, hasTouch: true, isMobile: true });
+  test('TILT and VIEW stay whole on screen', async ({ page }) => {
+    const problems = watchPage(page);
+    await page.goto(`${APP}?debug`);
+    await page.waitForFunction(() => window.__OT && window.__OT.home());
+    await expect(page.locator('#btnTitleTilt')).toBeVisible();
+    for (const id of ['#btnTitleTilt', '#btnViewMode']) {
+      const b = await page.locator(id).boundingBox();
+      expect(b.x, id).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width, id).toBeLessThanOrEqual(320);
+      expect(b.height, id).toBeGreaterThanOrEqual(44);
+    }
+    expect(problems).toEqual([]);
+  });
+});

@@ -21,9 +21,9 @@ width (the scale rule in LESSONS 2026-10-26 is 36.5vw on laptops), moving the pi
 the TILT / VIEW chips into one row above the bottom icon row. Touch targets stay ≥ 44 px.
 
 ## Acceptance criteria
-- [ ] At 390x844 and 360x640, `GameState.carBox` width ≥ 38% of the viewport and ≤ 30% of it is covered by title text/controls (same measure as the 0226 landscape check).
-- [ ] All controls on screen, ≥ 44 px, no overlaps, no scroll; 1280x720 and landscape titles unchanged.
-- [ ] A returning player and a first visit (pitch lines) both pass; challenge banner case included.
+- [x] At 390x844 and 360x640, `GameState.carBox` width ≥ 38% of the viewport and ≤ 30% of it is covered by title text/controls (same measure as the 0226 landscape check).
+- [x] All controls on screen, ≥ 44 px, no overlaps, no scroll; 1280x720 and landscape titles unchanged.
+- [x] A returning player and a first visit (pitch lines) both pass; challenge banner case included.
 
 ## Test plan
 Extend the "landscape phone title" test in tests/e2e/title.spec.js with portrait sizes using

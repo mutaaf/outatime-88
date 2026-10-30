@@ -96,6 +96,7 @@ export const GameState = {
   pickupAnimations: [], // Magnetic fly-to-car animations when acquiring powerups!
   hitShockwaves: [],    // Expanding 3D shockwave rings & floating badges on hit/acquire!
   carBox: { x0: 0, y0: 0, x1: 0, y1: 0 }, // the player car on screen (drawPlayerCar), for labels (0114)
+  carW: 0, // the player car's drawn width in px (drawPlayerCar), for the tyre smoke's scale (0230)
   debrisShards: [],     // 3D spinning shards when smashing obstacles/crates/rivals!
   carSurgeTimer: 0,
   carJoltY: 0,

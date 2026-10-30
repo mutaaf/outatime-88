@@ -51,10 +51,10 @@ export function createTyreSmoke2D(capacity = 96) {
       }
     },
     /** Draw over the car: `roadX`/`roadW` are the road centre and half-width at the car (px). */
-    draw(ctx, rw, rh, roadX, roadW, tint) {
+    draw(ctx, rw, rh, roadX, roadW, tint, drawnW) {
       if (!pool.alive()) return;
       const img = puff(tint || '#00f0ff');
-      const carW = Math.max(58, rw * 0.22);
+      const carW = drawnW || Math.max(58, rw * 0.22); // the car is wider on a portrait title (0230)
       const ground = rh * 0.87 - carW * 0.04; // the rear tyres' contact line (src/main.js drawPlayerCar)
       ctx.save();
       for (let i = 0; i < pool.items.length; i++) {

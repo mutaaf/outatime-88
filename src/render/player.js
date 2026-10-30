@@ -14,6 +14,7 @@ export function drawPlayerCar(ctx, rw, rh, eraCfg) {
   // A portrait phone's title shows the car ~50vw wide instead of ~36vw: it is the hero there (0230).
   const carW = Math.max(58, Math.floor(rw * (GameState.status === 'TITLE' && rh > rw * 1.5 ? 0.3 : 0.22)));
   const carH = Math.max(32, Math.floor(carW * 0.54));
+  GameState.carW = carW;
   const cx = GameState.playerScreenX || Math.floor(rw * 0.5);
   const jumpOffset = Math.floor((GameState.playerY / 220) * (rh * 0.26));
   const bounce = (GameState.playerY <= 2 && GameState.speed > 5)
