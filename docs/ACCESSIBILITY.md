@@ -47,8 +47,8 @@ or link a ticket in the Visual twin column.
 | Crash, wall hit, barrel | `playCrash`, `crunch` (tuner `crunch`) | `race-step.js` | −HP pop and HP bar, sparks, speed drop (and a shake unless calm motion is on) |
 | Bump with a rival | `playImpact` | `race-step.js` | The car's nose dives or it rolls on the hit |
 | Cone, debris | `playImpact` | `race-step.js` | Props fly and spark. A cone shows its penalty label |
-| Takedown | `playTakedown` | `race-step.js` | 💥 … WRECKED announcement |
-| Abilities (ZONE, AGRO, ROAR, beam) | `playAbilityZone`, `playAbilityRoar`, `playBoosterHit` | `race-step.js` | Colour tint (calm motion keeps it soft) + announcement, and the roar wave |
+| Takedown | `playTakedown` | `race-specials.js` | 💥 … WRECKED announcement |
+| Abilities (ZONE, AGRO, ROAR, beam) | `playAbilityZone`, `playAbilityRoar`, `playBoosterHit` | `race-specials.js` | Colour tint (calm motion keeps it soft) + announcement, and the roar wave |
 | Loop ahead | `playWhoosh` | `race-step.js` | The loop on screen and the side-on loop cam |
 | Touchdown after a loop ride | `playLand` | `render/scene.js` | The car back on the road out of the loop cam, with sparks |
 | Endless hazard warning | `playHorn`, `playBeep`, bank samples (`horn`, `beep`, `zone`) | `hazard-run.js` | Hazard announcement (icon + what to do) and the hazard art (signs, JUMP!/DUCK! cue) |
@@ -73,7 +73,8 @@ hazard-run.js 16
 live/controller.js 3
 main.js 6
 race-flow.js 8
-race-step.js 53
+race-specials.js 5
+race-step.js 48
 racestage.js 4
 render/scene.js 1
 touch/bridge.js 1

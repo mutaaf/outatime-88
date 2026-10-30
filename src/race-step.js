@@ -38,6 +38,9 @@ import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useS
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
 } from './fairplay.js';
+// Takedown, crew specials and the pulse beam (0227); main and the touch kit call the last two on this module.
+import { spawnObstacleShatter, triggerRivalTakedown, activateMidnightSpecial, fireUnibeam, fadeAbilityTint } from './race-specials.js';
+export { activateMidnightSpecial, fireUnibeam };
 
 RS.fair = createFair();
 // WARP READY (0112): GameState.warpReady says a boost would fire the warp right now (meter in
@@ -64,7 +67,7 @@ export function useRigid(m) {
   ({ createRigidWorld, playerBody, carHit, launchCar, lookAhead, unpin, bumpObstacle, stompObstacle } = m);
 }
 
-export const hitStop = createHitStop();
+const hitStop = createHitStop();
 
 // Runner power-ups (0177, src/powerups.js): this run's timers. Renderers read GameState.power.
 export const power = createPower();
@@ -97,16 +100,16 @@ function playerAfterHit(P, stw, minMph) {
 export const nearMisses = nearMissChain();
 
 /** An obstacle or prop knocked out of the spot the planner put it in (by rivals, traffic, chains). */
-export function isDebris(b) {
+function isDebris(b) {
   return Math.abs(b.offset - b.homeOffset) > 0.06 || Math.abs(b.worldZ - b.homeZ) > 160;
 }
 
 // --- 2026 3D ANIMATED POWER-UP ACQUISITION & OBSTACLE IMPACT FX ---
 // Penalty scoring (ticket 0073): every hit and wall scrape costs points, shown as a red
 // popup by the score; the run log lets the server recompute the exact total.
-export const penaltyPopup = { pts: 0, label: '', until: 0, drawn: 0 };
+const penaltyPopup = { pts: 0, label: '', until: 0, drawn: 0 };
 
-export function chargePenalty(pts, label) {
+function chargePenalty(pts, label) {
   if (!pts) return;
   RS.penaltyThisStep = true;
   GameState.score -= pts;
@@ -159,7 +162,7 @@ export function applyPlayerDamage(rawDmg, reasonText) {
 }
 
 /** Arcade/daily wreck (ticket 0150): the pit crew patches you up instead of ending the race. */
-export function patchUpWreck() {
+function patchUpWreck() {
   GameState.wrecks = (GameState.wrecks || 0) + 1;
   GameState.hp = Math.round(GameState.maxHp * 0.35);
   GameState.speed = Math.min(GameState.speed, 20);
@@ -175,18 +178,18 @@ export function healPlayerHp(amount) {
 }
 
 // Endless Highway (ticket 0150): tier, difficulty and the level-up moment.
-export const diffIn = { mode: 'ARCADE', distance: 0, levelIndex: 0, levels: 1, raceLength: 0 };
+const diffIn = { mode: 'ARCADE', distance: 0, levelIndex: 0, levels: 1, raceLength: 0 };
 
-export const diffOut = { tier: 1, difficulty: 0 };
+const diffOut = { tier: 1, difficulty: 0 };
 
-export const tune = { wave: 1, intensity: 1, coinMult: 1 };
+const tune = { wave: 1, intensity: 1, coinMult: 1 };
 
 // Endless pays a share of the campaign's cash rate (docs/BALANCE.md); fractions carry over.
 export const cashAcc = { milli: 0 };
 /** FLUX cash this run earns for something worth `n` in the campaign. */
 export const earnCash = (n) => (endlessSolo() ? endlessCash(cashAcc, n) : n);
 
-export function updateDifficulty() {
+function updateDifficulty() {
   diffIn.mode = GameState.mode;
   diffIn.distance = GameState.distance;
   diffIn.levelIndex = GameState.levelIndex;
@@ -204,7 +207,7 @@ export function updateDifficulty() {
   return true;
 }
 
-export const goalLevel = () => (SaveStore.data.endless && SaveStore.data.endless.goals ? SaveStore.data.endless.goals.level | 0 : 0);
+const goalLevel = () => (SaveStore.data.endless && SaveStore.data.endless.goals ? SaveStore.data.endless.goals.level | 0 : 0);
 
 export function resetRunner() {
   Object.assign(storm, createStorm());
@@ -224,7 +227,7 @@ export function resetRunner() {
   syncRunnerUi(true);
 }
 
-export function stepRunner(rawDt) {
+function stepRunner(rawDt) {
   if (GameState.mode !== 'INFINITE' || GameState.daily || GameState.racePhase !== 'RACING' || GameState.status !== 'PLAYING') return;
   const ended = stepPower(power, rawDt);
   if (ended) {
@@ -284,7 +287,7 @@ export function endOrContinue(reason) {
   })).catch(() => RF.endRaceRun(reason));
 }
 
-export function continueRun(cost) {
+function continueRun(cost) {
   if (GameState.status !== 'CONTINUE') return;
   SaveStore.data.fluxCoins = Math.max(0, SaveStore.data.fluxCoins - cost);
   SaveStore.save();
@@ -300,7 +303,7 @@ export function continueRun(cost) {
   syncRunnerUi(true);
 }
 
-export function levelUpEndless() {
+function levelUpEndless() {
   const tier = GameState.tier;
   setTrackIntensity(tune.intensity);
   setTrackPowerups(endlessSolo() ? tier : 0); // power-ups a little more often each tier (0177)
@@ -470,7 +473,7 @@ export function applyPickup(item, def) {
 }
 
 /** The flying icon plus a ring and score plate; `into` reuses a live plate (the chain's) instead. */
-export function spawnAcquireAnimation(itemType, offsetFromCenter, bonusLabel, into) {
+function spawnAcquireAnimation(itemType, offsetFromCenter, bonusLabel, into) {
   GameState.carSurgeTimer = 0.55;
   GameState.pickupAnimations.push({
     type: itemType,
@@ -496,177 +499,6 @@ export function spawnAcquireAnimation(itemType, offsetFromCenter, bonusLabel, in
   return sw;
 }
 
-export function spawnObstacleShatter(offsetFromCenter, primaryColor, accentColor, labelText) {
-  GameState.carJoltY = 12;
-  GameState.screenShake = Math.max(GameState.screenShake, 0.28);
-  GameState.hitShockwaves.push({
-    x: offsetFromCenter * 150,
-    y: -20,
-    radius: 15,
-    maxRadius: 145,
-    color: primaryColor,
-    label: labelText,
-    hit: true, // outranks a pickup plate in the one label lane (src/popups.js, 0220)
-    life: 0.7,
-    maxLife: 0.7
-  });
-  for (let s = 0; s < 16; s++) {
-    const angle = (Math.PI * s) / 8 + (Math.random() - 0.5) * 0.3;
-    const spd = 120 + Math.random() * 240;
-    GameState.debrisShards.push({
-      x: offsetFromCenter * 140,
-      y: -15 - Math.random() * 25,
-      vx: Math.cos(angle) * spd,
-      vy: -120 - Math.abs(Math.sin(angle)) * spd,
-      rot: Math.random() * 6.28,
-      vRot: (Math.random() - 0.5) * 18,
-      size: 5 + Math.random() * 7,
-      color: (s % 2 === 0) ? primaryColor : accentColor,
-      life: 0.75 + Math.random() * 0.35
-    });
-  }
-}
-
-// --- SIDE-SLAM RIVAL TAKEDOWN ---
-export function triggerRivalTakedown(car, reason = 'SIDE-SLAM TAKEDOWN!') {
-  if (car.takenDown) return;
-  car.takenDown = true;
-  GameState.takedowns++;
-  GameState.combo = Math.min(12, GameState.combo + 2);
-  GameState.comboTimer = 5.5;
-  GameState.fluxCharge = Math.min(100, GameState.fluxCharge + FLUX.gains.takedown);
-  GameState.heatProgress += 35;
-  if (GameState.heatProgress >= 100 && GameState.heatLevel < 5) {
-    GameState.heatLevel++;
-    GameState.heatProgress = 0;
-  }
-
-  const tdPoints = 2000 * GameState.combo;
-  GameState.score += tdPoints;
-  const tdCash = earnCash(15);
-  GameState.runCoins += tdCash;
-  SaveStore.data.fluxCoins += tdCash;
-  GameState.screenShake = 0.42;
-  GameState.takedownSlowMoTimer = GameState.reducedMotion ? 0 : 0.35; // Brief dramatic impact slow-mo!
-  burstSparks(34, 190, 1.3);
-
-  // Launch flying wreck into 3D space
-  GameState.flyingWrecks.push({
-    x: (car.offset - GameState.playerX) * 180,
-    y: 0,
-    vx: (car.offset >= GameState.playerX ? 1 : -1) * (180 + Math.random() * 140),
-    vy: 380 + Math.random() * 180,
-    rot: 0,
-    vRot: (Math.random() > 0.5 ? 1 : -1) * 12,
-    color: car.type === 'POLICE_INTERCEPTOR' ? '#3b82f6' : '#e11d48',
-    look: car.look || null, // the car itself tumbles away (src/car-sprite.js), when it has one
-    life: 1.1
-  });
-
-  spawnObstacleShatter(car.offset - GameState.playerX, '#ff5500', '#00f0ff', '💥 TAKEDOWN! +2000');
-  // Spawn explosion sparks
-  for (let s = 0; s < 22; s++) {
-    spawnParticle((car.offset - GameState.playerX) * 120, -15, (Math.random() - 0.5) * 380, -80 - Math.random() * 240, s % 2 === 0 ? '#ff5500' : '#fde047', 0.55);
-  }
-
-  SoundEngine.playTakedown();
-  triggerAnnouncement(`💥 ${reason} 💥`, `${car.name} WRECKED! +${tdPoints} PTS & +32% FLUX`, 1850);
-  advanceContractProgress('TAKEDOWN', 1);
-  SaveStore.save();
-}
-
-// --- STREET-CREW SPECIAL ABILITIES (ZONE / AGRO / ROAR) ---
-// Calm motion: the tint (a 10% wash) shows at half strength, under the 0.1 flash line (ticket 0188).
-const CALM_TINT = '0.5';
-export function activateMidnightSpecial(type) {
-  SoundEngine.init();
-  const tint = document.getElementById('abilityTintOverlay');
-  if (GameState.specialCharges <= 0 && GameState.fluxCharge < 35) {
-    triggerAnnouncement('NEED MORE FLUX OR SPECIAL!', 'DRIFT OR DRAFT RIVALS TO CHARGE', 1100);
-    return;
-  }
-  if (GameState.specialCharges > 0) {
-    GameState.specialCharges--;
-  } else {
-    GameState.fluxCharge = Math.max(0, GameState.fluxCharge - 35);
-  }
-
-  const upgBonus = (SaveStore.data.upgrades.flux - 1) * 0.6;
-  if (type === 'ZONE') {
-    GameState.zoneTimer = 4.5 + upgBonus;
-    SoundEngine.playAbilityZone();
-    if (tint) {
-      tint.className = 'pointer-events-none absolute inset-0 bg-emerald-500/10 opacity-100 transition-opacity duration-200';
-      tint.style.opacity = GameState.reducedMotion ? CALM_TINT : ''; tintShown = true; // the step loop's '0' would otherwise hide it
-    }
-    triggerAnnouncement('🟢 MIDNIGHT ZONE ENGAGED!', 'BULLET-TIME PRECISION REFLEX ACTIVE', 1600);
-  } else if (type === 'AGRO') {
-    GameState.agroTimer = 5.0 + upgBonus;
-    GameState.speed = Math.max(GameState.speed + 18, 95);
-    SoundEngine.playBoosterHit();
-    if (tint) {
-      tint.className = 'pointer-events-none absolute inset-0 bg-orange-600/10 opacity-100 transition-opacity duration-200';
-      tint.style.opacity = GameState.reducedMotion ? CALM_TINT : ''; tintShown = true; // the step loop's '0' would otherwise hide it
-    }
-    triggerAnnouncement('🔴 AGRO JUGGERNAUT SHIELD!', 'RAM ANY RIVAL OR COP FOR INSTANT TAKEDOWNS!', 1800);
-  } else if (type === 'ROAR') {
-    SoundEngine.playAbilityRoar();
-    GameState.screenShake = 0.55;
-    GameState.roarWaveZ = 0;
-    // Blast all cars in upcoming 18 segments into the rails!
-    const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
-    let wreckedCount = 0;
-    for (let n = 0; n < 18; n++) {
-      const seg = track.seg(currentSegIdx + n);
-      if (!seg) continue;
-      for (let c = 0; c < seg.cars.length; c++) {
-        if (!seg.cars[c].takenDown) {
-          triggerRivalTakedown(seg.cars[c], '🟣 ROAR SHOCKWAVE TAKEDOWN!');
-          wreckedCount++;
-        }
-      }
-    }
-    if (wreckedCount === 0) {
-      GameState.speed = Math.max(GameState.speed + 22, 92);
-      triggerAnnouncement('🟣 1.88 GW ROAR SHOCKWAVE!', 'HIGHWAY CLEARED + TURBO SURGE!', 1500);
-    }
-  }
-  RF.updateLiveHud();
-}
-
-// The Arc Pulse Beam (B key / pulse button): moved out of main with the rest of race-only code.
-export function fireUnibeam() {
-  SoundEngine.init();
-  if (GameState.fluxCharge < 18 && GameState.specialCharges <= 0) {
-    JarvisAI.setStatus('Arc Core needs 18% Flux energy to fire the Pulse Beam.', false);
-    return;
-  }
-  GameState.fluxCharge = Math.max(0, GameState.fluxCharge - 18);
-  GameState.unibeamTimer = 0.42;
-  SoundEngine.playAbilityRoar();
-
-  let hitCar = null;
-  let bestDz = 999999;
-  const allTargets = LiveTraffic.racers.concat(LiveTraffic.traffic);
-  for (let i = 0; i < allTargets.length; i++) {
-    const c = allTargets[i];
-    const dz = c.worldZ - (GameState.trackPos + ROAD_CFG.playerZOffset);
-    if (!c.takenDown && dz > 150 && dz < 4800 && dz < bestDz) {
-      bestDz = dz;
-      hitCar = c;
-    }
-  }
-
-  if (hitCar) {
-    triggerRivalTakedown(hitCar, '💠 ARC PULSE TAKEDOWN!');
-    JarvisAI.setStatus(`Target ${hitCar.name} neutralized via Mark-88 Arc Pulse Beam.`, true);
-  } else {
-    GameState.speed = Math.min(135, GameState.speed + 14);
-    JarvisAI.setStatus('Arc Pulse Beam discharged. Pulse overboost applied.', false);
-    triggerAnnouncement('💠 ARC PULSE BEAM FIRED!', '+14 MPH PULSE THRUST!', 1100);
-  }
-}
-
 /**
  * An obstacle can be placed past the end of the built road, where the set-piece check can't see
  * the arrival stretch (0218) yet: move any that landed on it to just past it, one after another.
@@ -684,7 +516,7 @@ function clearArrival(at) {
 }
 
 // --- TIME WARP AT 88 MPH ---
-export function triggerTimeWarp() {
+function triggerTimeWarp() {
   SoundEngine.playTimeWarp88();
   RS.nosCut = true; // so does a warp (0222)
   GameState.timeWarps++;
@@ -737,9 +569,9 @@ export function triggerTimeWarp() {
 // Handling state (ticket 0120), reset with each race; latParams is reused to avoid per-step garbage.
 export const steerWheel = createSteer();
 
-export const driveIn = { speed: 0, throttle: false, brake: false, cap: 0, engine: 0, dt: 0, grip: 1, lat: 0, airborne: false, throttleAmt: 1, brakeAmt: 1 };
+const driveIn = { speed: 0, throttle: false, brake: false, cap: 0, engine: 0, dt: 0, grip: 1, lat: 0, airborne: false, throttleAmt: 1, brakeAmt: 1 };
 
-export let latCarP = null, latTires = 0;
+let latCarP = null, latTires = 0;
 
 export function resetNos() {
   const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
@@ -749,7 +581,7 @@ export function resetNos() {
   GameState.nosFill = nosFill(RS.nos);
 }
 
-export const latParams = { speedMph: 0, curve: 0, bank: 0, worldScale: 1, h: null, braking: false, throttle: false, drifting: false, gripBonus: 1 };
+const latParams = { speedMph: 0, curve: 0, bank: 0, worldScale: 1, h: null, braking: false, throttle: false, drifting: false, gripBonus: 1 };
 
 // Per-step scratch (ticket 0182): the sim runs 120 times a second, so anything it builds and
 // drops each step is garbage the collector has to chase mid-race. These are filled in place.
@@ -765,7 +597,7 @@ export function spawnParticle(x, y, vx, vy, color, life) {
   GameState.particles.push(p);
 }
 const DRIFT_TIER_NAMES = ['', 'TIER 1 CYAN', 'TIER 2 BLAZING', 'TIER 3 PURPLE MAX!'];
-let driftBoxEl = null, driftShownTier = -1, driftShownAt = 0, tintShown = null;
+let driftBoxEl = null, driftShownTier = -1, driftShownAt = 0;
 
 export function updateGame(rawDt) {
   if (GameState.status !== 'PLAYING') return;
@@ -795,12 +627,7 @@ export function updateGame(rawDt) {
   if (GameState.agroTimer > 0) {
     GameState.agroTimer -= rawDt;
   }
-  if (GameState.zoneTimer <= 0 && GameState.agroTimer <= 0 && tintShown !== false) {
-    // Written once when the abilities run out, not every 120 Hz step (ticket 0182).
-    const tint = document.getElementById('abilityTintOverlay');
-    if (tint) tint.style.opacity = '0';
-    tintShown = false;
-  }
+  fadeAbilityTint();
 
   RS.fxClock += rawDt;
   timeScale *= hitStop.scale(rawDt);
@@ -1590,7 +1417,7 @@ export function updateGame(rawDt) {
 }
 
 // The fork cue's DOM, touched only when its state changes ('OFF' | 'LEFT' | 'RIGHT').
-export let forkCueShown = 'OFF';
+let forkCueShown = 'OFF';
 
 export function showForkCue(state) {
   if (state === forkCueShown) return;
