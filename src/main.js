@@ -501,6 +501,7 @@ RS.coachYieldUntil = 0;
 export function hideCoach(banner) {
   banner.style.opacity = '0';
   banner.style.pointerEvents = 'none';
+  document.body.classList.remove('coach-up'); // landscape phones: the tips wait for the coach (0225)
 }
 
 

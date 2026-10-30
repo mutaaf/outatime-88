@@ -7,6 +7,7 @@ import { openLayoutEditor } from './editor.js';
 export { openLayoutEditor };
 import { ICONS } from './icons.js';
 import { SaveStore } from '../save.js';
+import { GameState } from '../state.js';
 import { placeTips } from './guide-tips.js';
 
 const MOVEMENT_INFO = {
@@ -163,6 +164,10 @@ export function closeControlsPanel() {
   if (old) old.remove();
 }
 
+/** Landscape phones (0225): the thumb guide's bubbles take turns, this long each. */
+export const GUIDE_TURN_MS = 2400;
+const ONE_AT_A_TIME = '(max-height: 479.98px)';
+
 /** First race on a touch screen: where each thumb goes. Shown once; replay from the panel. */
 export function maybeShowCoach(ctx) {
   if (ctx.settings.coachSeen) return false;
@@ -187,19 +192,19 @@ export function showThumbGuide({ settings, save, controls, done }) {
   const swipe = mv === 'dynamic' || mv === 'floating' || mv === 'fixed';
   const stickLabel = mv === 'dpad' ? 'TAP ◀ ▶ TO STEER' : mv === 'tilt' ? 'TILT TO STEER' : 'DRAG TO STEER';
   const g = h('div', { id: 'tcGuide', class: 'tc-guide', 'aria-hidden': 'true' });
-  const ring = (it, cls) => `<div class="tc-guide-ring ${cls}" style="left:${it.x}px;top:${it.y}px;width:${it.d + 18}px;height:${it.d + 18}px"></div>`;
+  const ring = (it, cls, k) => `<div class="tc-guide-ring ${cls}" data-k="${k}" style="left:${it.x}px;top:${it.y}px;width:${it.d + 18}px;height:${it.d + 18}px"></div>`;
   // The bubbles go beside their pads, never on one and never off the screen (0166); see placeTips.
   // The steering control as drawn: the D-pad and the tilt badge are sized off the stick's slot.
   const sd = mv === 'dpad' ? Math.round(s.d * 1.12) : mv === 'tilt' ? Math.max(64, Math.round(s.d * 0.62)) : s.d;
   const steer = { x: s.x, y: s.y, d: sd };
-  const tips = [[steer, stickLabel, 'tc-guide-tip-steer']];
-  if (b && !b.hidden) tips.push([b, 'WARP', 'tc-guide-tip-warp']);
-  if (n && !n.hidden) tips.push([n, SaveStore.data.settings?.nos === 'toggle' ? 'TAP = NOS ON/OFF' : 'HOLD = NOS', 'tc-guide-tip-nos']); // 0222
+  const tips = [[steer, stickLabel, 'tc-guide-tip-steer', 'steer']];
+  if (b && !b.hidden) tips.push([b, 'WARP', 'tc-guide-tip-warp', 'warp']);
+  if (n && !n.hidden) tips.push([n, SaveStore.data.settings?.nos === 'toggle' ? 'TAP = NOS ON/OFF' : 'HOLD = NOS', 'tc-guide-tip-nos', 'nos']); // 0222
   g.innerHTML = `
     <div class="tc-guide-thumb${swipe ? ' tc-guide-swipe' : ''}" style="left:${s.x}px;top:${s.y}px">${ICONS.recenter}</div>
-    ${b && !b.hidden ? ring(b, 'tc-guide-warp') : ''}
-    ${n && !n.hidden ? ring(n, 'tc-guide-nos') : ''}
-    ${tips.map(([, text, cls]) => `<i class="tc-guide-tip ${cls}">${text}</i>`).join('')}`;
+    ${b && !b.hidden ? ring(b, 'tc-guide-warp', 'warp') : ''}
+    ${n && !n.hidden ? ring(n, 'tc-guide-nos', 'nos') : ''}
+    ${tips.map(([, text, cls, k]) => `<i class="tc-guide-tip ${cls}" data-k="${k}">${text}</i>`).join('')}`;
   document.body.appendChild(g);
   // The guide's steer bubble says what the first-race steer hint says: one of them at a time.
   document.body.classList.add('tc-guiding');
@@ -225,14 +230,23 @@ export function showThumbGuide({ settings, save, controls, done }) {
       el.style.top = `${at.y}px`;
       if (!at.lead) return;
       const { x1, y1, x2, y2 } = at.lead;
-      const line = h('div', { class: `tc-guide-lead ${tips[i][2]}` });
+      const line = h('div', { class: `tc-guide-lead ${tips[i][2]}`, 'data-k': tips[i][3] });
       line.style.cssText = `left:${x1}px;top:${y1}px;width:${Math.hypot(x2 - x1, y2 - y1)}px;transform:rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
       g.insertBefore(line, g.firstChild);
     });
   };
-  place();
-  if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(place);
+  // Landscape phones (0225): one bubble at a time, in turn (steer, NOS, WARP), with its lead and
+  // ring; touch.css also hides them while the coach tip shows, and the guide's clock holds then.
+  const order = ['steer', 'nos', 'warp'].filter((k) => tips.some((t) => t[3] === k));
+  const oneAtATime = () => window.matchMedia(ONE_AT_A_TIME).matches;
+  const turn = (age) => {
+    const now = oneAtATime() ? order[Math.floor(age / GUIDE_TURN_MS) % order.length] : null;
+    for (const el of g.querySelectorAll('[data-k]')) el.classList.toggle('tc-guide-off', !!now && el.dataset.k !== now);
+  };
   let t0 = performance.now();
+  place();
+  turn(0);
+  if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { place(); turn(performance.now() - t0); });
   let closing = false;
   const close = () => {
     if (closing) return;
@@ -245,12 +259,19 @@ export function showThumbGuide({ settings, save, controls, done }) {
       if (!document.getElementById('tcGuide')) document.body.classList.remove('tc-guiding');
     }, 400);
   };
+  const born = performance.now();
   const tick = () => {
     if (closing || !g.isConnected) return;
+    // Off the road (title, results) the guide has nothing to teach: it goes now, held or not (0225).
+    if (GameState.status === 'TITLE' || GameState.status === 'GAMEOVER' || performance.now() - born > 30000) { close(); return; }
     // Held while the phone start grid has the screen (0215): its time and your steering don't count.
-    if (document.body.classList.contains('rc-grid-up')) { t0 += 150; setTimeout(tick, 150); return; }
+    const one = oneAtATime();
+    if (document.body.classList.contains('rc-grid-up') || (one && document.body.classList.contains('coach-up'))) { t0 += 150; setTimeout(tick, 150); return; }
     const age = performance.now() - t0;
-    if ((age > 1500 && done && done()) || age > 14000) close();
+    turn(age);
+    // One at a time, every bubble gets its turn before steering can end the guide.
+    const told = !one || age >= GUIDE_TURN_MS * order.length;
+    if ((age > 1500 && told && done && done()) || age > 14000) close();
     else setTimeout(tick, 150);
   };
   setTimeout(tick, 150);

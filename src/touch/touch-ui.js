@@ -24,6 +24,10 @@ const MAX_POINTERS = 10;
 const STICK_TRAVEL = 0.42;   // knob travel radius as a fraction of the base diameter
 const EDGE_STEER = 0.75;     // stick deflection that counts as a "press" (tricks, jukes)
 const LOOK_RANGE = 0.35;     // fraction of the screen for a full look-around
+// Landscape coach chip (0225): every tip fits two lines from 198 px. It docks from 222 px and stays
+// docked down to 204 px, so a score gaining digits mid-race doesn't throw the card back onto the road.
+const COACH_DOCK_AT = 222;
+const COACH_UNDOCK_UNDER = 204;
 
 /** True on devices that can touch; desktop mice never see the controls unless they touch. */
 export function canTouch(win = window) {
@@ -167,8 +171,37 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     node.style.translate = `${it.x - it.d / 2}px ${it.y - it.d / 2}px`;
   }
 
+  // Landscape phones (0225): the coach tip docks in the HUD row as a slim chip, under the track
+  // strip and between the place card and the next card to its right. touch.css reads these.
+  function dockCoach() {
+    const box = (id) => { const e = doc.getElementById(id); const r = e && e.getBoundingClientRect(); return r && r.width && r.height ? r : null; };
+    const pos = box('hudPosCard'), strip = box('hudTrack'), header = doc.querySelector('header');
+    if (!pos || !header) return;
+    if (!win.matchMedia('(max-height: 479.98px)').matches) { doc.getElementById('interactiveCoachBanner')?.classList.remove('tc-coach-docked'); return; }
+    let right = win.innerWidth - 8;
+    for (const id of ['hudTimes', 'hudSpeedCard', 'btnHudSettings']) {
+      const r = box(id);
+      if (r && r.left > pos.right) right = Math.min(right, r.left - 8);
+    }
+    const top = (strip ? strip.bottom : pos.top) + 2;
+    const left = pos.right + 8;
+    const banner = doc.getElementById('interactiveCoachBanner');
+    if (!banner) return;
+    // Too narrow for two lines of a tip (568x320, 640x360, HUD LARGE on small phones): the card stays where it was.
+    const room = right - left;
+    banner.classList.toggle('tc-coach-docked', room >= (banner.classList.contains('tc-coach-docked') ? COACH_UNDOCK_UNDER : COACH_DOCK_AT));
+    // On the banner, not :root (a root custom property restyles the whole page), and only on change.
+    const st = banner.style;
+    const set = (k, v) => { if (st.getPropertyValue(k) !== v) st.setProperty(k, v); };
+    set('--tc-chip-l', `${Math.round(left)}px`);
+    set('--tc-chip-t', `${Math.round(top)}px`);
+    set('--tc-chip-w', `${Math.round(Math.max(0, right - left))}px`);
+    set('--tc-chip-h', `${Math.round(Math.max(28, header.getBoundingClientRect().bottom - top))}px`);
+  }
+
   function relayout() {
     if (!active) return;
+    dockCoach(); // before measureEnv: the controls avoid the coach where it really shows
     env = measureEnv();
     movement = effectiveMovement();
     tiltWas = h.tiltOn();
@@ -518,6 +551,10 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   if (typeof win.ResizeObserver === 'function') {
     const header = doc.querySelector('header');
     if (header) new win.ResizeObserver(headerResized).observe(header);
+    // The cards around the docked coach change width within the header (the clock, speed and score
+    // grow; the strip's 1fr column takes up every change): re-dock only.
+    const dock = new win.ResizeObserver(() => { if (active) dockCoach(); });
+    for (const id of ['hudPosCard', 'hudTrack', 'hudTimes', 'hudSpeedCard']) { const e = doc.getElementById(id); if (e) dock.observe(e); }
   }
 
   // --- Per-frame ----------------------------------------------------------------------------

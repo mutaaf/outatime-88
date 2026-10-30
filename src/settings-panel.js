@@ -69,6 +69,7 @@ export function createPanel(ctx) {
     if (!settings().coach) {
       const tip = $('interactiveCoachBanner');
       if (tip) { tip.style.opacity = '0'; tip.style.pointerEvents = 'none'; }
+      document.body.classList.remove('coach-up');
       const steer = $('steerHint');
       if (steer) steer.classList.add('hidden');
     }

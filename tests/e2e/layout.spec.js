@@ -127,8 +127,20 @@ for (const vp of [{ width: 844, height: 390 }, { width: 740, height: 360 }, { wi
       expect(Math.min(b.width, b.height), `${id} target`).toBeGreaterThanOrEqual(44);
     }
     await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
-    const coach = page.locator('#btnDismissCoach');
-    if (await coach.isVisible()) expect((await coach.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    // Its hit box, as the target-size audit (0210) counts it: on landscape phones the chip draws
+    // GOT IT slim and a ::after carries its 44 px hit area (0225).
+    const hitHeight = () => page.evaluate(() => {
+      const b = document.getElementById('btnDismissCoach');
+      const r = b.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const on = (y) => { const e = document.elementFromPoint(cx, y); return !!e && (e === b || b.contains(e)); };
+      let y0 = r.top + r.height / 2, y1 = y0;
+      if (!on(y0)) return r.height; // covered right now: fall back to the drawn box
+      while (on(y0 - 1)) y0--;
+      while (on(y1 + 1)) y1++;
+      return y1 - y0 + 1;
+    });
+    if (await page.locator('#btnDismissCoach').isVisible()) expect(await hitHeight()).toBeGreaterThanOrEqual(44);
     expect(problems).toEqual([]);
   });
 }
