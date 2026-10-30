@@ -243,6 +243,9 @@ src/perf/           Graphics quality (ticket 0041), render-only — the sim is i
                       with hysteresis) · gfx.js (the controller both renderers read) ·
                       gfx-boot.js (lazy: Settings → GRAPHICS, ?debug overlay). See § Graphics tiers.
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
+                      Desktop race (0229): main's loop sets body.race-on while the race steps (the driver badge
+                      fades out; back on pause/results); src/coach-dock.js dockDeskCoach (race-step chunk, re-exported
+                      for race-flow's coach) puts the coach tip in the HUD row beside the place card
 src/near-fade.js    Near-camera traffic (0200), pure: a car passing beside the camera eases to ≤ 22% of the view and 35% alpha;
                       depth = road-scaled car width / view width; car-sprite.js drawNear applies it to every non-player car
 src/warp-cue.js     WARP READY cue (0112), pure: createReadyCue(min) is true once per fill (re-arms 5 below). The race step

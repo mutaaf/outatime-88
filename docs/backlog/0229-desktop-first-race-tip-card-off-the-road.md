@@ -1,7 +1,7 @@
 ---
 id: 0229
 title: Desktop first race: the coach card and the driver badge bar sit on the road and the arches
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
@@ -24,10 +24,10 @@ HUD row 0225 used for landscape phones instead of a floating card at the left. C
 sim untouched.
 
 ## Acceptance criteria
-- [ ] At 1280x720, from GO, `#driverBadgeBar` is not visible while racing and is back on pause/results/title.
-- [ ] The coach card does not overlap the road area under `GameState.carBox`'s lane band or the start arch.
-- [ ] Keyboard path unchanged: N still switches car where it did (title/garage); not while racing.
-- [ ] No frame-time regression; main stays ≤ 58 kB gz.
+- [x] At 1280x720, from GO, `#driverBadgeBar` is not visible while racing and is back on pause/results/title.
+- [x] The coach card does not overlap the road area under `GameState.carBox`'s lane band or the start arch.
+- [x] Keyboard path unchanged: N still switches car where it did (title/garage); not while racing.
+- [x] No frame-time regression; main stays ≤ 58 kB gz.
 
 ## Test plan
 e2e at 1280x720 after `racing(page)`: assert the badge bar's computed visibility/opacity is

@@ -1403,6 +1403,7 @@ function initTouchControls() {
 }
 
 let lastFrameTime = 0;
+let raceOn = false; // body.race-on while the race steps: CSS hides title/garage-only UI (0229)
 let simHeld = false; // the balance harness steps the sim itself (?debug, tests/balance)
 let rafId = null;
 
@@ -1465,7 +1466,9 @@ function mainLoop(timestamp) {
 
   if (touch) touch.sample(dt);
   if (gfx) { if (GameState.status === 'PLAYING') gfx.sample(frameSeconds * 1000); else gfx.hold(); }
-  if (GameState.status === 'PLAYING' && raceStep) {
+  const stepping = GameState.status === 'PLAYING' && !!raceStep;
+  if (stepping !== raceOn) document.body.classList.toggle('race-on', raceOn = stepping);
+  if (stepping) {
     const steps = simClock.advance(frameSeconds);
     for (let i = 0; i < steps && GameState.status === 'PLAYING'; i++) {
       snapshotView();
