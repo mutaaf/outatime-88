@@ -153,3 +153,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-29 · 0222 · Settings → Race → NOS button: TAP ON/OFF lets one tap of Shift, N, pad LB or the touch NOS button burn NOS until you tap again (it stops by itself on an empty tank, a crash, a warp or a pause), so you never have to hold it down
 2026-10-29 · 0224 · The 1985 strip mall has its own shops now: VIDEO VORTEX, LOTUS DOJO and the SIX ELMS MALL (which loses an elm, and a word, after lap 1)
 2026-10-30 · 0225 · On landscape phones the driving tip is a slim line in the HUD under the track strip instead of a card over the road, and the first-race tips (steer, NOS, WARP) take turns instead of all showing at once
+2026-10-30 · 0226 · On a phone on its side the title puts PLAY, RACE FRIENDS, TILT and VIEW in one row above your car and the cards beside it, so the hero car is the star of the first screen

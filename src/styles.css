@@ -613,6 +613,23 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   .title-mid > .title-chips { grid-column: 3; justify-self: start; }
   .title-mid > .offline-pill { position: absolute; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); translate: -50% 0; }
 }
+/* Phones on their side (0226): the hero car fills the lower middle third (~32-68vw, from ~50vh), so
+   the wordmark and racer chip share the top row, RACE FRIENDS / PLAY / TILT + VIEW share the next,
+   the hook card and the pitch flank the car (home.css) and the offline pill drops to the bottom edge. */
+@media (max-height: 430px) and (orientation: landscape) {
+  .title-screen .title-top { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .title-screen .wordmark { font-size: 2.1rem; }
+  .title-top > .racer-pill { margin-top: 0; }
+  .title-screen .title-mid { display: grid; grid-template-columns: 1fr auto 1fr; grid-auto-flow: row dense; gap: 6px 10px; align-items: center; justify-items: center; margin: 6px 0 auto; }
+  .title-mid > * { grid-column: 1 / -1; }
+  .title-mid > #btnStartRace { grid-column: 2; width: min(32vw, 260px); min-height: 56px; padding: 6px 12px; }
+  .title-mid > #btnOpenLive { grid-column: 1; justify-self: end; padding: 0 16px; }
+  .title-mid > .title-chips { grid-column: 3; justify-self: start; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .title-mid > #btnStartRace .play-cta-hint { margin-top: 4px; letter-spacing: 0.12em; }
+  .title-chips > .title-tilt { gap: 6px; padding: 0 10px; font-size: 11px; }
+  .title-chips > .title-view { font-size: 11px; }
+  .title-mid > .offline-pill { position: absolute; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); translate: -50% 0; }
+}
 @media (max-height: 700px) and (orientation: portrait) { .end-missions { margin-top: 3px; gap: 1px; font-size: 9px; } .end-missions li { padding: 0 8px; } }
 .rank-card { margin-top: 2px; padding: 8px 10px; border-radius: 14px; background: linear-gradient(135deg, rgba(255, 0, 127, 0.18), rgba(0, 240, 255, 0.12)); border: 1px solid rgba(255, 0, 127, 0.55); font-family: 'Orbitron', sans-serif; }
 .rank-card-in { animation: rankPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
