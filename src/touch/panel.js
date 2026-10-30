@@ -7,6 +7,7 @@ import { openLayoutEditor } from './editor.js';
 export { openLayoutEditor };
 import { ICONS } from './icons.js';
 import { SaveStore } from '../save.js';
+import { GameState } from '../state.js';
 import { placeTips } from './guide-tips.js';
 
 const MOVEMENT_INFO = {
@@ -258,8 +259,11 @@ export function showThumbGuide({ settings, save, controls, done }) {
       if (!document.getElementById('tcGuide')) document.body.classList.remove('tc-guiding');
     }, 400);
   };
+  const born = performance.now();
   const tick = () => {
     if (closing || !g.isConnected) return;
+    // Off the road (title, results) the guide has nothing to teach: it goes now, held or not (0225).
+    if (GameState.status === 'TITLE' || GameState.status === 'GAMEOVER' || performance.now() - born > 30000) { close(); return; }
     // Held while the phone start grid has the screen (0215): its time and your steering don't count.
     const one = oneAtATime();
     if (document.body.classList.contains('rc-grid-up') || (one && document.body.classList.contains('coach-up'))) { t0 += 150; setTimeout(tick, 150); return; }

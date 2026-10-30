@@ -172,7 +172,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   function dockCoach() {
     const box = (id) => { const e = doc.getElementById(id); const r = e && e.getBoundingClientRect(); return r && r.width && r.height ? r : null; };
     const pos = box('hudPosCard'), strip = box('hudTrack'), header = doc.querySelector('header');
-    if (!pos || !header) return;
+    if (!pos || !header || !win.matchMedia('(max-height: 479.98px)').matches) return;
     let right = win.innerWidth - 8;
     for (const id of ['hudTimes', 'hudSpeedCard', 'btnHudSettings']) {
       const r = box(id);
@@ -180,10 +180,13 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     }
     const top = (strip ? strip.bottom : pos.top) + 2;
     const left = pos.right + 8;
-    root.style.setProperty('--tc-chip-l', `${Math.round(left)}px`);
-    root.style.setProperty('--tc-chip-t', `${Math.round(top)}px`);
-    root.style.setProperty('--tc-chip-w', `${Math.round(Math.max(0, right - left))}px`);
-    root.style.setProperty('--tc-chip-h', `${Math.round(Math.max(26, header.getBoundingClientRect().bottom - top))}px`);
+    // On the banner, not :root (a root custom property restyles the whole page), and only on change.
+    const st = doc.getElementById('interactiveCoachBanner')?.style;
+    const set = (k, v) => { if (st && st.getPropertyValue(k) !== v) st.setProperty(k, v); };
+    set('--tc-chip-l', `${Math.round(left)}px`);
+    set('--tc-chip-t', `${Math.round(top)}px`);
+    set('--tc-chip-w', `${Math.round(Math.max(0, right - left))}px`);
+    set('--tc-chip-h', `${Math.round(Math.max(28, header.getBoundingClientRect().bottom - top))}px`);
   }
 
   function relayout() {
@@ -538,9 +541,10 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   if (typeof win.ResizeObserver === 'function') {
     const header = doc.querySelector('header');
     if (header) new win.ResizeObserver(headerResized).observe(header);
-    // The cards beside the docked coach change width within the header (the race clock): re-dock only.
+    // The cards around the docked coach change width within the header (the clock, speed and score
+    // grow; the strip's 1fr column takes up every change): re-dock only.
     const dock = new win.ResizeObserver(() => { if (active) dockCoach(); });
-    for (const id of ['hudPosCard', 'hudTimes']) { const e = doc.getElementById(id); if (e) dock.observe(e); }
+    for (const id of ['hudPosCard', 'hudTrack', 'hudTimes', 'hudSpeedCard']) { const e = doc.getElementById(id); if (e) dock.observe(e); }
   }
 
   // --- Per-frame ----------------------------------------------------------------------------

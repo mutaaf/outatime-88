@@ -276,7 +276,7 @@ body.tc-guiding #steerHint { visibility: hidden; }
   :root.touch-ui #btnDismissCoach { position: relative; min-height: 0; padding: 3px 8px; white-space: nowrap; }
   :root.touch-ui #btnDismissCoach::after { content: ''; position: absolute; inset: -4px -2px -22px; }
   :root.touch-ui #steerHint, .tc-guide-tip, .tc-guide-lead, .tc-guide-ring { transition: visibility 0s 0.25s; }
-  body.coach-up #steerHint, body.coach-up .tc-guide-tip, body.coach-up .tc-guide-lead, body.coach-up .tc-guide-ring,
+:root.touch-ui body.coach-up #steerHint, body.coach-up .tc-guide-tip, body.coach-up .tc-guide-lead, body.coach-up .tc-guide-ring,
   .tc-guide-off { visibility: hidden !important; transition: none !important; }
   [data-motion="reduce"] #interactiveCoachBanner, [data-motion="reduce"] #steerHint,
   [data-motion="reduce"] .tc-guide-tip, [data-motion="reduce"] .tc-guide-lead, [data-motion="reduce"] .tc-guide-ring { transition: none !important; }

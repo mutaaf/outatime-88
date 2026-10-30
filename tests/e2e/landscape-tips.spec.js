@@ -152,3 +152,61 @@ test('1280x720 keyboard: the coach card still docks top-left under the place car
   expect(r.y0).toBeGreaterThan(r.header);
   expect(problems).toEqual([]);
 });
+
+/** The docked chip and the HUD cards beside it, read two frames after the HUD last changed. */
+const chipVsCards = (page) => page.evaluate(async () => {
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const rect = (el) => { const r = el.getBoundingClientRect(); return { x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; };
+  const shown = (el) => !!el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).display !== 'none';
+  const card = document.getElementById('coachCard');
+  return {
+    coach: rect(card),
+    cards: ['hudPosCard', 'hudTrack', 'hudTimes', 'hudSpeedCard', 'btnHudSettings'].map((id) => document.getElementById(id)).filter(shown).map(rect),
+    header: document.querySelector('header').getBoundingClientRect().bottom,
+    // Text cut off inside the chip: wider or taller than the room it has.
+    clipped: card.scrollWidth > card.clientWidth + 1 || card.scrollHeight > card.clientHeight + 1,
+  };
+});
+
+const coachUp = (page) => page.waitForFunction(() => document.getElementById('interactiveCoachBanner').style.opacity === '1', null, { timeout: 30_000 });
+
+for (const [viewport, hud] of [[{ width: 568, height: 320 }, 'normal'], [{ width: 844, height: 390 }, 'large'], [{ width: 667, height: 375 }, 'large']]) {
+  test.describe(`landscape ${viewport.width}x${viewport.height}, HUD ${hud}`, () => {
+    test.use({ viewport, hasTouch: true, isMobile: true });
+
+    test('the chip fits in the HUD row and follows the cards as they grow', async ({ page }) => {
+      const problems = watchPage(page);
+      await page.addInitScript((h) => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ settings: { hud: h } })), hud);
+      await page.goto(`${APP}?debug`);
+      await ready(page);
+      await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+      await coachUp(page);
+      await page.evaluate(() => window.__OT.pause());
+      const check = async (when) => {
+        const r = await chipVsCards(page);
+        for (const c of r.cards) expect(hit(r.coach, c), `${when}: chip ${JSON.stringify(r.coach)} on a card ${JSON.stringify(c)}`).toBe(false);
+        expect(r.coach.y1, `${when}: chip inside the HUD row`).toBeLessThanOrEqual(r.header + 0.5);
+        expect(r.clipped, `${when}: chip text fits`).toBe(false);
+      };
+      await check('start');
+      // The speed card widens as the score gains digits: the times card moves left without resizing.
+      await page.evaluate(() => { document.getElementById('hudSpeedCard').style.minWidth = `${document.getElementById('hudSpeedCard').getBoundingClientRect().width + 40}px`; });
+      await check('speed card +40 px');
+      expect(problems).toEqual([]);
+    });
+  });
+}
+
+test.describe('landscape phone 844x390: leaving mid-guide', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  test('the thumb guide goes with the race, even while the coach holds it', async ({ page }) => {
+    const problems = await firstRace(page);
+    await coachUp(page); // the guide is held while the coach shows
+    await expect(page.locator('#tcGuide')).toBeAttached();
+    await page.evaluate(() => window.__OT.finishRun());
+    await expect(page.locator('#btnPlayAgain')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#tcGuide')).toHaveCount(0, { timeout: 2000 });
+    expect(problems).toEqual([]);
+  });
+});

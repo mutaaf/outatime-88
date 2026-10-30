@@ -105,16 +105,18 @@ for (const [width, height, controls] of GUIDE_CASES) {
       // Landscape phones show the bubbles one at a time (0225), so every bubble the guide placed is
       // checked, whether it is shown now or waits for its turn.
       const placed = (el) => el.style.visibility === 'visible' && el.getBoundingClientRect().width > 0;
-      const bubbles = [...document.querySelectorAll('#tcGuide .tc-guide-tip')]
-        .filter(placed).map((el) => ({ text: el.textContent, ...box(el) }));
+      const tips = [...document.querySelectorAll('#tcGuide .tc-guide-tip')];
+      const onScreen = tips.filter(shown).length;
+      const bubbles = tips.filter(placed).map((el) => ({ text: el.textContent, ...box(el) }));
       const pads = {};
       const hint = document.getElementById('steerHint');
       if (hint && shown(hint)) bubbles.push({ text: 'steer hint (a second steer text)', ...box(hint) });
       for (const el of document.querySelectorAll('#touchControlsLayer > .tc-btn:not(.tc-hidden), #tcStick:not(.tc-hidden), #tcDpad:not(.tc-hidden), #tcTilt:not(.tc-hidden)')) if (shown(el)) pads[`#${el.id}`] = box(el);
-      return { bubbles, pads };
+      return { bubbles, pads, onScreen };
     });
     const where = `${width}x${height} ${label}`;
-    expect(r.bubbles.length, `${where}: bubbles shown`).toBeGreaterThanOrEqual(2);
+    expect(r.bubbles.length, `${where}: bubbles placed`).toBeGreaterThanOrEqual(2);
+    expect(r.onScreen, `${where}: a bubble on screen`).toBeGreaterThanOrEqual(1);
     for (const b of r.bubbles) {
       expect(b.x, `${where} "${b.text}" left`).toBeGreaterThanOrEqual(0);
       expect(b.y, `${where} "${b.text}" top`).toBeGreaterThanOrEqual(0);
