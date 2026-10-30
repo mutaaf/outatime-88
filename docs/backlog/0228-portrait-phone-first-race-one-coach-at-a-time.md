@@ -1,12 +1,12 @@
 ---
 id: 0228
 title: Portrait phone, first race: the tip card, DRAG TO STEER and WARP bubbles show at once; make them take turns
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-30
-pr:
+pr: 198
 ---
 
 ## Why
