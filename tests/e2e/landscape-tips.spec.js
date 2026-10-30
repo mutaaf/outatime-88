@@ -162,7 +162,8 @@ test.describe('portrait phone 390x844', () => {
     expect(c.desc).not.toBe(''); // the GO tip it held back, or an obstacle's if one is closer
     expect(c.coach.y0).toBeGreaterThanOrEqual(c.header);
     expect(Math.abs((c.coach.x0 + c.coach.x1) / 2 - 195)).toBeLessThan(4);
-    // GOT IT still dismisses it.
+    // GOT IT still dismisses it (the card it stopped on may have gone again: wait for one).
+    await page.waitForFunction(() => document.getElementById('interactiveCoachBanner').style.opacity === '1', null, { timeout: 30_000 });
     await page.locator('#btnDismissCoach').click();
     await expect.poll(() => page.evaluate(() => window.__OT.GameState.coachDismissed)).toBe(true);
     expect(problems).toEqual([]);

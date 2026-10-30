@@ -45,11 +45,15 @@ export const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', 
 export const COACH_LEARNED_AFTER = 2;
 
 // Portrait phones (0228): the first-race thumb guide (body.tc-guiding) and the coach take turns.
-// The coach waits while the guide is up; the GO tip it held back shows once after, for TIP_OWED_MS.
+// The coach waits while the guide is up; the GO tip it held back shows once after, for TIP_OWED_MS,
+// if nothing else has the card within TIP_OWED_WITHIN ms of the guide going (it is a GO tip, not a
+// mid-race one). 480 px is the ticket's line, narrower than the compact HUD's 599 px.
 const phoneTall = typeof matchMedia === 'function' ? matchMedia('(max-width: 480px) and (orientation: portrait)') : null;
 export const TIP_OWED_MS = 4000;
+const TIP_OWED_WITHIN = 2000;
 let tipOwed = false;
 let tipUntil = 0;
+let guideAt = 0;
 
 export function updateInteractiveCoach(currentSegIdx) {
   const banner = document.getElementById('interactiveCoachBanner');
@@ -63,11 +67,13 @@ export function updateInteractiveCoach(currentSegIdx) {
   const nowMs = performance.now();
   if (announcer.isVisible()) { RS.coachYieldUntil = nowMs + 350; hideCoach(banner); return; }
   if (nowMs < RS.coachYieldUntil) { hideCoach(banner); return; }
-  if (phoneTall && phoneTall.matches && document.body.classList.contains('tc-guiding')) {
+  if (document.body.classList.contains('tc-guiding') && phoneTall && phoneTall.matches) {
     if (GameState.distance < 300) tipOwed = true;
+    guideAt = nowMs;
     hideCoach(banner);
     return;
   }
+  if (tipOwed && nowMs - guideAt > TIP_OWED_WITHIN) tipOwed = false;
 
   // Nearest un-hit obstacle within ~2,800 Z-units that the player still needs coaching on.
   let foundObs = null;
@@ -88,6 +94,7 @@ export function updateInteractiveCoach(currentSegIdx) {
   const descEl = document.getElementById('coachDesc');
   if (!iconEl || !titleEl || !descEl) return;
 
+  if (foundObs || GameState.warpReady) tipUntil = 0; // another card took over: the owed tip is spent
   if (foundObs) {
     const t = foundObs.item.type;
     const open = foundObs.item.offset >= 0 ? '◀ LEFT' : 'RIGHT ▶';
