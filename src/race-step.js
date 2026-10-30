@@ -38,9 +38,9 @@ import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useS
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
 } from './fairplay.js';
-// Takedown, crew specials and the pulse beam (0227); main and the touch kit call them on this module.
+// Takedown, crew specials and the pulse beam (0227); main and the touch kit call the last two on this module.
 import { spawnObstacleShatter, triggerRivalTakedown, activateMidnightSpecial, fireUnibeam, fadeAbilityTint } from './race-specials.js';
-export { triggerRivalTakedown, activateMidnightSpecial, fireUnibeam };
+export { activateMidnightSpecial, fireUnibeam };
 
 RS.fair = createFair();
 // WARP READY (0112): GameState.warpReady says a boost would fire the warp right now (meter in

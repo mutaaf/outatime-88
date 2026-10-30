@@ -193,3 +193,24 @@ describe('fireUnibeam', () => {
     expect(called('announce')[0][1]).toBe('💠 ARC PULSE BEAM FIRED!');
   });
 });
+
+describe('main reaches the race chunks by name', () => {
+  it('every raceCall / raceStep.x name is exported by race-step.js or race-flow.js', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = (f) => readFileSync(new URL(`../../src/${f}`, import.meta.url), 'utf8');
+    const main = src('main.js');
+    const names = new Set([
+      ...[...main.matchAll(/raceCall\('(\w+)'\)/g)].map((m) => m[1]),
+      ...[...main.matchAll(/raceStep\.(\w+)\(/g)].map((m) => m[1])
+    ]);
+    expect(names).toContain('activateMidnightSpecial');
+    expect(names).toContain('fireUnibeam');
+    const exported = new Set();
+    for (const f of ['race-step.js', 'race-flow.js']) {
+      const s = src(f);
+      for (const m of s.matchAll(/^export (?:async )?(?:function|const|let) (\w+)/gm)) exported.add(m[1]);
+      for (const m of s.matchAll(/^export \{([^}]+)\}/gm)) m[1].split(',').forEach((n) => exported.add(n.trim().split(/\s+as\s+/).pop()));
+    }
+    expect([...names].filter((n) => !exported.has(n))).toEqual([]);
+  });
+});
