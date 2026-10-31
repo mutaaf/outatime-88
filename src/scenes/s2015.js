@@ -46,7 +46,7 @@ function build(o) {
     const unit = (x, w, h, label, col) => {
       building(ctx, r, x, hz, w, h, '#0a1d30', 'rgba(160,240,255,0.6)', 0.35);
       ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x + u, hz - 6 * u, w - 2 * u, 6 * u);
-      if (label) sign(ctx, label, x + w / 2, hz - 8 * u, 2.2 * u, col, { glow: 6 * u });
+      if (label) sign(ctx, label, x + w / 2, hz - 8 * u, 2.2 * u, col, { glow: 6 * u, maxW: w });
     };
     unit(cx - 52 * u, 20 * u, 16 * u, 'CAFÉ RETRO-80', '#f472b6');
     unit(cx - 30 * u, 14 * u, 14 * u, 'HOVR-BORD CO.', '#a3e635');
@@ -58,15 +58,15 @@ function build(o) {
     ctx.fillStyle = '#071423'; ctx.fillRect(bx + 8 * u, by + 14 * u, 1.2 * u, 20 * u);
     ctx.fillStyle = '#0b2a45'; ctx.fillRect(bx, by, 26 * u, 14 * u);
     ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = Math.max(1, 0.4 * u); ctx.strokeRect(bx, by, 26 * u, 14 * u);
-    sign(ctx, 'FINS 19', bx + 13 * u, by + 3 * u, 2.6 * u, '#fef08a', { glow: 4 * u });
-    sign(ctx, 'NOW IN HOLO-3D', bx + 13 * u, by + 12 * u, 1.1 * u, '#bae6fd');
+    sign(ctx, 'FINS 19', bx + 13 * u, by + 3 * u, 2.6 * u, '#fef08a', { glow: 4 * u, maxW: 24 * u });
+    sign(ctx, 'NOW IN HOLO-3D', bx + 13 * u, by + 12 * u, 1.1 * u, '#bae6fd', { maxW: 24 * u });
     spots.board = { x: bx + 13 * u, y: by + 8 * u, u };
     unit(cx + 52 * u, 18 * u, 18 * u, 'AUTO-LACE KICKS', '#fde047');
     // weather board: the countdown is drawn live
     const fx = cx + 74 * u;
     ctx.fillStyle = '#061a2c'; ctx.fillRect(fx, hz - 22 * u, 16 * u, 9 * u);
     ctx.fillStyle = '#071423'; ctx.fillRect(fx + 7.4 * u, hz - 13 * u, 1.2 * u, 13 * u);
-    sign(ctx, 'WEATHER SVC.', fx + 8 * u, hz - 20.5 * u, 1.3 * u, '#67e8f9');
+    sign(ctx, 'WEATHER SVC.', fx + 8 * u, hz - 20.5 * u, 1.3 * u, '#67e8f9', { maxW: 15 * u });
     spots.forecast = { x: fx + 8 * u, y: hz - 16.5 * u, u };
     for (let x = cx + 96 * u; x < W + cx - 60 * u; x += 15 * u) building(ctx, r, x % W, hz, 13 * u, (12 + r() * 16) * u, '#0a1d30', 'rgba(160,240,255,0.5)', 0.3);
   });
@@ -82,7 +82,7 @@ function build(o) {
 
   const u = unitOf(Math.round(o.hz0 * o.k));
   const digits = [];
-  for (let n = 0; n <= 30; n++) digits.push(sprite(14 * u, 3 * u, (ctx, w, h) => sign(ctx, n ? `RAIN ENDS IN ${n}s` : 'RAIN STOPPED ✓', w / 2, h / 2, h * 0.7, n ? '#fde68a' : '#86efac')));
+  for (let n = 0; n <= 30; n++) digits.push(sprite(15 * u, 3 * u, (ctx, w, h) => sign(ctx, n ? `RAIN ENDS IN ${n}s` : 'RAIN STOPPED ✓', w / 2, h / 2, h * 0.6, n ? '#fde68a' : '#86efac', { maxW: w, alt: n ? `${n}s` : '✓' })));
   return {
     sky, pad: o.pad, hzL: Math.round(o.hz0 * o.k), focus: spots.tower.x,
     layers: [{ c: far, f: 0.1 }, { c: mid, f: 0.3 }, { c: near, f: 0.62 }],

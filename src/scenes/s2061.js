@@ -137,9 +137,9 @@ function build(o) {
       ctx.fillStyle = 'rgba(94,242,255,0.5)'; ctx.fillRect(px - 3 * u, hz - ph * 0.6, 6 * u, 0.6 * u);
       spots.beacons.push({ x: px, y: hz - ph - 1 * u });
     }
-    sign(ctx, 'NEXT EXIT: MARS', W * 0.78, hz - 18 * u, 2.6 * u, '#a7f3d0', { glow: 6 * u, bg: 'rgba(2,20,30,0.75)' });
-    sign(ctx, '140 MILLION MI · KEEP LEFT', W * 0.78, hz - 13 * u, 1.4 * u, '#5eead4');
-    sign(ctx, 'LOW-G ZONE', W * 0.18, hz - 24 * u, 2.2 * u, '#fde68a', { glow: 5 * u, bg: 'rgba(30,20,0,0.7)' });
+    sign(ctx, 'NEXT EXIT: MARS', W * 0.78, hz - 18 * u, 2.6 * u, '#a7f3d0', { glow: 6 * u, bg: 'rgba(2,20,30,0.75)', maxW: 26 * u });
+    sign(ctx, '140 MILLION MI · KEEP LEFT', W * 0.78, hz - 13 * u, 1.4 * u, '#5eead4', { maxW: 26 * u });
+    sign(ctx, 'LOW-G ZONE', W * 0.18, hz - 24 * u, 2.2 * u, '#fde68a', { glow: 5 * u, bg: 'rgba(30,20,0,0.7)', maxW: 16 * u });
   });
 
   const u = unitOf(Math.round(o.hz0 * o.k));
