@@ -5,7 +5,7 @@
 // write lives on the shared RS object.
 import {
   RACE_DEPS, DEBUG_MODE, JarvisAI, LiveTraffic, RAI, RS, activeCarParams,
-  advanceContractProgress, aiRoad, burstSparks, coarsePointer, drive, gfxQ, lateral, live,
+  advanceContractProgress, announcer, aiRoad, burstSparks, coarsePointer, drive, gfxQ, lateral, live,
   loadRunnerUi, pickupArt, runStats, runnerMod,
   smoke2d, sparks, steerModes, storm, syncRunnerUi, touch, triggerAnnouncement, updateEraHud, view3d
 } from './main.js';
@@ -34,6 +34,7 @@ import { createLaneGuide } from './lane-guide.js';
 import { nosToggle, nosSettle } from './nos-toggle.js';
 import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
 import { buildArrival, queueArrival } from './arrival.js';
+import { createResumeBeat } from './resume-beat.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
@@ -1429,6 +1430,26 @@ export function showForkCue(state) {
   if (state === 'OFF') return;
   document.getElementById('forkLeftCard')?.classList.toggle('fork-lean', state === 'LEFT');
   document.getElementById('forkRightCard')?.classList.toggle('fork-lean', state === 'RIGHT');
+}
+
+// Resume beat (0231, src/resume-beat.js): main's loop calls this once per frame while a race is
+// PLAYING (and once with playing false when it stops); true = hold the sim this frame. `resumed` is
+// main's "a solo race just left PAUSED". The 3, 2, 1 owns the one announcement channel while it runs.
+const resumeBeat = createResumeBeat();
+GameState.resumeBeat = 0;
+export function resumeHold(frameSeconds, resumed, playing) {
+  if (!playing) resumeBeat.stop();
+  else if (resumed) resumeBeat.start();
+  const b = resumeBeat.tick(frameSeconds);
+  const was = GameState.resumeBeat;
+  if (b.n === was) return b.active;
+  GameState.resumeBeat = b.n;
+  if (b.n) {
+    // Each number outranks the last (priority 4, 5, 6: above every callout), so it replaces it in place.
+    triggerAnnouncement(String(b.n), 'GET READY', 1000, 7 - b.n);
+    SoundEngine.playBeep(false);
+  } else announcer.dismiss(String(was)); // whatever queued behind the beat shows next
+  return b.active;
 }
 
 // Ghost racing (ticket 0092): every race records a trace; "race the ghost" loads someone's

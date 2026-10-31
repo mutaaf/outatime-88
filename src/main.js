@@ -93,7 +93,10 @@ let startWanted, startWait = null;
 const NO_START = {}; // going home while the race step loads cancels the queued start (0185)
 function startNewRace(opts) {
   if (adHeld) return undefined; // a menu ad is on screen (src/ads.js): no race starts under it
-  if (raceStep) return raceStep.startNewRace(opts);
+  if (raceStep) {
+    raceStep.resumeHold(0, false, false); // a new race ends any resume beat (0231) before its banners
+    return raceStep.startNewRace(opts);
+  }
   startWanted = opts;
   startWait = startWait || loadRaceStep().then((m) => { startWait = null; return startWanted === NO_START ? null : m.startNewRace(startWanted); });
   return startWait;
@@ -380,6 +383,7 @@ export const announcer = createAnnouncer({
     if (coachBanner) hideCoach(coachBanner);
     RS.coachYieldUntil = performance.now() + 350;
     mainEl.textContent = msg.main;
+    mainEl.classList.toggle('is-beat', GameState.resumeBeat > 0); // the resume beat's big 3, 2, 1 (0231)
     subEl.textContent = msg.sub;
     mainEl.style.opacity = '1';
     mainEl.style.transform = 'scale(1.06)';
@@ -1416,7 +1420,8 @@ function initTouchControls() {
 }
 
 let lastFrameTime = 0;
-let raceOn = false; // body.race-on while the race steps: CSS hides title/garage-only UI (0229)
+let raceOn = false; // body.race-on while a race is on: CSS hides title/garage-only UI (0229)
+let lastStatus = ''; // last frame's GameState.status: PAUSED → PLAYING starts the resume beat (0231)
 let simHeld = false; // the balance harness steps the sim itself (?debug, tests/balance)
 let adHeld = false; // a menu ad (src/ads.js) is on screen: the loop holds its frame until it closes
 let rafId = null;
@@ -1470,6 +1475,7 @@ function renderBlended(alpha, frameDt) {
 }
 
 const garageModalEl = document.getElementById('garageModal');
+const TV_MODE = /[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search); // ticket 0175
 
 function mainLoop(timestamp) {
   if (simHeld || adHeld) { rafId = requestAnimationFrame(mainLoop); return; }
@@ -1479,9 +1485,13 @@ function mainLoop(timestamp) {
   lastFrameTime = timestamp;
 
   if (touch) touch.sample(dt);
-  if (gfx) { if (GameState.status === 'PLAYING') gfx.sample(frameSeconds * 1000); else gfx.hold(); }
-  const stepping = GameState.status === 'PLAYING' && !!raceStep;
-  if (stepping !== raceOn) document.body.classList.toggle('race-on', raceOn = stepping);
+  const playing = GameState.status === 'PLAYING' && !!raceStep;
+  // A solo race back from PAUSED holds for a 3-2-1 beat (0231) while the road keeps drawing.
+  const held = (playing || raceOn) && raceStep.resumeHold(frameSeconds, lastStatus === 'PAUSED' && GameState.mode !== 'LIVE' && !TV_MODE && GameState.raceTime > 0, playing);
+  lastStatus = GameState.status;
+  if (gfx) { if (playing && !held) gfx.sample(frameSeconds * 1000); else gfx.hold(); }
+  const stepping = playing && !held;
+  if (playing !== raceOn) document.body.classList.toggle('race-on', raceOn = playing);
   if (stepping) {
     const steps = simClock.advance(frameSeconds);
     for (let i = 0; i < steps && GameState.status === 'PLAYING'; i++) {
@@ -1495,7 +1505,7 @@ function mainLoop(timestamp) {
     InputState.nosOn = InputState.nosTap = false; // a tapped-on NOS (0222) stops on pause and off the road
     // Live race countdown (GRID): on the line, road still. A pause freezes it too; otherwise
     // attract mode rolls the road.
-    if (GameState.status !== 'PAUSED' && GameState.status !== 'GRID') {
+    if (GameState.status !== 'PAUSED' && GameState.status !== 'GRID' && !held) {
       GameState.trackPos += 1350 * dt;
       if (home) home.attract(dt);
       const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
@@ -1506,7 +1516,7 @@ function mainLoop(timestamp) {
     syncContactZ();
   }
   live.frame(); // live races: countdown → green light, friends' cars, our state out
-  if (forceFeel) forceFeel.frame(dt); // rumble and phone pulses (ticket 0183)
+  if (forceFeel && !held) forceFeel.frame(dt); // rumble and phone pulses (ticket 0183)
 
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
@@ -1631,7 +1641,7 @@ window.onload = () => {
   updateEraHud();
   updateLiveHud();
   // TV mode (ticket 0175): ?tv (or ?screen=tv) pairs a phone as the controller; lazy, TV only.
-  if (/[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search)) import('./tv/tv.js').then((m) => m.startTv({
+  if (TV_MODE) import('./tv/tv.js').then((m) => m.startTv({
     start: () => { const again = document.getElementById('btnPlayAgain'); if (again && again.offsetParent) again.click(); else if (titleVisible()) startNewRace(titleStart || { mode: 'INFINITE' }); },
     unlockAudio: () => SoundEngine.init(),
     debug: new URLSearchParams(location.search).has('debug'),

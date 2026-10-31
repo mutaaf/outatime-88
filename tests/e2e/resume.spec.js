@@ -1,7 +1,7 @@
 // Pause → resume never leaves the race frozen, whichever way you paused, and a thumb that
 // goes down during the start lights is the stick once the race goes green.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage, touchReady, nextFrames } from './helpers.js';
+import { APP, watchPage, touchReady, nextFrames, racing, simWait } from './helpers.js';
 
 const SAVE_KEY = 'outatime_cruisn_88_save_v2';
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -35,6 +35,9 @@ async function expectRunsAfterResume(page, resume) {
   expect(p1.d).toBeCloseTo(p0.d, 3); // frozen while paused
   await resume();
   await expect.poll(() => status(page)).toBe('PLAYING');
+  // The 3-2-1 resume beat (0231) holds the race for ~0.9 s, then it must drive on.
+  await page.waitForFunction(() => window.__OT.GameState.resumeBeat > 0, null, { timeout: 10_000 });
+  await page.waitForFunction(() => window.__OT.GameState.resumeBeat === 0, null, { timeout: 10_000 });
   const p2 = await progress(page);
   await page.waitForTimeout(800);
   const p3 = await progress(page);
@@ -190,4 +193,96 @@ test('a live race is never paused by leaving the app (friends are still driving)
   });
   expect(await status(page)).toBe('PLAYING');
   await expect(page.locator('#settingsModal')).toBeHidden();
+});
+
+// Ticket 0231: resuming a solo race counts 3 → 2 → 1 on the announcer while the race holds still.
+test.describe('resume beat (keyboard, 1280x720)', () => {
+  test.use({ viewport: { width: 1280, height: 720 }, hasTouch: false, isMobile: false });
+
+  /** Records, every frame from now on, the beat number, the announcer's text and the race distance. */
+  const record = (page) => page.evaluate(() => {
+    const log = window.__beatLog = [];
+    const el = document.getElementById('announcerMain');
+    (function tick() {
+      const g = window.__OT.GameState;
+      log.push({ t: performance.now(), n: g.resumeBeat, d: g.distance, s: g.status, text: el.textContent, big: el.classList.contains('is-beat') });
+      if (log.length < 2000) requestAnimationFrame(tick);
+    })();
+  });
+  const beatLog = (page) => page.evaluate(() => window.__beatLog.slice());
+
+  async function soloRace(page) {
+    await page.addInitScript((key) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem(key, JSON.stringify({ bestScore: 5000, controls: { coachSeen: true } }));
+        sessionStorage.setItem('seeded', '1');
+      }
+    }, SAVE_KEY);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.startRace());
+    await racing(page);
+  }
+
+  test('Escape, Escape: the race holds for 3, 2, 1, then drives on', async ({ page }) => {
+    const problems = watchPage(page);
+    await soloRace(page);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => status(page)).toBe('PAUSED');
+    await expect(page.locator('#garageModal')).toBeVisible(); // the pause sheet is up: Escape closes it
+    await record(page);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => window.__beatLog.some((r) => r.n > 0), null, { timeout: 10_000 });
+    await page.waitForFunction(() => { const l = window.__beatLog; return l.some((r) => r.n > 0) && l[l.length - 1].n === 0; }, null, { timeout: 10_000 });
+    const log = await beatLog(page);
+    const beat = log.filter((r) => r.n > 0);
+    expect(beat.every((r) => r.s === 'PLAYING')).toBe(true);
+    // 3, 2, 1 in order, each in the one announcement slot (nothing else on it), shown big.
+    expect([...new Set(beat.map((r) => r.n))]).toEqual([3, 2, 1]);
+    for (const r of beat) { expect(r.text).toBe(String(r.n)); expect(r.big).toBe(true); }
+    // The race does not move during the beat, which lasts ~0.9 s of wall time.
+    const d0 = log.find((r) => r.s === 'PAUSED').d;
+    for (const r of beat) expect(r.d).toBe(d0);
+    expect(beat[beat.length - 1].t - beat[0].t).toBeGreaterThan(600);
+    // The number fades out as it is (no shrink), and the next announcement is normal size.
+    await expect.poll(() => page.locator('#announcerMain').evaluate((el) => el.style.opacity)).toBe('0');
+    await page.evaluate(() => window.__OT.announce('NEXT UP', '', 900, 3));
+    await expect(page.locator('#announcerMain')).toHaveText('NEXT UP');
+    expect(await page.locator('#announcerMain').evaluate((el) => el.classList.contains('is-beat'))).toBe(false);
+    // Then it drives on.
+    expect(await simWait(page, 0.5)).toBe(true);
+    expect(await page.evaluate(() => window.__OT.GameState.distance)).toBeGreaterThan(d0);
+    expect(problems).toEqual([]);
+  });
+
+  test('pausing again during the beat restarts it from 3; a new race never inherits it', async ({ page }) => {
+    await soloRace(page);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => status(page)).toBe('PAUSED');
+    await expect(page.locator('#garageModal')).toBeVisible(); // the pause sheet is up: Escape closes it
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => window.__OT.GameState.resumeBeat > 0, null, { timeout: 10_000 });
+    await page.keyboard.press('Escape'); // paused again mid-beat
+    await expect.poll(() => status(page)).toBe('PAUSED');
+    await expect(page.locator('#garageModal')).toBeVisible(); // the pause sheet is up: Escape closes it
+    await expect.poll(() => page.evaluate(() => window.__OT.GameState.resumeBeat)).toBe(0);
+    await record(page);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => window.__beatLog.some((r) => r.n > 0), null, { timeout: 10_000 });
+    expect((await beatLog(page)).find((r) => r.n > 0).n).toBe(3);
+    // A new race started mid-beat (the title's PLAY, a retry) runs: no beat held over.
+    await page.evaluate(() => window.__OT.startRace());
+    expect(await page.evaluate(() => window.__OT.GameState.resumeBeat)).toBe(0);
+    await racing(page);
+    expect(await simWait(page, 0.5)).toBe(true);
+  });
+
+  test('a race back from PAUSED in a live room gets no beat', async ({ page }) => {
+    await soloRace(page);
+    await page.evaluate(() => { const g = window.__OT.GameState; g.mode = 'LIVE'; g.status = 'PAUSED'; });
+    await record(page);
+    await nextFrames(page, 3);
+    await page.evaluate(() => { window.__OT.GameState.status = 'PLAYING'; });
+    await nextFrames(page, 6);
+    expect((await beatLog(page)).every((r) => r.n === 0)).toBe(true);
+  });
 });

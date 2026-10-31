@@ -159,3 +159,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-30 · 0229 · On a computer, the car-name bar leaves the bottom of the road once the race is on (it is back when you pause or finish), and the first-race tip sits up in the HUD beside your place instead of over the start arch
 2026-10-30 · 0230 · On a phone held upright, the title's car is half the screen wide and sits clear below the buttons; TILT and VIEW share one row
 2026-10-30 · — · Menu ads via Marquee (operator change): a banner on the title, an opt-in "Watch a short ad for 2× coins" on the results card, and an occasional break on the way home from the second race on; never during a race, a live room or TV mode, and races still show only our own sponsor boards
+2026-10-31 · 0231 · Coming back from pause in a solo race counts 3, 2, 1 (with a soft beep) before traffic moves again, so your hands are on the controls first

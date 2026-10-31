@@ -191,6 +191,9 @@ src/fair-field.js   "Fair field" (0211), pure, race-flow chunk only: Settings �
 src/arrival.js      Arrival stretch (0218), pure, race-step chunk only: the run's first warp queues an authored stretch for the
                       era it lands in (1985 today) on track.run; the race step builds it in place of the next biome, one ARRIVAL
                       feature (set-piece rules keep it clear), then the generator resumes unchanged. Solo races only
+src/resume-beat.js  Resume beat (0231), pure, race-step chunk only: a solo race back from PAUSED holds the sim for 3 → 2 → 1
+                      (0.3 s each, wall clock) while the road draws. main's loop calls raceStep.resumeHold() once per frame
+                      (resumed = last frame PAUSED, not LIVE/TV, raceTime > 0); GameState.resumeBeat is the number shown (0 = none)
 src/camera-fx.js    "Camera effects" (0216), pure, settings-panel chunk only: Settings → Camera effects sets GameState.cameraFx
                       (full 1 / gentle 0.4 / off 0); nosFeel, the 2D hit-shake and the 3D shake/warp kick multiply by it.
                       Speed lines, flashes and warp colours stay; calm motion still turns all of it off; the sim never reads it
