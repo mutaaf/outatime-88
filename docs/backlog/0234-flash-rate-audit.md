@@ -1,12 +1,12 @@
 ---
 id: 0234
 title: Flash-rate audit — no full-screen flash fires more than 3 times in any second
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-10-31
-pr:
+pr: 207
 ---
 
 ## Why
@@ -23,10 +23,10 @@ screen is skipped (or dimmed to its non-flash fallback) if 3 already fired in th
 1000 ms. Reduced-motion keeps its stricter behaviour.
 
 ## Acceptance criteria
-- [ ] Unit test: 4th large-area flash within 1000 ms is refused, allowed again after 1000 ms
-- [ ] Small-area flashes (<20% of screen) are never refused
-- [ ] e2e: forcing warp + crash + lightning in one second logs <=3 large flashes
-- [ ] No visible change in a normal race; no per-frame allocation
+- [x] Unit test: 4th large-area flash within 1000 ms is refused, allowed again after 1000 ms
+- [x] Small-area flashes (<20% of screen) are never refused
+- [x] e2e: forcing warp + crash + lightning in one second logs <=3 large flashes
+- [x] No visible change in a normal race; no per-frame allocation
 
 ## Test plan
 tests/unit/flash-budget.test.js; one e2e in an existing small spec (not title.spec.js, see LESSONS on the flake guard).

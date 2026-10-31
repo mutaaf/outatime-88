@@ -127,7 +127,7 @@ function anim(ctx, F, B) {
   if (B.flags[EGGS.LIGHTNING]) {
     const tx = F.x(1, s.tower.x), ty = F.y(s.tower.top), bw = B.bolt.width, bh = B.bolt.height;
     ctx.drawImage(B.bolt, tx - bw / 2, ty - bh, bw, bh);
-    if (!F.reduced) { ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(0, 0, F.rw, F.hz); }
+    if (F.lit) { ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(0, 0, F.rw, F.hz); }
   }
   // final lap: a flying saucer wobbles across
   if (B.flags[EGGS.SAUCER]) {

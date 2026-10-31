@@ -33,6 +33,7 @@ import { createProximityCue } from './proximity-cue.js';
 import { nosToggle, nosSettle } from './nos-toggle.js';
 import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
 import { createResumeBeat } from './resume-beat.js';
+import { allowFlash, flashLog, resetFlashBudget } from './flash-budget.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
@@ -43,6 +44,7 @@ export { activateMidnightSpecial, fireUnibeam };
 export { dockDeskCoach, obstacleTip } from './coach-dock.js'; // race-flow's coach (0229, 0233): lands in this chunk, which has the room
 
 RS.fair = createFair();
+if (DEBUG_MODE) GameState.flashLog = flashLog; // flash budget totals for the e2e (0234)
 // WARP READY (0112): GameState.warpReady says a boost would fire the warp right now (meter in
 // warp range, cooldown over, still racing); the HUD, the touch button and the hints read it, and
 // one rising tick plays through the SFX bus when it turns on.
@@ -551,9 +553,12 @@ function triggerTimeWarp() {
     GameState.timeLeft = RS.raceClock.timeLeft;
   }
 
+  // A flash budget (0234): a 4th large flash inside a second shows the calm-motion strength instead,
+  // and so does the era sky wash that comes with it (GameState.warpLit → the backdrop).
+  GameState.warpLit = !GameState.reducedMotion && allowFlash(GameState.raceTime * 1000, 1);
   const flashEl = document.getElementById('warpFlash');
   if (flashEl) {
-    flashEl.style.opacity = GameState.reducedMotion ? '0.08' : '0.14';
+    flashEl.style.opacity = GameState.warpLit ? '0.14' : '0.08';
     setTimeout(() => { flashEl.style.opacity = '0'; }, 340);
   }
 
@@ -585,6 +590,7 @@ let latCarP = null, latTires = 0;
 
 export function resetNos() {
   if (!late) loadLate(); // every race start comes through here
+  resetFlashBudget(); GameState.warpLit = true; // the race clock starts over (0234)
   const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   const spec = CAR_SPECS[c.id];
   RS.nos = createNos(nosFor(spec ? spec.stats.flux : 5));

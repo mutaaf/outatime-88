@@ -135,6 +135,7 @@ export const GameState = {
   reducedMotion: false,
   cameraFx: 1,            // camera shake / FOV push-in scale from Settings → Camera effects (0216)
   sinceWarp: 99,
+  warpLit: true,       // the last warp got its full flash (flash budget, 0234); the era sky wash follows it
   warpFxTimer: 0,
   fxLinesDrawn: 0
 };
