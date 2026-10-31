@@ -1,12 +1,12 @@
 ---
 id: 0235
 title: Pickup halo is capped so a near pickup never hides the traffic behind it
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-10-31
-pr:
+pr: 208
 ---
 
 ## Why
