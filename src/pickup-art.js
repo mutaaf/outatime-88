@@ -8,7 +8,7 @@
 // cache is warm.
 
 import { LABEL, labelSlots, layoutLabels, fallbackBox } from './popups.js';
-import { haloCap, haloSize, haloAlpha, GLOW } from './pickup-halo.js';
+import { haloCap, haloSize, haloAlpha, ringSize, GLOW, RING } from './pickup-halo.js';
 
 // Shape-coded art per kind: coin = disc + star, flux core = hexagon + bolt, repair = rounded
 // square + cross, NOS = capsule canister.
@@ -28,8 +28,8 @@ const PAD = 1.7;            // icon canvas = size × PAD (room for the glow)
 const CACHE_MAX = 160;
 const cache = new Map();    // `${kind}:${bucket}` → canvas
 export const stats = { icons: 0, built: 0, bursts: 0, labels: 0, rw: 0, rh: 0, box: { x0: 0, y0: 0, x1: 0, y1: 0 }, slots: null,
-  // 0235: the largest ringed pickup and the largest halo radius drawn (view units), and the cap.
-  iconMax: 0, haloMax: 0, haloCap: 0 };
+  // 0235: the largest ringed pickup, the largest glow and ring radius drawn (view units), the cap.
+  iconMax: 0, haloMax: 0, ringMax: 0, haloCap: 0 };
 
 function makeCanvas(w, h) {
   if (typeof OffscreenCanvas === 'function') return new OffscreenCanvas(w, h);
@@ -77,13 +77,14 @@ function star(c, cx, cy, r) {
 
 /** Paint kind `kind` at size S (px) centred in canvas `c` of side W. `mode`: falsy = the full
  *  pickup, true = bare (no ring), 'core' = the icon alone (no glow, no ring), 'halo' = only the
- *  glow and ring (0235: drawn apart from the icon so they can stop growing). */
+ *  glow and ring, 'glow' / 'ring' = only that (0235: drawn apart from the icon so they can stop
+ *  growing). */
 export function paintIcon(c, kind, S, W, mode) {
   const a = ART[kind];
   const m = W / 2;
   const line = Math.max(1, S * 0.06);
   // Soft glow first, so the icon pops off any road colour.
-  if (mode !== 'core') {
+  if (mode !== 'core' && mode !== 'ring') {
     const g = c.createRadialGradient(m, m, S * 0.2, m, m, S * GLOW);
     g.addColorStop(0, a.glow);
     g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -93,12 +94,12 @@ export function paintIcon(c, kind, S, W, mode) {
   // Every pickup floats in a white ring on a dark keyline (0198): a shape no hazard has, so "grab
   // it" never rests on hue (gold 2× vs amber barricades, red magnet vs the gate, in greyscale).
   // `bare` icons (the power-up HUD, which has its own countdown ring) skip it.
-  if (!mode || mode === 'halo') {
-    c.beginPath(); c.arc(m, m, S * 0.56, 0, Math.PI * 2);
+  if (!mode || mode === 'halo' || mode === 'ring') {
+    c.beginPath(); c.arc(m, m, S * RING, 0, Math.PI * 2);
     c.strokeStyle = 'rgba(8,6,20,0.75)'; c.lineWidth = line * 2.2; c.stroke();
     c.strokeStyle = '#ffffff'; c.lineWidth = line * 1.6; c.stroke();
   }
-  if (mode === 'halo') return;
+  if (mode === 'halo' || mode === 'glow' || mode === 'ring') return;
   const body = c.createLinearGradient(m - S * 0.4, m - S * 0.4, m + S * 0.4, m + S * 0.4);
   body.addColorStop(0, '#ffffff');
   body.addColorStop(0.18, a.body);
@@ -240,44 +241,59 @@ export function iconFor(kind, px, bare) {
  * `bare` draws it without the pickup ring.
  */
 export function drawPickup(ctx, kind, x, y, size, t, phase, still, bare) {
-  // 0235: a ringed pickup's glow + ring stop growing at the cap and fade out as it closes in;
-  // past the fade's start they're drawn apart (unrotated, never squashed) under the bare icon.
+  // 0235: a ringed pickup's glow + ring are drawn apart from the icon, under it (squashed with a
+  // spinning coin, as when they were one image). Up to the cap they are one cached halo at the
+  // icon's size; past it the glow stays at the cap and fades out, and the ring stops, then hugs
+  // the icon's edge.
+  const px = Math.round(x), py = Math.round(y);
+  let sx = 1, rot = 0;
+  if (!still && ART[kind]) {
+    if (ART[kind].shape === 'disc') sx = Math.max(0.18, Math.abs(Math.cos(t * 3.2 + phase)));
+    else rot = Math.sin(t * 2.4 + phase) * 0.22;
+  }
   let mode = bare;
   if (!bare && ART[kind]) {
+    mode = 'core';
     const cap = haloCap(viewW, viewH);
     stats.haloCap = cap;
     if (size > stats.iconMax) stats.iconMax = size;
     const al = haloAlpha(size, viewW, viewH);
-    if (al < 1) {
-      mode = 'core';
+    if (al >= 1) {
+      haloLayer(ctx, kind, 'halo', px, py, size, 1, sx);
+      if (size * GLOW > stats.haloMax) stats.haloMax = size * GLOW;
+      if (size * RING > stats.ringMax) stats.ringMax = size * RING;
+    } else {
+      const gs = haloSize(size, viewW, viewH), rs = ringSize(size, viewW, viewH);
       if (al > 0) {
-        const hs = haloSize(size, viewW, viewH);
-        const hv = iconFor(kind, hs * pxScale, 'halo');
-        const hw = hv.width * hs / hv.iconSize;
-        const a0 = ctx.globalAlpha;
-        ctx.globalAlpha = a0 * al;
-        ctx.drawImage(hv, Math.round(x - hw / 2), Math.round(y - hw / 2), Math.round(hw), Math.round(hw));
-        ctx.globalAlpha = a0;
-        if (hs * GLOW > stats.haloMax) stats.haloMax = hs * GLOW;
+        haloLayer(ctx, kind, 'glow', px, py, gs, al, sx);
+        if (gs * GLOW > stats.haloMax) stats.haloMax = gs * GLOW;
       }
-    } else if (size * GLOW > stats.haloMax) stats.haloMax = size * GLOW;
+      haloLayer(ctx, kind, 'ring', px, py, rs, 1, sx);
+      if (rs * RING > stats.ringMax) stats.ringMax = rs * RING;
+    }
   }
   const cv = iconFor(kind, size * pxScale, mode);
   if (!cv) return;
   const k = size / cv.iconSize;
   const W = cv.width * k;
-  let sx = 1, rot = 0;
-  if (!still) {
-    if (ART[kind].shape === 'disc') sx = Math.max(0.18, Math.abs(Math.cos(t * 3.2 + phase)));
-    else rot = Math.sin(t * 2.4 + phase) * 0.22;
-  }
-  const px = Math.round(x), py = Math.round(y);
   if (rot === 0 && sx === 1) { ctx.drawImage(cv, Math.round(px - W / 2), Math.round(py - W / 2), Math.round(W), Math.round(W)); return; }
   ctx.save();
   ctx.translate(px, py);
   if (rot) ctx.rotate(rot);
   ctx.drawImage(cv, -W * sx / 2, -W / 2, W * sx, W);
   ctx.restore();
+}
+
+/** One halo layer (`mode` 'halo' | 'glow' | 'ring') painted for icon size `s`, centred on the
+ *  whole pixel (px, py), squashed to `sx` of its width, at `al` × the caller's alpha. */
+function haloLayer(ctx, kind, mode, px, py, s, al, sx) {
+  const cv = iconFor(kind, s * pxScale, mode);
+  const w = cv.width * s / cv.iconSize, ww = w * sx;
+  const a0 = ctx.globalAlpha;
+  if (al < 1) ctx.globalAlpha = a0 * al;
+  if (sx === 1) ctx.drawImage(cv, Math.round(px - w / 2), Math.round(py - w / 2), Math.round(w), Math.round(w));
+  else ctx.drawImage(cv, px - ww / 2, py - w / 2, ww, w);
+  if (al < 1) ctx.globalAlpha = a0;
 }
 
 // ── Collect bursts: a pooled ring + spark spray in the pickup's colour ─────────────────────

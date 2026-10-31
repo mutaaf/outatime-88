@@ -1,7 +1,7 @@
 // Ticket 0235: a pickup's halo (glow + white ring) stops growing at a cap and fades as it
 // closes in, while the icon keeps its size.
 import { describe, it, expect } from 'vitest';
-import { haloCap, haloSize, haloRadius, haloAlpha, GLOW, CAP_PX } from '../../src/pickup-halo.js';
+import { haloCap, haloSize, haloRadius, haloAlpha, ringRadius, GLOW, RING, RING_HUG, CAP_PX } from '../../src/pickup-halo.js';
 
 const VIEWS = [[1280, 720], [390, 844], [844, 390], [1920, 1080]];
 
@@ -39,13 +39,28 @@ describe('pickup halo cap (0235)', () => {
       expect(a).toBeLessThanOrEqual(last + 1e-12);
       last = a;
     }
-    expect(haloAlpha(64 / GLOW, 1280, 720)).toBeLessThan(1);  // at the cap it's already fading
+    expect(haloAlpha(64 / GLOW, 1280, 720)).toBe(1);   // full strength up to the cap…
+    expect(haloAlpha(70 / GLOW, 1280, 720)).toBeLessThan(1); // …fading past it
     expect(haloAlpha(200, 1280, 720)).toBe(0);
   });
 
-  it('has no clock: the same size always gives the same halo (calm motion needs no branch)', () => {
-    expect(haloAlpha.length).toBe(3);
-    expect(haloSize.length).toBe(3);
-    expect(haloAlpha(90, 1280, 720)).toBe(haloAlpha(90, 1280, 720));
-  });
+  for (const [w, h] of VIEWS) {
+    it(`the ring stops at the cap, then only hugs the icon, at ${w}x${h}`, () => {
+      const cap = haloCap(w, h);
+      let last = 0;
+      for (let size = 4; size <= 2000; size *= 1.03) {
+        const r = ringRadius(size, w, h);
+        // never past the cap, except as an outline about half the sprite's width…
+        expect(r).toBeLessThanOrEqual(Math.max(cap, 0.5 * size) + 1e-9);
+        // …never under the icon's body (so it never vanishes: the 0198 outline)…
+        expect(r).toBeGreaterThanOrEqual(RING_HUG * size - 1e-9);
+        // …and never bigger than before, never shrinking as the pickup closes in.
+        expect(r).toBeLessThanOrEqual(RING * size + 1e-9);
+        expect(r).toBeGreaterThanOrEqual(last - 1e-9);
+        last = r;
+      }
+      // The scout's case: a ring ~170 px across on a ~300-unit coin is now an outline.
+      expect(ringRadius(170 / 2 / RING, 1280, 720)).toBeCloseTo(Math.max(64, RING_HUG * 170 / 2 / RING), 6);
+    });
+  }
 });

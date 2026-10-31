@@ -198,12 +198,52 @@ describe('crisp icon cache', () => {
     const art = await import('../../src/pickup-art.js');
     const drawn = [];
     const ctx = { drawImage: (cv, x, y, w, h) => drawn.push({ cv, w, h }), save() {}, restore() {}, translate() {}, rotate() {} };
+    // (a ringed pickup draws its halo first, then the icon: compare the icons, 0235)
     art.drawPickup(ctx, 'PLUTONIUM', 50, 50, 30, 0, 0, true);
+    const lo = drawn[drawn.length - 1];
     art.setPixelScale(2);
     art.drawPickup(ctx, 'PLUTONIUM', 50, 50, 30, 0, 0, true);
     art.setPixelScale(1);
-    expect(drawn[1].cv.iconSize).toBeGreaterThanOrEqual(60);   // twice the pixels…
-    expect(Math.abs(drawn[1].w - drawn[0].w)).toBeLessThanOrEqual(1); // …in the same CSS box
+    const hi = drawn[drawn.length - 1];
+    expect(hi.cv.iconSize).toBeGreaterThanOrEqual(60);   // twice the pixels…
+    expect(Math.abs(hi.w - lo.w)).toBeLessThanOrEqual(1); // …in the same CSS box
+    vi.unstubAllGlobals();
+  });
+  // 0235: what drawPickup actually draws: glow capped and faded, ring capped then hugging the
+  // icon, the icon at full size, all on one centre, the caller's alpha restored.
+  it('draws the halo capped and faded, the icon full size, and restores globalAlpha', async () => {
+    vi.stubGlobal('OffscreenCanvas', FakeCanvas);
+    const art = await import('../../src/pickup-art.js');
+    const { haloCap, GLOW, RING } = await import('../../src/pickup-halo.js');
+    art.setPixelScale(1, 1280, 720);
+    const cap = haloCap(1280, 720);
+    const drawn = [];
+    const ctx = { globalAlpha: 0.8, drawImage(cv, x, y, w, h) { drawn.push({ cv, x, y, w, h, a: this.globalAlpha }); }, save() {}, restore() {}, translate() {}, rotate() {} };
+    const radius = (d, k) => d.w / d.cv.width * d.cv.iconSize * k; // on-screen radius of a layer
+    for (const size of [20, 40, 60, 78, 90, 120, 200, 400]) {
+      drawn.length = 0;
+      art.drawPickup(ctx, 'HW_COIN', 640, 500, size, 0, 0, true);
+      expect(ctx.globalAlpha).toBe(0.8);
+      const icon = drawn[drawn.length - 1];
+      expect(Math.abs(icon.w - icon.cv.width * size / icon.cv.iconSize)).toBeLessThanOrEqual(1); // full size
+      const under = drawn.slice(0, -1);
+      expect(under.length).toBeGreaterThanOrEqual(1); // the ring is always there
+      for (const d of under) expect(Math.abs(d.x + d.w / 2 - (icon.x + icon.w / 2))).toBeLessThanOrEqual(1);
+      if (size * GLOW <= cap) {
+        expect(under.length).toBe(1);                             // one halo, as before
+        expect(under[0].a).toBe(0.8);
+        expect(radius(under[0], GLOW)).toBeLessThanOrEqual(cap + 1);
+      } else {
+        const ring = under[under.length - 1];
+        expect(ring.a).toBe(0.8);                                 // the ring never fades
+        expect(radius(ring, RING)).toBeLessThanOrEqual(Math.max(cap, 0.5 * size) + 1);
+        if (under.length === 2) {                                 // the glow, capped and fading
+          expect(radius(under[0], GLOW)).toBeLessThanOrEqual(cap + 1);
+          expect(under[0].a).toBeLessThan(0.8);
+        } else expect(size * GLOW).toBeGreaterThanOrEqual(cap * 1.3); // gone only once fully faded
+      }
+    }
+    expect(art.stats.haloMax).toBeLessThanOrEqual(cap + 1e-9);
     vi.unstubAllGlobals();
   });
 });

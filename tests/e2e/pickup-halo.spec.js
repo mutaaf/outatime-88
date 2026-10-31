@@ -1,6 +1,7 @@
-// Ticket 0235: a pickup's glow + white ring stop growing at a cap (64 px at a 720-px short side)
-// and fade out as it closes in, so a near pickup never hides the traffic behind it. The icon
-// keeps its size. Drives the car down a coin trail and reads what the lazy pickup art drew.
+// Ticket 0235: a pickup's glow stops growing at a cap (64 px at a 720-px short side) and fades
+// out as it closes in, and its white ring stops at the cap and then only hugs the icon, so a
+// near pickup never hides the traffic behind it. The icon keeps its size. Drives the car past a
+// coin and reads what the lazy pickup art drew (iconMax is the largest ringed pickup on screen).
 import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';
 
@@ -25,13 +26,15 @@ for (const [w, h] of [[1280, 720], [390, 844]]) {
       }
       if (!coin) { resolve(null); return; }
       const s = OT.pickupArt();
-      s.iconMax = 0; s.haloMax = 0;
+      s.iconMax = 0; s.haloMax = 0; s.ringMax = 0;
       g.trackPos = coin.i * 200 - 1250 - 2400;
-      g.speed = 25;
       const t0 = performance.now();
       let shot = false;
       (function tick() {
-        g.playerX = coin.it.offset + 0.35; g.playerVX = 0; // beside it, so we watch it pass
+        // Beside it on the road's inner side (so we watch it pass, clear of the rail), held at a
+        // steady speed with no crash, so a starved runner just takes more frames.
+        g.playerX = coin.it.offset - Math.sign(coin.it.offset || 1) * 0.35; g.playerVX = 0;
+        g.speed = 25; g.invulnTimer = 30;
         if (!shot && s.iconMax > s.haloCap * 1.2) { shot = true; OT.pause(); resolve({ ...s, slots: null, mid: true }); return; }
         if (performance.now() - t0 > 20000) { resolve({ ...s, slots: null, mid: false }); return; }
         requestAnimationFrame(tick);
@@ -46,6 +49,10 @@ for (const [w, h] of [[1280, 720], [390, 844]]) {
     // …while its halo never went past the cap.
     expect(seen.haloMax).toBeGreaterThan(0);
     expect(seen.haloMax).toBeLessThanOrEqual(seen.haloCap + 0.01);
+    // The ring (the shape every pickup shares, 0198) stays: capped, then an outline hugging the
+    // icon at about half its width.
+    expect(seen.ringMax).toBeGreaterThan(0);
+    expect(seen.ringMax).toBeLessThanOrEqual(Math.max(seen.haloCap, seen.iconMax * 0.5) + 0.01);
     expect(problems).toEqual([]);
     await ctx.close();
   });
