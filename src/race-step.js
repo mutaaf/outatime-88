@@ -58,12 +58,17 @@ const proxMe = { x: 0, z: 0, vz: 0, halfW: 0, halfL: 0, bot: 0, top: 0, now: 0 }
 // your own lane closes; same race-state rules as the tick. Off unless settings.laneGuide is true.
 // ?debug never sounds it but counts GameState.guideSteps / guidePan. It and the arrival stretch
 // are src/race-late.js (0233), fetched now: in long before a race reaches RACING or its first warp.
+// A failed fetch is tried again at the next race start (resetNos).
 let laneGuide = null, late = null;
-import('./race-late.js').then((m) => {
-  late = m;
-  laneGuide = m.createLaneGuide(SoundEngine, () => SaveStore.data.settings?.laneGuide === true
-    && GameState.racePhase === 'RACING' && !(GameState.warpActiveTimer > 0) && !(GameState.agroTimer > 0), DEBUG_MODE);
-}, () => {});
+function loadLate() {
+  import('./race-late.js').then((m) => {
+    if (late) return;
+    late = m;
+    laneGuide = m.createLaneGuide(SoundEngine, () => SaveStore.data.settings?.laneGuide === true
+      && GameState.racePhase === 'RACING' && !(GameState.warpActiveTimer > 0) && !(GameState.agroTimer > 0), DEBUG_MODE);
+  }, () => {});
+}
+loadLate();
 
 // The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
 // and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
@@ -579,6 +584,7 @@ const driveIn = { speed: 0, throttle: false, brake: false, cap: 0, engine: 0, dt
 let latCarP = null, latTires = 0;
 
 export function resetNos() {
+  if (!late) loadLate(); // every race start comes through here
   const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   const spec = CAR_SPECS[c.id];
   RS.nos = createNos(nosFor(spec ? spec.stats.flux : 5));

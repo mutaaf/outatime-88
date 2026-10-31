@@ -100,9 +100,7 @@ export function updateInteractiveCoach(currentSegIdx) {
 
   if (foundObs || GameState.warpReady) tipUntil = 0; // another card took over: the owed tip is spent
   if (foundObs) {
-    const tip = obstacleTip(foundObs.item, GameState.hp >= GameState.maxHp);
-    if (!tip) { hideCoach(banner); return; }
-    iconEl.textContent = tip[0]; titleEl.textContent = tip[1]; descEl.textContent = tip[2];
+    if (!obstacleTip(foundObs.item, GameState.hp >= GameState.maxHp, iconEl, titleEl, descEl)) { hideCoach(banner); return; }
   } else if (GameState.warpReady && GameState.timeWarps === 0) {
     iconEl.textContent = '⚡'; titleEl.textContent = 'FLUX FULL';
     descEl.textContent = hintNow().coachFlux;
