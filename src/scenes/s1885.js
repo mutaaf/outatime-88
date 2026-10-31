@@ -69,7 +69,7 @@ function build(o) {
     for (let y = hz - 24 * u; y < hz; y += 4 * u) { ctx.beginPath(); ctx.moveTo(cx - 4 * u, y); ctx.lineTo(cx + 4 * u, y + 4 * u); ctx.stroke(); }
     ctx.fillStyle = '#efe6cf'; ctx.beginPath(); ctx.arc(cx, hz - 20 * u, 2.4 * u, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#7c2d12'; ctx.fillRect(cx - 9 * u, hz - 13 * u, 18 * u, 3 * u);
-    sign(ctx, 'CLOCK DEDICATION SAT.', cx, hz - 11.5 * u, 1.5 * u, '#fde68a', { maxW: 18 * u });
+    sign(ctx, 'CLOCK DEDICATION SAT.', cx, hz - 11.5 * u, 1.5 * u, '#fde68a', { maxW: 16 * u });
     // windmill and a water tower
     const wx = town - 10 * u;
     ctx.fillStyle = '#2a1206'; ctx.fillRect(wx, hz - 16 * u, 0.6 * u, 16 * u);

@@ -57,9 +57,9 @@ beforeAll(() => {
 
 const ERAS = ['s1885', 's1955', 's1985', 's2015', 's2026', 's2061', 's2088'];
 // stage.js build(): hz0 = round(rh * 0.46), k = min(1, 1100 / max(rw, rh * 0.9)) * tier scale
-// (low 0.6 … ultra 1.25), W = ceil(max(rw * 1.5, hz0 * 2.9) * k), pad = round(rh * 0.3).
+// (stage clamps the tier scale at 1: low 0.6, medium 0.8, high/ultra 1), W = ceil(max(rw * 1.5, hz0 * 2.9) * k), pad = round(rh * 0.3).
 const VIEWS = [[1280, 720], [390, 844], [844, 390], [360, 640], [320, 568]];
-const SCALES = [0.6, 0.8, 1, 1.25];
+const SCALES = [0.6, 0.8, 1];
 
 async function buildAll(rw, rh, scale) {
   const out = [];
@@ -110,6 +110,13 @@ describe('sign text fits whole words (0236)', () => {
       }
     }
     expect(n).toBeGreaterThan(30 * VIEWS.length * SCALES.length);
+  });
+
+  it('a sign keeps every word a smaller font can hold before it blanks', async () => {
+    const low = await buildAll(844, 390, 0.6);
+    for (const t of ['PARANORMAL DIV.', 'HOVR-BORD CO.', 'AUTO-LACE KICKS']) {
+      expect(low.find((c) => c.text === t).drawn, t).not.toBe('');
+    }
   });
 
   it('the rain countdown always shows its number', async () => {

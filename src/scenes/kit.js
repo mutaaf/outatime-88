@@ -62,8 +62,8 @@ export function building(ctx, r, x, base, w, h, body, lit, density = 0.4, roof =
 
 // A sign shows whole words or nothing (ticket 0236). Text too wide for the `maxW` it is painted
 // on first gets a smaller font (down to SIGN_MIN_PX, the layer is drawn scaled up on screen);
-// if it still can't fit, it loses trailing words (and the separator left dangling) at its own
-// size until it fits squeezed by at most SIGN_SQUEEZE; if not even the first word fits, the sign
+// if it still can't fit, it loses trailing words (and the separator left dangling), keeping the
+// most words any size down to SIGN_MIN_PX allows, until it fits squeezed by at most SIGN_SQUEEZE; if not even the first word fits, the sign
 // is left blank. Runs at scene build, never per frame.
 export const SIGN_SQUEEZE = 0.8;
 export const SIGN_MIN_PX = 4;
@@ -101,12 +101,13 @@ export function fitWords(text, maxW, measure) {
 export function sign(ctx, text, x, y, size, color, { maxW, alt, glow = 0, font = 'bold', align = 'center', bg = null, pad = 0.35 } = {}) {
   ctx.save();
   const base = Math.max(6, Math.round(size));
+  let px = base;
   ctx.font = signFont(font, base);
   let t = text;
   if (maxW !== undefined) {
     const measure = (s) => ctx.measureText(s).width;
     const shrinkTo = (s) => { // the largest size from base down to SIGN_MIN_PX that holds s whole
-      for (let px = base; px >= SIGN_MIN_PX; px--) {
+      for (px = base; px >= SIGN_MIN_PX; px--) {
         ctx.font = signFont(font, px);
         if (measure(s) * SIGN_SQUEEZE <= maxW) return true;
       }
@@ -114,7 +115,15 @@ export function sign(ctx, text, x, y, size, color, { maxW, alt, glow = 0, font =
     };
     if (!shrinkTo(text)) {
       if (alt && shrinkTo(alt)) t = alt;
-      else { ctx.font = signFont(font, base); t = fitWords(text, maxW, measure); }
+      else { // the most words at any size down to SIGN_MIN_PX (ties keep the larger size)
+        t = ''; let best = base;
+        for (px = base; px >= SIGN_MIN_PX; px--) {
+          ctx.font = signFont(font, px);
+          const f = fitWords(text, maxW, measure);
+          if (f.length > t.length) { t = f; best = px; }
+        }
+        ctx.font = signFont(font, px = best);
+      }
     }
   }
   ctx.textAlign = align;
@@ -124,7 +133,8 @@ export function sign(ctx, text, x, y, size, color, { maxW, alt, glow = 0, font =
       const m = Math.min(ctx.measureText(t).width, maxW ?? Infinity);
       const bx = align === 'center' ? x - m / 2 : x;
       ctx.fillStyle = bg;
-      ctx.fillRect(bx - size * pad, y - size * 0.7, m + size * pad * 2, size * 1.4);
+      const sz = Math.min(size, px); // padding follows a shrunk font
+      ctx.fillRect(bx - sz * pad, y - sz * 0.7, m + sz * pad * 2, sz * 1.4);
     }
     if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
     ctx.fillStyle = color;

@@ -33,7 +33,7 @@ Rewriting sign copy (see 0189 for the IP audit).
 ## Notes (build)
 - `sign()` in `src/scenes/kit.js` takes the `maxW` of the board it is painted on. Text that doesn't
   fit first gets a smaller font (down to 4 px in the layer, which is drawn scaled up), then loses
-  trailing words, never ending on a separator or a linking word (`fitWords`: "GULCH OF NO NAME" →
+  trailing words (keeping the most words any size down to 4 px allows), never ending on a separator or a linking word (`fitWords`: "GULCH OF NO NAME" →
   "GULCH"); if no word fits the sign stays blank. `alt` is a shorter wording shown whole instead
   (the 2015 rain countdown falls back to "12s", never "RAIN ENDS IN"). All at scene build.
 - Every `sign()` call in the seven era scenes passes its box. Boxes that the text overran at the
@@ -44,5 +44,7 @@ Rewriting sign copy (see 0189 for the IP audit).
   (low tier, landscape phones) lose trailing words.
 - Not covered: backdrop layers pan with steering and curves, so a sign near the screen's edge can
   still be cut by the edge itself for a moment, like every other piece of scenery there. Fading
-  baked layer text per frame needs the sign rects in the layer plus a per-frame pass; a follow-up
-  ticket if the scout still sees it.
+  baked layer text per frame needs the sign rects in the layer plus a per-frame pass. At 390x844
+  the 2026 scene is centred on the clock tower and the BIJOU marquee starts at screen x ≈ −106..+6,
+  straddling the left edge, so this is the likely shape of what the scout saw: needs its own ticket
+  (move the marquee in, or fade layer signs at the edge like 0221's boards).

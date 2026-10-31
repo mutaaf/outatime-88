@@ -54,8 +54,8 @@ function build(o) {
     shop(cx - 78 * u, 18 * u, 18 * u, '#1b0b2e', "DOT'S DINER", '#ff6ec7');
     shop(cx - 58 * u, 20 * u, 24 * u, '#160a28', 'BIJOU', '#ffd166', (x, w, h) => {
       ctx.fillStyle = '#2a0d1f'; ctx.fillRect(x - u, hz - h * 0.62, w + 2 * u, 7 * u); // marquee
-      sign(ctx, 'ALIENS FROM PLUTO II', x + w / 2, hz - h * 0.62 + 2.3 * u, 2.1 * u, '#fff7d6', { maxW: w + 2 * u });
-      sign(ctx, '+ ATTACK OF THE 50 FT MALL', x + w / 2, hz - h * 0.62 + 5 * u, 1.6 * u, '#ffd166', { maxW: w + 2 * u });
+      sign(ctx, 'ALIENS FROM PLUTO II', x + w / 2, hz - h * 0.62 + 2.3 * u, 2.1 * u, '#fff7d6', { maxW: w });
+      sign(ctx, '+ ATTACK OF THE 50 FT MALL', x + w / 2, hz - h * 0.62 + 5 * u, 1.6 * u, '#ffd166', { maxW: w });
       spots.marquee = { x: x - u, y: hz - h * 0.62, w: w + 2 * u };
     });
     shop(cx - 36 * u, 14 * u, 15 * u, '#1d0d30', null, null, (x, w, h) => {
