@@ -21,7 +21,7 @@ import { createPlaceCall } from './place-call.js';
 import { stripMarks, createStripFan } from './strip-marks.js';
 import {
   endlessSolo, nearMisses, cashAcc, earnCash, resetRunner, steerWheel, resetNos, showForkCue,
-  ghostRecorder, dockDeskCoach
+  ghostRecorder, dockDeskCoach, obstacleTip
 } from './race-step.js';
 const {
   CAR_SPECS, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, POP_CULTURE_ROSTER,
@@ -40,16 +40,16 @@ RS.wake = (c, W, H) => wakeFrame(c, W, H, GameState, RS.fxClock);
 
 // Coach (ticket 0002): teaches only what you haven't learned yet, in one short line, and
 // always yields to the announcer so two messages never stack.
-export const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', HIGH_LIGHT_GATE: 'slide', FLUX_CRATE: 'smash' };
+const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', HIGH_LIGHT_GATE: 'slide', FLUX_CRATE: 'smash' };
 
-export const COACH_LEARNED_AFTER = 2;
+const COACH_LEARNED_AFTER = 2;
 
 // Portrait phones (0228): the first-race thumb guide (body.tc-guiding) and the coach take turns.
 // The coach waits while the guide is up; the GO tip it held back shows once after, for TIP_OWED_MS,
 // if nothing else has the card within TIP_OWED_WITHIN ms of the guide going (it is a GO tip, not a
 // mid-race one). 480 px is the ticket's line, narrower than the compact HUD's 599 px.
 const phoneTall = typeof matchMedia === 'function' ? matchMedia('(max-width: 480px) and (orientation: portrait)') : null;
-export const TIP_OWED_MS = 4000;
+const TIP_OWED_MS = 4000;
 const TIP_OWED_WITHIN = 2000;
 let tipOwed = false;
 let tipUntil = 0;
@@ -100,28 +100,7 @@ export function updateInteractiveCoach(currentSegIdx) {
 
   if (foundObs || GameState.warpReady) tipUntil = 0; // another card took over: the owed tip is spent
   if (foundObs) {
-    const t = foundObs.item.type;
-    const open = foundObs.item.offset >= 0 ? '◀ LEFT' : 'RIGHT ▶';
-    if (t === 'PINE_TREE_HAZARD') {
-      iconEl.textContent = '🌲'; titleEl.textContent = 'TREE AHEAD';
-      descEl.textContent = `Graze the gold ring for a slingshot — or go ${open}`;
-    } else if (t === 'LOW_LASER_BAR') {
-      iconEl.textContent = '🟠'; titleEl.textContent = 'LOW LASER';
-      descEl.textContent = `Hop it (W / ▲ / swipe up) — or go ${open}`;
-    } else if (t === 'HIGH_LIGHT_GATE') {
-      iconEl.textContent = '🔵'; titleEl.textContent = 'HIGH GATE';
-      descEl.textContent = `Hold drift to duck (S / ▼ / swipe down) — or go ${open}`;
-    } else if (t === 'FLUX_CRATE') {
-      iconEl.textContent = '📦'; titleEl.textContent = 'FLUX CRATE';
-      descEl.textContent = 'Smash straight through it for flux + HP';
-    } else if (t === 'REPAIR_WRENCH') {
-      if (GameState.hp >= GameState.maxHp) { hideCoach(banner); return; }
-      iconEl.textContent = '🔧'; titleEl.textContent = 'REPAIR';
-      descEl.textContent = `Grab the wrench (${foundObs.item.offset < 0 ? 'left' : (foundObs.item.offset > 0 ? 'right' : 'center')}) for +25 HP`;
-    } else {
-      iconEl.textContent = '⚡'; titleEl.textContent = 'BARRIER';
-      descEl.textContent = `Go ${open}, jump it, or boost-smash it`;
-    }
+    if (!obstacleTip(foundObs.item, GameState.hp >= GameState.maxHp, iconEl, titleEl, descEl)) { hideCoach(banner); return; }
   } else if (GameState.warpReady && GameState.timeWarps === 0) {
     iconEl.textContent = '⚡'; titleEl.textContent = 'FLUX FULL';
     descEl.textContent = hintNow().coachFlux;
@@ -140,9 +119,9 @@ export function updateInteractiveCoach(currentSegIdx) {
 }
 
 // Race HUD (ticket 0051): one reused view object, repainted ~20 times a second.
-export let raceHud = null;
+let raceHud = null;
 
-export let hudNextAt = 0;
+let hudNextAt = 0;
 // Place changes for screen readers (0030): #hudPlaceCall, a visually hidden polite live line.
 const placeCall = createPlaceCall({
   now: () => performance.now(),
@@ -150,7 +129,7 @@ const placeCall = createPlaceCall({
 });
 const phonePortrait = typeof matchMedia === 'function' ? matchMedia('(max-width: 599px) and (orientation: portrait)') : null;
 
-export function updateRaceHud(force) {
+function updateRaceHud(force) {
   const now = performance.now();
   if (!force && now < hudNextAt) return;
   hudNextAt = now + 50;
@@ -284,22 +263,22 @@ export function updateLiveHud(forceHud) {
 }
 
 /** Cars a race just unlocked: the full-screen reveal lands just after the results, so the score is seen first. */
-export function carNamesFor(ids) {
+function carNamesFor(ids) {
   if (ids.length) setTimeout(() => loadGarageUI().then((ui) => ui.queueReveals(ids)), 1100);
   return ids.map((id) => (POP_CULTURE_ROSTER.find((c) => c.id === id) || {}).car).filter(Boolean);
 }
 
-export function setSteerHint(on) {
+function setSteerHint(on) {
   const el = document.getElementById('steerHint');
   if (el) el.classList.toggle('hidden', !on);
 }
 
-export function updateOnboarding() {
+function updateOnboarding() {
   if (InputState.left || InputState.right || Math.abs(InputState.touchSteerVal) > 0.2 || Math.abs(GameState.playerVX) > 0.6) RS.onboarding.steer();
   setSteerHint(SaveStore.data.settings.coach !== false && RS.onboarding.hint(performance.now()) === 'steer');
 }
 
-export function applyDailyModifier(id) {
+function applyDailyModifier(id) {
   if (id === 'HEAT_WAVE') GameState.heatLevel += 2;
   else if (id === 'GLASS_CHASSIS') { GameState.maxHp = Math.round(GameState.maxHp / 2); GameState.hp = GameState.maxHp; }
   else if (id === 'FLUX_STORM') GameState.fluxCharge = Math.max(GameState.fluxCharge, 60);
@@ -486,10 +465,10 @@ export function startNewRace(opts) {
   }
 }
 
-export const lineupSeen = new Set();
+const lineupSeen = new Set();
 
 /** The grid front to back: rivals in slot order, then you. */
-export function gridOrder() {
+function gridOrder() {
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   const spec = CAR_SPECS[me.id];
   return LiveTraffic.racers.map((r) => ({ driver: r.driver, short: r.short, car: r.car, crew: r.crew, color: r.color, accent: r.accent, shape: r.shape, bodyColor: r.bodyColor, accentColor: r.accentColor, underglow: r.underglow }))
@@ -498,14 +477,14 @@ export function gridOrder() {
 }
 
 /** Your car's look for the race stage and results: its shape in your garage paint. */
-export function myCarLook() {
+function myCarLook() {
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   return { shape: me.shape, ...carPaint(me), glow: SaveStore.data.underglow || me.glow };
 }
 
-export const specLine = (st) => `SPD ${st.speed} · ACC ${st.accel} · GRIP ${st.grip} · ARMOR ${st.armor}`;
+const specLine = (st) => `SPD ${st.speed} · ACC ${st.accel} · GRIP ${st.grip} · ARMOR ${st.armor}`;
 
-export function beginRaceStart(lvl, { ceremony }) {
+function beginRaceStart(lvl, { ceremony }) {
   GameState.lapSplits = [];
   RS.lapStartedAt = 0;
   RS.lapNow = 1;
@@ -534,7 +513,7 @@ export function beginRaceStart(lvl, { ceremony }) {
   if (!lineup) RC.stage.grid(gridOrder());
 }
 
-export function applyLaunch(result) {
+function applyLaunch(result) {
   RS.launchJudged = true;
   const fx = result && RC.LAUNCH_EFFECT[result];
   if (!fx) return;
@@ -546,7 +525,7 @@ export function applyLaunch(result) {
   if (result === 'perfect') { SoundEngine.playTone(660, 'sawtooth', 0.25, 0.14, 1320); burstSparks(18, 190, 1); }
 }
 
-export const startHooks = {
+const startHooks = {
   field: () => gridOrder(),
   announceLevel() {
     const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
@@ -560,7 +539,7 @@ export const startHooks = {
   },
 };
 
-export const handleStartEvents = (events, dt) => RC.playStartEvents(events, startHooks, dt);
+const handleStartEvents = (events, dt) => RC.playStartEvents(events, startHooks, dt);
 
 export function updateRaceStart(rawDt) {
   if (RS.startSeq.inLineup && (RS.skipRequested || InputState.boostPressed)) {
@@ -630,7 +609,7 @@ export function finishRace() {
 }
 
 /** Finish order for the whole field, a headline for how it went, Retry / Next (ticket 0052). */
-export function renderRaceResults(badgeText, lvl) {
+function renderRaceResults(badgeText, lvl) {
   if (!RC) return; // the ceremony chunk never loaded: plain results
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   RC.renderResults({

@@ -30,10 +30,8 @@ import { forkLean, forkCueState } from './fork.js';
 import { createReadyCue } from './warp-cue.js';
 import { foldChain, startChain, chainLabel } from './chain-plate.js';
 import { createProximityCue } from './proximity-cue.js';
-import { createLaneGuide } from './lane-guide.js';
 import { nosToggle, nosSettle } from './nos-toggle.js';
 import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
-import { buildArrival, queueArrival } from './arrival.js';
 import { createResumeBeat } from './resume-beat.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
@@ -42,7 +40,7 @@ import {
 // Takedown, crew specials and the pulse beam (0227); main and the touch kit call the last two on this module.
 import { spawnObstacleShatter, triggerRivalTakedown, activateMidnightSpecial, fireUnibeam, fadeAbilityTint } from './race-specials.js';
 export { activateMidnightSpecial, fireUnibeam };
-export { dockDeskCoach } from './coach-dock.js'; // race-flow's coach (0229): lands in this chunk, which has the room
+export { dockDeskCoach, obstacleTip } from './coach-dock.js'; // race-flow's coach (0229, 0233): lands in this chunk, which has the room
 
 RS.fair = createFair();
 // WARP READY (0112): GameState.warpReady says a boost would fire the warp right now (meter in
@@ -58,9 +56,19 @@ const proxCue = createProximityCue(SoundEngine, () => SaveStore.data.settings?.p
 const proxMe = { x: 0, z: 0, vz: 0, halfW: 0, halfL: 0, bot: 0, top: 0, now: 0 };
 // Lane guide (0219): an opt-in soft tone panned toward the nearest open lane, pitch rising as
 // your own lane closes; same race-state rules as the tick. Off unless settings.laneGuide is true.
-// ?debug never sounds it but counts GameState.guideSteps / guidePan.
-const laneGuide = createLaneGuide(SoundEngine, () => SaveStore.data.settings?.laneGuide === true
-  && GameState.racePhase === 'RACING' && !(GameState.warpActiveTimer > 0) && !(GameState.agroTimer > 0), DEBUG_MODE);
+// ?debug never sounds it but counts GameState.guideSteps / guidePan. It and the arrival stretch
+// are src/race-late.js (0233), fetched now: in long before a race reaches RACING or its first warp.
+// A failed fetch is tried again at the next race start (resetNos).
+let laneGuide = null, late = null;
+function loadLate() {
+  import('./race-late.js').then((m) => {
+    if (late) return;
+    late = m;
+    laneGuide = m.createLaneGuide(SoundEngine, () => SaveStore.data.settings?.laneGuide === true
+      && GameState.racePhase === 'RACING' && !(GameState.warpActiveTimer > 0) && !(GameState.agroTimer > 0), DEBUG_MODE);
+  }, () => {});
+}
+loadLate();
 
 // The rigid-body world (ticket 0176) is its own small chunk. Main fetches it alongside this one
 // and hands it over (useRigid) before it calls the race step loaded, so no race runs without it.
@@ -72,7 +80,7 @@ export function useRigid(m) {
 const hitStop = createHitStop();
 
 // Runner power-ups (0177, src/powerups.js): this run's timers. Renderers read GameState.power.
-export const power = createPower();
+const power = createPower();
 GameState.power = power;
 export const endlessSolo = () => GameState.mode === 'INFINITE' && !GameState.daily;
 
@@ -529,7 +537,7 @@ function triggerTimeWarp() {
   GameState.eraIndex = (GameState.eraIndex + 1) % ERAS.length;
   const newEra = ERAS[GameState.eraIndex];
   // The run's first warp lands on an authored stretch (0218): solo races only, never shared roads.
-  queueArrival(track.run, newEra.id, { warps: GameState.timeWarps, shared: !!(GameState.daily || GameState.mode === 'LIVE'), seed: track.seed });
+  if (late) late.queueArrival(track.run, newEra.id, { warps: GameState.timeWarps, shared: !!(GameState.daily || GameState.mode === 'LIVE'), seed: track.seed });
 
   const warpBonus = 3000 * GameState.combo;
   GameState.score += warpBonus;
@@ -576,6 +584,7 @@ const driveIn = { speed: 0, throttle: false, brake: false, cap: 0, engine: 0, dt
 let latCarP = null, latTires = 0;
 
 export function resetNos() {
+  if (!late) loadLate(); // every race start comes through here
   const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   const spec = CAR_SPECS[c.id];
   RS.nos = createNos(nosFor(spec ? spec.stats.flux : 5));
@@ -641,7 +650,7 @@ export function updateGame(rawDt) {
   const currentSegIdx = Math.floor((GameState.trackPos + ROAD_CFG.playerZOffset) / ROAD_CFG.segLength);
   if (track.end - currentSegIdx < ROAD_CFG.drawDistance + 85) {
     // The first warp's authored stretch (0218), when one is queued, in place of the next biome.
-    const at = track.run.arrival && buildArrival({ track, addRoadSection, addItem, segLength: ROAD_CFG.segLength });
+    const at = track.run.arrival && late && late.buildArrival({ track, addRoadSection, addItem, segLength: ROAD_CFG.segLength });
     if (at) clearArrival(at); else generateNextTrackBiome();
   }
 
@@ -1867,7 +1876,7 @@ export const LiveTrafficMethods = {
     proxMe.bot = playerBotY; proxMe.top = playerTopY; proxMe.now = GameState.raceTime;
     const proxPan = proxCue.step(rawDt, proxMe, this.traffic, this.obstacles, this.racers);
     if (proxPan !== null) { GameState.proxTicks = (GameState.proxTicks || 0) + 1; GameState.proxPan = proxPan; }
-    const guidePan = laneGuide.step(rawDt, proxMe, this.traffic, this.obstacles, this.racers);
+    const guidePan = laneGuide && laneGuide.step(rawDt, proxMe, this.traffic, this.obstacles, this.racers);
     if (guidePan !== null) { GameState.guideSteps = (GameState.guideSteps || 0) + 1; GameState.guidePan = guidePan; }
 
     // 6. Player ↔ knockable props (ticket 0074): a real momentum exchange. A 4 kg cone is
