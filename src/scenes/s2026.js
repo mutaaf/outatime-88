@@ -149,7 +149,7 @@ function anim(ctx, F, B) {
     const tx = F.x(1, s.tower.x), ty = F.y(s.tower.top);
     const bw = B.bolt.width, bh = B.bolt.height;
     ctx.drawImage(B.bolt, tx - bw / 2, ty - bh, bw, bh);
-    if (!F.reduced) { ctx.fillStyle = 'rgba(220,225,255,0.22)'; ctx.fillRect(0, 0, F.rw, F.hz); }
+    if (F.lit) { ctx.fillStyle = 'rgba(220,225,255,0.22)'; ctx.fillRect(0, 0, F.rw, F.hz); }
   }
   void k;
 }

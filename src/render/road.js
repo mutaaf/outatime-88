@@ -15,7 +15,7 @@ const TOY_DECK = {
 };
 
 // The backdrop's per-frame facts, reused every frame (no allocation in the render loop).
-const backdropFrame = { curve: 0, trackPos: 0, playerX: 0, t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false };
+const backdropFrame = { curve: 0, trackPos: 0, playerX: 0, t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false, lit: true };
 
 let lookPx = 0, lookClock = 0; // 2D look-into-the-corner (ticket 0181)
 const visibleSegs = [];
@@ -40,6 +40,7 @@ export function drawRoad(ctx, rw, rh, eraCfg, roll) {
   backdropFrame.laps = RACE_LAPS;
   backdropFrame.warp = GameState.warpFxTimer > 0 ? 0.9 - GameState.warpFxTimer : -1;
   backdropFrame.reduced = GameState.reducedMotion;
+  backdropFrame.lit = GameState.warpLit;
   drawBackdrop(ctx, rw, rh, horizonY, eraCfg, backdropFrame);
 
   // 2. Project & Draw Seamless 3D Orange Toy-Track Segments (Zero Distracting Blue Bars!)

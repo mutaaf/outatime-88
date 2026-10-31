@@ -162,3 +162,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-31 · 0231 · Coming back from pause in a solo race counts 3, 2, 1 (with a soft beep) before traffic moves again, so your hands are on the controls first
 2026-10-31 · 0233 · Under the hood: the race chunks shed ~1.3 kB (the opt-in lane guide and the first-warp arrival stretch load on their own), leaving room for the next race features
 2026-10-31 · 0232 · A first-time player's title chip reads "BEST —" until a run has scored, instead of a lonely "BEST 0"
+2026-10-31 · 0234 · Big screen flashes (warp, storm lightning) are capped at three a second; any extra shows at its calm strength

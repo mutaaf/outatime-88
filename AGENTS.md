@@ -197,6 +197,9 @@ src/race-late.js    Race-late chunk (0233): what the race step first needs well 
 src/resume-beat.js  Resume beat (0231), pure, race-step chunk only: a solo race back from PAUSED holds the sim for 3 → 2 → 1
                       (0.3 s each, wall clock) while the road draws. main's loop calls raceStep.resumeHold() once per frame
                       (resumed = last frame PAUSED, not LIVE/TV, raceTime > 0); GameState.resumeBeat is the number shown (0 = none)
+src/flash-budget.js Flash budget (0234), pure, race-step chunk only: allowFlash(ms, area) lets at most 3 flashes over 20% of the
+                      screen through per second (race clock; layers within 100 ms are one flash). The warp flash (and the era
+                      sky wash with it, GameState.warpLit) and the storm-bolt wash ask it; a refused one shows its calm strength
 src/camera-fx.js    "Camera effects" (0216), pure, settings-panel chunk only: Settings → Camera effects sets GameState.cameraFx
                       (full 1 / gentle 0.4 / off 0); nosFeel, the 2D hit-shake and the 3D shake/warp kick multiply by it.
                       Speed lines, flashes and warp colours stay; calm motion still turns all of it off; the sim never reads it

@@ -9,6 +9,7 @@ import {
   HZ, RULES, FUEL, HEAT, STALL, PATROL, CHECK, LANES, causeOf, planHazard, gapZ, timeTo, armTrain, trainPos,
   hits, endZ, nearestLane, burnFuel, stepHeat, stepStall, stepPatrol, checkSecs, ensureHz, recordDeath,
 } from './hazards.js';
+import { allowFlash } from './flash-budget.js';
 
 const { GameState: G, SaveStore, SoundEngine, ROAD_CFG, PACE_MODES, hasSetPieceBetween } = RACE_DEPS;
 const SEG = ROAD_CFG.segLength;
@@ -20,7 +21,7 @@ export const S = {
   on: false, seed: 0, idx: 0, nextZ: 0, met: [], last: '', list: [], lastZ: 0, lastT: 0,
   fuel: FUEL.max, fuelOn: false, dry: false, dryT: 0, lowWarned: false, cores: 0,
   heat: 0, hotWarned: false, stall: 0, patrol: { t: 0, dur: 1 }, slowT: 0, slowSpell: false, grindT: 0, sinceSlip: 9,
-  cp: { on: false, gate: 0, gateZ: 0, left: 0, dur: 1 }, boltT: 0, bolt: 0,
+  cp: { on: false, gate: 0, gateZ: 0, left: 0, dur: 1 }, boltT: 0, bolt: 0, boltLit: true,
   dying: null, cause: '', cue: '', cueT: 0, bell: 0, bell2: 660, refZps: 1,
 };
 G.hz = S;
@@ -172,7 +173,7 @@ export function step(dt) {
     if (h.kind === 'COLLAPSE') h.ph = Math.max(0, Math.min(1, 1 - t / RULES.collapseHoles));
     if (h.kind === 'BRIDGE' && !h.spent && t > 0 && t <= RULES.jumpCue && G.playerY < RULES.lowY) S.cue = 'JUMP!';
     if (h.kind === 'BEAM' && !h.spent && t > 0 && t <= RULES.jumpCue && !p.duck) S.cue = 'DUCK!';
-    if (h.kind === 'LIGHTNING' && !h.spent && t <= 0.25 && !h.struck) { h.struck = true; S.bolt = 0.35; SoundEngine.sample('crash', 2.2, 0.5); }
+    if (h.kind === 'LIGHTNING' && !h.spent && t <= 0.25 && !h.struck) { h.struck = true; S.bolt = 0.35; S.boltLit = !G.reducedMotion && allowFlash(G.raceTime * 1000, 1); SoundEngine.sample('crash', 2.2, 0.5); }
     if (hits(h, p)) { contact(h); if (S.dying) break; }
     if (pz > endZ(h) + 2 * SEG && (h.kind !== 'TRAIN' || now > (h.tOff || 0))) {
       if (!h.spent && h.kind !== 'LIGHTNING') {
