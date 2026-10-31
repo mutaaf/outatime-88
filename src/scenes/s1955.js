@@ -39,7 +39,7 @@ function build(o) {
       ctx.fillStyle = body; ctx.fillRect(x, hz - h, w, h);
       ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillRect(x + w * 0.1, hz - h * 0.45, w * 0.8, h * 0.3);
       ctx.fillStyle = '#ef4444'; for (let i = 0; i < 6; i++) ctx.fillRect(x + (w / 6) * i, hz - h * 0.55, w / 12, h * 0.08); // awning stripes
-      sign(ctx, label, x + w / 2, hz - h * 0.8, 2 * u, col);
+      sign(ctx, label, x + w / 2, hz - h * 0.8, 2 * u, col, { maxW: w });
     };
     shop(cx - 52 * u, 16 * u, 13 * u, '#f9c5d1', 'SODA FOUNTAIN', '#9d174d');
     shop(cx - 34 * u, 14 * u, 15 * u, '#bde0fe', 'BIJOU', '#1d4ed8');
@@ -50,7 +50,7 @@ function build(o) {
     ctx.fillStyle = '#14b8a6'; ctx.beginPath(); ctx.moveTo(dx - 2 * u, hz - 9 * u); ctx.lineTo(dx + 24 * u, hz - 13 * u); ctx.lineTo(dx + 24 * u, hz - 11 * u); ctx.lineTo(dx - 2 * u, hz - 8 * u); ctx.fill();
     ctx.fillStyle = '#0f766e'; ctx.fillRect(dx + 26 * u, hz - 24 * u, u, 24 * u);
     ctx.fillStyle = '#f43f5e'; ctx.beginPath(); ctx.moveTo(dx + 20 * u, hz - 22 * u); ctx.quadraticCurveTo(dx + 27 * u, hz - 30 * u, dx + 34 * u, hz - 22 * u); ctx.quadraticCurveTo(dx + 27 * u, hz - 26 * u, dx + 20 * u, hz - 22 * u); ctx.fill();
-    sign(ctx, 'ATOMIC DINER', dx + 27 * u, hz - 19.5 * u, 2 * u, '#be123c', { bg: '#fff7ed' });
+    sign(ctx, 'ATOMIC DINER', dx + 27 * u, hz - 19.5 * u, 2 * u, '#be123c', { bg: '#fff7ed', maxW: 16 * u });
     spots.arrow = { x: dx + 27 * u, y: hz - 16 * u, u };
     // drive-in screen on its legs, double feature
     const sx = cx - 80 * u, sw = 26 * u, sh = 14 * u;
@@ -65,7 +65,7 @@ function build(o) {
     for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(ax - 3.4 * u, ay); ctx.lineTo(ax - (1 + i * 2.4) * u, ay + 3.5 * u); ctx.stroke(); }
     ctx.beginPath(); ctx.moveTo(ax + u, ay - u); ctx.lineTo(ax + 2.6 * u, ay - 3.4 * u); ctx.stroke();
     for (let i = 0; i < 5; i++) ctx.fillRect(sx + 2 * u + i * 2 * u, ay + 2 * u - (i % 2) * u, 1.5 * u, 2 * u + (i % 2) * u);
-    sign(ctx, 'GIANT ANTS ATE OHIO', sx + sw / 2, hz - 3 * u, 1.6 * u, '#7c2d12', { bg: '#fef3c7' });
+    sign(ctx, 'GIANT ANTS ATE OHIO', sx + sw / 2, hz - 3 * u, 1.6 * u, '#7c2d12', { bg: '#fef3c7', maxW: sw - 2 * u });
     // the cable: from the tower's top down to a lamppost across the street
     const lx = cx + 17 * u;
     lamp(ctx, lx, hz, 14 * u, '#3f3a32', '#fef9c3', null);

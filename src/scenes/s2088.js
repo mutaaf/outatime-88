@@ -35,9 +35,9 @@ function build(o) {
 
   const mid = strip(o, (ctx, W, hz, u) => {
     for (let x = 0; x < W;) { const w = (10 + r() * 12) * u, h = (14 + r() * 26) * u; building(ctx, r, x, hz, w, h, '#0d0420', 'rgba(110,231,255,0.55)', 0.35); x += w + 2 * u; }
-    sign(ctx, 'NOODLE BAR', W * 0.18, hz - 9 * u, 2.6 * u, '#fb7185', { glow: 7 * u, bg: 'rgba(20,0,20,0.6)' });
-    sign(ctx, '麺', W * 0.18 + 12 * u, hz - 14 * u, 4 * u, '#fda4af', { glow: 6 * u });
-    sign(ctx, 'ENHANCE', W * 0.42, hz - 22 * u, 2.4 * u, '#a5f3fc', { glow: 7 * u, bg: 'rgba(0,10,30,0.6)' });
+    sign(ctx, 'NOODLE BAR', W * 0.18, hz - 9 * u, 2.6 * u, '#fb7185', { glow: 7 * u, bg: 'rgba(20,0,20,0.6)', maxW: 20 * u });
+    sign(ctx, '麺', W * 0.18 + 12 * u, hz - 14 * u, 4 * u, '#fda4af', { glow: 6 * u, maxW: 6 * u });
+    sign(ctx, 'ENHANCE', W * 0.42, hz - 22 * u, 2.4 * u, '#a5f3fc', { glow: 7 * u, bg: 'rgba(0,10,30,0.6)', maxW: 16 * u });
     // TERMINUS ROBOTICS billboard with an original chrome robot skull
     const bx = W * 0.62, by = hz - 36 * u;
     ctx.fillStyle = '#05010c'; ctx.fillRect(bx - 16 * u, by, 32 * u, 16 * u);
@@ -48,9 +48,9 @@ function build(o) {
     ctx.fillStyle = '#0f172a'; ctx.fillRect(sx - sr * 0.6, sy - sr * 0.1, sr * 0.45, sr * 0.3); ctx.fillRect(sx + sr * 0.15, sy - sr * 0.1, sr * 0.45, sr * 0.3);
     for (let i = 0; i < 5; i++) ctx.fillRect(sx - sr * 0.55 + i * sr * 0.25, sy + sr * 0.4, sr * 0.12, sr * 0.2);
     spots.eyes = { x: sx, y: sy, r: sr };
-    sign(ctx, 'TERMINUS', bx + 5 * u, by + 5.5 * u, 2.4 * u, '#fecdd3');
-    sign(ctx, 'ROBOTICS', bx + 5 * u, by + 9 * u, 2.4 * u, '#fecdd3');
-    sign(ctx, 'WE NEVER SLEEP', bx + 5 * u, by + 13 * u, 1.3 * u, '#f43f5e');
+    sign(ctx, 'TERMINUS', bx + 5 * u, by + 5.5 * u, 2.4 * u, '#fecdd3', { maxW: 18 * u });
+    sign(ctx, 'ROBOTICS', bx + 5 * u, by + 9 * u, 2.4 * u, '#fecdd3', { maxW: 18 * u });
+    sign(ctx, 'WE NEVER SLEEP', bx + 5 * u, by + 13 * u, 1.3 * u, '#f43f5e', { maxW: 18 * u });
     haze(ctx, W, hz - 10 * u, hz, 'rgba(76,15,92,0.8)', 0.3);
   });
   reflect(mid.getContext('2d'), mid, Math.round(o.hz0 * o.k), Math.round(o.rh * 0.22 * o.k), 0.4);

@@ -164,3 +164,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-31 · 0232 · A first-time player's title chip reads "BEST —" until a run has scored, instead of a lonely "BEST 0"
 2026-10-31 · 0234 · Big screen flashes (warp, storm lightning) are capped at three a second; any extra shows at its calm strength
 2026-10-31 · 0235 · A pickup's glow and white ring stop growing as it nears you and fade out, so a close NOS can or coin no longer hides the traffic behind it
+2026-10-31 · 0236 · Shop, cinema and road signs in every era show whole words that fit their boards (smaller type first, then whole words dropped), never text spilling past the sign or cut mid-word

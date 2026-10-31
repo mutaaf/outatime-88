@@ -60,22 +60,89 @@ export function building(ctx, r, x, base, w, h, body, lit, density = 0.4, roof =
   }
 }
 
-/** Neon / painted sign text. Glow uses shadowBlur, which is fine at build time. */
-export function sign(ctx, text, x, y, size, color, { glow = 0, font = 'bold', align = 'center', bg = null, pad = 0.35 } = {}) {
+// A sign shows whole words or nothing (ticket 0236). Text too wide for the `maxW` it is painted
+// on first gets a smaller font (down to SIGN_MIN_PX, the layer is drawn scaled up on screen);
+// if it still can't fit, it loses trailing words (and the separator left dangling), keeping the
+// most words any size down to SIGN_MIN_PX allows, until it fits squeezed by at most SIGN_SQUEEZE; if not even the first word fits, the sign
+// is left blank. Runs at scene build, never per frame.
+export const SIGN_SQUEEZE = 0.8;
+export const SIGN_MIN_PX = 4;
+const DANGLING = /[\s·+&:,\-–—|/]+$/u;
+const LINKS = new Set(['A', 'AN', 'AND', 'AT', 'IN', 'OF', 'ON', 'THE', 'TO']); // never end a cut sign on one
+const trim = (t) => {
+  for (;;) {
+    t = t.replace(DANGLING, '');
+    const i = t.lastIndexOf(' ');
+    if (i < 0 || !LINKS.has(t.slice(i + 1).toUpperCase())) return t;
+    t = t.slice(0, i);
+  }
+};
+const signFont = (font, px) => `${font} ${px}px "Courier New", monospace`;
+
+/**
+ * Longest whole-word prefix of `text` that `measure`s within maxW / SIGN_SQUEEZE ('' if none),
+ * never ending on a separator or a linking word ("GULCH OF" → "GULCH").
+ */
+export function fitWords(text, maxW, measure) {
+  if (!(maxW > 0)) return '';
+  let t = text.replace(DANGLING, '');
+  while (t && measure(t) * SIGN_SQUEEZE > maxW) {
+    const i = t.lastIndexOf(' ');
+    t = i < 0 ? '' : trim(t.slice(0, i));
+  }
+  return t;
+}
+
+/**
+ * Neon / painted sign text, fitted to `maxW` when given; `alt` is a shorter wording shown whole
+ * when `text` can't be (a countdown keeps its number). Glow uses shadowBlur, which is fine at
+ * build time. Returns the text it drew ('' when none fit).
+ */
+export function sign(ctx, text, x, y, size, color, { maxW, alt, glow = 0, font = 'bold', align = 'center', bg = null, pad = 0.35 } = {}) {
   ctx.save();
-  ctx.font = `${font} ${Math.max(6, Math.round(size))}px "Courier New", monospace`;
+  const base = Math.max(6, Math.round(size));
+  let px = base;
+  ctx.font = signFont(font, base);
+  let t = text;
+  if (maxW !== undefined) {
+    const measure = (s) => ctx.measureText(s).width;
+    const shrinkTo = (s) => { // the largest size from base down to SIGN_MIN_PX that holds s whole
+      for (px = base; px >= SIGN_MIN_PX; px--) {
+        ctx.font = signFont(font, px);
+        if (measure(s) * SIGN_SQUEEZE <= maxW) return true;
+      }
+      return false;
+    };
+    if (!shrinkTo(text)) {
+      if (alt && shrinkTo(alt)) t = alt;
+      else { // the most words at any size down to SIGN_MIN_PX (ties keep the larger size)
+        t = ''; let best = base;
+        for (px = base; px >= SIGN_MIN_PX; px--) {
+          ctx.font = signFont(font, px);
+          const f = fitWords(text, maxW, measure);
+          if (f.length > t.length) { t = f; best = px; }
+        }
+        ctx.font = signFont(font, px = best);
+      }
+    }
+  }
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
-  if (bg) {
-    const m = ctx.measureText(text).width;
-    const bx = align === 'center' ? x - m / 2 : x;
-    ctx.fillStyle = bg;
-    ctx.fillRect(bx - size * pad, y - size * 0.7, m + size * pad * 2, size * 1.4);
+  if (t) {
+    if (bg) {
+      const m = Math.min(ctx.measureText(t).width, maxW ?? Infinity);
+      const bx = align === 'center' ? x - m / 2 : x;
+      ctx.fillStyle = bg;
+      const sz = Math.min(size, px); // padding follows a shrunk font
+      ctx.fillRect(bx - sz * pad, y - sz * 0.7, m + sz * pad * 2, sz * 1.4);
+    }
+    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
+    ctx.fillStyle = color;
+    if (maxW === undefined) ctx.fillText(t, x, y);
+    else ctx.fillText(t, x, y, maxW); // squeezes (never past SIGN_SQUEEZE) only when it must
   }
-  if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
   ctx.restore();
+  return t;
 }
 
 /** Atmospheric perspective: fade a band toward the horizon colour. */

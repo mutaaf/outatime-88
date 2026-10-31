@@ -45,23 +45,23 @@ function build(o) {
   const mid = strip(o, (ctx, W, hz, u) => {
     const cx = W * 0.5;
     // shops either side of the courthouse
-    const shop = (x, w, h, body, label, col, extra) => {
+    const shop = (x, w, h, body, label, col, extra, size = 3.2) => {
       building(ctx, r, x, hz, w, h, body, C.midLit, 0.35);
       ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x + w * 0.08, hz - h * 0.28, w * 0.84, h * 0.24); // shopfront
-      if (label) sign(ctx, label, x + w / 2, hz - h * 0.36, Math.max(5, 3.2 * u), col, { glow: 6 * u });
+      if (label) sign(ctx, label, x + w / 2, hz - h * 0.36, Math.max(5, size * u), col, { glow: 6 * u, maxW: w });
       if (extra) extra(x, w, h);
     };
     shop(cx - 78 * u, 18 * u, 18 * u, '#1b0b2e', "DOT'S DINER", '#ff6ec7');
     shop(cx - 58 * u, 20 * u, 24 * u, '#160a28', 'BIJOU', '#ffd166', (x, w, h) => {
       ctx.fillStyle = '#2a0d1f'; ctx.fillRect(x - u, hz - h * 0.62, w + 2 * u, 7 * u); // marquee
-      sign(ctx, 'ALIENS FROM PLUTO II', x + w / 2, hz - h * 0.62 + 2.3 * u, 2.1 * u, '#fff7d6');
-      sign(ctx, '+ ATTACK OF THE 50 FT MALL', x + w / 2, hz - h * 0.62 + 5 * u, 1.6 * u, '#ffd166');
+      sign(ctx, 'ALIENS FROM PLUTO II', x + w / 2, hz - h * 0.62 + 2.3 * u, 2.1 * u, '#fff7d6', { maxW: w });
+      sign(ctx, '+ ATTACK OF THE 50 FT MALL', x + w / 2, hz - h * 0.62 + 5 * u, 1.6 * u, '#ffd166', { maxW: w });
       spots.marquee = { x: x - u, y: hz - h * 0.62, w: w + 2 * u };
     });
     shop(cx - 36 * u, 14 * u, 15 * u, '#1d0d30', null, null, (x, w, h) => {
-      ctx.fillStyle = '#e8e0ff'; ctx.fillRect(x + w * 0.2, hz - h * 0.95, w * 0.6, h * 0.42); // flyer kiosk
-      sign(ctx, 'SAVE OUR', x + w / 2, hz - h * 0.85, 1.7 * u, '#2d114d');
-      sign(ctx, 'CLOCK TOWER!', x + w / 2, hz - h * 0.72, 1.7 * u, '#b0123b');
+      ctx.fillStyle = '#e8e0ff'; ctx.fillRect(x + w * 0.1, hz - h * 0.95, w * 0.8, h * 0.42); // flyer kiosk
+      sign(ctx, 'SAVE OUR', x + w / 2, hz - h * 0.85, 1.7 * u, '#2d114d', { maxW: w * 0.8 });
+      sign(ctx, 'CLOCK TOWER!', x + w / 2, hz - h * 0.72, 1.7 * u, '#b0123b', { maxW: w * 0.8 });
     });
     const tower = clockTower(ctx, cx, hz, 13 * u, 46 * u, '#1a0c2a', '#cbd5e1', '#fef08a');
     spots.tower = tower;
@@ -72,10 +72,10 @@ function build(o) {
       ctx.fillStyle = '#f4f4f5'; ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#9ca3af'; ctx.fillRect(ex - er * 0.55, ey - er * 0.75, er * 1.1, er * 1.5); // jar
       ctx.fillStyle = '#86efac'; ctx.beginPath(); ctx.arc(ex, ey - er * 0.05, er * 0.38, Math.PI, 0); ctx.lineTo(ex + er * 0.38, ey + er * 0.45); ctx.lineTo(ex - er * 0.38, ey + er * 0.45); ctx.fill();
-      sign(ctx, 'PARANORMAL DIV.', x + w / 2, hz - h * 0.18, 1.6 * u, '#fecaca');
+      sign(ctx, 'PARANORMAL DIV.', x + w / 2, hz - h * 0.18, 1.6 * u, '#fecaca', { maxW: w * 0.7 });
     });
     shop(cx + 52 * u, 18 * u, 26 * u, '#140a26', 'ARCADE', '#22d3ee');
-    shop(cx + 72 * u, 16 * u, 14 * u, '#1c0a24', 'VHS · LASERDISC', '#c084fc');
+    shop(cx + 72 * u, 16 * u, 14 * u, '#1c0a24', 'VHS · LASERDISC', '#c084fc', null, 2.2);
     // the rest of the roofline wraps round the tile
     for (let x = cx + 92 * u; x < W + cx - 82 * u; x += 16 * u) building(ctx, r, x % W, hz, 14 * u, (10 + r() * 14) * u, '#130824', C.midLit, 0.3);
   });

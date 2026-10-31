@@ -58,12 +58,12 @@ function build(o) {
     // pylon sign: the count word and the elms are drawn live (one elm goes after lap 1)
     ctx.fillStyle = '#0f0b1f'; ctx.fillRect(mx + 40 * u, hz - 30 * u, 1.6 * u, 30 * u);
     ctx.fillStyle = '#231a3d'; ctx.fillRect(mx + 30 * u, hz - 36 * u, 22 * u, 9 * u);
-    sign(ctx, MALL.name, mx + 41 * u, hz - 29.5 * u, 2.6 * u, '#7dd3fc', { glow: 5 * u });
+    sign(ctx, MALL.name, mx + 41 * u, hz - 29.5 * u, 2.6 * u, '#7dd3fc', { glow: 5 * u, maxW: 20 * u });
     spots.pylon = { x: mx + 41 * u, y: hz - 33.6 * u, u };
     spots.elms = { x: mx + 41 * u, base: hz - 36 * u, u };
     // strip mall: arcade, video store, dojo
     const sx = W * 0.62;
-    const unit = (x, w, label, col) => { ctx.fillStyle = '#1b1530'; ctx.fillRect(x, hz - 12 * u, w, 12 * u); ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x + u, hz - 7 * u, w - 2 * u, 7 * u); sign(ctx, label, x + w / 2, hz - 9.5 * u, 2.2 * u, col, { glow: 5 * u }); };
+    const unit = (x, w, label, col) => { ctx.fillStyle = '#1b1530'; ctx.fillRect(x, hz - 12 * u, w, 12 * u); ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x + u, hz - 7 * u, w - 2 * u, 7 * u); sign(ctx, label, x + w / 2, hz - 9.5 * u, 2.2 * u, col, { glow: 5 * u, maxW: w }); };
     for (let i = 0, x = sx; i < SHOPS.length; x += (SHOPS[i][1] + 1) * u, i++) unit(x, SHOPS[i][1] * u, SHOPS[i][0], SHOPS[i][2]);
     spots.cab = { x: sx + 4 * u, y: hz - 6 * u, u };
     // houses round the rest of the tile; one has the flickering string lights
@@ -89,7 +89,7 @@ function build(o) {
     }
   });
 
-  const word = (txt) => sprite(22 * unitOf(o.hz0 * o.k), 4 * unitOf(o.hz0 * o.k), (ctx, w, h) => sign(ctx, txt, w / 2, h / 2, h * 0.8, '#7dd3fc', { glow: 2 }));
+  const word = (txt) => sprite(22 * unitOf(o.hz0 * o.k), 4 * unitOf(o.hz0 * o.k), (ctx, w, h) => sign(ctx, txt, w / 2, h / 2, h * 0.8, '#7dd3fc', { glow: 2, maxW: w }));
   return {
     sky, pad: o.pad, hzL: Math.round(o.hz0 * o.k), focus: spots.pylon.x - 10 * (spots.pylon.u),
     layers: [{ c: far, f: 0.1 }, { c: mid, f: 0.3 }, { c: near, f: 0.6 }],
