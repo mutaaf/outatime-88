@@ -1,12 +1,12 @@
 ---
 id: 0232
 title: A first-time player's title chip shows "BEST —", not a lonely "BEST 0"
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-10-31
-pr:
+pr: 205
 ---
 
 ## Why

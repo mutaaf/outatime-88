@@ -1632,7 +1632,7 @@ window.onload = () => {
   if (!selectCharacterByIndex(Math.max(0, savedCar))) selectCharacterByIndex(0);
   renderLevelSelectGrid();
   setTimeout(() => syncRunnerUi(true), 0); // endless goals on the title (ticket 0151)
-  document.getElementById('titleBestScore').textContent = SaveStore.data.bestScore.toLocaleString();
+  paintTitleBest();
   document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
   const playHint = document.getElementById('playHint');
   if (playHint) playHint.textContent = coarsePointer ? 'ENDLESS HIGHWAY · TAP ANYWHERE' : 'ENDLESS HIGHWAY · PRESS ENTER';
@@ -1666,9 +1666,16 @@ let titleStart; // a deep link can make the title tap start today's daily (ticke
 function renderRacerPill(p) {
   const name = document.getElementById('racerPillName');
   if (name) name.textContent = p?.initials || SaveStore.data.initials || 'RACER';
-  const best = document.getElementById('titleBestScore');
-  if (best) best.textContent = SaveStore.data.bestScore.toLocaleString();
+  paintTitleBest();
   updateTitleChip();
+}
+
+// The title chip's best (0232): a dash until a run has scored, never a lonely "BEST 0".
+function paintTitleBest() {
+  const el = document.getElementById('titleBestScore'), b = SaveStore.data.bestScore;
+  if (!el) return;
+  el.textContent = b > 0 ? b.toLocaleString() : '—';
+  if (b > 0) el.removeAttribute('aria-label'); else el.setAttribute('aria-label', 'No best score yet');
 }
 
 // Shared-module bindings the lazy race-step.js chunk uses, as one object (see there).
