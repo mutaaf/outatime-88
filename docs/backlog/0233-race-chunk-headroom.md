@@ -1,7 +1,7 @@
 ---
 id: 0233
 title: Free ~1.5 kB gz of headroom in the race-step and race-flow chunks so the next race features fit
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: tech-health

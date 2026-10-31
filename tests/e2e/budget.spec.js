@@ -44,7 +44,7 @@ test('the race step is a lazy chunk in its own budget (0170)', () => {
   const step = files.filter((f) => /^race-step-.*\.js$/.test(f));
   expect(step.length).toBe(1);
   console.log(`[budget] race-step ${gz(step[0]).toFixed(2)} kB gzipped (limit 23)`); // the CI number, in the CI log
-  expect(gz(step[0])).toBeLessThan(23); // today ~22.8 kB (0231 resume beat; 0222 NOS tap toggle; 0223 moved scoring and the fork cue in; 0176: race start/finish, coach and HUD are race-flow): updateGame, traffic stepping
+  expect(gz(step[0])).toBeLessThan(23); // today ~21.9 kB (0233 moved the lane guide and arrival stretch to race-late, the coach's obstacle cards in; 0231 resume beat; 0222 NOS tap toggle; 0223 moved scoring and the fork cue in; 0176: race start/finish, coach and HUD are race-flow): updateGame, traffic stepping
   for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('TOO SLOW FOR THE LOOP');
 });
 
@@ -52,8 +52,18 @@ test('race start/finish, the coach and the race HUD are their own lazy chunk (01
   const files = readdirSync(DIR);
   const flow = files.filter((f) => /^race-flow-.*\.js$/.test(f));
   expect(flow.length).toBe(1);
-  expect(gz(flow[0])).toBeLessThan(9); // today ~7.1 kB
+  expect(gz(flow[0])).toBeLessThan(9); // today ~8.3 kB (0233: names only it reads are no longer exported, the coach's obstacle cards went to race-step)
   expect(startup()).not.toContain(flow[0]); // never part of what a first visit downloads
+});
+
+test('the lane guide and arrival stretch are their own small lazy chunk (0233)', () => {
+  const files = readdirSync(DIR);
+  const late = files.filter((f) => /^race-late-.*\.js$/.test(f));
+  expect(late.length).toBe(1);
+  expect(gz(late[0])).toBeLessThan(3); // today ~1.7 kB
+  expect(startup()).not.toContain(late[0]);
+  const step = files.find((f) => /^race-step-.*\.js$/.test(f));
+  expect(readFileSync(`${DIR}/${step}`, 'utf8')).not.toContain('lo:330,hi:880'); // the guide's GUIDE table is not in the step chunk
 });
 
 test('the rigid-body world is its own small lazy chunk (0176)', () => {

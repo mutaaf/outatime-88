@@ -3,7 +3,7 @@
 // Silent while your lane is clear, and silent when no open lane can be reached without crossing
 // another one that is closing (it never points into another hit). It gives the information; the
 // player decides. Settings → Sound → "Lane guide" (saved as settings.laneGuide, off unless true)
-// turns it on; Mute silences it like everything else. Race-step chunk only, never in main.
+// turns it on; Mute silences it like everything else. Lazy: src/race-late.js's chunk (0233), never in main.
 //
 // Per step it allocates nothing: the gain and panner are built once per audio context, and the
 // oscillator is started when guidance begins and stopped after GUIDE.rest seconds of quiet. Its

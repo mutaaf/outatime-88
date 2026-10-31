@@ -26,3 +26,19 @@ export function dockDeskCoach(banner, again) {
     for (const id of ['hudPosCard', 'hudTrack', 'hudTimes']) deskWatch.observe($(id));
   }
 }
+
+/** The coach card for the obstacle ahead (0002) as [icon, title, line], or null when there is
+ *  nothing to say (a wrench at full HP). In this chunk with the dock, for the same reason (0233). */
+export function obstacleTip(item, fullHp) {
+  const t = item.type;
+  const open = item.offset >= 0 ? '◀ LEFT' : 'RIGHT ▶';
+  if (t === 'PINE_TREE_HAZARD') return ['🌲', 'TREE AHEAD', `Graze the gold ring for a slingshot — or go ${open}`];
+  if (t === 'LOW_LASER_BAR') return ['🟠', 'LOW LASER', `Hop it (W / ▲ / swipe up) — or go ${open}`];
+  if (t === 'HIGH_LIGHT_GATE') return ['🔵', 'HIGH GATE', `Hold drift to duck (S / ▼ / swipe down) — or go ${open}`];
+  if (t === 'FLUX_CRATE') return ['📦', 'FLUX CRATE', 'Smash straight through it for flux + HP'];
+  if (t === 'REPAIR_WRENCH') {
+    if (fullHp) return null;
+    return ['🔧', 'REPAIR', `Grab the wrench (${item.offset < 0 ? 'left' : (item.offset > 0 ? 'right' : 'center')}) for +25 HP`];
+  }
+  return ['⚡', 'BARRIER', `Go ${open}, jump it, or boost-smash it`];
+}
