@@ -273,9 +273,11 @@ test.describe('title chip best (0232)', () => {
     expect(problems).toEqual([]);
   });
   test('a save with a best score shows it as before', async ({ page }) => {
+    const problems = watchPage(page);
     await page.addInitScript(() => localStorage.setItem('outatime_cruisn_88_save_v2', JSON.stringify({ onboarded: true, bestScore: 1234 })));
     await page.goto(APP);
     await expect(best(page)).toHaveText('1,234');
     await expect(best(page)).not.toHaveAttribute('aria-label', /./);
+    expect(problems).toEqual([]);
   });
 });
