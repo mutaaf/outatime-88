@@ -165,16 +165,19 @@ export function renderScene() {
   const shakeX = feel.shake * Math.sin(RS.fxClock * 61.0) * (viewW / 1280);
   const shakeY = feel.shake * Math.sin(RS.fxClock * 47.0 + 1.3) * (viewW / 1280);
   mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX, shakeY, viewW, viewH);
-  // Time-warp chromatic split: two offset additive ghosts for ~0.9 s after a warp.
+  // Time-warp chromatic split: two offset additive ghosts for ~0.9 s after a warp (not when the
+  // flash budget held the warp's flash back, 0234: warpLit is false then, and under calm motion).
   if (GameState.warpFxTimer > 0 && !GameState.reducedMotion) {
     const k = GameState.warpFxTimer / 0.9;
-    const off = 10 * k * (viewW / 1280);
-    mainCtx.globalCompositeOperation = 'lighter';
-    mainCtx.globalAlpha = 0.22 * k;
-    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, viewW, viewH);
-    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, viewW, viewH);
-    mainCtx.globalAlpha = 1;
-    mainCtx.globalCompositeOperation = 'source-over';
+    if (GameState.warpLit) {
+      const off = 10 * k * (viewW / 1280);
+      mainCtx.globalCompositeOperation = 'lighter';
+      mainCtx.globalAlpha = 0.22 * k;
+      mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, viewW, viewH);
+      mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, viewW, viewH);
+      mainCtx.globalAlpha = 1;
+      mainCtx.globalCompositeOperation = 'source-over';
+    }
     drawWarpTunnel(mainCtx, k);
   }
   drawSpeedLines(mainCtx, feel.lines);

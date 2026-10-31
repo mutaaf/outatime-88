@@ -1,7 +1,7 @@
 // Flash budget (ticket 0234): a warp, a hit and four storm-bolt strikes packed into one second of
 // race time ask for five large flashes; the budget lets three through and shows the other two at
-// their calm-motion strength, and the flash probe (tests/e2e/helpers.js) sees no more than three
-// on screen in any second. Hazards are laid out in race seconds, so a slow runner only spreads
+// their calm-motion strength (the flash log proves it). A hit has no large flash, so it never asks.
+// The flash probe (tests/e2e/helpers.js) is a backstop: nothing on screen rises past 3 a second. Hazards are laid out in race seconds, so a slow runner only spreads
 // the strikes out; it can't pack them closer than the race clock does.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage, installFlashProbe, startFlashProbe, stopFlashProbe, flashRises, simWait, FLASH_MIN } from './helpers.js';
@@ -31,7 +31,8 @@ test('a warp, a hit and four strikes in one second light the screen at most 3 ti
   const log0 = await page.evaluate(() => ({ ...window.__OT.GameState.flashLog }));
   await startFlashProbe(page);
   // The warp first (forced the way flash-guard.spec does), then, in the same frame it lands, a hit
-  // and four strikes ~0.2 s apart (ahead − 0.25 s each), all inside a second of the warp.
+  // and four strikes ~0.15 s apart (ahead − 0.25 s each), all well inside a second of the warp.
+  // The Time Storm's own bolts are held off so only these strike.
   const { t0, lag } = await page.evaluate(() => new Promise((done) => {
     const ot = window.__OT, g = ot.GameState, b = g.timeWarps;
     (function poll() {
@@ -41,11 +42,12 @@ test('a warp, a hit and four strikes in one second light the screen at most 3 ti
         return;
       }
       g.invulnTimer = 0; ot.damage(4, 'BARREL HIT'); g.invulnTimer = 60; g.hp = Math.max(g.hp, 60);
-      [0.45, 0.65, 0.85, 1.05].forEach((a, i) => ot.hazard('LIGHTNING', a, i % 2 ? 2 : 0));
+      g.hz.boltT = 99;
+      [0.4, 0.55, 0.7, 0.85].forEach((a, i) => ot.hazard('LIGHTNING', a, i % 2 ? 2 : 0));
       done({ t0: g.raceTime, lag: g.sinceWarp });
     })();
   }));
-  expect(lag).toBeLessThan(0.15);
+  expect(lag).toBeLessThan(0.1);
   expect(await simWait(page, 1.6)).toBe(true);
   const r = flashRises(await stopFlashProbe(page));
   const { log, raceTime, warpLit } = await page.evaluate(() => ({ log: window.__OT.GameState.flashLog, raceTime: window.__OT.GameState.raceTime, warpLit: window.__OT.GameState.warpLit }));

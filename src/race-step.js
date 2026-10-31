@@ -33,7 +33,7 @@ import { createProximityCue } from './proximity-cue.js';
 import { nosToggle, nosSettle } from './nos-toggle.js';
 import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
 import { createResumeBeat } from './resume-beat.js';
-import { allowFlash, flashLog } from './flash-budget.js';
+import { allowFlash, flashLog, resetFlashBudget } from './flash-budget.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
   airRefills, createFair, fairStep, pressJump, takeHang, takeJuke, takeJump, takeTrick, FAIR
@@ -590,6 +590,7 @@ let latCarP = null, latTires = 0;
 
 export function resetNos() {
   if (!late) loadLate(); // every race start comes through here
+  resetFlashBudget(); GameState.warpLit = true; // the race clock starts over (0234)
   const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   const spec = CAR_SPECS[c.id];
   RS.nos = createNos(nosFor(spec ? spec.stats.flux : 5));

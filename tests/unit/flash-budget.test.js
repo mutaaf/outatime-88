@@ -54,6 +54,13 @@ describe('allowFlash', () => {
     expect(allowFlash(700, 1)).toBe(false);
   });
 
+  it('a race start forgets the last race, even once the new clock catches up with it', () => {
+    allowFlash(60000, 1); allowFlash(60300, 1); allowFlash(60600, 1);
+    resetFlashBudget(true); // race-step resetNos at the next race start
+    expect(allowFlash(60700, 1)).toBe(true);
+    expect(flashLog.allowed).toBe(4); // keepLog: totals carry on for the e2e
+  });
+
   it('a stream of flashes never puts more than 3 in any 1000 ms window', () => {
     const lit = [];
     for (let t = 0; t < 10000; t += 37) {

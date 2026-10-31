@@ -117,7 +117,7 @@ export function draw(ctx, rw, rh, hz, era, s) {
 
   const W = built.layers.length ? built.layers[0].c.width / built.k : rw;
   F.era = id; F.t = s.t; F.raceTime = s.raceTime; F.speed = s.speed; F.lap = s.lap; F.laps = s.laps;
-  F.warp = s.warp; F.reduced = s.reduced; F.lit = s.lit !== false; F.detail = T.detail; F.weather = T.weather; F.rw = rw; F.rh = rh; F.hz = hz; F.k = built.k; F.W = W; F.mem = built.mem;
+  F.warp = s.warp; F.reduced = s.reduced; F.lit = s.lit !== false && !s.reduced; F.detail = T.detail; F.weather = T.weather; F.rw = rw; F.rh = rh; F.hz = hz; F.k = built.k; F.W = W; F.mem = built.mem;
 
   // Sky + ground plate (static; slides with the horizon when the road pitches).
   const sky = built.sky;

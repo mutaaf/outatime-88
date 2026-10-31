@@ -1184,7 +1184,7 @@ export function createView3D({ container, state, track, era, collectCars, obstac
       syncPost();
       renderer.info.reset();
       if (post) {
-        post.setWarp(state.warpFxTimer > 0 && !state.reducedMotion ? state.warpFxTimer / 0.9 : 0);
+        post.setWarp(state.warpFxTimer > 0 && state.warpLit && !state.reducedMotion ? state.warpFxTimer / 0.9 : 0);
         post.render();
       } else {
         renderer.render(scene, camera);
