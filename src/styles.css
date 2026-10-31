@@ -1052,3 +1052,8 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
   color: #052e16; background: linear-gradient(180deg, #86efac, #22c55e); border: 1px solid #bbf7d0; cursor: pointer; }
 .bonus-ad.hidden { display: none; }
 .bonus-ad:disabled { opacity: 0.6; cursor: wait; }
+/* 0231: the resume beat's 3, 2, 1 is one big number in the announcer's pill. The number swaps
+   in place (no slide), and calm motion drops the scale pop. */
+#announcerMain.is-beat { font-size: clamp(28px, 8vw, 44px); line-height: 1.1; padding: 2px 22px; transition: opacity 0.12s; }
+[data-motion="reduce"] #announcerMain.is-beat { transform: none !important; transition: none; }
+@media (prefers-reduced-motion: reduce) { #announcerMain.is-beat { transform: none !important; transition: none; } }

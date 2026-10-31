@@ -44,7 +44,7 @@ test('the race step is a lazy chunk in its own budget (0170)', () => {
   const step = files.filter((f) => /^race-step-.*\.js$/.test(f));
   expect(step.length).toBe(1);
   console.log(`[budget] race-step ${gz(step[0]).toFixed(2)} kB gzipped (limit 23)`); // the CI number, in the CI log
-  expect(gz(step[0])).toBeLessThan(23); // today ~22.4 kB (0222 NOS tap toggle; 0223 moved scoring and the fork cue in; 0176: race start/finish, coach and HUD are race-flow): updateGame, traffic stepping
+  expect(gz(step[0])).toBeLessThan(23); // today ~22.8 kB (0231 resume beat; 0222 NOS tap toggle; 0223 moved scoring and the fork cue in; 0176: race start/finish, coach and HUD are race-flow): updateGame, traffic stepping
   for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('TOO SLOW FOR THE LOOP');
 });
 

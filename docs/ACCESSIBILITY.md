@@ -23,6 +23,7 @@ or link a ticket in the Visual twin column.
 | You gain a place | `playTone` (660 Hz) | `race-flow.js` | Callout announcement, and the place card changes |
 | Final lap | `playTone` (784 Hz) + speech | `race-flow.js` | Priority-3 FINAL LAP announcement, and the lap counter |
 | Finish: fanfare by place (win, podium, other) + "You win!" | `fanfare` + speech | `race-flow.js`, `racestage.js` | The flag and place card, podium rows and the results card |
+| Resume beat after a pause, 3 → 2 → 1 (0231) | `playBeep` | `race-step.js` | The big 3, 2, 1 in the announcer slot (GET READY) |
 | Live race: countdown, GO, you finished | `playBeep`, `playCheckpoint` via `hooks.beep` | `live/controller.js`, `main.js` | The lobby's countdown numbers, the GO callout, and the YOU WIN / YOU FINISHED callout |
 | Spoken announcer line | speech | `main.js` | The same text in the announcement channel |
 | WARP READY | `playTone` (rising tick) | `race-step.js` | WARP READY label, and the touch WARP button's READY + double border (0112) |
@@ -74,7 +75,7 @@ live/controller.js 3
 main.js 6
 race-flow.js 8
 race-specials.js 5
-race-step.js 48
+race-step.js 49
 racestage.js 4
 render/scene.js 1
 touch/bridge.js 1
