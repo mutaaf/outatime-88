@@ -87,7 +87,7 @@ test('siblings on one device switch racers with one tap and keep their own saves
   await page.locator('#btnRacer').click();
   await clickAndReload(page, page.locator('.racer-chip-add'));
   await pillReads(page, 'RACER');
-  await expect(page.locator('#titleBestScore')).toHaveText('0');
+  await expect(page.locator('#titleBestScore')).toHaveText('—'); // a new racer has no best yet (0232)
 
   await page.locator('#btnRacer').click();
   await expect(page.locator('.racer-chip')).toHaveCount(3); // CLD, the new racer, + NEW RACER
