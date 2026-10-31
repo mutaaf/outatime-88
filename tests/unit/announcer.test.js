@@ -24,6 +24,18 @@ describe('announcer queue (ticket 0002)', () => {
     expect(r.visible).toBe(null);
   });
 
+  it('dismiss() takes down only the named message and lets the queue through (0231)', () => {
+    const r = rig();
+    r.a.push('3', '', 1000, 4);
+    r.a.push('3D VIEW', '', 900, 1);
+    r.a.dismiss('2'); // not the one showing: nothing changes
+    expect(r.visible.main).toBe('3');
+    r.a.dismiss('3');
+    expect(r.visible.main).toBe('3D VIEW');
+    r.a.dismiss('3');
+    expect(r.visible.main).toBe('3D VIEW');
+  });
+
   it('equal priority waits its turn instead of drawing on top', () => {
     const r = rig();
     r.a.push('A', '', 1000, 1);

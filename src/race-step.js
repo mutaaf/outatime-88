@@ -1434,22 +1434,21 @@ export function showForkCue(state) {
 
 // Resume beat (0231, src/resume-beat.js): main's loop calls this once per frame while a race is
 // PLAYING (and once with playing false when it stops); true = hold the sim this frame. `resumed` is
-// main's "a solo race just left PAUSED". The 3, 2, 1 owns the one announcement channel.
+// main's "a solo race just left PAUSED". The 3, 2, 1 owns the one announcement channel while it runs.
 const resumeBeat = createResumeBeat();
 GameState.resumeBeat = 0;
 export function resumeHold(frameSeconds, resumed, playing) {
   if (!playing) resumeBeat.stop();
   else if (resumed) resumeBeat.start();
   const b = resumeBeat.tick(frameSeconds);
-  if (b.n === GameState.resumeBeat) return b.active;
+  const was = GameState.resumeBeat;
+  if (b.n === was) return b.active;
   GameState.resumeBeat = b.n;
-  const el = document.getElementById('announcerMain');
-  if (el) el.classList.toggle('is-beat', b.n > 0);
-  announcer.clear();
   if (b.n) {
-    triggerAnnouncement(String(b.n), 'GET READY', 1000, 4);
+    // Each number outranks the last (priority 4, 5, 6: above every callout), so it replaces it in place.
+    triggerAnnouncement(String(b.n), 'GET READY', 1000, 7 - b.n);
     SoundEngine.playBeep(false);
-  }
+  } else announcer.dismiss(String(was)); // whatever queued behind the beat shows next
   return b.active;
 }
 

@@ -243,6 +243,10 @@ test.describe('resume beat (keyboard, 1280x720)', () => {
     const d0 = log.find((r) => r.s === 'PAUSED').d;
     for (const r of beat) expect(r.d).toBe(d0);
     expect(beat[beat.length - 1].t - beat[0].t).toBeGreaterThan(600);
+    // The number fades out as it is (no shrink), and the next announcement is normal size.
+    await expect.poll(() => page.locator('#announcerMain').evaluate((el) => el.style.opacity)).toBe('0');
+    await page.evaluate(() => window.__OT.announce('NEXT UP', '', 900, 3));
+    await expect(page.locator('#announcerMain')).toHaveText('NEXT UP');
     expect(await page.locator('#announcerMain').evaluate((el) => el.classList.contains('is-beat'))).toBe(false);
     // Then it drives on.
     expect(await simWait(page, 0.5)).toBe(true);

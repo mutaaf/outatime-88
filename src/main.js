@@ -383,6 +383,7 @@ export const announcer = createAnnouncer({
     if (coachBanner) hideCoach(coachBanner);
     RS.coachYieldUntil = performance.now() + 350;
     mainEl.textContent = msg.main;
+    mainEl.classList.toggle('is-beat', GameState.resumeBeat > 0); // the resume beat's big 3, 2, 1 (0231)
     subEl.textContent = msg.sub;
     mainEl.style.opacity = '1';
     mainEl.style.transform = 'scale(1.06)';
@@ -1515,7 +1516,7 @@ function mainLoop(timestamp) {
     syncContactZ();
   }
   live.frame(); // live races: countdown → green light, friends' cars, our state out
-  if (forceFeel) forceFeel.frame(dt); // rumble and phone pulses (ticket 0183)
+  if (forceFeel && !held) forceFeel.frame(dt); // rumble and phone pulses (ticket 0183)
 
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);

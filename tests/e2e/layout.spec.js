@@ -179,10 +179,15 @@ test.describe('desktop tip card', () => {
       });
       expect(overlap(tip, pop), 'tip over the HP pop').toBeFalsy();
       // GOT IT still clears it for the rest of the race.
+      // Back from the pause the resume beat (0231) takes the announcer's lane, and the tip waits out
+      // the 3, 2, 1; click GOT IT once it is back, then check it stays gone past its 3 s re-show.
       await page.evaluate(() => { window.__OT.GameState.status = 'PLAYING'; });
+      await page.waitForFunction(() => window.__OT.GameState.resumeBeat > 0, null, { timeout: 10_000 });
+      await page.waitForFunction(() => window.__OT.GameState.resumeBeat === 0, null, { timeout: 10_000 });
+      await expect.poll(() => page.evaluate(() => document.getElementById('interactiveCoachBanner').style.opacity), { timeout: 10_000 }).toBe('1');
       await page.locator('#btnDismissCoach').click();
       await expect.poll(() => page.evaluate(() => document.getElementById('interactiveCoachBanner').style.opacity)).toBe('0');
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(3500);
       expect(await page.evaluate(() => document.getElementById('interactiveCoachBanner').style.opacity)).toBe('0');
       expect(problems).toEqual([]);
     });
