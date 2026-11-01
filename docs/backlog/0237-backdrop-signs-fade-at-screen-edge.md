@@ -36,18 +36,24 @@ each era; add an e2e screenshot assertion for the 2026 scene at 390x844.
 Rewriting sign copy (0189). Sponsor boards (0221 shipped).
 
 ## Notes (build)
-- `strip()` in `src/scenes/kit.js` gives its canvas a `signs` list; while it paints, `sign()` records
-  each sign's box (glow and backing plate included, layer px) and a patch: a snapshot of the layer
-  under the box taken just before the sign is painted (clipped to the canvas and the horizon, so
-  the reflection painted later stays).
-- `fadeEdgeSigns()` runs in `stage.js` right after each layer's blit: a sign whose screen box is
-  within a band (max(8 px, 4% of the width)) of an edge gets its patch laid back over it at
-  1 − `edgeAlpha` (fully once it touches the edge). Newest first, so overlapping patches restore in
-  order. No allocation; a sign well inside is untouched. The two signs drawn live (the 1985 pylon's
-  count word, the 2015 rain countdown) take the same `edgeAlpha`.
+- `strip()` in `src/scenes/kit.js` paints through a tee (a Proxy) that sends every call and setting
+  to the layer and to a sign-free twin; `sign()` draws on the layer only and records its box (text,
+  backing plate, glow up to half the font size; layer px). After the paint, each box is cropped from
+  the twin as the sign's clean patch (clipped to the canvas and the horizon, so the reflection
+  painted later stays), and the twin is dropped. Anything painted after a sign (haze, a neighbour's
+  emblem) is in its patch.
+- Signs whose boxes overlap form a group (a marquee's lines, a sign and its subtitle) and show as
+  much as their least-shown member, so a patch never slices a sign that shows whole.
+- `fadeEdgeSigns()` runs in `stage.js` right after each layer's blit: a group within a band
+  (max(8 px, 4% of the width)) of an edge gets its patches at 1 − `edgeAlpha`, fully once a member
+  touches the edge. No allocation; a sign well inside is untouched. The two live-drawn signs (the
+  1985 pylon's count word, the 2015 rain countdown) take `edgeAlpha` and follow their baked sign.
 - `?debug` `__OT.backdrop().signs` lists the drawn layers' sign records (`sx`, `w` in layer px, `v`).
-- Budget: the feature is ~450 B gz in the stage chunk. Two behaviour-neutral dedupes (roadside's own
-  canvas helper → `layer()`, one `blit()` for props and hazards) won back ~70 B; the backdrop total
-  budget goes 29 → 29.5 kB (today ~29.35).
-- Not covered: a sign's mirror image in the wet-street reflections (2015, 2026, 2088) is below the
-  horizon at 0.3–0.45 alpha and is left as is.
+- Budget: ~750 B gz in the stage chunk. Two behaviour-neutral dedupes (roadside's own canvas helper
+  → `layer()`, one `blit()` for props and hazards) won back ~70 B; the backdrop total budget goes
+  29 → 30 kB (today ~29.6).
+- First cut snapshotted the layer just before each sign; the self-review found the patch then erased
+  whatever was painted after it inside the box (the ghost-jar emblem, haze, the next shop) and that
+  a covered sign's patch could slice a neighbour showing whole. Hence the twin and the groups.
+- Not covered: a hidden sign's glow beyond half a font size stays as a soft halo, and its mirror
+  image in the wet-street reflections (2015, 2026, 2088; below the horizon at 0.3–0.45 alpha).

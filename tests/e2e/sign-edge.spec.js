@@ -34,7 +34,7 @@ for (const [width, height] of VIEWS) {
       if (key) await page.keyboard.up(key);
     }
     expect(whole, 'some signs show whole').toBeGreaterThan(0);
-    if (width === 390) expect(edge, 'the BIJOU marquee starts across the left edge on a portrait phone').toBeGreaterThan(0);
+    if (width === 390) expect(edge, 'on a portrait phone signs start across the screen edges (BIJOU left, HOOK & LADDER right)').toBeGreaterThan(0);
     expect(problems).toEqual([]);
   });
 }

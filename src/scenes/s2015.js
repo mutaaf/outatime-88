@@ -66,8 +66,9 @@ function build(o) {
     const fx = cx + 74 * u;
     ctx.fillStyle = '#061a2c'; ctx.fillRect(fx, hz - 22 * u, 16 * u, 9 * u);
     ctx.fillStyle = '#071423'; ctx.fillRect(fx + 7.4 * u, hz - 13 * u, 1.2 * u, 13 * u);
+    const n = ctx.canvas.signs.length;
     sign(ctx, 'WEATHER SVC.', fx + 8 * u, hz - 20.5 * u, 1.3 * u, '#67e8f9', { maxW: 15 * u });
-    spots.forecast = { x: fx + 8 * u, y: hz - 16.5 * u, u };
+    spots.forecast = { x: fx + 8 * u, y: hz - 16.5 * u, u, sign: ctx.canvas.signs[n] }; // the live countdown fades with it (0237)
     for (let x = cx + 96 * u; x < W + cx - 60 * u; x += 15 * u) building(ctx, r, x % W, hz, 13 * u, (12 + r() * 16) * u, '#0a1d30', 'rgba(160,240,255,0.5)', 0.3);
   });
   reflect(mid.getContext('2d'), mid, Math.round(o.hz0 * o.k), Math.round(o.rh * 0.22 * o.k), 0.45);
@@ -124,7 +125,7 @@ function anim(ctx, F, B) {
   // the forecast board, live to the second
   const n = Math.min(30, rainForecast(F.raceTime)), d = B.digits[n];
   const dw = d.width / k, dh = d.height / k, fx = F.x(1, s.forecast.x), fy = F.y(s.forecast.y);
-  const da = edgeAlpha(fx - dw / 2, dw, F.rw); // whole or faded at the screen edge (0237)
+  const da = Math.min(edgeAlpha(fx - dw / 2, dw, F.rw), s.forecast.sign ? s.forecast.sign.v : 1); // whole or faded at the screen edge (0237)
   if (da > 0) { ctx.globalAlpha = da; ctx.drawImage(d, fx - dw / 2, fy - dh / 2, dw, dh); ctx.globalAlpha = 1; }
   // a clock-tower beacon blinking for the air lanes
   if (F.reduced || blink(F.t, 1.4, 0.3)) { ctx.fillStyle = '#f43f5e'; ctx.fillRect(F.x(1, s.tower.x) - 1, F.y(s.tower.top) - 2, 2, 2); }

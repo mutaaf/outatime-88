@@ -9,7 +9,7 @@ const GLYPH = 0.6; // Courier New: a glyph is 0.6 em wide
 const pxOf = (font) => parseFloat(/(\d+(\.\d+)?)px/.exec(font)[1]);
 
 function fakeCanvas() {
-  const c = { width: 1, height: 1, texts: [], draws: [] };
+  const c = { width: 1, height: 1, texts: [], draws: [], rects: 0 };
   const state = { font: '10px x', textAlign: 'start', globalAlpha: 1, canvas: c };
   const noop = () => {};
   const grad = { addColorStop: noop };
@@ -24,6 +24,7 @@ function fakeCanvas() {
           c.texts.push({ text: s, x0: left, x1: left + w, y0: y - px * 0.6, y1: y + px * 0.6 });
         };
       }
+      if (k === 'fillRect') return () => { c.rects++; };
       if (k === 'drawImage') return (img, ...a) => c.draws.push({ img, a, alpha: t.globalAlpha });
       if (k === 'measureText') return (s) => ({ width: [...s].length * GLYPH * pxOf(t.font) });
       if (k === 'createLinearGradient' || k === 'createRadialGradient' || k === 'createPattern') return () => grad;
@@ -61,6 +62,27 @@ describe('backdrop signs at the screen edge (0237)', () => {
     expect(a).toBeGreaterThan(0);
     expect(a).toBeLessThan(1);
     expect(edgeAlpha(16, 50, 390)).toBe(1);
+  });
+
+  it('patches come from a sign-free twin that got every other paint call, after the signs too', async () => {
+    for (const [rw, rh] of VIEWS) {
+      for (const id of ERAS) {
+        const B = await build(id, rw, rh);
+        for (const L of B.layers) {
+          const withPatch = L.c.signs.filter((r) => r.patch);
+          if (!withPatch.length) continue;
+          const clean = withPatch[0].patch.draws[0].img;
+          const where = `${id} at ${rw}x${rh}`;
+          expect(clean, where).not.toBe(L.c);
+          for (const r of withPatch) expect(r.patch.draws[0].img, where).toBe(clean);
+          expect(clean.texts, where).toEqual([]); // no sign text on the twin
+          // every fillRect reached it except the signs' own backing plates
+          expect(clean.rects, where).toBeGreaterThanOrEqual(L.c.rects - L.c.signs.length);
+          expect(clean.rects, where).toBeLessThanOrEqual(L.c.rects);
+          expect(L.c.rects, where).toBeGreaterThan(L.c.signs.length);
+        }
+      }
+    }
   });
 
   it('every sign painted on a layer is recorded, and its box and patch hold all of its text', async () => {
@@ -108,15 +130,25 @@ describe('backdrop signs at the screen edge (0237)', () => {
               expect(at.length).toBeLessThanOrEqual(1);
               const cover = screen.draws.filter((d) => d.img === r.patch);
               const where = `${id} "${r.text}" at ${rw}x${rh}, off ${off.toFixed(1)}`;
+              expect(r.v, where).toBe(r.g.gv); // a group shows as one
               for (const s of at) {
                 const cut = s < 0 || s + w > rw;
-                const inside = s >= band && s + w <= rw - band;
                 if (cut) {
-                  expect(cover.length, `${where}: covered`).toBe(1);
-                  expect(cover[0].alpha, `${where}: fully`).toBe(1);
-                  expect(cover[0].a[0], where).toBeCloseTo(s + (r.px - r.x) / B.k, 6);
+                  expect(r.v, `${where}: hidden`).toBe(0);
+                  if (r.patch) {
+                    expect(cover.length, `${where}: covered`).toBe(1);
+                    expect(cover[0].alpha, `${where}: fully`).toBe(1);
+                    expect(cover[0].a[0], where).toBeCloseTo(s + (r.px - r.x) / B.k, 6);
+                  }
                 }
-                if (inside) expect(cover, `${where}: untouched`).toEqual([]);
+                if (r.v === 1) expect(cover, `${where}: untouched`).toEqual([]);
+                if (s >= band && s + w <= rw - band && r.g === r && L.c.signs.every((o) => o.g !== r || o === r)) expect(r.v, `${where}: whole`).toBe(1);
+              }
+              // a patch drawn over a sign never reaches a sign that shows whole (overlapping boxes share a group)
+              if (cover.length) {
+                for (const o of L.c.signs) {
+                  if (o.v === 1) expect(o.x < r.x + r.w && r.x < o.x + o.w && o.y < r.y + r.h && r.y < o.y + o.h, `${where} vs "${o.text}"`).toBe(false);
+                }
               }
             }
           }
