@@ -11,7 +11,7 @@ const hint = (page) => page.evaluate(() => {
 });
 
 test.describe('PLAY subtitle (0239)', () => {
-  for (const [width, height] of [[320, 568], [360, 740], [390, 844], [430, 932], [844, 390]]) {
+  for (const [width, height] of [[320, 568], [340, 720], [360, 740], [390, 844], [430, 932], [844, 390]]) {
     test(`one line at ${width}x${height}`, async ({ browser }) => {
       const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, isMobile: true });
       const page = await ctx.newPage();
