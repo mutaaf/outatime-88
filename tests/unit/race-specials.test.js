@@ -64,6 +64,17 @@ beforeEach(() => {
 
 const car = (over) => ({ name: 'VEX', offset: 0.3, worldZ: 1000, type: 'RIVAL', takenDown: false, ...over });
 
+// Ticket 0241: two same-text impacts in one step fold their text, never their sparks or rings.
+describe('spawnObstacleShatter', () => {
+  it('two hits at once: every ring and shard, one text plate', () => {
+    sp.spawnObstacleShatter(0.1, '#ef4444', '#fde047', '💥 SOLID TRAFFIC IMPACT!');
+    sp.spawnObstacleShatter(-0.1, '#ef4444', '#fde047', '💥 SOLID TRAFFIC IMPACT!');
+    expect(GameState.debrisShards.length).toBe(32);
+    expect(GameState.hitShockwaves.length).toBe(2);
+    expect(GameState.hitShockwaves.filter((e) => e.label).map((e) => e.label)).toEqual(['💥 SOLID TRAFFIC IMPACT! ×2']);
+  });
+});
+
 describe('triggerRivalTakedown', () => {
   it('wrecks the car once and pays combo, flux, heat, points and cash', () => {
     GameState.combo = 3;

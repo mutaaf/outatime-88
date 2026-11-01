@@ -1,7 +1,7 @@
 // A fast near-miss chain shows one growing tally, not a stack of plates (ticket 0205): chain
 // events fold into the live chain plate, pickups keep their own, and at most two plates show.
 import { describe, it, expect } from 'vitest';
-import { foldChain, startChain, chainLabel } from '../../src/chain-plate.js';
+import { foldChain, startChain, chainLabel, foldRepeat } from '../../src/chain-plate.js';
 import { LABEL, layoutLabels, fallbackBox, labelSlots } from '../../src/popups.js';
 
 const measure = (s) => s.length * 8;
@@ -109,5 +109,120 @@ describe('chain plate', () => {
     const box = fallbackBox(1280, 720, { x0: 0, y0: 0, x1: 0, y1: 0 });
     layoutLabels(list, box, 1280, 720, measure, out, false);
     expect(out[6]).toBe(1);
+  });
+});
+
+// Ticket 0241: two cars hit in the same instant show one impact plate, not two stacked copies.
+describe('same-text impacts', () => {
+  const IMPACT = '💥 SOLID TRAFFIC IMPACT!';
+  /** race-specials spawnObstacleShatter's label path: build the entry, fold a repeat, push. */
+  const hit = (list, label) => {
+    const sw = { x: 0, y: -20, radius: 15, maxRadius: 145, label, hit: true, life: 0.7, maxLife: 0.7 };
+    foldRepeat(list, sw, 0.4);
+    list.push(sw);
+    return sw;
+  };
+  const shown = (list) => {
+    const out = labelSlots();
+    const box = fallbackBox(390, 844, { x0: 0, y0: 0, x1: 0, y1: 0 });
+    const n = layoutLabels(list, box, 390, 844, measure, out, false);
+    const texts = [];
+    for (let k = 0; k < n; k++) texts.push(list[out[k * LABEL.stride + 5]].label);
+    return texts;
+  };
+
+  it('two identical labels 0.1 s apart yield one live plate (with a count); every ring stays', () => {
+    const list = [];
+    hit(list, IMPACT);
+    expect(shown(list)).toEqual([IMPACT]);
+    age(list, 0.1);
+    hit(list, IMPACT);
+    expect(list.length).toBe(2); // both shockwave rings still draw
+    expect(shown(list)).toEqual([`${IMPACT} ×2`]);
+    expect(list[1].life).toBe(list[1].maxLife); // refreshed
+    expect(list[1].merged).toBe(true);
+    expect(list[0].radius).toBe(15); // the first ring is untouched
+    age(list, 0.1);
+    hit(list, IMPACT);
+    expect(shown(list)).toEqual([`${IMPACT} ×3`]);
+  });
+
+  it('two hits in the same step (never laid out between) show one ×2 plate', () => {
+    const list = [];
+    hit(list, IMPACT);
+    hit(list, IMPACT);
+    expect(list.length).toBe(2);
+    expect(shown(list)).toEqual([`${IMPACT} ×2`]);
+    expect(list[1].slot).toBe(0);
+  });
+
+  it('with the lane full (chain plate + impact) the repeat keeps the impact\'s slot', () => {
+    const list = [];
+    chainEvent(list, '⚡ CLOSE SHAVE!', 1200, 4, 2);
+    hit(list, IMPACT);
+    shown(list);
+    const chainSlot = list[0].slot, hitSlot = list[1].slot;
+    age(list, 0.05);
+    hit(list, IMPACT);
+    expect(shown(list).length).toBe(2);
+    expect(list[0].slot).toBe(chainSlot);
+    expect(list[2].slot).toBe(hitSlot);
+    expect(list[2].label).toBe(`${IMPACT} ×2`);
+  });
+
+  it('a plate that lost its place is not revived: the repeat is a fresh plate', () => {
+    const list = [];
+    hit(list, IMPACT);
+    list[0].gone = true;
+    const sw = hit(list, IMPACT);
+    expect(sw.label).toBe(IMPACT);
+  });
+
+  it('exactly 0.4 s apart is a new plate', () => {
+    const list = [];
+    hit(list, IMPACT);
+    list[0].life = list[0].maxLife - 0.4;
+    expect(hit(list, IMPACT).label).toBe(IMPACT);
+  });
+
+  it('labels with an amount never fold (each hit pays its own)', () => {
+    const list = [];
+    hit(list, '💥 TAKEDOWN! +2000');
+    hit(list, '💥 TAKEDOWN! +2000');
+    hit(list, '💥 BARRICADE IMPACT! -14 HP');
+    hit(list, '💥 BARRICADE IMPACT! -14 HP');
+    expect(list.map((e) => e.label)).toEqual(['💥 TAKEDOWN! +2000', '💥 TAKEDOWN! +2000', '💥 BARRICADE IMPACT! -14 HP', '💥 BARRICADE IMPACT! -14 HP']);
+  });
+
+  it('the merged plate keeps the slot the first one landed in', () => {
+    const list = [];
+    hit(list, IMPACT);
+    shown(list);
+    const slot = list[0].slot;
+    age(list, 0.05);
+    hit(list, IMPACT);
+    shown(list);
+    expect(list[1].slot).toBe(slot);
+  });
+
+  it('the same text more than 0.4 s apart shows a fresh plate', () => {
+    const list = [];
+    hit(list, IMPACT);
+    age(list, 0.45);
+    const sw = hit(list, IMPACT);
+    expect(sw.label).toBe(IMPACT);
+    expect(shown(list)).toEqual([IMPACT, IMPACT]);
+  });
+
+  it('a different text (pickup, takedown) still stacks per 0220', () => {
+    const list = [];
+    hit(list, IMPACT);
+    age(list, 0.05);
+    hit(list, '💥 TAKEDOWN! +2000');
+    expect(shown(list)).toEqual([IMPACT, '💥 TAKEDOWN! +2000']);
+    const pick = [plate('+120 🔥 x4')];
+    hit(pick, '+120 🔥 x4'); // a pickup plate never folds an impact into it
+    expect(pick[0].label).toBe('+120 🔥 x4');
+    expect(pick[1].label).toBe('+120 🔥 x4');
   });
 });
