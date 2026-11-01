@@ -32,3 +32,23 @@ export function startChain(sw, pts, combo, streak) {
 /** The chain plate's text: the latest move, the running total and multiplier, the near-miss count. */
 export const chainLabel = (reason, total, combo, chain) =>
   `${reason} +${total} (x${combo})${chain > 1 ? ` · NEAR-MISS x${chain}` : ''}`;
+
+/**
+ * Same-text impacts fold into one plate (ticket 0241). `sw` is a fresh hit entry about to be pushed
+ * on `list`; if a live plate with the same text landed under `within` s ago, `sw` takes over its text
+ * slot (keeping the slot it holds, with the merge pop), the text gains a count (×2, ×3…) and the old
+ * entry keeps only its ring. Rings, sparks, damage and score are untouched. Returns true if folded.
+ */
+export function foldRepeat(list, sw, within) {
+  const base = sw.base || (sw.base = sw.label);
+  for (let i = list.length - 1; i >= 0; i--) {
+    const e = list[i];
+    if (!e.label || e.gone || e.base !== base || !(e.life > 0) || e.maxLife - e.life >= within) continue;
+    sw.reps = (e.reps || 1) + 1;
+    sw.label = `${base} ×${sw.reps}`;
+    sw.slot = e.slot; sw.merged = true;
+    e.label = null;
+    return true;
+  }
+  return false;
+}

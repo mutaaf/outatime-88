@@ -5,6 +5,7 @@ import {
   RACE_DEPS, JarvisAI, LiveTraffic, advanceContractProgress, burstSparks, triggerAnnouncement
 } from './main.js';
 import { RF, earnCash, spawnParticle } from './race-step.js';
+import { foldRepeat } from './chain-plate.js';
 
 const { FLUX, GameState, ROAD_CFG, SaveStore, SoundEngine, track } = RACE_DEPS;
 
@@ -14,7 +15,7 @@ let tintShown = null;
 export function spawnObstacleShatter(offsetFromCenter, primaryColor, accentColor, labelText) {
   GameState.carJoltY = 12;
   GameState.screenShake = Math.max(GameState.screenShake, 0.28);
-  GameState.hitShockwaves.push({
+  const sw = {
     x: offsetFromCenter * 150,
     y: -20,
     radius: 15,
@@ -24,7 +25,10 @@ export function spawnObstacleShatter(offsetFromCenter, primaryColor, accentColor
     hit: true, // outranks a pickup plate in the one label lane (src/popups.js, 0220)
     life: 0.7,
     maxLife: 0.7
-  });
+  };
+  // Two cars hit in the same instant: one plate with a count, not two stacked copies (0241).
+  foldRepeat(GameState.hitShockwaves, sw, 0.4);
+  GameState.hitShockwaves.push(sw);
   for (let s = 0; s < 16; s++) {
     const angle = (Math.PI * s) / 8 + (Math.random() - 0.5) * 0.3;
     const spd = 120 + Math.random() * 240;

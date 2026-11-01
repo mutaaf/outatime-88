@@ -1,7 +1,7 @@
 ---
 id: 0241
 title: Two cars hit in the same instant show one impact label, not two stacked copies
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
