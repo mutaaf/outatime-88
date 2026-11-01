@@ -2,7 +2,7 @@
 // ELMS MALL that loses an elm (and a word) once history changes after lap 1, a kid's bike crossing
 // the moon on the final lap, ARCADE 88 with a maze-chaser cabinet glow, VIDEO VORTEX, LOTUS DOJO,
 // and one house whose string lights flicker in sequence. Every name is our own (ticket 0224).
-import { rng, plate, strip, building, sign, haze, ridge, stars, pine, lamp, parkedCar, sprite, blink, unitOf } from './kit.js';
+import { rng, plate, strip, building, sign, haze, ridge, stars, pine, lamp, parkedCar, sprite, blink, unitOf, edgeAlpha } from './kit.js';
 import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, EGGS } from './eggs.js';
 
@@ -58,8 +58,9 @@ function build(o) {
     // pylon sign: the count word and the elms are drawn live (one elm goes after lap 1)
     ctx.fillStyle = '#0f0b1f'; ctx.fillRect(mx + 40 * u, hz - 30 * u, 1.6 * u, 30 * u);
     ctx.fillStyle = '#231a3d'; ctx.fillRect(mx + 30 * u, hz - 36 * u, 22 * u, 9 * u);
+    const n = ctx.canvas.signs.length;
     sign(ctx, MALL.name, mx + 41 * u, hz - 29.5 * u, 2.6 * u, '#7dd3fc', { glow: 5 * u, maxW: 20 * u });
-    spots.pylon = { x: mx + 41 * u, y: hz - 33.6 * u, u };
+    spots.pylon = { x: mx + 41 * u, y: hz - 33.6 * u, u, sign: ctx.canvas.signs[n] }; // the live word fades with it (0237)
     spots.elms = { x: mx + 41 * u, base: hz - 36 * u, u };
     // strip mall: arcade, video store, dojo
     const sx = W * 0.62;
@@ -116,7 +117,8 @@ function anim(ctx, F, B) {
   // the mall sign: SIX ELMS until history changes after lap 1
   const w = (B.flags[EGGS.ELMS] ? B.after : B.before);
   const ww = w.width / k, wh = w.height / k;
-  ctx.drawImage(w, F.x(1, s.pylon.x) - ww / 2, F.y(s.pylon.y) - wh / 2, ww, wh);
+  const wx = F.x(1, s.pylon.x) - ww / 2, wa = Math.min(edgeAlpha(wx, ww, F.rw), s.pylon.sign ? s.pylon.sign.v : 1); // whole or faded at the screen edge (0237)
+  if (wa > 0) { ctx.globalAlpha = wa; ctx.drawImage(w, wx, F.y(s.pylon.y) - wh / 2, ww, wh); ctx.globalAlpha = 1; }
   const n = MALL.trees[B.flags[EGGS.ELMS] ? 1 : 0], pw = B.elm.width / k, ph = B.elm.height / k;
   for (let i = 0; i < n; i++) ctx.drawImage(B.elm, F.x(1, s.elms.x) + (i - (MALL.trees[0] - 1) / 2) * pw * MALL.elm.gap - pw / 2, F.y(s.elms.base) - ph, pw, ph);
   // maze-chaser cabinet glow
