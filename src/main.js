@@ -1635,7 +1635,7 @@ window.onload = () => {
   paintTitleBest();
   document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
   const playHint = document.getElementById('playHint');
-  if (playHint) playHint.textContent = coarsePointer ? 'ENDLESS HIGHWAY · TAP ANYWHERE' : 'ENDLESS HIGHWAY · PRESS ENTER';
+  if (playHint) playHint.textContent = coarsePointer ? 'ENDLESS HIGHWAY · TAP TO GO' : 'ENDLESS HIGHWAY · PRESS ENTER';
   updateTitleChip();
   syncAudioUI();
   updateEraHud();

@@ -1,7 +1,7 @@
 ---
 id: 0239
 title: Phone title PLAY button subtitle fits on one line
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
