@@ -38,9 +38,12 @@ export const chainLabel = (reason, total, combo, chain) =>
  * on `list`; if a live plate with the same text landed under `within` s ago, `sw` takes over its text
  * slot (keeping the slot it holds, with the merge pop), the text gains a count (×2, ×3…) and the old
  * entry keeps only its ring. Rings, sparks, damage and score are untouched. Returns true if folded.
+ * A label with an amount (TAKEDOWN! +2000, -14 HP) keeps a plate per hit: "+2000 ×2" would read as a
+ * total, and each hit's pay differs (combo), so only plain text folds.
  */
 export function foldRepeat(list, sw, within) {
   const base = sw.base || (sw.base = sw.label);
+  if (/[+-]\d/.test(base)) return false;
   for (let i = list.length - 1; i >= 0; i--) {
     const e = list[i];
     if (!e.label || e.gone || e.base !== base || !(e.life > 0) || e.maxLife - e.life >= within) continue;

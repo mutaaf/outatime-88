@@ -147,6 +147,53 @@ describe('same-text impacts', () => {
     expect(shown(list)).toEqual([`${IMPACT} ×3`]);
   });
 
+  it('two hits in the same step (never laid out between) show one ×2 plate', () => {
+    const list = [];
+    hit(list, IMPACT);
+    hit(list, IMPACT);
+    expect(list.length).toBe(2);
+    expect(shown(list)).toEqual([`${IMPACT} ×2`]);
+    expect(list[1].slot).toBe(0);
+  });
+
+  it('with the lane full (chain plate + impact) the repeat keeps the impact\'s slot', () => {
+    const list = [];
+    chainEvent(list, '⚡ CLOSE SHAVE!', 1200, 4, 2);
+    hit(list, IMPACT);
+    shown(list);
+    const chainSlot = list[0].slot, hitSlot = list[1].slot;
+    age(list, 0.05);
+    hit(list, IMPACT);
+    expect(shown(list).length).toBe(2);
+    expect(list[0].slot).toBe(chainSlot);
+    expect(list[2].slot).toBe(hitSlot);
+    expect(list[2].label).toBe(`${IMPACT} ×2`);
+  });
+
+  it('a plate that lost its place is not revived: the repeat is a fresh plate', () => {
+    const list = [];
+    hit(list, IMPACT);
+    list[0].gone = true;
+    const sw = hit(list, IMPACT);
+    expect(sw.label).toBe(IMPACT);
+  });
+
+  it('exactly 0.4 s apart is a new plate', () => {
+    const list = [];
+    hit(list, IMPACT);
+    list[0].life = list[0].maxLife - 0.4;
+    expect(hit(list, IMPACT).label).toBe(IMPACT);
+  });
+
+  it('labels with an amount never fold (each hit pays its own)', () => {
+    const list = [];
+    hit(list, '💥 TAKEDOWN! +2000');
+    hit(list, '💥 TAKEDOWN! +2000');
+    hit(list, '💥 BARRICADE IMPACT! -14 HP');
+    hit(list, '💥 BARRICADE IMPACT! -14 HP');
+    expect(list.map((e) => e.label)).toEqual(['💥 TAKEDOWN! +2000', '💥 TAKEDOWN! +2000', '💥 BARRICADE IMPACT! -14 HP', '💥 BARRICADE IMPACT! -14 HP']);
+  });
+
   it('the merged plate keeps the slot the first one landed in', () => {
     const list = [];
     hit(list, IMPACT);
