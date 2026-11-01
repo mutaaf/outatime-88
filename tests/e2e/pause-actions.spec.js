@@ -48,6 +48,7 @@ const sizes = [
   { name: 'phone portrait 390x844', viewport: { width: 390, height: 844 }, touch: true },
   { name: 'desktop 1280x720', viewport: { width: 1280, height: 720 }, touch: false },
   { name: 'phone landscape 844x390', viewport: { width: 844, height: 390 }, touch: true, maxShare: 0.25 },
+  { name: 'phone landscape 740x360', viewport: { width: 740, height: 360 }, touch: true, maxShare: 0.25 },
 ];
 
 for (const s of sizes) {
@@ -59,6 +60,11 @@ for (const s of sizes) {
       await pause(page);
       expect(await page.evaluate(() => document.getElementById('garageModal').scrollTop)).toBe(0);
       await expectRowOnScreen(page);
+      // Pinned flush to the bottom edge: no strip of shop showing through under it.
+      const r0 = await rowBox(page);
+      expect(Math.abs(r0.y + r0.height - s.viewport.height)).toBeLessThan(1.5);
+      // The first-race thumb guide never draws its rings over the actions.
+      expect(await page.evaluate(() => { const g = document.getElementById('tcGuide'); return !g || getComputedStyle(g).visibility === 'hidden' || g.offsetParent === null; })).toBe(true);
       if (s.maxShare) expect((await rowBox(page)).height).toBeLessThanOrEqual(s.viewport.height * s.maxShare);
       await expectShopClear(page);
       await page.evaluate(() => { document.getElementById('garageModal').scrollTop = 0; });
@@ -93,11 +99,21 @@ test.describe('keyboard at 1280x720', () => {
     const problems = watchPage(page);
     await pause(page);
     let reached = false;
+    const hidden = [];
     for (let i = 0; i < 80 && !reached; i++) {
       await page.keyboard.press('Tab');
-      reached = await page.evaluate(() => document.activeElement?.id === 'btnResumeFromGarage');
+      // A focused control in the sheet is scrolled clear of the pinned row, never under it.
+      const f = await page.evaluate(() => {
+        const a = document.activeElement, row = document.getElementById('garageActions');
+        if (!a || row.contains(a) || !document.getElementById('garageModal').contains(a)) return { id: a?.id, under: 0 };
+        const r = a.getBoundingClientRect(), t = row.getBoundingClientRect().top;
+        return { id: a.id || a.className, under: Math.max(0, Math.min(r.bottom, innerHeight) - t) };
+      });
+      if (f.under > 1) hidden.push(f);
+      reached = f.id === 'btnResumeFromGarage';
     }
     expect(reached).toBe(true);
+    expect(hidden).toEqual([]);
     await page.keyboard.press('Enter');
     await expect.poll(() => page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
     expect(problems).toEqual([]);
