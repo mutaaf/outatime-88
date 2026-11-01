@@ -120,7 +120,11 @@ test('era backdrops are lazy chunks, each small (ticket 0100)', () => {
   for (const f of scenes) { expect(gz(f), f).toBeLessThan(5); total += gz(f); }
   for (const f of new Set(shared)) { if (f === stage[0]) continue; expect(gz(f), f).toBeLessThan(6); total += gz(f); }
   expect(gz(stage[0]), 'stage + roadside').toBeLessThan(10);
-  expect(total).toBeLessThan(30); // 25 → 29 for the seventh world, the 2061 orbit (ticket 0155); 29 → 30 for edge-faded signs (0237)
+  const tagChunk = files.filter((f) => /^tags-.*\.js$/.test(f)); // rival name tags (0238): their own lazy chunk
+  expect(tagChunk.length).toBe(1);
+  expect(gz(tagChunk[0]), 'name tags').toBeLessThan(1.5);
+  total += gz(tagChunk[0]);
+  expect(total).toBeLessThan(31); // 25 → 29 for the seventh world, the 2061 orbit (ticket 0155); 29 → 30 for edge-faded signs (0237); 30 → 31 for the nameplate layout (0238, its own tags chunk, ~1.3 kB; the stage chunk lost ~0.4 kB)
   const main = files.find((f) => /^index-.*\.js$/.test(f));
   expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toContain('GIANT ANTS ATE OHIO');
 });
