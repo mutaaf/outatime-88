@@ -47,7 +47,7 @@ export function drawEraProp(ctx, type, ow, oh) { return !!stage && stage.eraProp
 export function drawSoftShadow(ctx, x, y, w) { return !!stage && stage.shadow(ctx, x, y, w); }
 
 const TAGS = Array.from({ length: 24 }, () => ({ x: 0, y: 0, w: 0, text: '', kind: 0, color: '', keep: false }));
-const BLOCKS = new Float32Array(4 * 16); // pickup boxes in the lane ahead no tag may cover (0238)
+const BLOCKS = new Float32Array(4 * 32); // pickup boxes in the lane ahead no tag may cover (0238)
 let nTags = 0, nBlocks = 0;
 /** kind: 0 live CPU, 1 live friend, 2 rival (coloured by its underglow); keep: directly ahead/behind you. */
 export function queueTag(x, y, w, text, kind, color, keep) {
@@ -57,7 +57,7 @@ export function queueTag(x, y, w, text, kind, color, keep) {
 }
 /** A box (centre x, y, size w × h) that name tags must keep clear of. */
 export function queueBlock(x, y, w, h) {
-  if (nBlocks >= 16) return;
+  if (nBlocks >= 32) return;
   const o = 4 * nBlocks++;
   BLOCKS[o] = x; BLOCKS[o + 1] = y; BLOCKS[o + 2] = w; BLOCKS[o + 3] = h;
 }

@@ -105,7 +105,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
         const size = Math.max(6, itemW * 0.95);
         const py = roadY - itemW * 0.72 + bobY;
         noteSeen(itemX - size / 2, py - size / 2, itemX + size / 2, py + size / 2);
-        if (i < 20) queueBlock(itemX, py, size * 1.2, size * 1.2); // name tags keep off it (0238)
+        if (i < 20) queueBlock(itemX, py, size * 1.4, size * 1.4); // name tags keep off its icon, ring and most of its glow (0238)
         if (pickupArt) pickupArt.drawPickup(ctx, item.type, itemX, py, size, nowSec, item.phase || 0, GameState.reducedMotion);
         else { ctx.fillStyle = PICKUPS[item.type].color; ctx.beginPath(); ctx.arc(itemX, py, size * 0.4, 0, Math.PI * 2); ctx.fill(); }
       } else if ((item.type === 'STREET_LAMP' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW') && drawRoadsideProp(ctx, item.type, itemX, roadY, itemW, itemH, roadW, rw, rh)) {

@@ -19,7 +19,7 @@ for (const [width, height] of [[1280, 720], [390, 844]]) {
       const d = await page.evaluate(() => { const b = window.__OT.backdrop(); return b && { rw: b.rw, plates: b.plates }; });
       if (!d) continue;
       const r = [];
-      for (let o = 0; o < d.plates.length; o += 6) r.push({ x: d.plates[o] - d.plates[o + 2] / 2, y: d.plates[o + 1] - d.plates[o + 3] / 2, w: d.plates[o + 2], h: d.plates[o + 3] });
+      for (let o = 0; o < d.plates.length; o += 7) r.push({ x: d.plates[o] - d.plates[o + 2] / 2, y: d.plates[o + 1] - d.plates[o + 3] / 2, w: d.plates[o + 2], h: d.plates[o + 3] });
       expect(r.length).toBeLessThanOrEqual(3);
       if (r.length) seen++;
       for (let a = 0; a < r.length; a++) {

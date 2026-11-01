@@ -1,12 +1,12 @@
 // Ticket 0238: bunched rival nameplates never stack on each other or on a pickup in the lane
 // ahead; the rivals directly ahead of and behind you always keep theirs; plates fade, never pop.
 import { describe, it, expect } from 'vitest';
-import { layoutTags, drawTags, placed, MAX, FADE } from '../../src/scenes/tags.js';
+import { layoutTags, drawTags, placed, MAX, FADE, S } from '../../src/scenes/tags.js';
 
 const ctx = { measureText: (t) => ({ width: t.length * 8 }) };
 const tag = (x, y, w, text, keep = false) => ({ x, y, w, text, kind: 2, color: '#0ff', keep });
 const rects = (k) => Array.from({ length: k }, (_, i) => {
-  const o = i * 6;
+  const o = i * S;
   return { x: placed[o] - placed[o + 2] / 2, y: placed[o + 1] - placed[o + 3] / 2, w: placed[o + 2], h: placed[o + 3], i: placed[o + 5] };
 });
 const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -52,7 +52,7 @@ describe('rival nameplate layout (0238)', () => {
     expect(names).toContain('BHD');
     expect(k).toBeLessThanOrEqual(MAX);
     const a = rects(k).findIndex((p) => pool[p.i].text === 'AHD');
-    expect(placed[a * 6 + 4], 'a kept plate is readable').toBeGreaterThanOrEqual(0.75);
+    expect(placed[a * S + 4], 'a kept plate is readable').toBeGreaterThanOrEqual(0.75);
   });
 
   it('spread cars keep their plates where they are; a single car gets one plate', () => {
@@ -90,13 +90,42 @@ describe('rival nameplate layout (0238)', () => {
     expect(drawn.length).toBe(0);
   });
 
+  it('a kept plate covers a pickup only when no clear spot exists; others are dropped instead', () => {
+    // a wall of pickup boxes over every spot the plate could take
+    const wall = [];
+    for (let r = -3; r <= 1; r++) wall.push([640, 300 + r * 17, 400, 17]);
+    const B = blocks(wall);
+    expect(layoutTags(ctx, [tag(640, 300, 120, 'OTH')], 1, B, wall.length, 1280, 720, 11)).toBe(0);
+    expect(layoutTags(ctx, [tag(640, 300, 120, 'AHD', true)], 1, B, wall.length, 1280, 720, 11)).toBe(1);
+  });
+
+  it('plates are sticky: a shown plate keeps its spot and its place in the nearest three', () => {
+    const c = { ...ctx, font: '', textAlign: '', textBaseline: '', fillStyle: '', globalAlpha: 1, fillRect() {}, fillText() {} };
+    const nb = blocks([]);
+    let t = 5e6;
+    for (let f = 0; f < 3; f++) drawTags(c, [], 0, nb, 0, 1280, 720, (t += 1000)); // nothing left from other cases
+    const pool = [tag(600, 300, 100, 'AAA'), tag(600, 300, 98, 'BBB'), tag(900, 300, 96, 'CCC'), tag(300, 300, 94, 'DDD')];
+    drawTags(c, pool, 4, nb, 0, 1280, 720, (t += 16));
+    const names = () => rects(MAX).map((p) => pool[p.i].text).sort();
+    const where = (n) => rects(MAX).find((p) => pool[p.i].text === n);
+    expect(names()).toEqual(['AAA', 'BBB', 'CCC']);
+    const bbb = where('BBB');
+    // DDD creeps a little nearer than CCC, and AAA's plate would now be clear of BBB's first spot:
+    // nobody jumps or swaps out for a few pixels
+    pool[3].w = 97; pool[0].x = 560;
+    drawTags(c, pool, 4, nb, 0, 1280, 720, (t += 16));
+    expect(names()).toEqual(['AAA', 'BBB', 'CCC']);
+    expect(where('BBB').x).toBeCloseTo(bbb.x, 3);
+    expect(where('BBB').y).toBeCloseTo(bbb.y, 3);
+  });
+
   it('allocates nothing per frame: the same pool laid out twice gives the same plates', () => {
     const pool = bunched(1280);
     const k1 = layoutTags(ctx, pool, pool.length, blocks([PICKUP(1280)]), 1, 1280, 720, 11);
-    const first = Array.from(placed.slice(0, k1 * 6));
+    const first = Array.from(placed.slice(0, k1 * S));
     const k2 = layoutTags(ctx, pool, pool.length, blocks([PICKUP(1280)]), 1, 1280, 720, 11);
     expect(k2).toBe(k1);
-    expect(Array.from(placed.slice(0, k2 * 6))).toEqual(first);
+    expect(Array.from(placed.slice(0, k2 * S))).toEqual(first);
     expect(pool.map((p) => p.text)).toEqual(NAMES);
   });
 });
