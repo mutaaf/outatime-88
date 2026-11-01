@@ -118,6 +118,9 @@ for (const vp of VIEWPORTS) {
     await page.waitForTimeout(250);
     const boxes = await page.evaluate((sels) => {
       const modal = document.getElementById('garageModal');
+      // The pause actions are sticky (0240): measure them where they sit in the flow, i.e. with the
+      // sheet scrolled to the end; everything else is the same at any scroll position.
+      modal.scrollTop = modal.scrollHeight;
       const top = modal.scrollTop;
       const out = {};
       for (const s of sels) {

@@ -168,3 +168,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-01 · 0237 · Shop and cinema signs in the era skylines fade out as they reach the screen edge instead of being sliced by it, so a phone's first view never shows half a word
 2026-11-01 · 0238 · Rival nameplates in a bunched pack sit side by side instead of stacking into a column over the road, never cover a pickup ahead, always show the rivals just ahead and behind you, and fade in and out instead of popping
 2026-11-01 · 0239 · On phones the PLAY button's subtitle reads ENDLESS HIGHWAY · TAP TO GO on one line, no lone word wrapped under it
+2026-11-01 · 0240 · Pausing keeps BACK TO THE TRACK, SETTINGS, CHANGE LEVEL and QUIT TO HOME pinned to the bottom of the screen, so resuming or quitting never means scrolling past the whole shop
