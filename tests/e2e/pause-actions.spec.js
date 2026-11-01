@@ -58,7 +58,14 @@ for (const s of sizes) {
     test('the pause actions are on screen without scrolling, and BACK TO THE TRACK resumes', async ({ page }) => {
       const problems = watchPage(page);
       await pause(page);
-      expect(await page.evaluate(() => document.getElementById('garageModal').scrollTop)).toBe(0);
+      // The sheet stays at the top while the Garage settles (centring the car strip must not scroll the sheet):
+      // the highest scrollTop over 40 frames after it opens.
+      expect(await page.evaluate(() => new Promise((done) => {
+        const m = document.getElementById('garageModal');
+        let n = 0, max = m.scrollTop;
+        const tick = () => { max = Math.max(max, m.scrollTop); if (++n < 40) requestAnimationFrame(tick); else done(max); };
+        requestAnimationFrame(tick);
+      }))).toBe(0);
       await expectRowOnScreen(page);
       // Pinned flush to the bottom edge: no strip of shop showing through under it.
       const r0 = await rowBox(page);

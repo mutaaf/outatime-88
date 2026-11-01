@@ -72,7 +72,12 @@ export function createGarageUI(deps) {
       box.appendChild(b);
     });
     const cur = box.children[viewIdx];
-    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'center', behavior: deps.reducedMotion() ? 'auto' : 'smooth' });
+    // Centre the car in the strip by scrolling the strip only: scrollIntoView would also scroll the sheet (the strip can sit in
+    // #garageModal's scroll-padding band above the pinned pause actions, 0240) and shift the Garage on open.
+    if (cur && box.scrollTo) {
+      const left = box.scrollLeft + cur.getBoundingClientRect().left - box.getBoundingClientRect().left - (box.clientWidth - cur.offsetWidth) / 2;
+      box.scrollTo({ left, behavior: deps.reducedMotion() ? 'auto' : 'smooth' });
+    }
   }
 
   function renderPrimary(c) {
