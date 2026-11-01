@@ -166,7 +166,9 @@ src/scenes/         Lazy: stage.js (layer cache, parallax, per-frame set pieces)
                       era: build() paints layers once, anim()/front() draw live details allocation-free),
                       kit.js (painting helpers; strip() paints through a tee into the layer and a sign-free twin, records
                       each sign() box with a clean patch cropped from the twin, groups overlapping boxes, and stage
-                      covers a group as it nears the screen edge: fadeEdgeSigns, 0237), eggs.js (pure easter-egg triggers), quality.js (tiers:
+                      covers a group as it nears the screen edge: fadeEdgeSigns, 0237), eggs.js (pure easter-egg triggers), tags.js (rival nameplates, 0238: the
+                      layout keeps the rivals ahead/behind, ≤ 3 plates, none over another or a lane-ahead pickup, 150 ms fades;
+                      its own lazy chunk tags-*.js, < 1.5 kB, fetched by stage), quality.js (tiers:
                       layers / live detail / weather / layer resolution, read ONLY via getQuality(),
                       which defaults to 'high'; plug the capability governor in with
                       setQualitySource(fn)). Nods: docs/EASTER_EGGS.md

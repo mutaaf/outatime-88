@@ -16,7 +16,7 @@ export const SCENE_IDS = Object.keys(LOADERS);
 
 import { getQuality, tier, TIERS, setQualitySource } from './quality.js';
 import { fadeEdgeSigns, layer } from './kit.js';
-import { roadsideFor, drawProp, drawHazard, contactShadow, drawTags, stats as roadStats } from './roadside.js';
+import { roadsideFor, drawProp, drawHazard, contactShadow, stats as roadStats } from './roadside.js';
 
 export { getQuality, setQualitySource };
 
@@ -155,7 +155,7 @@ export function weather(ctx, rw, rh) {
 /** The current scene's egg flags (for tests via ?debug). */
 export function debug() {
   if (!built) return null;
-  return { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes), road: roadStats, rw: built.rw, signs: built.layers.slice(0, TIERS[built.q].layers).flatMap((L) => L.c.signs) }; // signs: 0237
+  return { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes), road: roadStats, plates: tagMod ? Array.from(tagMod.placed.slice(0, 6 * roadStats.tags)) : [], rw: built.rw, signs: built.layers.slice(0, TIERS[built.q].layers).flatMap((L) => L.c.signs) }; // signs: 0237
 }
 
 /** A new race: easter eggs can fire again and the parallax restarts. */
@@ -184,5 +184,8 @@ export function hazard(ctx, ow, baseY, roadW, rw, rh) {
   return !!R && drawHazard(ctx, R, ow, baseY, rh, rw, depthOf(roadW, rw), TIERS[built.q].detail >= 0.5);
 }
 export function shadow(ctx, x, y, w) { contactShadow(ctx, x, y, w); return true; }
-export { drawTags as tags };
+// Name tags (0238): their own lazy chunk, fetched as the stage loads; none drawn until it lands.
+let tagMod = null;
+import('./tags.js').then((m) => { tagMod = m; }).catch(() => {});
+export function tags(ctx, pool, n, blocks, nb, rw, rh) { if (tagMod) roadStats.tags = tagMod.drawTags(ctx, pool, n, blocks, nb, rw, rh); }
 export { drawEraProp as eraProp } from './era-props.js';

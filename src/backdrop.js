@@ -46,15 +46,22 @@ export function drawHazardArt(ctx, ow, baseY, roadW, rw, rh) { return !!stage &&
 export function drawEraProp(ctx, type, ow, oh) { return !!stage && stage.eraProp(ctx, type, ow, oh); }
 export function drawSoftShadow(ctx, x, y, w) { return !!stage && stage.shadow(ctx, x, y, w); }
 
-const TAGS = Array.from({ length: 24 }, () => ({ x: 0, y: 0, w: 0, text: '', kind: 0, color: '' }));
-let nTags = 0;
-/** kind: 0 live CPU, 1 live friend, 2 rival (coloured by its underglow). */
-export function queueTag(x, y, w, text, kind, color) {
+const TAGS = Array.from({ length: 24 }, () => ({ x: 0, y: 0, w: 0, text: '', kind: 0, color: '', keep: false }));
+const BLOCKS = new Float32Array(4 * 16); // pickup boxes in the lane ahead no tag may cover (0238)
+let nTags = 0, nBlocks = 0;
+/** kind: 0 live CPU, 1 live friend, 2 rival (coloured by its underglow); keep: directly ahead/behind you. */
+export function queueTag(x, y, w, text, kind, color, keep) {
   if (nTags >= TAGS.length) return;
   const t = TAGS[nTags++];
-  t.x = x; t.y = y; t.w = w; t.text = text; t.kind = kind; t.color = color || '';
+  t.x = x; t.y = y; t.w = w; t.text = text; t.kind = kind; t.color = color || ''; t.keep = !!keep;
+}
+/** A box (centre x, y, size w × h) that name tags must keep clear of. */
+export function queueBlock(x, y, w, h) {
+  if (nBlocks >= 16) return;
+  const o = 4 * nBlocks++;
+  BLOCKS[o] = x; BLOCKS[o + 1] = y; BLOCKS[o + 2] = w; BLOCKS[o + 3] = h;
 }
 export function flushTags(ctx, rw, rh) {
-  if (stage) stage.tags(ctx, TAGS, nTags, rw, rh);
-  nTags = 0;
+  if (stage) stage.tags(ctx, TAGS, nTags, BLOCKS, nBlocks, rw, rh);
+  nTags = nBlocks = 0;
 }

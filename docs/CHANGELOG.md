@@ -166,3 +166,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-31 · 0235 · A pickup's glow and white ring stop growing as it nears you and fade out, so a close NOS can or coin no longer hides the traffic behind it
 2026-10-31 · 0236 · Shop, cinema and road signs in every era show whole words that fit their boards (smaller type first, then whole words dropped), never text spilling past the sign or cut mid-word
 2026-11-01 · 0237 · Shop and cinema signs in the era skylines fade out as they reach the screen edge instead of being sliced by it, so a phone's first view never shows half a word
+2026-11-01 · 0238 · Rival nameplates in a bunched pack sit side by side instead of stacking into a column over the road, never cover a pickup ahead, always show the rivals just ahead and behind you, and fade in and out instead of popping

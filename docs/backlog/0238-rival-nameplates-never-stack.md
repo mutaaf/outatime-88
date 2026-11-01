@@ -1,7 +1,7 @@
 ---
 id: 0238
 title: Distant rival nameplates never stack on each other or on the lane ahead
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
