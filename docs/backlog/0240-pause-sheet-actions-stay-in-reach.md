@@ -1,7 +1,7 @@
 ---
 id: 0240
 title: The pause sheet keeps BACK TO THE TRACK, SETTINGS and QUIT in reach without scrolling
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
