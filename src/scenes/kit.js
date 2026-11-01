@@ -128,6 +128,7 @@ export function sign(ctx, text, x, y, size, color, { maxW, alt, glow = 0, font =
   }
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
+  if (t && rec && ctx.canvas === rec.c) record(ctx, t, x, y, px, maxW, align, bg, pad, glow);
   if (t) {
     if (bg) {
       const m = Math.min(ctx.measureText(t).width, maxW ?? Infinity);
@@ -143,6 +144,59 @@ export function sign(ctx, text, x, y, size, color, { maxW, alt, glow = 0, font =
   }
   ctx.restore();
   return t;
+}
+
+// Signs at the screen edge (ticket 0237). Layers pan with steering and curves, so a sign baked
+// into a strip can be sliced by the screen edge. While a strip paints, sign() records each sign's
+// box (layer px, glow and backing plate included) and a snapshot of the layer under it taken just
+// before the sign is painted. Every frame fadeEdgeSigns() lays that clean patch back over a sign
+// as it nears an edge, fully once it touches one: a sign shows whole or not at all.
+let rec = null; // { c: strip canvas, hz: its horizon row } while a strip paints
+
+function record(ctx, t, x, y, px, maxW, align, bg, pad, glow) {
+  const m = Math.min(ctx.measureText(t).width, maxW ?? Infinity);
+  const c = rec.c, g = (glow || 0) + 1, e = g + (bg ? px * pad : 0), h = px * 0.75 + g;
+  const x0 = (align === 'center' ? x - m / 2 : x) - e;
+  // the patch: the part of the box on this canvas, above the horizon (the reflection painted
+  // below it later stays)
+  const px0 = Math.max(0, Math.floor(x0)), pw = Math.min(c.width, Math.ceil(x0 + m + e * 2)) - px0;
+  const py0 = Math.max(0, Math.floor(y - h)), ph = Math.min(rec.hz, Math.ceil(y + h)) - py0;
+  if (pw < 1 || ph < 1) return;
+  const patch = layer(pw, ph);
+  patch.getContext('2d').drawImage(c, px0, py0, pw, ph, 0, 0, pw, ph);
+  c.signs.push({ text: t, x: x0, w: m + e * 2, px: px0, py: py0, patch, sx: 0, v: 1 });
+}
+
+/** How much of a sign spanning screen x [s, s + w] shows: 1 well inside, easing to 0 at an edge. */
+export function edgeAlpha(s, w, rw) {
+  const band = Math.max(8, rw * 0.04);
+  const d = Math.min(s, rw - s - w);
+  return d >= band ? 1 : d <= 0 ? 0 : d / band;
+}
+
+/**
+ * Per frame, after a strip is blitted at screen x -off (and W - off, the wrap) and top y with
+ * layer scale k: cover the signs near or across the screen edge with their clean patches.
+ * Allocation-free; a sign well inside the view is left untouched. Writes each record's screen x
+ * (`sx`) and shown share (`v`) for ?debug.
+ */
+export function fadeEdgeSigns(ctx, signs, off, y, W, rw, k) {
+  const a0 = ctx.globalAlpha;
+  for (let i = signs.length - 1; i >= 0; i--) { // newest first, so overlapping patches restore in order
+    const r = signs[i];
+    const w = r.w / k;
+    let s = (r.x / k - off) % W;
+    if (s < 0) s += W;
+    if (s >= rw) s -= W; // the copy that reaches in from the left
+    r.sx = s;
+    if (s >= rw || s + w <= 0) { r.v = 0; continue; } // off screen
+    const v = edgeAlpha(s, w, rw);
+    r.v = v;
+    if (v >= 1) continue;
+    ctx.globalAlpha = a0 * (1 - v);
+    ctx.drawImage(r.patch, s + (r.px - r.x) / k, y + r.py / k, r.patch.width / k, r.patch.height / k);
+  }
+  ctx.globalAlpha = a0;
 }
 
 /** Atmospheric perspective: fade a band toward the horizon colour. */
@@ -352,7 +406,10 @@ export const unitOf = (hzL) => hzL / 76;
 export function strip(o, paint) {
   const hzL = Math.round(o.hz0 * o.k);
   const c = layer(o.W, hzL + Math.round(o.rh * 0.22 * o.k));
+  c.signs = [];
+  rec = { c, hz: hzL };
   paint(c.getContext('2d'), o.W, hzL, unitOf(hzL));
+  rec = null;
   return c;
 }
 

@@ -2,7 +2,7 @@
 // Nods (docs/EASTER_EGGS.md): a holo-shark lunging out of the FINS 19 billboard, CAFÉ RETRO-80,
 // the HOVR-BORD CO. shop, self-tying AUTO-LACE KICKS, and a weather service so exact the
 // forecast board counts down to the second the rain stops.
-import { rng, plate, strip, building, sign, haze, clockTower, lamp, reflect, sprite, rainField, drawRain, blink, unitOf } from './kit.js';
+import { rng, plate, strip, building, sign, haze, clockTower, lamp, reflect, sprite, rainField, drawRain, blink, unitOf, edgeAlpha } from './kit.js';
 import { ERA_PALETTES } from '../era-palettes.js';
 import { eggs, newEggMemory, rainForecast, EGGS } from './eggs.js';
 
@@ -124,7 +124,8 @@ function anim(ctx, F, B) {
   // the forecast board, live to the second
   const n = Math.min(30, rainForecast(F.raceTime)), d = B.digits[n];
   const dw = d.width / k, dh = d.height / k, fx = F.x(1, s.forecast.x), fy = F.y(s.forecast.y);
-  ctx.drawImage(d, fx - dw / 2, fy - dh / 2, dw, dh);
+  const da = edgeAlpha(fx - dw / 2, dw, F.rw); // whole or faded at the screen edge (0237)
+  if (da > 0) { ctx.globalAlpha = da; ctx.drawImage(d, fx - dw / 2, fy - dh / 2, dw, dh); ctx.globalAlpha = 1; }
   // a clock-tower beacon blinking for the air lanes
   if (F.reduced || blink(F.t, 1.4, 0.3)) { ctx.fillStyle = '#f43f5e'; ctx.fillRect(F.x(1, s.tower.x) - 1, F.y(s.tower.top) - 2, 2, 2); }
 }

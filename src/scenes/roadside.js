@@ -7,15 +7,9 @@
 // Sprites are drawn bottom-centre anchored. Sizes come from the caller's item/obstacle box; art
 // height is capped so one prop never fills more than ~30 % of the screen.
 import { ERA_PALETTES } from '../era-palettes.js';
-import { vgrad, palm, cactus, pine } from './kit.js';
+import { vgrad, palm, cactus, pine, layer as canvas } from './kit.js';
 
 const REF = 192; // reference sprite height in px (scaled by the quality tier)
-
-function canvas(w, h) {
-  const c = document.createElement('canvas');
-  c.width = Math.max(2, Math.ceil(w)); c.height = Math.max(2, Math.ceil(h));
-  return c;
-}
 
 /** A metal/stone shaft with a gradient body and a rim light down its sunward edge. */
 function shaft(ctx, x, y0, y1, w, dark, mid, rim) {
@@ -144,12 +138,17 @@ export function drawProp(ctx, R, type, x, roadY, w, h, rh, rw, depth, tintOn) {
   let ph = Math.min(h * s.rel, rh * MAX_H);
   let pw = ph * s.aspect;
   if (pw > rw * MAX_W) { pw = rw * MAX_W; ph = pw / s.aspect; }
-  stats.maxH = Math.max(stats.maxH, ph / rh); stats.maxW = Math.max(stats.maxW, pw / rw);
   contactShadow(ctx, x, roadY, Math.max(pw * 0.8, 6));
-  ctx.drawImage(s.img, x - pw / 2, roadY - ph, pw, ph);
-  if (tintOn && depth > 0.05) {
-    ctx.globalAlpha = Math.min(0.55, depth * 0.6);
-    ctx.drawImage(s.fog, x - pw / 2, roadY - ph, pw, ph);
+  return blit(ctx, s, x, roadY, pw, ph, rh, rw, tintOn && depth > 0.05 && Math.min(0.55, depth * 0.6));
+}
+
+/** A sprite bottom-centred at (x, y), with its fog tint at alpha `fog` (false: none). */
+function blit(ctx, s, x, y, pw, ph, rh, rw, fog) {
+  stats.maxH = Math.max(stats.maxH, ph / rh); stats.maxW = Math.max(stats.maxW, pw / rw);
+  ctx.drawImage(s.img, x - pw / 2, y - ph, pw, ph);
+  if (fog) {
+    ctx.globalAlpha = fog;
+    ctx.drawImage(s.fog, x - pw / 2, y - ph, pw, ph);
     ctx.globalAlpha = 1;
   }
   return true;
@@ -162,15 +161,8 @@ export function drawHazard(ctx, R, ow, baseY, rh, rw, depth, tintOn) {
   let pw = Math.min(ow * 1.15, rw * MAX_W);
   let ph = pw / s.aspect;
   if (ph > rh * MAX_H) { ph = rh * MAX_H; pw = ph * s.aspect; }
-  stats.maxH = Math.max(stats.maxH, ph / rh); stats.maxW = Math.max(stats.maxW, pw / rw);
   contactShadow(ctx, 0, baseY, ow);
-  ctx.drawImage(s.img, -pw / 2, baseY - ph, pw, ph);
-  if (tintOn && depth > 0.05) {
-    ctx.globalAlpha = Math.min(0.5, depth * 0.55);
-    ctx.drawImage(s.fog, -pw / 2, baseY - ph, pw, ph);
-    ctx.globalAlpha = 1;
-  }
-  return true;
+  return blit(ctx, s, 0, baseY, pw, ph, rh, rw, tintOn && depth > 0.05 && Math.min(0.5, depth * 0.55));
 }
 
 // ---------- rival name tags ----------

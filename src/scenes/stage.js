@@ -15,6 +15,7 @@ const LOADERS = {
 export const SCENE_IDS = Object.keys(LOADERS);
 
 import { getQuality, tier, TIERS, setQualitySource } from './quality.js';
+import { fadeEdgeSigns, layer } from './kit.js';
 import { roadsideFor, drawProp, drawHazard, contactShadow, drawTags, stats as roadStats } from './roadside.js';
 
 export { getQuality, setQualitySource };
@@ -78,8 +79,7 @@ function build(scene, id, rw, rh) {
  */
 // Roadside billboard faces: two lines of copy on the era's colours, painted once.
 function adSprite([top, bottom, bg, fg]) {
-  const c = document.createElement('canvas');
-  c.width = 160; c.height = 56;
+  const c = layer(160, 56);
   const ctx = c.getContext('2d');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, 160, 56);
   ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -138,6 +138,7 @@ export function draw(ctx, rw, rh, hz, era, s) {
     const y = hz - hzL / built.k;
     ctx.drawImage(L.c, -off, y, W, h);
     if (W - off < rw) ctx.drawImage(L.c, W - off, y, W, h);
+    fadeEdgeSigns(ctx, L.c.signs, off, y, W, rw, built.k); // 0237
   }
   if (scene.anim) scene.anim(ctx, F, built);
   costMs += (performance.now() - t0 - costMs) * 0.05;
@@ -153,7 +154,8 @@ export function weather(ctx, rw, rh) {
 
 /** The current scene's egg flags (for tests via ?debug). */
 export function debug() {
-  return built ? { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes), road: roadStats } : null;
+  if (!built) return null;
+  return { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes), road: roadStats, rw: built.rw, signs: built.layers.slice(0, TIERS[built.q].layers).flatMap((L) => L.c.signs) }; // signs: 0237
 }
 
 /** A new race: easter eggs can fire again and the parallax restarts. */
