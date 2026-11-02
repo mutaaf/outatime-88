@@ -435,6 +435,14 @@ stats.slots = slots;
 const LABEL_FONT = `bold ${LABEL.font}px Orbitron, sans-serif`;
 let measureCtx = null;
 const measure = (text) => measureCtx.measureText(text).width;
+// 0243: body.labels-up while any plate is drawn, so the first-run steer prompt steps aside
+// (styles.css) and never shares pixels with a plate. Written only when it changes.
+let labelsUp = false;
+export function markLabels(on, doc = globalThis.document) {
+  if (on === labelsUp || !doc) return;
+  labelsUp = on;
+  doc.body.classList.toggle('labels-up', on);
+}
 
 /**
  * The floating labels of `list` (GameState.hitShockwaves) on a dark plate, clear of the car:
@@ -442,7 +450,7 @@ const measure = (text) => measureCtx.measureText(text).width;
  * `still`: reduced motion (labels don't float).
  */
 export function drawLabels(ctx, rw, rh, list, box, still) {
-  if (!list.length) { stats.labels = 0; return; }
+  if (!list.length) { stats.labels = 0; markLabels(false); return; }
   const b = box && box.y1 > box.y0 ? box : fallbackBox(rw, rh, stats.box);
   if (b !== stats.box) { stats.box.x0 = b.x0; stats.box.y0 = b.y0; stats.box.x1 = b.x1; stats.box.y1 = b.y1; }
   stats.rw = rw; stats.rh = rh;
@@ -451,6 +459,7 @@ export function drawLabels(ctx, rw, rh, list, box, still) {
   measureCtx = ctx;
   const n = layoutLabels(list, b, rw, rh, measure, slots, still);
   stats.labels = n;
+  markLabels(n > 0);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (let i = 0; i < n; i++) {

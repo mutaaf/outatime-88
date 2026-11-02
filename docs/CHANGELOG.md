@@ -171,3 +171,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-01 · 0240 · Pausing keeps BACK TO THE TRACK, SETTINGS, CHANGE LEVEL and QUIT TO HOME pinned to the bottom of the screen, so resuming or quitting never means scrolling past the whole shop
 2026-11-01 · 0241 · Two cars hit in the same instant show one impact plate with a count (×2), not two stacked copies; hits that pay or cost an amount keep their own plates
 2026-11-02 · 0242 · The SKY-LOOP / TUNNEL fork cards are solid, and a gantry or billboard behind them goes see-through, so the fork choice is never read against a sign's small print
+2026-11-02 · 0243 · The first-run "thumb here to steer" prompt steps aside while a score plate is up and comes back after, so the two never sit on the same pixels
