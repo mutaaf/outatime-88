@@ -5,7 +5,9 @@ import { test, expect } from '@playwright/test';
 import { APP, watchPage, racing, simWait } from './helpers.js';
 
 /** Hold the first traffic car `side` road units off your middle, ~0.3 s ahead of your bumper
- *  at 45 mph, with everything else parked far up the road. */
+ *  at 45 mph, with everything else parked far up the road. The car is held stunned and still
+ *  sideways: on a slow frame several sim steps run between two holds, and its driver's lane
+ *  drift (TRAFFIC_LATERAL) moved it ~0.1 off line, past PROX.centre, so it ticked from the side. */
 const holdCar = (page, side) => page.evaluate((side) => {
   const g = window.__OT.GameState, t = window.__OT.traffic();
   const car = t.traffic[0];
@@ -18,6 +20,7 @@ const holdCar = (page, side) => page.evaluate((side) => {
     car.idle = false; car.takenDown = false; car.active = true;
     car.worldZ = car.prevZ = g.trackPos + 1250 + 105 + car.halfL + 1500;
     car.offset = car.prevOffset = g.playerX + side; car.mph = 0; car.vz = 0;
+    car.stun = 1; car.vx = 0; car.yaw = car.vYaw = 0;
   }, 5);
 }, side);
 
@@ -58,8 +61,19 @@ test('traffic about to hit you ticks from its side, and the setting turns it off
   await page.locator('#setProximity').click();
   await page.locator('#btnSettingsDone').click();
   await racing(page);
-  await simWait(page, 1);
-  expect((await ticks(page)).n).toBeGreaterThan(off);
+  // Up to 3 s of race time, not exactly 1: the cue rightly stays quiet for a moment the hold
+  // can't rule out (you're airborne, you just touched the car), and one such moment ate the
+  // whole 1 s window on a slow CI runner. Still fails if the setting never comes back on.
+  let back = false;
+  for (let k = 0; k < 12 && !back; k++) {
+    await simWait(page, 0.25);
+    back = (await ticks(page)).n > off;
+  }
+  const why = await page.evaluate(() => {
+    const g = window.__OT.GameState, c = window.__OT.traffic().traffic[0];
+    return JSON.stringify({ status: g.status, phase: g.racePhase, y: g.playerY, beat: g.resumeBeat, warp: g.warpActiveTimer, agro: g.agroTimer, touchT: c.touchT, raceTime: g.raceTime, d: c.offset - g.playerX });
+  });
+  expect(back, `no tick within 3 s of turning the cue back on: ${why}`).toBe(true);
   await page.evaluate(() => clearInterval(window.__hold));
   expect(problems).toEqual([]);
 });
