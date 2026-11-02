@@ -229,3 +229,30 @@ describe('layoutLabels', () => {
     expect(calls).toBe(2);
   });
 });
+
+// Ticket 0243: drawLabels marks body.labels-up while a plate is drawn (the steer prompt steps
+// aside), clears it once none is, and only writes the class when it changes.
+describe('labels-up (0243)', () => {
+  it('toggles the body class only on change', async () => {
+    const { markLabels } = await import('../../src/pickup-art.js');
+    const calls = [];
+    const doc = { body: { classList: { toggle: (c, on) => calls.push([c, on]) } } };
+    markLabels(true, doc); markLabels(true, doc); markLabels(false, doc); markLabels(false, doc); markLabels(true, doc);
+    expect(calls).toEqual([['labels-up', true], ['labels-up', false], ['labels-up', true]]);
+    markLabels(false, doc);
+  });
+  it('drawLabels sets it with a plate and clears it with none', async () => {
+    const { drawLabels } = await import('../../src/pickup-art.js');
+    const on = new Set();
+    globalThis.document = { body: { classList: { toggle: (c, v) => (v ? on.add(c) : on.delete(c)) } } };
+    const ctx = new Proxy({ measureText: (t) => ({ width: t.length * 7 }) }, { get: (o, k) => (k in o ? o[k] : () => {}), set: () => true });
+    const box = { x0: 150, y0: 600, x1: 240, y1: 680 };
+    const list = [{ label: '⚡ CLOSE SHAVE! +200 (x2)', life: 0.6, maxLife: 0.65, chain: true }];
+    try {
+      drawLabels(ctx, 390, 844, list, box, false);
+      expect(on.has('labels-up')).toBe(true);
+      drawLabels(ctx, 390, 844, [], box, false);
+      expect(on.has('labels-up')).toBe(false);
+    } finally { delete globalThis.document; }
+  });
+});
