@@ -129,8 +129,8 @@ describe('draw2D under the fork cue (0242)', () => {
   const noop = () => {};
   const paint = new Proxy({}, { get: (_, k) => (k === 'measureText' ? () => ({ width: 10 }) : k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop: noop }) : noop), set: () => true });
   beforeAll(() => { globalThis.OffscreenCanvas = class { constructor(w, h) { this.width = w; this.height = h; } getContext() { return paint; } }; });
-  afterAll(() => { delete globalThis.OffscreenCanvas; GameState.forkBox = null; });
-  beforeEach(() => { seen.n = 0; });
+  afterAll(() => { delete globalThis.OffscreenCanvas; GameState.forkBox = null; GameState.status = undefined; GameState.reducedMotion = undefined; });
+  beforeEach(() => { seen.n = 0; GameState.status = 'PLAYING'; GameState.reducedMotion = true; });
 
   // The same gantry as above: face x 470..810, y 255..340 (bezel from ~247) on a 1280 × 720 buffer (not racing, so no crop).
   const roadW = 200, x = 640, roadY = 500;
@@ -150,5 +150,13 @@ describe('draw2D under the fork cue (0242)', () => {
     for (const a of draw(9000)) expect(a).toBe(1);
     GameState.forkBox = { n: 0, r: new Float32Array(8) };
     for (const a of draw(13000)) expect(a).toBe(1);
+  });
+
+  it('stays solid once the race is over: the title attract road and results draw on', () => {
+    cue(230, 260);
+    for (const st of ['GAMEOVER', 'TITLE', undefined]) {
+      GameState.status = st;
+      for (const a of draw(17000 + 4000 * ['GAMEOVER', 'TITLE', undefined].indexOf(st))) expect(a).toBe(1);
+    }
   });
 });

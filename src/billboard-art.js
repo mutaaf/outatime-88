@@ -454,16 +454,23 @@ function viewCrop() {
   return 1 + (0.07 * t * t + (g.nosBurning ? 0.045 : 0)) * g.cameraFx;
 }
 
-/** The fork cue's cards as view shares (0242), measured once each time the cue changes (the race
- *  step sets GameState.forkCue: 'OFF' | 'LEFT' | 'RIGHT'), never per frame. Hidden on the title. */
-let cueFor = 'OFF';
+/** The fork cue's cards as view shares (0242). The race step sets GameState.forkCue ('OFF' | 'LEFT' |
+ *  'RIGHT'); the cards are measured when the cue comes up or their slot moves, never per
+ *  frame and never on a lean flip (the lean only scales a card about its centre). No race, no box:
+ *  quitting to the title or results on the fork leaves forkCue set, and the attract road draws on. */
+let cueKey = '';
 const cueBox = { n: 0, r: new Float32Array(8) };
 function forkBox() {
-  const st = GameState.forkCue || 'OFF';
-  if (st !== cueFor) {
-    cueFor = st;
+  const st = GameState.status;
+  if (st !== 'PLAYING' && st !== 'PAUSED') return null;
+  // Re-measured when the cards can have moved: the window size, the HUD's slot for them (layout.js
+  // moves --slot-fork as the header resizes) or the compact/full HUD. Inline-style reads: no layout.
+  const shown = GameState.forkCue && GameState.forkCue !== 'OFF', root = shown && document.documentElement;
+  const key = shown ? `${innerWidth}x${innerHeight}|${root.style.getPropertyValue('--slot-fork')}|${root.dataset.hud}` : '';
+  if (key !== cueKey) {
+    cueKey = key;
     cueBox.n = 0;
-    const view = st !== 'OFF' && !document.body.classList.contains('on-title') && document.getElementById('canvasContainer');
+    const view = key && !document.body.classList.contains('on-title') && document.getElementById('canvasContainer');
     if (view) {
       forkCueBox(cueBox, ['forkLeftCard', 'forkRightCard'].map((id) => {
         const el = document.getElementById(id), r = el && el.getBoundingClientRect();
