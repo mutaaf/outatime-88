@@ -14,7 +14,7 @@
 import { GameState } from './state.js';
 import { track } from './track.js';
 import { drawRoadsideAd } from './backdrop.js';
-import { covers, boardAlpha, edgeFade, EDGE } from './board-fade.js';
+import { covers, cueCovers, forkCueBox, boardAlpha, edgeFade, EDGE } from './board-fade.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -159,6 +159,8 @@ const lastFade = { alpha: 1, kind: '', item: null, board: [0, 0, 0, 0], behind: 
 // ?debug (0221): boards met with > 15% of the face off screen, and the widest board beside the
 // road as a share of the view.
 const edge = { clipped: 0, maxW: 0 };
+// Boards drawn under the fork cue (0242): how many, the most opaque one, the last one's face rect.
+const cue = { hits: 0, maxAlpha: 0, last: [0, 0, 0, 0], vw: 0, vh: 0 };
 let lastBucket = 0, lastPx = 0;
 
 function clearFaces() { faces.clear(); faceGen++; }
@@ -440,7 +442,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function debug() {
-  return { ...stats, lastFade, edge, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
+  return { ...stats, lastFade, edge, cue, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
 }
 
 /** The FOV push-in the blit will crop the road buffer by this frame (src/render/scene.js:
@@ -450,6 +452,27 @@ function viewCrop() {
   if (g.reducedMotion || g.status !== 'PLAYING') return 1;
   const t = Math.min(1, Math.max(0, (g.speed - 40) / 48));
   return 1 + (0.07 * t * t + (g.nosBurning ? 0.045 : 0)) * g.cameraFx;
+}
+
+/** The fork cue's cards as view shares (0242), measured once each time the cue changes (the race
+ *  step sets GameState.forkCue: 'OFF' | 'LEFT' | 'RIGHT'), never per frame. Hidden on the title. */
+let cueFor = 'OFF';
+const cueBox = { n: 0, r: new Float32Array(8) };
+function forkBox() {
+  const st = GameState.forkCue || 'OFF';
+  if (st !== cueFor) {
+    cueFor = st;
+    cueBox.n = 0;
+    const view = st !== 'OFF' && !document.body.classList.contains('on-title') && document.getElementById('canvasContainer');
+    if (view) {
+      forkCueBox(cueBox, ['forkLeftCard', 'forkRightCard'].map((id) => {
+        const el = document.getElementById(id), r = el && el.getBoundingClientRect();
+        return r ? { cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: el.offsetWidth, h: el.offsetHeight } : { w: 0 };
+      }), view.getBoundingClientRect());
+    }
+    GameState.forkBox = cueBox;
+  }
+  return GameState.forkBox;
 }
 
 // ── 2D ─────────────────────────────────────────────────────────────────────────────────
@@ -483,9 +506,15 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now 
   const night = String(eraId) !== '1955';
   const b = Math.max(1, w * 0.022);
   const hit = drawn ? covers(drawn, left - b, top - b, left + w + b, bottom + b) : -1;
-  if (hit >= 0) item.bh = now;
+  // Under a fork cue card (0242) it fades the same way, so SKY-LOOP / TUNNEL is the one text there.
+  const underCue = cueCovers(forkBox(), left - b, top - b, left + w + b, bottom + b, rw, rh, viewCrop());
+  if (hit >= 0 || underCue) item.bh = now;
   const cover = boardAlpha(item.bh ? (now - item.bh) / 1000 : Infinity);
   const alpha = cover * ef;
+  if (underCue) {
+    cue.hits++; if (alpha > cue.maxAlpha) cue.maxAlpha = alpha;
+    cue.last[0] = left - b; cue.last[1] = top - b; cue.last[2] = left + w + b; cue.last[3] = bottom + b; cue.vw = rw; cue.vh = rh;
+  }
   const prevAlpha = ctx.globalAlpha;
   if (alpha < 1) ctx.globalAlpha = prevAlpha * alpha;
   if (cover < 1) {

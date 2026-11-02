@@ -122,3 +122,33 @@ describe('draw2D with a car behind the board', () => {
     for (const a of draw(item, 1000 + BOARD_FADE.back * 1000 + 1).ops) expect(a).toBe(1);
   });
 });
+
+// Ticket 0242: the fork cue's cards are read like something drawn behind the board, so a gantry
+// or roadside board under SKY-LOOP / TUNNEL draws see-through and the cue is the one text there.
+describe('draw2D under the fork cue (0242)', () => {
+  const noop = () => {};
+  const paint = new Proxy({}, { get: (_, k) => (k === 'measureText' ? () => ({ width: 10 }) : k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop: noop }) : noop), set: () => true });
+  beforeAll(() => { globalThis.OffscreenCanvas = class { constructor(w, h) { this.width = w; this.height = h; } getContext() { return paint; } }; });
+  afterAll(() => { delete globalThis.OffscreenCanvas; GameState.forkBox = null; });
+  beforeEach(() => { seen.n = 0; });
+
+  // The same gantry as above: face x 470..810, y 255..340 (bezel from ~247) on a 1280 × 720 buffer (not racing, so no crop).
+  const roadW = 200, x = 640, roadY = 500;
+  const draw = (now) => { const { ctx, ops } = fakeCtx(); draw2D(ctx, { type: 'BILLBOARD', kind: 'GANTRY', slot: 4, cid: '', mv: -1 }, 0, x, roadY, roadW, 1280, 720, '1985', seen, now); return ops; };
+  const cue = (t, b) => { GameState.forkBox = { n: 2, r: Float32Array.of(0.38, t / 720, 0.49, b / 720, 0.52, t / 720, 0.6, b / 720) }; };
+
+  it('draws see-through while a cue card sits over its face', () => {
+    cue(230, 260);
+    const ops = draw(5000);
+    expect(ops.length).toBeGreaterThan(2);
+    for (const a of ops) expect(a).toBeCloseTo(BOARD_FADE.alpha, 5);
+    expect(debug().cue.hits).toBeGreaterThan(0);
+  });
+
+  it('stays solid with the cue clear of it, or with no cue up', () => {
+    cue(200, 240); // above the face
+    for (const a of draw(9000)) expect(a).toBe(1);
+    GameState.forkBox = { n: 0, r: new Float32Array(8) };
+    for (const a of draw(13000)) expect(a).toBe(1);
+  });
+});

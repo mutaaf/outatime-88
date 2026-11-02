@@ -1442,6 +1442,7 @@ export function showForkCue(state) {
   const banner = document.getElementById('forkChoiceBanner');
   if (!banner) return;
   banner.classList.toggle('hidden', state === 'OFF');
+  GameState.forkCue = state; // the 2D boards behind the cards fade (0242, src/billboard-art.js)
   if (state === 'OFF') return;
   document.getElementById('forkLeftCard')?.classList.toggle('fork-lean', state === 'LEFT');
   document.getElementById('forkRightCard')?.classList.toggle('fork-lean', state === 'RIGHT');

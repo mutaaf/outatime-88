@@ -18,6 +18,21 @@ export function covers(seen, l, t, r, b) {
   return -1;
 }
 
+/**
+ * True if a board face [l, r] × [t, b] on a road buffer `vw` × `vh` lies under a fork cue card
+ * (ticket 0242). `box` = { n, r } holds each card as shares of the view (src/fork.js forkCueBox);
+ * the view shows the buffer's middle 1/`crop` (the FOV push-in, src/render/scene.js), so a share
+ * maps to the buffer as cut + share × vw / crop (vertically the crop sits at 46%, as the blit's).
+ */
+export function cueCovers(box, l, t, r, b, vw, vh, crop = 1) {
+  if (!box || !box.n) return false;
+  const sw = vw / crop, sh = vh / crop, cx = (vw - sw) * 0.5, cy = (vh - sh) * 0.46, a = box.r;
+  for (let i = 0, k = 0; i < box.n; i++, k += 4) {
+    if (cx + a[k] * sw < r && cx + a[k + 2] * sw > l && cy + a[k + 1] * sh < b && cy + a[k + 3] * sh > t) return true;
+  }
+  return false;
+}
+
 /** Opacity for a board `since` seconds after something was last behind it (Infinity = never). */
 export function boardAlpha(since) {
   if (!(since > 0)) return BOARD_FADE.alpha;
@@ -45,4 +60,21 @@ export function edgeFade(l, r, vw, crop = 1) {
   const out = Math.max(0, cut - l) + Math.max(0, r - (vw - cut));
   if (out <= 0) return 1;
   return Math.max(0, 1 - Math.min(1, out / w) / EDGE.fade);
+}
+
+// Ticket 0242: the cue's cards as shares of the view, so the 2D road can draw a board behind them
+// see-through (cueCovers above). Each card is { cx, cy, w, h }: its centre on screen and
+// its unscaled layout size (CSS px); it is grown to the lean's 1.06 scale plus a 4 px margin, so the
+// box holds through the lean transition. Cards not laid out (w 0) are skipped.
+export function forkCueBox(box, cards, view) {
+  box.n = 0;
+  for (let i = 0; i < cards.length && i < 2; i++) {
+    const c = cards[i];
+    if (!(c.w > 0) || !(view.width > 0)) continue;
+    const hw = c.w * 0.53 + 4, hh = c.h * 0.53 + 4, x = c.cx - view.left, y = c.cy - view.top, k = box.n * 4;
+    box.r[k] = (x - hw) / view.width; box.r[k + 1] = (y - hh) / view.height;
+    box.r[k + 2] = (x + hw) / view.width; box.r[k + 3] = (y + hh) / view.height;
+    box.n++;
+  }
+  return box;
 }
