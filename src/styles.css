@@ -160,8 +160,9 @@ body.race-on #driverBadgeBar { opacity: 0; visibility: hidden; transition: opaci
 :root[data-hud="full"]:not(.touch-ui) .coach-desk #coachDesc { font-size: 11px; line-height: 1.25; margin-top: 1px; }
 [data-hud="compact"] #forkChoiceBanner > div { font-size: 10px !important; padding: 3px 7px !important; max-width: 32vw; }
 /* The branch you are lined up for leans forward (scale, never transform: see LESSONS). */
-.fork-cue { scale: 0.92; opacity: 0.85; transition: scale 120ms ease-out, opacity 120ms ease-out; }
-.fork-cue.fork-lean { scale: 1.06; opacity: 1; }
+/* The cards stay opaque (0242: never read against a sign through them); the other branch dims, not fades. */
+.fork-cue { scale: 0.92; filter: brightness(0.82); transition: scale 120ms ease-out, filter 120ms ease-out; }
+.fork-cue.fork-lean { scale: 1.06; filter: none; }
 @media (prefers-reduced-motion: reduce) { .fork-cue { transition: none; } }
 @media (max-width: 380px) {
   [data-hud="compact"] #fluxHudCol { width: 44px !important; }
