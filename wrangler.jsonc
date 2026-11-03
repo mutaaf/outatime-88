@@ -5,8 +5,10 @@
   "name": "outatime-88",
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
-  "preview_urls": true,
-  "previews": {},
+  // No previews. Cloudflare never serves preview URLs for Workers with Durable Objects, yet
+  // every PR preview still created its own copy of each DO namespace: 97 leaked copies hit the
+  // Free-plan cap of 100 on 2026-10-22 and blocked new deploys account-wide (cleaned up by hand).
+  "preview_urls": false,
   // The Worker script only runs for /outatime/api/* (the leaderboard, src/worker/).
   // Everything else is served straight from static assets with dist/_headers applied.
   "main": "src/worker/index.js",
