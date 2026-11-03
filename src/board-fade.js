@@ -78,3 +78,46 @@ export function forkCueBox(box, cards, view) {
   }
   return box;
 }
+
+// Ticket 0244: the HUD strip (track bar, gap pills, timer) is where the eye goes for place and
+// time, so a board face rising into it (the start gantry right over the grid, an overhead gantry
+// you are about to pass under) draws see-through there. The fade follows how deep the face reaches
+// into the strip, over `ramp` of the view height, so a gantry growing up the screen eases out
+// instead of popping; anything clear of the strip is untouched.
+export const STRIP = {
+  alpha: BOARD_FADE.alpha, // fully under the strip: the same see-through as 0203 / 0242
+  ramp: 0.04,              // share of the view height over which it eases to that
+  pad: 4,                  // CSS px around each strip element (pills' glow, a card widening a hair)
+};
+
+/** Fill `box` ({ n, r }) with DOM rects (`left/top/right/bottom`) as shares of `view`, grown by STRIP.pad. */
+export function stripBox(box, rects, view) {
+  box.n = 0;
+  if (!(view.width > 0) || !(view.height > 0)) return box;
+  for (let i = 0; i < rects.length && box.n * 4 < box.r.length; i++) {
+    const q = rects[i];
+    if (!q || !(q.right > q.left)) continue;
+    const k = box.n * 4, p = STRIP.pad;
+    box.r[k] = (q.left - p - view.left) / view.width; box.r[k + 1] = (q.top - p - view.top) / view.height;
+    box.r[k + 2] = (q.right + p - view.left) / view.width; box.r[k + 3] = (q.bottom + p - view.top) / view.height;
+    box.n++;
+  }
+  return box;
+}
+
+/**
+ * Opacity for a board face [l, r] × [t, b] on a road buffer `vw` × `vh` against the HUD strip
+ * `box` (view shares; the view shows the buffer's middle 1/`crop`, mapped as cueCovers does):
+ * 1 clear of it, easing to STRIP.alpha as the face reaches STRIP.ramp of the view into it.
+ */
+export function stripFade(box, l, t, r, b, vw, vh, crop = 1) {
+  if (!box || !box.n) return 1;
+  const sw = vw / crop, sh = vh / crop, cx = (vw - sw) * 0.5, cy = (vh - sh) * 0.46, a = box.r, ramp = STRIP.ramp * sh;
+  let f = 1;
+  for (let i = 0, k = 0; i < box.n; i++, k += 4) {
+    if (!(cx + a[k] * sw < r && cx + a[k + 2] * sw > l)) continue;
+    const d = Math.min(cy + a[k + 3] * sh, b) - Math.max(cy + a[k + 1] * sh, t);
+    if (d > 0) f = Math.min(f, 1 - (1 - STRIP.alpha) * Math.min(1, d / ramp));
+  }
+  return f;
+}
