@@ -1,12 +1,12 @@
 ---
 id: 0244
 title: The start-grid gantry board stays below the HUD strip instead of running behind the timer and progress bar
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-11-03
-pr:
+pr: 224
 ---
 
 ## Why
