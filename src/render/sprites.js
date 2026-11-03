@@ -4,7 +4,7 @@ import { GameState } from '../state.js';
 import { ROAD_CFG } from '../data.js';
 import { PICKUPS } from '../pickups.js';
 import { drawBoard, seen, noteSeen } from '../billboards.js';
-import { drawRoadsideProp, drawHazardArt, drawSoftShadow, queueTag, flushTags } from '../backdrop.js';
+import { drawRoadsideProp, drawHazardArt, drawEraProp, drawSoftShadow, queueTag, queueBlock, flushTags } from '../backdrop.js';
 import { RS, LiveTraffic, live, carArt, pickupArt, hzArt } from '../main.js';
 import { road } from './road.js';
 import { thrustState } from './player.js';
@@ -26,6 +26,9 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
   pushAll(allMovingCars, live.ghosts);
   moverSeg.length = allMovingCars.length;
   seen.n = 0;
+  // The rivals directly ahead of and behind you always keep their name tag (0238).
+  const field = LiveTraffic.fieldEntries, me = GameState.racePosition - 1;
+  const tagA = field[me - 1], tagB = field[me + 1];
   for (let m = 0; m < allMovingCars.length; m++) moverSeg[m] = allMovingCars[m].takenDown ? -1 : Math.floor(allMovingCars[m].worldZ / ROAD_CFG.segLength);
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
     const seg = visibleSegments[i];
@@ -102,6 +105,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
         const size = Math.max(6, itemW * 0.95);
         const py = roadY - itemW * 0.72 + bobY;
         noteSeen(itemX - size / 2, py - size / 2, itemX + size / 2, py + size / 2);
+        if (i < 20) queueBlock(itemX, py, size * 1.4, size * 1.4); // name tags keep off its icon, ring and most of its glow (0238)
         if (pickupArt) pickupArt.drawPickup(ctx, item.type, itemX, py, size, nowSec, item.phase || 0, GameState.reducedMotion);
         else { ctx.fillStyle = PICKUPS[item.type].color; ctx.beginPath(); ctx.arc(itemX, py, size * 0.4, 0, Math.PI * 2); ctx.fill(); }
       } else if ((item.type === 'STREET_LAMP' || item.type === 'PALM_TREE' || item.type === 'ARCH_HW') && drawRoadsideProp(ctx, item.type, itemX, roadY, itemW, itemH, roadW, rw, rh)) {
@@ -163,6 +167,9 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
         ctx.fillRect(-ow * 0.4, oh * 0.45 - bh * 0.32, ow * 0.8, Math.max(2, bh * 0.1));
         ctx.fillStyle = '#93c5fd';
         ctx.fillRect(-ow * 0.4, oh * 0.45 - bh, ow * 0.8, Math.max(1.5, bh * 0.06));
+      } else if (ob.knockable) {
+        // An era's signature prop (0113): its art is in the lazy stage chunk; a plain block until then.
+        if (!drawEraProp(ctx, ob.type, ow, oh)) { ctx.fillStyle = '#94a3b8'; ctx.fillRect(-ow * 0.4, -oh * 0.7, ow * 0.8, oh * 1.1); }
       } else if (ob.type === 'PINE_TREE_HAZARD') {
         // A solid hazard (static in physics): the era's own art over the collision box, and the
         // golden close-shave ring you can graze for a boost.
@@ -282,7 +289,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
           carArt.drawThrust(ctx, rivalThrust, thrustState);
         }
         if (GameState.status !== 'TITLE' && (mv.ghostTag || mv.short)) {
-          queueTag(cx, roadY - ch * 1.3 - 6, roadW, mv.ghostTag || mv.short, mv.ghostTag ? (mv.cpu ? 0 : 1) : 2, mv.underglow);
+          queueTag(cx, roadY - ch * 1.3 - 6, roadW, mv.ghostTag || mv.short, mv.ghostTag ? (mv.cpu ? 0 : 1) : 2, mv.underglow, mv === tagA || mv === tagB);
         }
         continue;
       }
@@ -296,7 +303,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
 
       // Name tags (ticket 0101): queued here, laid out once after all cars so they never pile up.
       if (GameState.status !== 'TITLE' && (mv.ghostTag || mv.short)) {
-        queueTag(cx, roadY - ch * 1.3 - 6, roadW, mv.ghostTag || mv.short, mv.ghostTag ? (mv.cpu ? 0 : 1) : 2, mv.underglow);
+        queueTag(cx, roadY - ch * 1.3 - 6, roadW, mv.ghostTag || mv.short, mv.ghostTag ? (mv.cpu ? 0 : 1) : 2, mv.underglow, mv === tagA || mv === tagB);
       }
     }
   }

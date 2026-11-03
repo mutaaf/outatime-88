@@ -24,6 +24,10 @@ const MAX_POINTERS = 10;
 const STICK_TRAVEL = 0.42;   // knob travel radius as a fraction of the base diameter
 const EDGE_STEER = 0.75;     // stick deflection that counts as a "press" (tricks, jukes)
 const LOOK_RANGE = 0.35;     // fraction of the screen for a full look-around
+// Landscape coach chip (0225): every tip fits two lines from 198 px. It docks from 222 px and stays
+// docked down to 204 px, so a score gaining digits mid-race doesn't throw the card back onto the road.
+const COACH_DOCK_AT = 222;
+const COACH_UNDOCK_UNDER = 204;
 
 /** True on devices that can touch; desktop mice never see the controls unless they touch. */
 export function canTouch(win = window) {
@@ -167,8 +171,37 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     node.style.translate = `${it.x - it.d / 2}px ${it.y - it.d / 2}px`;
   }
 
+  // Landscape phones (0225): the coach tip docks in the HUD row as a slim chip, under the track
+  // strip and between the place card and the next card to its right. touch.css reads these.
+  function dockCoach() {
+    const box = (id) => { const e = doc.getElementById(id); const r = e && e.getBoundingClientRect(); return r && r.width && r.height ? r : null; };
+    const pos = box('hudPosCard'), strip = box('hudTrack'), header = doc.querySelector('header');
+    if (!pos || !header) return;
+    if (!win.matchMedia('(max-height: 479.98px)').matches) { doc.getElementById('interactiveCoachBanner')?.classList.remove('tc-coach-docked'); return; }
+    let right = win.innerWidth - 8;
+    for (const id of ['hudTimes', 'hudSpeedCard', 'btnHudSettings']) {
+      const r = box(id);
+      if (r && r.left > pos.right) right = Math.min(right, r.left - 8);
+    }
+    const top = (strip ? strip.bottom : pos.top) + 2;
+    const left = pos.right + 8;
+    const banner = doc.getElementById('interactiveCoachBanner');
+    if (!banner) return;
+    // Too narrow for two lines of a tip (568x320, 640x360, HUD LARGE on small phones): the card stays where it was.
+    const room = right - left;
+    banner.classList.toggle('tc-coach-docked', room >= (banner.classList.contains('tc-coach-docked') ? COACH_UNDOCK_UNDER : COACH_DOCK_AT));
+    // On the banner, not :root (a root custom property restyles the whole page), and only on change.
+    const st = banner.style;
+    const set = (k, v) => { if (st.getPropertyValue(k) !== v) st.setProperty(k, v); };
+    set('--tc-chip-l', `${Math.round(left)}px`);
+    set('--tc-chip-t', `${Math.round(top)}px`);
+    set('--tc-chip-w', `${Math.round(Math.max(0, right - left))}px`);
+    set('--tc-chip-h', `${Math.round(Math.max(28, header.getBoundingClientRect().bottom - top))}px`);
+  }
+
   function relayout() {
     if (!active) return;
+    dockCoach(); // before measureEnv: the controls avoid the coach where it really shows
     env = measureEnv();
     movement = effectiveMovement();
     tiltWas = h.tiltOn();
@@ -229,7 +262,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   const haptics = createHaptics({ win, doc, settings: S, calm: () => h.calm() });
   const buzz = haptics.pulse;
 
-  function pressButton(p, id) {
+  function pressButton(p, id, slid = false) {
     p.btn = id;
     pressCount[id]++;
     el[id].classList.add('tc-pressed');
@@ -239,7 +272,8 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       case 'jump': h.onJump(); break;
       case 'drift': driftLatch = true; h.onDrift(); break;
       case 'accel': accelLatch = true; break;
-      case 'horn': if (h.onNos) h.onNos(); break; // NOS: held, read in sample()
+      // NOS: held, read in sample(). For TAP ON/OFF (0222) only a fresh touch is a tap; a thumb sliding over from DRIFT never flips it.
+      case 'horn': if (!slid) InputState.nosTap = true; if (h.onNos) h.onNos(); break;
       case 'pause': h.onPause(); break;
       case 'camera': h.onCamera(); break;
       case 'respawn': h.onRespawn(); break;
@@ -425,7 +459,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       }
       const next = hitButton(btnList, p.x, p.y, 2);
       const t = slideTransition(p.btn, next, (id) => SLIDABLE.has(id));
-      if (t.press) { releaseButton(p, t.release === 'special'); pressButton(p, t.press); }
+      if (t.press) { releaseButton(p, t.release === 'special'); pressButton(p, t.press, true); }
       return;
     }
     if (p.kind === 'look') {
@@ -517,6 +551,10 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   if (typeof win.ResizeObserver === 'function') {
     const header = doc.querySelector('header');
     if (header) new win.ResizeObserver(headerResized).observe(header);
+    // The cards around the docked coach change width within the header (the clock, speed and score
+    // grow; the strip's 1fr column takes up every change): re-dock only.
+    const dock = new win.ResizeObserver(() => { if (active) dockCoach(); });
+    for (const id of ['hudPosCard', 'hudTrack', 'hudTimes', 'hudSpeedCard']) { const e = doc.getElementById(id); if (e) dock.observe(e); }
   }
 
   // --- Per-frame ----------------------------------------------------------------------------
@@ -562,6 +600,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       const n = String(st.specials);
       if (specialBadge.textContent !== n) specialBadge.textContent = n;
       el.jump.classList.toggle('tc-dim', !!st.airborne);
+      if (!!st.nosOn !== nosOn) setNosOn(!!st.nosOn);
     }
     const showMirror = InputState.lookBack && !h.is3D();
     if (mirror.classList.contains('tc-open') !== showMirror) mirror.classList.toggle('tc-open', showMirror);
@@ -577,6 +616,16 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     el.boost.dataset.ready = on ? 'true' : 'false';
     boostLbl.textContent = on ? 'READY' : LABELS.boost;
     el.boost.setAttribute('aria-label', on ? `${LABELS.boost} ready` : LABELS.boost);
+  }
+  // NOS TAP ON/OFF (0222): a tapped-on burn says so in text on the button, not only in colour.
+  let nosOn = false;
+  const nosLbl = el.horn.querySelector('.tc-lbl');
+  function setNosOn(on) {
+    nosOn = on;
+    el.horn.classList.toggle('tc-on', on);
+    el.horn.dataset.on = on ? 'true' : 'false';
+    nosLbl.textContent = on ? 'NOS ON' : LABELS.horn;
+    el.horn.setAttribute('aria-label', on ? `${LABELS.horn} on` : LABELS.horn);
   }
   function setRing(id, v) {
     const r = ring[id];

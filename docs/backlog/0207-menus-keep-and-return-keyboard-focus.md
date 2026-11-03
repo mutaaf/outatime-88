@@ -1,12 +1,12 @@
 ---
 id: 0207
 title: Menus keep keyboard focus inside and hand it back when they close
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: accessibility
 created: 2026-10-23
-pr:
+pr: 159
 ---
 
 ## Why
@@ -28,11 +28,11 @@ the overlay, and on close restores focus. Wire it to settings, garage, leaderboa
 overlays. Do not change gamepad/touch behaviour or the in-race key map.
 
 ## Acceptance criteria
-- [ ] Opening Settings from the title moves focus into it; 20 Tab presses never reach an element outside it
-- [ ] Closing it (button or Escape) puts focus back on the control that opened it
-- [ ] Same for Garage and Ranks; during a race Escape/pause still works and focus is not stolen from the game
-- [ ] Main JS budget held (helper lives in a lazy chunk)
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse
+- [x] Opening Settings from the title moves focus into it; 20 Tab presses never reach an element outside it
+- [x] Closing it (button or Escape) puts focus back on the control that opened it
+- [x] Same for Garage and Ranks; during a race Escape/pause still works and focus is not stolen from the game
+- [x] Main JS budget held (helper lives in a lazy chunk)
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse
 
 ## Test plan
 Unit test for the Tab-wrap function (first/last element, hidden controls skipped). E2E

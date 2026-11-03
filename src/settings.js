@@ -13,12 +13,18 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   musicStyle: 'auto',     // 'auto' (synthwave in the '88 eras, street beats elsewhere + Endless tier 3+) | 'synthwave' | 'street' (0193)
   voice: true,            // the race announcer reads names and calls out loud (on-device speech)
   proximity: true,        // a quiet tick panned toward traffic about to hit you (0191, src/proximity-cue.js)
+  // laneGuide (0219, src/lane-guide.js): a tone panned toward the open lane. Off unless `true`, so it
+  // needs no default here (main's bundle is at its budget); the lazy settings panel writes it.
   coach: true,            // in-race tip card, first-run steer prompt and touch thumb guide (0201)
+  hud: 'normal',          // HUD text size: 'normal' | 'large' (0195; ~1.3x speed, place, gaps and clock)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'
+  cameraFx: 'full',       // camera shake + FOV push-in only (0216, src/camera-fx.js): 'full' | 'gentle' | 'off'
   difficulty: 'normal',   // 'easy' | 'normal' | 'hard'
+  rivals: 'pack',         // rival catch-up: 'pack' (close pack) | 'fair' (fair field, 0211; not in rooms/dailies)
   graphics: 'auto',       // 'auto' (device-picked tier, src/perf/) | 'low' | 'medium' | 'high' | 'ultra'
   steer: '',              // steering mode (src/steermode.js): '' = this device's natural one
   assist: '',             // co-pilot: 'off' | 'assist' | 'auto'; '' = the touch kit's old switch
+  nos: 'hold',            // NOS button: 'hold' | 'toggle' (0222, a tap turns it on and off; src/nos-toggle.js)
   keys: null,             // rebound keyboard keys { left: 'KeyJ', … } (0013, src/keybinds.js); null = defaults
 });
 
@@ -31,7 +37,8 @@ export const DIFFICULTY = Object.freeze({
 const CHOICES = {
   motion: ['auto', 'reduce', 'full'], difficulty: Object.keys(DIFFICULTY), graphics: ['auto', 'low', 'medium', 'high', 'ultra'],
   steer: ['', 'keys', 'mouse', 'stick', 'dpad', 'tilt'], assist: ['', 'off', 'assist', 'auto'],
-  musicStyle: ['auto', 'synthwave', 'street'],
+  musicStyle: ['auto', 'synthwave', 'street'], hud: ['normal', 'large'], rivals: ['pack', 'fair'],
+  cameraFx: ['full', 'gentle', 'off'], nos: ['hold', 'toggle'],
 };
 const clamp01 = (v, d) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : d);
 
@@ -53,63 +60,3 @@ export const difficultyOf = (settings) => DIFFICULTY[settings && settings.diffic
 
 /** Reduced motion is on when the player asks for it, or when 'auto' and the OS asks. */
 export const reducedMotionFor = (motion, systemReduce) => motion === 'reduce' || (motion !== 'full' && Boolean(systemReduce));
-
-// --- Tilt -------------------------------------------------------------------------------
-
-export const TILT = Object.freeze({ deadzone: 2, range: 24, clamp: 28 });
-
-/**
- * Current screen rotation in degrees (0, 90, 180, 270). When the reported angle contradicts
- * the viewport's shape (some browsers and emulators report the desktop screen's angle), the
- * shape wins: a tall viewport is portrait, a wide one landscape.
- */
-export function screenAngle(win = globalThis) {
-  const so = win.screen && win.screen.orientation;
-  let a = so && typeof so.angle === 'number' ? so.angle : Number(win.orientation) || 0;
-  a = ((a % 360) + 360) % 360;
-  const w = win.innerWidth, h = win.innerHeight;
-  if (w && h) {
-    const sideways = a === 90 || a === 270;
-    if (h > w && sideways) return 0;
-    if (w > h && !sideways) return 90;
-  }
-  return a;
-}
-
-/**
- * The device's left/right tilt in degrees, for how the screen is rotated right now. Portrait
- * steers with gamma; landscape with beta, whose sign flips between the two landscape
- * rotations (without this, one way round steered backwards).
- */
-export function tiltAngle(beta, gamma, angle) {
-  const b = Number(beta) || 0;
-  const g = Number(gamma) || 0;
-  switch (angle) {
-    case 90: return b;
-    case 270: return -b;
-    case 180: return -g;
-    default: return g;
-  }
-}
-
-/** Steering in -1..1 from a raw tilt angle, the recentred zero, sensitivity and invert. */
-export function tiltSteer(rawDeg, zeroDeg, { sensitivity = 1, invert = false } = {}) {
-  let d = (rawDeg - zeroDeg + 540) % 360 - 180; // shortest way round, so ±180 never jumps
-  d = Math.max(-TILT.clamp, Math.min(TILT.clamp, d));
-  if (Math.abs(d) < TILT.deadzone) return 0;
-  const sign = invert ? -1 : 1;
-  const v = sign * (d - Math.sign(d) * TILT.deadzone) / (TILT.range - TILT.deadzone) * sensitivity;
-  return Math.max(-1, Math.min(1, v));
-}
-
-/** What the settings panel should say about tilt right now. */
-export function tiltStatusText(status) {
-  switch (status) {
-    case 'on': return 'Tilt is ON. Hold the device how you like and tap RECENTER.';
-    case 'waiting': return 'Waiting for the tilt sensor…';
-    case 'denied': return 'Tilt was blocked. Allow Motion & Orientation for this site in your browser settings, then try again.';
-    case 'unsupported': return 'This device has no tilt sensor. Use the touch pads or a gamepad.';
-    case 'nosignal': return 'No tilt sensor found on this device. Use the touch pads or a gamepad.';
-    default: return 'Tilt is OFF. Turn it on to steer by tilting.';
-  }
-}

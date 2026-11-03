@@ -57,7 +57,7 @@ function build(o) {
       ctx.fillRect(x - 0.4 * u, hz - h - 2 * u, w + 0.8 * u, 2 * u); // false front
       ctx.fillStyle = 'rgba(255,200,120,0.6)'; ctx.fillRect(x + w * 0.2, hz - h * 0.55, w * 0.18, h * 0.22); ctx.fillRect(x + w * 0.62, hz - h * 0.55, w * 0.18, h * 0.22);
       ctx.fillStyle = '#2a1206'; ctx.fillRect(x - u, hz - h * 0.3, w + 2 * u, 0.6 * u); // porch roof
-      if (label) sign(ctx, label, x + w / 2, hz - h - 0.8 * u, 1.9 * u, '#f8e3b5', { font: 'bold' });
+      if (label) sign(ctx, label, x + w / 2, hz - h - 0.8 * u, 1.9 * u, '#f8e3b5', { font: 'bold', maxW: w + 0.8 * u });
     };
     front(town, 14 * u, 10 * u, '#4b2210', 'PALACE SALOON');
     front(town + 15 * u, 11 * u, 9 * u, '#542812', 'LIVERY');
@@ -69,7 +69,7 @@ function build(o) {
     for (let y = hz - 24 * u; y < hz; y += 4 * u) { ctx.beginPath(); ctx.moveTo(cx - 4 * u, y); ctx.lineTo(cx + 4 * u, y + 4 * u); ctx.stroke(); }
     ctx.fillStyle = '#efe6cf'; ctx.beginPath(); ctx.arc(cx, hz - 20 * u, 2.4 * u, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#7c2d12'; ctx.fillRect(cx - 9 * u, hz - 13 * u, 18 * u, 3 * u);
-    sign(ctx, 'CLOCK DEDICATION SAT.', cx, hz - 11.5 * u, 1.5 * u, '#fde68a');
+    sign(ctx, 'CLOCK DEDICATION SAT.', cx, hz - 11.5 * u, 1.5 * u, '#fde68a', { maxW: 16 * u });
     // windmill and a water tower
     const wx = town - 10 * u;
     ctx.fillStyle = '#2a1206'; ctx.fillRect(wx, hz - 16 * u, 0.6 * u, 16 * u);
@@ -77,8 +77,8 @@ function build(o) {
     building(ctx, r, town + 62 * u, hz, 6 * u, 6 * u, '#3b1a0a', null);
     ctx.fillStyle = '#3b1a0a'; ctx.fillRect(town + 62.5 * u, hz - 13 * u, 5 * u, 7 * u);
     // the sign for the ravine nobody has named yet
-    ctx.fillStyle = '#5b2a10'; ctx.fillRect(tx - 14 * u, hz - 6 * u, 0.5 * u, 6 * u); ctx.fillRect(tx - 18 * u, hz - 7 * u, 9 * u, 2.6 * u);
-    sign(ctx, 'GULCH OF NO NAME', tx - 13.5 * u, hz - 5.7 * u, 1.2 * u, '#fde68a');
+    ctx.fillStyle = '#5b2a10'; ctx.fillRect(tx - 14 * u, hz - 6 * u, 0.5 * u, 6 * u); ctx.fillRect(tx - 20 * u, hz - 7 * u, 13 * u, 2.6 * u);
+    sign(ctx, 'GULCH OF NO NAME', tx - 13.5 * u, hz - 5.7 * u, 1.2 * u, '#fde68a', { maxW: 13 * u });
     spots.booth = { x: town + 40 * u, y: hz, u };
   });
 

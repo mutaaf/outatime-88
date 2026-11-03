@@ -15,12 +15,13 @@ export const PROX = Object.freeze({
 
 const NONE = [];
 
-/** Seconds until `b` reaches the player `p` at today's closing speed, or Infinity if it won't:
- *  parked, wrecked, already hit (the cue warns before a hit, it doesn't follow one), in another
- *  lane, or one you're jumping over or sliding under right now. */
-function contactIn(p, b) {
+/** Seconds until `b` reaches the player `p` (its middle at road offset `x`, p.x by default) at
+ *  today's closing speed, or Infinity if it won't: parked, wrecked, already hit (the cue warns
+ *  before a hit, it doesn't follow one), in another lane, or one you're jumping over or sliding
+ *  under right now. The lane guide (0219, src/lane-guide.js) asks it about other lanes. */
+export function contactIn(p, b, x = p.x) {
   if (b.idle || b.takenDown || b.hitCount > 0 || b.touchT > p.now - 0.5) return Infinity;
-  if (Math.abs(b.offset - p.x) >= p.halfW + b.halfW) return Infinity;
+  if (Math.abs(b.offset - x) >= p.halfW + b.halfW) return Infinity;
   const y = b.y || 0;
   if (p.bot >= y + b.height - 4 || p.top <= y || (b.clearanceY > 0 && p.top <= y + b.clearanceY + 4)) return Infinity;
   const gap = b.worldZ - b.halfL - (p.z + p.halfL);

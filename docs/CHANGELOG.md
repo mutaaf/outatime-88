@@ -126,3 +126,50 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-10-22 · 0198 · Every pickup now floats in a white ring no hazard has, so coins and power-ups read apart from cones, barrels and barricades without relying on colour
 2026-10-22 · 0201 · New Settings → Race → Coach tips switch: turn it off and races no longer show the tip card, the first-run steer prompt or the touch thumb guide
 2026-10-23 · 0203 · A billboard, banner or start arch with a car, obstacle or pickup behind it now turns see-through, so what you are racing stays readable through it
+2026-10-23 · 0167 · Rivals on the race strip now carry their own letter (and ▲/▼ for the cars either side of you), so you can tell who is who without relying on colour
+2026-10-23 · 0207 · Settings, Garage, Ranks and the share sheet now take keyboard focus when they open, keep Tab inside, close on Escape and hand focus back to the button that opened them; Enter on a focused title button presses it instead of starting a race
+2026-10-23 · 0188 · With calm motion on, a storm-bolt strike and the ZONE/AGRO ability tint now wash the screen softly instead of flashing it; a new test checks that no effect flashes the screen more than 3 times a second
+2026-10-26 · 0196 · Rival catch-up is now measured: on NORMAL a clean race is still won by seconds on every level, and a test keeps it that way
+2026-10-26 · 0204 · Pausing a race now shows a CONTROLS card for the input in hand: your keys (rebound ones too), the pad's buttons, or the touch pads, in the ⚙️ pause and the Escape garage pause
+2026-10-26 · 0212 · Sound now comes back by itself after a phone call, Siri, a lock screen or a tab switch (or on your next tap or key); if you muted, it stays muted
+2026-10-26 · 0195 · Settings → VIEW → HUD SIZE: LARGE makes your place, lap, gaps, race clock and speed 1.3x bigger; on upright screens the times move to their own row so nothing overlaps
+2026-10-26 · 0205 · A fast near-miss chain now shows one score plate that keeps growing (running total, latest multiplier, a small pop), and never more than two plates over the road at once
+2026-10-26 · 0206 · Playing on mute: a near-miss on traffic now shows a 🚗 NEAR MISS plate with its points, and every sound that tells you something is listed with what you see instead (docs/ACCESSIBILITY.md)
+2026-10-26 · 0208 · On a computer or a tablet on its side, the title no longer lays text over your car: PLAY sits higher with RACE FRIENDS and VIEW side by side, the cards (or the first-visit pitch) flank the car, and the offline badge moves to the bottom edge
+2026-10-27 · 0209 · In a pack fight the track strip spreads the markers apart in race order, so every rival's letter and your YOU tag stay readable instead of stacking on top of each other
+2026-10-27 · 0214 · Windows High Contrast and "more contrast": every button, chip and toggle keeps a visible edge, the chosen option shows a ✓ (or an underline, or the switch knob's side) instead of only a colour, and the keyboard focus ring stays visible
+2026-10-27 · 0113 · Every era now drops its own roadside hazard on the road: tumbleweeds in the canyon, runaway shopping carts, milk crates off a delivery truck, downed drones, loose light pylons, sidewalk signs and comet ice in orbit. They're always on the far side of the racing line, show up over a second ahead, and swatting one costs a small penalty, never HP
+2026-10-27 · 0210 · Easier to hit on a phone: the Settings volume and tilt sliders, the in-race steering-mode pill and the results screen's GARAGE and LEVELS links all take a full 44 px fingertip now, with no change to how they look
+2026-10-27 · 0211 · New Settings → RIVALS choice: FAIR FIELD turns the rivals' catch-up down to 40%, so rivals you drop push less to get back and leaders wait less for you; CLOSE PACK stays the default, and live races and the daily always race the close pack
+2026-10-28 · 0213 · A browser that can't save (private window, blocked site data, full storage) now says so once on the results card, instead of silently losing medals and times
+2026-10-28 · 0215 · On a phone the start grid shows one thing at a time: the six-car lineup, then your car's stats (skipped when you race the same car again), and the steering tip only once both are gone
+2026-10-28 · 0216 · New Settings → Camera effects: FULL, GENTLE (40%) or OFF tones down the camera shake and the push-in at speed without losing the speed lines or the warp colours; CALM motion still turns them off
+2026-10-28 · 0217 · A time warp now lands on a one-bar music sting in the new era's key: a rising run that resolves on its home note, so you hear the jump as well as see it (silent when muted)
+2026-10-28 · 0220 · Crash and pickup labels share one lane over the car: an impact keeps its place and a pickup stacks above it instead of shoving it, and an impact is never pushed off by a pickup
+2026-10-28 · 0218 · The first warp of a run into 1985 now arrives somewhere: a lamp-lit sweeper into a tree-lined Cedar Ridge straight, every lane open, before the road goes back to normal
+2026-10-28 · 0219 · Settings → Sound → Lane guide (off by default): when your lane is about to close, a soft tone pans toward the nearest open lane and rises in pitch as the gap shrinks, so you can steer by ear
+2026-10-29 · 0221 · Roadside sponsor boards fade out as they slide off the edge of the screen instead of showing a cut-off name, and never grow past a quarter of the view
+2026-10-29 · 0223 · The game's first download is about 1.7 kB smaller: race-only scoring, the tilt sensor, the garage's car shop and the racer panel's save swapping now load when you need them
+2026-10-29 · 0222 · Settings → Race → NOS button: TAP ON/OFF lets one tap of Shift, N, pad LB or the touch NOS button burn NOS until you tap again (it stops by itself on an empty tank, a crash, a warp or a pause), so you never have to hold it down
+2026-10-29 · 0224 · The 1985 strip mall has its own shops now: VIDEO VORTEX, LOTUS DOJO and the SIX ELMS MALL (which loses an elm, and a word, after lap 1)
+2026-10-30 · 0225 · On landscape phones the driving tip is a slim line in the HUD under the track strip instead of a card over the road, and the first-race tips (steer, NOS, WARP) take turns instead of all showing at once
+2026-10-30 · 0226 · On a phone on its side the title puts PLAY, RACE FRIENDS, TILT and VIEW in one row above your car and the cards beside it, so the hero car is the star of the first screen
+2026-10-30 · 0227 · Under the hood: the takedown and crew-special code moved into its own module, with no change to how they play
+2026-10-30 · 0228 · On a phone held upright, the first race's driving tip waits until the steer and WARP bubbles have gone, then shows, so the opening seconds teach one thing at a time
+2026-10-30 · 0229 · On a computer, the car-name bar leaves the bottom of the road once the race is on (it is back when you pause or finish), and the first-race tip sits up in the HUD beside your place instead of over the start arch
+2026-10-30 · 0230 · On a phone held upright, the title's car is half the screen wide and sits clear below the buttons; TILT and VIEW share one row
+2026-10-30 · — · Menu ads via Marquee (operator change): a banner on the title, an opt-in "Watch a short ad for 2× coins" on the results card, and an occasional break on the way home from the second race on; never during a race, a live room or TV mode, and races still show only our own sponsor boards
+2026-10-31 · 0231 · Coming back from pause in a solo race counts 3, 2, 1 (with a soft beep) before traffic moves again, so your hands are on the controls first
+2026-10-31 · 0233 · Under the hood: the race chunks shed ~1.3 kB (the opt-in lane guide and the first-warp arrival stretch load on their own), leaving room for the next race features
+2026-10-31 · 0232 · A first-time player's title chip reads "BEST —" until a run has scored, instead of a lonely "BEST 0"
+2026-10-31 · 0234 · Big screen flashes (warp, storm lightning) are capped at three a second; any extra shows at its calm strength
+2026-10-31 · 0235 · A pickup's glow and white ring stop growing as it nears you and fade out, so a close NOS can or coin no longer hides the traffic behind it
+2026-10-31 · 0236 · Shop, cinema and road signs in every era show whole words that fit their boards (smaller type first, then whole words dropped), never text spilling past the sign or cut mid-word
+2026-11-01 · 0237 · Shop and cinema signs in the era skylines fade out as they reach the screen edge instead of being sliced by it, so a phone's first view never shows half a word
+2026-11-01 · 0238 · Rival nameplates in a bunched pack sit side by side instead of stacking into a column over the road, never cover a pickup ahead, always show the rivals just ahead and behind you, and fade in and out instead of popping
+2026-11-01 · 0239 · On phones the PLAY button's subtitle reads ENDLESS HIGHWAY · TAP TO GO on one line, no lone word wrapped under it
+2026-11-01 · 0240 · Pausing keeps BACK TO THE TRACK, SETTINGS, CHANGE LEVEL and QUIT TO HOME pinned to the bottom of the screen, so resuming or quitting never means scrolling past the whole shop
+2026-11-01 · 0241 · Two cars hit in the same instant show one impact plate with a count (×2), not two stacked copies; hits that pay or cost an amount keep their own plates
+2026-11-02 · 0242 · The SKY-LOOP / TUNNEL fork cards are solid, and a gantry or billboard behind them goes see-through, so the fork choice is never read against a sign's small print
+2026-11-02 · 0243 · The first-run "thumb here to steer" prompt steps aside while a score plate is up and comes back after, so the two never sit on the same pixels
+2026-11-03 · 0244 · On the start grid the overhead gantry goes see-through where it rises behind the track bar, gap pill and timer, so the HUD strip reads on calm art

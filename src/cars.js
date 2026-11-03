@@ -4,16 +4,9 @@
 //
 // Balance rule: every car spends the same 30-point budget across five ratings (1..10), so
 // no car is better at everything; each one trades something away. Upgrades are global and
-// add the same amount to every car, so they never change the balance between cars.
+// add the same amount to every car, so they never change the balance between cars. The rating
+// names, the garage's bars and buying live in src/car-shop.js (garage chunk only).
 
-export const STATS = ['speed', 'accel', 'grip', 'flux', 'armor'];
-export const STAT_LABELS = {
-  speed: 'TOP SPEED',
-  accel: 'ACCELERATION',
-  grip: 'HANDLING',
-  flux: 'FLUX / BOOST',
-  armor: 'DURABILITY',
-};
 export const STAT_BUDGET = 30;
 
 // Unlock types: starter · coins (buy with ⚡ once listed) · medal (level id + medal) ·
@@ -64,19 +57,6 @@ export function carParams(car) {
     maxHp: 80 + s.armor * 7,
     massKg: (car && car.massKg) || 1300,       // real mass: how hard you shove and get shoved
     damageMult: 1 - (s.armor - 5) * 0.08,      // durability: how much a hit costs in HP
-  };
-}
-
-/** Ratings shown in the garage: base + global upgrades, each upgrade worth half a point. */
-export function displayStats(carId, upgrades = {}) {
-  const s = (CAR_SPECS[carId] || CAR_SPECS[STARTER_CAR]).stats;
-  const up = (k) => Math.max(0, ((upgrades[k] || 1) - 1) * 0.5);
-  return {
-    speed: Math.min(10, s.speed + up('engine')),
-    accel: Math.min(10, s.accel + up('engine') * 0.5),
-    grip: Math.min(10, s.grip + up('tires')),
-    flux: Math.min(10, s.flux + up('flux')),
-    armor: Math.min(10, s.armor + up('hover') * 0.5),
   };
 }
 
@@ -153,17 +133,6 @@ export function grantEarnedCars(save) {
     }
   }
   return fresh;
-}
-
-/** Buys a coin car. Returns true if bought (and spends the coins). */
-export function buyCar(save, id) {
-  ensureGarage(save);
-  const spec = CAR_SPECS[id];
-  if (!spec || spec.unlock.type !== 'coins' || save.garage.owned.includes(id)) return false;
-  if ((save.fluxCoins || 0) < spec.unlock.cost) return false;
-  save.fluxCoins -= spec.unlock.cost;
-  save.garage.owned.push(id);
-  return true;
 }
 
 /**

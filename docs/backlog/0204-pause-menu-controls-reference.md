@@ -1,12 +1,12 @@
 ---
 id: 0204
 title: Pause shows a one-screen controls reference for the active input
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-10-22
-pr:
+pr: 165
 ---
 
 ## Why
@@ -20,9 +20,9 @@ NOS/jump for the detected input (keyboard using the rebound keys from 0013, game
 touch). Touches the pause markup in `index.html`, `src/keybinds.js` for labels, styles.
 
 ## Acceptance criteria
-- [ ] Pausing on keyboard shows the current (possibly rebound) key names
-- [ ] A gamepad shows button names, touch shows the pad names (WARP, NOS, DRIFT, JUMP)
-- [ ] Panel fits at 390x844 and 1280x720 with no overlap or scroll of the pause buttons
+- [x] Pausing on keyboard shows the current (possibly rebound) key names
+- [x] A gamepad shows button names, touch shows the pad names (WARP, NOS, DRIFT, JUMP)
+- [x] Panel fits at 390x844 and 1280x720 with no overlap or scroll of the pause buttons
 
 ## Test plan
 E2e: rebind a key, pause, assert the panel shows it; phone viewport screenshot assertion

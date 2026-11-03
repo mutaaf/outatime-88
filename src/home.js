@@ -11,6 +11,7 @@ import { HOME_IDLE_MS, PITCH, homeHooks, isFirstVisit, noteNewsSeen } from './ho
 import { POP_CULTURE_ROSTER, ROAD_CFG } from './data.js';
 import { frameTitle } from './title-frame.js';
 import { InputState, setLastInput } from './input.js';
+import { scopeFocus, menuOpen, inTopMenu, tabNavigating } from './focus-scope.js';
 
 /**
  * h: { state (GameState), save (SaveStore), goHome(), play(), daily(), garage(carId), ranks(),
@@ -245,5 +246,25 @@ export function createHome(h) {
   });
 
   renderTitle();
+  // ---------- keyboard focus in menus (ticket 0207, src/focus-scope.js) ----------
+  // Each menu takes focus when it opens, keeps Tab inside and hands focus back on close, but
+  // never to a button while racing (a pause sheet closing leaves focus on nothing).
+  const notRacing = () => S.status !== 'PLAYING';
+  for (const id of ['startModal', 'settingsModal', 'garageModal', 'carRevealOverlay']) scopeFocus($(id), { canRestore: notRacing });
+  scopeFocus($('leaderboardModal'), { canRestore: notRacing, onEscape: () => $('btnCloseLeaderboard').click() });
+  scopeFocus($('shareSheet'), { canRestore: notRacing, onEscape: () => $('btnShareClose').click() });
+  // With no menu open, Enter/Space on a button a keyboard player reached with Tab presses that
+  // button: the title's "Enter races" and the results' "Enter = play again" only answer
+  // otherwise, so a mouse click that left focus on a button changes nothing. Mid-race a
+  // focused button outside the open menu (a clicked HUD gear, a title button the race started
+  // from) lets go instead, so the key drives the car and never presses it.
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Enter' && e.code !== 'Space' && e.code !== 'NumpadEnter') return;
+    const a = document.activeElement;
+    if (!a || !a.matches || !a.matches('button, a[href]')) return;
+    if (S.status === 'PLAYING') { if (!inTopMenu(a)) { e.preventDefault(); a.blur(); } return; }
+    if (!menuOpen() && tabNavigating()) e.stopImmediatePropagation();
+  }, true);
+
   return { renderTitle, attract, debug: () => ({ idleAt, hooks: [...(rail ? rail.querySelectorAll('[data-hook]') : [])].map((b) => b.dataset.hook) }) };
 }

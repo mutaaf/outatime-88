@@ -25,7 +25,7 @@ import { LEVEL_MEDALS, applyRunResult } from './progress.js';
 import { setTrackIntensity, setTrackPowerups, addItem } from './track.js';
 import { createStorm, stepStorm, stormRespite, runnerMult, canContinue, continueCost, CONTINUE } from './runner.js';
 import { difficultyOf, endlessTuning, endlessCash, recordEndless, ENDLESS } from './endless.js';
-import { track, generateNextTrackBiome, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt, curvatureAt, bankAt } from './track.js';
+import { track, generateNextTrackBiome, addRoadSection, buildInitialTrack, setTrackLine, setTrackSeed, hasSetPieceBetween, featureAt, curvatureAt, bankAt } from './track.js';
 import { stepSetPieces } from './setpieces.js';
 import { mainCanvas, resizeCanvases, roadCanvasHeight, getActiveEraRenderConfig } from './render/canvas.js';
 import { renderScene } from './render/scene.js';
@@ -52,12 +52,10 @@ import { beginRun, fetchGhost, normalizeInitials } from './leaderboard.js';
 import { createGhostRecorder, createGhostRace } from './ghost.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
-import { createPenaltyLog, logHit, logWall, penaltyPoints, breakdown, logPayload } from './scoring.js';
 import { carParams, isOwned, unlockProgress, recordRace, ensureGarage, CAR_SPECS } from './cars.js';
 import { initRacer } from './racer-ui.js';
 import { setProfile } from './identity.js';
 import { LIVE } from './worker/live-rules.js';
-import { forkLean, forkCueState } from './fork.js';
 /** Race state the lazy race step (race-step.js) writes as well as main: one shared object. */
 export const RS = {};
 // The race step itself (src/race-step.js) is a lazy chunk: fetched now, in parallel with the
@@ -94,7 +92,11 @@ const endRaceRun = raceCall('endRaceRun');
 let startWanted, startWait = null;
 const NO_START = {}; // going home while the race step loads cancels the queued start (0185)
 function startNewRace(opts) {
-  if (raceStep) return raceStep.startNewRace(opts);
+  if (adHeld) return undefined; // a menu ad is on screen (src/ads.js): no race starts under it
+  if (raceStep) {
+    raceStep.resumeHold(0, false, false); // a new race ends any resume beat (0231) before its banners
+    return raceStep.startNewRace(opts);
+  }
   startWanted = opts;
   startWait = startWait || loadRaceStep().then((m) => { startWait = null; return startWanted === NO_START ? null : m.startNewRace(startWanted); });
   return startWait;
@@ -381,6 +383,7 @@ export const announcer = createAnnouncer({
     if (coachBanner) hideCoach(coachBanner);
     RS.coachYieldUntil = performance.now() + 350;
     mainEl.textContent = msg.main;
+    mainEl.classList.toggle('is-beat', GameState.resumeBeat > 0); // the resume beat's big 3, 2, 1 (0231)
     subEl.textContent = msg.sub;
     mainEl.style.opacity = '1';
     mainEl.style.transform = 'scale(1.06)';
@@ -503,6 +506,7 @@ RS.coachYieldUntil = 0;
 export function hideCoach(banner) {
   banner.style.opacity = '0';
   banner.style.pointerEvents = 'none';
+  document.body.classList.remove('coach-up'); // landscape phones: the tips wait for the coach (0225)
 }
 
 
@@ -771,8 +775,19 @@ const liveHooks = {
   leaveLive: () => showTitle(),
 };
 
+// Marquee ads (2026-10-30, AGENTS.md §3.3): menus only, never in a race. The glue is the lazy
+// src/ads.js; main only holds these hooks. With no loader (local, blocked) every cue is a no-op.
+const adsChunk = new Promise((r) => setTimeout(r, 0)).then(() => import('./ads.js')).then((m) => {
+  m.initAds({ state: GameState, save: SaveStore, sound: SoundEngine, tv: /[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search),
+    hold: (on) => { adHeld = on; lastFrameTime = 0; } });
+  return m;
+}).catch(() => null);
+/** Fire-and-forget ad cue (onResults, onMenuReturn): never awaited by the game. */
+export function adCue(name, arg) { adsChunk.then((m) => m && m[name](arg)).catch(() => {}); }
+
 /** Home (ticket 0185): the one way back to the title from results, pause or a live room. */
 export function showTitle() {
+  const fromResults = GameState.status === 'GAMEOVER', wasLive = GameState.mode === 'LIVE';
   if (GameState.savedLevelIndex !== undefined) restoreSoloSettings();
   else if (GameState.mode === 'LIVE') GameState.mode = 'ARCADE';
   if (startWait) startWanted = NO_START;
@@ -787,6 +802,7 @@ export function showTitle() {
   renderRacerPill();
   syncRunnerUi(true);
   refreshRival();
+  if (fromResults) adCue('onMenuReturn', { live: wasLive });
 }
 let home = null; // src/home.js: hooks, results → home, history, the attract driver (lazy)
 
@@ -888,7 +904,7 @@ function bindAllControls() {
     }
     const racing = GameState.status === 'PLAYING';
     if (c === 'KeyN' && !racing) selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
-    if (['ShiftLeft', 'ShiftRight'].includes(c) || (c === 'KeyN' && racing)) InputState.nosHeld = true;
+    if (['ShiftLeft', 'ShiftRight'].includes(c) || (c === 'KeyN' && racing)) { InputState.nosHeld = true; if (!e.repeat) InputState.nosTap = true; }
     if (['ArrowDown', 'KeyS'].includes(c)) { if (GameState.playerY > 12 && !e.repeat) performHumanTrick('DOWN'); InputState.down = true; }
     if (c === 'Space') { e.preventDefault(); if (!e.repeat) InputState.boostPressed = true; }
     if (['KeyH', 'KeyE'].includes(c) && !e.repeat) { if (GameState.playerY > 12) performHumanTrick('UP'); else InputState.hoverPressed = true; }
@@ -1204,6 +1220,7 @@ function cycleVisualMode() {
 }
 
 function openGarageModal(focusCarId) {
+  InputState.nosOn = false; // a tapped-on NOS (0222) stops when the menu opens, live races included
   if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE') GameState.status = 'PAUSED'; // live races can't pause
   const focus = typeof focusCarId === 'string' ? focusCarId : null;
   // Show it once its chunk (and styles) are in, so it never flashes unstyled.
@@ -1403,7 +1420,10 @@ function initTouchControls() {
 }
 
 let lastFrameTime = 0;
+let raceOn = false; // body.race-on while a race is on: CSS hides title/garage-only UI (0229)
+let lastStatus = ''; // last frame's GameState.status: PAUSED → PLAYING starts the resume beat (0231)
 let simHeld = false; // the balance harness steps the sim itself (?debug, tests/balance)
+let adHeld = false; // a menu ad (src/ads.js) is on screen: the loop holds its frame until it closes
 let rafId = null;
 
 // Fixed-timestep simulation (ticket 0070): the race always advances in 1/120 s steps, so
@@ -1455,17 +1475,24 @@ function renderBlended(alpha, frameDt) {
 }
 
 const garageModalEl = document.getElementById('garageModal');
+const TV_MODE = /[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search); // ticket 0175
 
 function mainLoop(timestamp) {
-  if (simHeld) { rafId = requestAnimationFrame(mainLoop); return; }
+  if (simHeld || adHeld) { rafId = requestAnimationFrame(mainLoop); return; }
   if (!lastFrameTime) lastFrameTime = timestamp;
   const frameSeconds = (timestamp - lastFrameTime) / 1000;
   const dt = Math.min(0.05, frameSeconds); // wall-clock frame time for attract mode and render FX
   lastFrameTime = timestamp;
 
   if (touch) touch.sample(dt);
-  if (gfx) { if (GameState.status === 'PLAYING') gfx.sample(frameSeconds * 1000); else gfx.hold(); }
-  if (GameState.status === 'PLAYING' && raceStep) {
+  const playing = GameState.status === 'PLAYING' && !!raceStep;
+  // A solo race back from PAUSED holds for a 3-2-1 beat (0231) while the road keeps drawing.
+  const held = (playing || raceOn) && raceStep.resumeHold(frameSeconds, lastStatus === 'PAUSED' && GameState.mode !== 'LIVE' && !TV_MODE && GameState.raceTime > 0, playing);
+  lastStatus = GameState.status;
+  if (gfx) { if (playing && !held) gfx.sample(frameSeconds * 1000); else gfx.hold(); }
+  const stepping = playing && !held;
+  if (playing !== raceOn) document.body.classList.toggle('race-on', raceOn = playing);
+  if (stepping) {
     const steps = simClock.advance(frameSeconds);
     for (let i = 0; i < steps && GameState.status === 'PLAYING'; i++) {
       snapshotView();
@@ -1475,9 +1502,10 @@ function mainLoop(timestamp) {
     updateLiveHud();
   } else {
     simClock.reset();
+    InputState.nosOn = InputState.nosTap = false; // a tapped-on NOS (0222) stops on pause and off the road
     // Live race countdown (GRID): on the line, road still. A pause freezes it too; otherwise
     // attract mode rolls the road.
-    if (GameState.status !== 'PAUSED' && GameState.status !== 'GRID') {
+    if (GameState.status !== 'PAUSED' && GameState.status !== 'GRID' && !held) {
       GameState.trackPos += 1350 * dt;
       if (home) home.attract(dt);
       const currentSegIdx = Math.floor(GameState.trackPos / ROAD_CFG.segLength);
@@ -1488,7 +1516,7 @@ function mainLoop(timestamp) {
     syncContactZ();
   }
   live.frame(); // live races: countdown → green light, friends' cars, our state out
-  if (forceFeel) forceFeel.frame(dt); // rumble and phone pulses (ticket 0183)
+  if (forceFeel && !held) forceFeel.frame(dt); // rumble and phone pulses (ticket 0183)
 
   announcer.update();
   SoundEngine.updateEngine(GameState.speed, GameState.status === 'PLAYING' && !SoundEngine.muted);
@@ -1564,6 +1592,7 @@ window.onload = () => {
     heal: healPlayerHp,
     runner: () => ({ storm, stats: runStats, goals: runnerMod ? runnerMod.goalsOf(SaveStore.data) : null }),
     pickup: (type) => raceStep && raceStep.applyPickup({ type, offset: GameState.playerX }, PICKUPS[type]),
+    streak: (why) => raceStep && raceStep.addEndlessRunStreak(2, why), // a near-miss chain event (0205)
     fair: () => RS.fair, // jump/trick caps and counters (ticket 0180)
     hazard: (k, a, l) => RS.hz && RS.hz.debugPlace(k, a, l),
     // Balance harness (docs/BALANCE.md): hold the frame loop and run sim steps flat out.
@@ -1603,16 +1632,16 @@ window.onload = () => {
   if (!selectCharacterByIndex(Math.max(0, savedCar))) selectCharacterByIndex(0);
   renderLevelSelectGrid();
   setTimeout(() => syncRunnerUi(true), 0); // endless goals on the title (ticket 0151)
-  document.getElementById('titleBestScore').textContent = SaveStore.data.bestScore.toLocaleString();
+  paintTitleBest();
   document.getElementById('titleTotalWarps').textContent = `⚡ ${SaveStore.data.fluxCoins}`;
   const playHint = document.getElementById('playHint');
-  if (playHint) playHint.textContent = coarsePointer ? 'ENDLESS HIGHWAY · TAP ANYWHERE' : 'ENDLESS HIGHWAY · PRESS ENTER';
+  if (playHint) playHint.textContent = coarsePointer ? 'ENDLESS HIGHWAY · TAP TO GO' : 'ENDLESS HIGHWAY · PRESS ENTER';
   updateTitleChip();
   syncAudioUI();
   updateEraHud();
   updateLiveHud();
   // TV mode (ticket 0175): ?tv (or ?screen=tv) pairs a phone as the controller; lazy, TV only.
-  if (/[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search)) import('./tv/tv.js').then((m) => m.startTv({
+  if (TV_MODE) import('./tv/tv.js').then((m) => m.startTv({
     start: () => { const again = document.getElementById('btnPlayAgain'); if (again && again.offsetParent) again.click(); else if (titleVisible()) startNewRace(titleStart || { mode: 'INFINITE' }); },
     unlockAudio: () => SoundEngine.init(),
     debug: new URLSearchParams(location.search).has('debug'),
@@ -1637,23 +1666,32 @@ let titleStart; // a deep link can make the title tap start today's daily (ticke
 function renderRacerPill(p) {
   const name = document.getElementById('racerPillName');
   if (name) name.textContent = p?.initials || SaveStore.data.initials || 'RACER';
-  const best = document.getElementById('titleBestScore');
-  if (best) best.textContent = SaveStore.data.bestScore.toLocaleString();
+  paintTitleBest();
   updateTitleChip();
 }
 
+// The title chip's best (0232): a dash until a run has scored, never a lonely "BEST 0".
+function paintTitleBest() {
+  const el = document.getElementById('titleBestScore'), b = SaveStore.data.bestScore;
+  if (!el) return;
+  el.textContent = b > 0 ? b.toLocaleString() : '—';
+  if (b > 0) el.removeAttribute('aria-label'); else el.setAttribute('aria-label', 'No best score yet');
+}
+
 // Shared-module bindings the lazy race-step.js chunk uses, as one object (see there).
+// Only for modules main itself needs: one that only the race chunks use is imported there
+// directly, or this object keeps it in the startup bundle (0223).
 export const RACE_DEPS = {
   CAR_SPECS, CONTINUE, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, PACE_MODES,
   PICKUP, PICKUPS, POP_CULTURE_ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
-  WORLD_LEVELS, addItem, addNos, applyRunResult, beginRun, boostOutcome, breakdown, canContinue,
+  WORLD_LEVELS, addItem, addNos, addRoadSection, applyRunResult, beginRun, boostOutcome, canContinue,
   continueCost, createDrive, createGhostRecorder, createHitStop, createHud, createLateral,
-  createNos, createOnboarding, createPenaltyLog, createRaceClock, createSteer, createStorm,
+  createNos, createOnboarding, createRaceClock, createSteer, createStorm,
   crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, finishBonus,
-  forkCueState, forkLean, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
-  impactVelocities, isNewPlayer, landingKeep, lapOf, logHit, logPayload, logWall, loopStep,
+  generateNextTrackBiome, handlingFor, hasSetPieceBetween,
+  impactVelocities, isNewPlayer, landingKeep, lapOf, loopStep,
   magnetPull, materialFor, missionsDone, mulberry32, nearMissChain, nosFill, nosFor, nosSpeed,
-  ordinal, passiveFluxRate, penaltyPoints, pickMissions, pickupReach, pollGamepad,
+  ordinal, passiveFluxRate, pickMissions, pickupReach, pollGamepad,
   preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace, resetBackdrop,
   rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, setTrackPowerups, stepDrive, stepLateral, stepNos,
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, utcDay, wallContact, warpReady

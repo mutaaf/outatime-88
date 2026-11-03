@@ -7,15 +7,9 @@
 // Sprites are drawn bottom-centre anchored. Sizes come from the caller's item/obstacle box; art
 // height is capped so one prop never fills more than ~30 % of the screen.
 import { ERA_PALETTES } from '../era-palettes.js';
-import { vgrad, palm, cactus, pine } from './kit.js';
+import { vgrad, palm, cactus, pine, layer as canvas } from './kit.js';
 
 const REF = 192; // reference sprite height in px (scaled by the quality tier)
-
-function canvas(w, h) {
-  const c = document.createElement('canvas');
-  c.width = Math.max(2, Math.ceil(w)); c.height = Math.max(2, Math.ceil(h));
-  return c;
-}
 
 /** A metal/stone shaft with a gradient body and a rim light down its sunward edge. */
 function shaft(ctx, x, y0, y1, w, dark, mid, rim) {
@@ -144,12 +138,17 @@ export function drawProp(ctx, R, type, x, roadY, w, h, rh, rw, depth, tintOn) {
   let ph = Math.min(h * s.rel, rh * MAX_H);
   let pw = ph * s.aspect;
   if (pw > rw * MAX_W) { pw = rw * MAX_W; ph = pw / s.aspect; }
-  stats.maxH = Math.max(stats.maxH, ph / rh); stats.maxW = Math.max(stats.maxW, pw / rw);
   contactShadow(ctx, x, roadY, Math.max(pw * 0.8, 6));
-  ctx.drawImage(s.img, x - pw / 2, roadY - ph, pw, ph);
-  if (tintOn && depth > 0.05) {
-    ctx.globalAlpha = Math.min(0.55, depth * 0.6);
-    ctx.drawImage(s.fog, x - pw / 2, roadY - ph, pw, ph);
+  return blit(ctx, s, x, roadY, pw, ph, rh, rw, tintOn && depth > 0.05 && Math.min(0.55, depth * 0.6));
+}
+
+/** A sprite bottom-centred at (x, y), with its fog tint at alpha `fog` (false: none). */
+function blit(ctx, s, x, y, pw, ph, rh, rw, fog) {
+  stats.maxH = Math.max(stats.maxH, ph / rh); stats.maxW = Math.max(stats.maxW, pw / rw);
+  ctx.drawImage(s.img, x - pw / 2, y - ph, pw, ph);
+  if (fog) {
+    ctx.globalAlpha = fog;
+    ctx.drawImage(s.fog, x - pw / 2, y - ph, pw, ph);
     ctx.globalAlpha = 1;
   }
   return true;
@@ -162,65 +161,8 @@ export function drawHazard(ctx, R, ow, baseY, rh, rw, depth, tintOn) {
   let pw = Math.min(ow * 1.15, rw * MAX_W);
   let ph = pw / s.aspect;
   if (ph > rh * MAX_H) { ph = rh * MAX_H; pw = ph * s.aspect; }
-  stats.maxH = Math.max(stats.maxH, ph / rh); stats.maxW = Math.max(stats.maxW, pw / rw);
   contactShadow(ctx, 0, baseY, ow);
-  ctx.drawImage(s.img, -pw / 2, baseY - ph, pw, ph);
-  if (tintOn && depth > 0.05) {
-    ctx.globalAlpha = Math.min(0.5, depth * 0.55);
-    ctx.drawImage(s.fog, -pw / 2, baseY - ph, pw, ph);
-    ctx.globalAlpha = 1;
-  }
-  return true;
+  return blit(ctx, s, 0, baseY, pw, ph, rh, rw, tintOn && depth > 0.05 && Math.min(0.5, depth * 0.55));
 }
 
-// ---------- rival name tags ----------
-// The renderer queues tags while drawing cars; this lays them out once per frame: nearest
-// first, only cars close to you, fading out with distance, nudged up when two would collide,
-// and capped (3 on phones, 5 on bigger screens).
-const placed = new Float32Array(4 * 8);
-const order = new Int16Array(64);
-
-export function drawTags(ctx, pool, n, rw, rh) {
-  if (!n) return;
-  n = Math.min(n, order.length);
-  // insertion sort of indices, nearest (widest road) first; pool objects are the caller's
-  for (let i = 0; i < n; i++) {
-    let j = i;
-    while (j > 0 && pool[order[j - 1]].w < pool[i].w) { order[j] = order[j - 1]; j--; }
-    order[j] = i;
-  }
-  const phone = Math.min(rw, rh) < 500;
-  const max = phone ? 3 : 5;
-  const minW = rw * 0.045, fullW = rw * 0.11;
-  const fs = phone ? 9 : 11;
-  ctx.font = `bold ${fs}px Orbitron, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  let k = 0;
-  for (let i = 0; i < n && k < max; i++) {
-    const t = pool[order[i]];
-    if (t.w < minW) break; // sorted: everything after is further away
-    const a = Math.min(1, (t.w - minW) / (fullW - minW));
-    const tw = ctx.measureText(t.text).width + 8, th = fs + 4;
-    let y = t.y, ok = false;
-    for (let step = 0; step < 4 && !ok; step++) {
-      ok = true;
-      for (let j = 0; j < k; j++) {
-        const o = j * 4;
-        if (Math.abs(placed[o] - t.x) < (placed[o + 2] + tw) / 2 && Math.abs(placed[o + 1] - y) < (placed[o + 3] + th) / 2) { ok = false; break; }
-      }
-      if (!ok) y -= th + 2;
-    }
-    if (!ok || y < th) continue;
-    const o = k * 4; placed[o] = t.x; placed[o + 1] = y; placed[o + 2] = tw; placed[o + 3] = th; k++;
-    ctx.globalAlpha = a;
-    ctx.fillStyle = t.kind === 1 ? 'rgba(255,0,127,0.88)' : 'rgba(2,6,23,0.72)';
-    ctx.fillRect(t.x - tw / 2, y - th / 2, tw, th);
-    ctx.fillStyle = t.kind === 2 && t.color ? t.color : '#ffffff';
-    ctx.fillText(t.text, t.x, y + 0.5);
-    if (t.kind === 2 && t.color) { ctx.fillRect(t.x - tw / 2, y + th / 2 - 2, tw, 2); }
-  }
-  stats.tags = k;
-  ctx.globalAlpha = 1;
-  ctx.textBaseline = 'alphabetic';
-}
+// Rival name tags: src/scenes/tags.js (0238).

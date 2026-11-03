@@ -7,7 +7,8 @@ import {
   profile, publicId, racers, createLinkCode, createRecoveryCode,
   redeemCode, switchRacer, newRacer, forgetDevice, bests,
 } from './identity.js';
-import { swapSave, dropSave, mergeServerBests } from './racer-saves.js';
+import { swapSave, dropSave } from './racer-saves.js';
+import { mergeServerBests } from './progress.js';
 
 let deps = null; // { SaveStore, freshSaveData, levels, reload } from initRacer
 let modal = null;

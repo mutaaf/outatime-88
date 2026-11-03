@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ERA_SCORES, DEFAULT_SCORE, scoreFor, layersFor, stepDuration, noteFreq, createScheduler } from '../../src/music.js';
+import { ERA_SCORES, DEFAULT_SCORE, scoreFor, layersFor, stepDuration, noteFreq, midiToFreq, createScheduler, stingNotes, createSting, beatAt, STING_DELAY } from '../../src/music.js';
 import { ERAS } from '../../src/data.js';
 import { FakeAudioContext } from './fake-audio.js';
 
@@ -107,5 +107,91 @@ describe('createScheduler', () => {
     const fast = setup({ playing: true, speed: 120, eraId: '2026', warp: false });
     for (let t = 0; t < 4; t += 0.05) { fast.ctx.currentTime = t; fast.sched.tick(); }
     expect(fast.ctx.started.length).toBeGreaterThan(slow);
+  });
+});
+
+// Ticket 0217: a one-bar sting when a warp lands in a new era.
+describe('warp landing sting', () => {
+  const pitchClass = (sc, hz) => ((Math.round(69 + 12 * Math.log2(hz / 440)) - sc.root) % 12 + 12) % 12;
+
+  it("every note comes from the key's scale, rising, resolving on its tonic, inside one bar", () => {
+    for (const [id, sc] of Object.entries(ERA_SCORES)) {
+      const notes = stingNotes(sc);
+      const bar = 16 * stepDuration(sc.bpm);
+      expect(notes.length, id).toBeGreaterThanOrEqual(4);
+      for (const n of notes) {
+        expect(sc.scale, `${id} ${n.hz}`).toContain(pitchClass(sc, n.hz));
+        expect(n.at).toBeGreaterThanOrEqual(0);
+        expect(n.at + n.dur).toBeLessThanOrEqual(bar + 1e-9);
+      }
+      const arp = notes.filter((n) => !n.under);
+      for (let i = 1; i < arp.length; i++) expect(arp[i].hz, id).toBeGreaterThan(arp[i - 1].hz);
+      const last = arp[arp.length - 1];
+      expect(last.top).toBe(true);
+      expect(last.hz).toBeCloseTo(midiToFreq(sc.root + 24), 6); // the tonic
+    }
+  });
+
+  it('beatAt finds the first beat at or after a time on a running grid', () => {
+    expect(beatAt(10, 0, 0.1, 10)).toBe(10);
+    expect(beatAt(10, 1, 0.1, 10)).toBeCloseTo(10.3, 9); // steps 1 2 3 → 4
+    expect(beatAt(10, 0, 0.1, 10.05)).toBeCloseTo(10.4, 9);
+    expect(beatAt(10, 2, 0.1, 10.9)).toBeCloseTo(11.0, 9); // step 12
+  });
+
+  it('lands only on a new warp that changes the era: never race start, an Endless tier (even mid-warp) or a new race', () => {
+    const ctx = new FakeAudioContext();
+    const s = createSting(ctx, ctx.createGain());
+    expect(s.landed('2026', 0, true)).toBe(false); // first look: race start
+    expect(s.landed('1985', 0, true)).toBe(false); // era set without a warp (Endless tier)
+    expect(s.landed('1885', 1, true)).toBe(true); // the warp lands in 1885
+    for (let i = 0; i < 20; i++) expect(s.landed('1885', 1, true)).toBe(false); // the rest of the warp
+    expect(s.landed('2015', 1, true)).toBe(false); // Endless tier-up while the warp is still on
+    expect(s.landed('2088', 0, true)).toBe(false); // a new race resets the count
+    expect(s.landed('2088', 1, true)).toBe(false); // a warp that did not change era
+    expect(s.landed('2026', 2, true)).toBe(true);
+    expect(ctx.started.length).toBe(0); // landed() alone never makes a sound
+  });
+
+  it('is silent when not playing or the context sleeps, and never fires late', () => {
+    const ctx = new FakeAudioContext();
+    const s = createSting(ctx, ctx.createGain());
+    s.landed('2026', 0, true);
+    expect(s.landed('1985', 1, false)).toBe(false); // muted / paused
+    expect(s.landed('1985', 1, true)).toBe(false); // unmuted: no catch-up
+    ctx.state = 'suspended';
+    expect(s.landed('1885', 2, true)).toBe(false);
+    ctx.state = 'running';
+    expect(s.landed('1885', 2, true)).toBe(false);
+  });
+
+  it('the synthwave scheduler plays it once, after the tunnel, on a beat of its grid', () => {
+    const state = { playing: true, speed: 100, eraId: '2026', warp: false, warps: 0 };
+    const ctx = new FakeAudioContext();
+    const sched = createScheduler(ctx, ctx.createGain(), () => state);
+    ctx.currentTime = 2; sched.tick();
+    const gridStart = ctx.started[0].when; // step 0 of the grid
+    ctx.started.length = 0;
+    Object.assign(state, { eraId: '1985', warp: true, warps: 1 });
+    ctx.currentTime = 2.03; sched.tick();
+    expect(sched.stings).toBe(1);
+    const sd = stepDuration(ERA_SCORES['1985'].bpm);
+    const n = stingNotes(ERA_SCORES['1985']);
+    const sting = ctx.started.slice(0, n.length).map((x) => x.when); // queued before the tick's steps
+    const t0 = Math.min(...sting);
+    expect(t0).toBeGreaterThanOrEqual(2.03 + STING_DELAY - 1e-9);
+    expect(t0).toBeLessThan(2.03 + STING_DELAY + 4 * sd + 1e-9);
+    // On a beat: whole beats after the grid's start (the 2026 steps before the warp, then 1985 steps).
+    const sd0 = stepDuration(ERA_SCORES['2026'].bpm);
+    const queued = Math.floor((2 + sched.lookahead - gridStart) / sd0 + 1e-9) + 1; // steps queued at 2026 tempo by the first tick
+    const beat = (k) => k % 4 === 0;
+    let found = false;
+    for (let k = queued; k < queued + 64 && !found; k++) {
+      const t = gridStart + queued * sd0 + (k - queued) * sd;
+      if (beat(k) && Math.abs(t - t0) < 1e-6) found = true;
+    }
+    expect(found).toBe(true);
+    for (let t = 2.05; t < 5; t += 0.05) { ctx.currentTime = t; sched.tick(); }
+    expect(sched.stings).toBe(1);
   });
 });

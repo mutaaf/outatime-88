@@ -9,7 +9,7 @@ export const EGGS = {
   WIRE_SPARKS: 'wireSparks', // 1955: sparks run down the tower cable at 88 mph
   SAUCER: 'saucer',         // 1955: a B-movie saucer crosses on the final lap
   BIKE_MOON: 'bikeMoon',    // 1985: a kid's bike crosses the full moon, once, final lap
-  PINES: 'pines',           // 1985: the mall loses a pine after lap 1 (history changed)
+  ELMS: 'elms',             // 1985: the mall loses an elm after lap 1 (history changed)
   PRESTO: 'presto',         // 1885: the locomotive's smoke turns to fireworks at 88 mph
   BOOTH: 'booth',           // 1885: a time-travelling phone booth blinks in, final lap
   SHARK: 'shark',           // 2015: the holo-shark billboard lunges every 25 s
@@ -46,7 +46,7 @@ export function eggs(f, mem, out) {
     o[EGGS.SAUCER] = once(mem, 'saucerAt', finalLap(f), t, 9);
   }
   if (f.era === '1985') {
-    o[EGGS.PINES] = f.lap >= 2;
+    o[EGGS.ELMS] = f.lap >= 2;
     o[EGGS.BIKE_MOON] = once(mem, 'bikeMoonAt', finalLap(f) && f.speed >= 40, t, 6);
   }
   if (f.era === '1885') {

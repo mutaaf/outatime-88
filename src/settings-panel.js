@@ -5,11 +5,21 @@ import { GameState } from './state.js';
 import { SoundEngine } from './audio.js';
 import { InputState } from './input.js';
 import { ACTIONS, applyKeys, bindKey, isDefault, keyName } from './keybinds.js';
+import { renderControlsRef } from './controls-ref.js';
+import { tiltStatusText } from './tilt-text.js';
+import { cameraFxScale } from './camera-fx.js';
+
+export { renderControlsRef }; // the garage draws its copy of the card through this chunk (0204)
+/** Both pause sheets' controls cards (0204): the settings pause and the Escape/P garage pause. */
+const renderCards = () => { renderControlsRef($('pauseControls')); renderControlsRef($('garageControls')); };
 
 const $ = (id) => document.getElementById(id);
 
 export function createPanel(ctx) {
   const { settings, save, applyAll, toggleTilt, recenterTilt } = ctx;
+  // Camera effects (0216): applied when this chunk loads (at boot when the save calms them) and on every change.
+  const applyCameraFx = () => { GameState.cameraFx = cameraFxScale(settings().cameraFx); };
+  applyCameraFx();
 
   function syncPanel() {
     const s = settings();
@@ -23,6 +33,8 @@ export function createPanel(ctx) {
     if (voice) voice.setAttribute('aria-checked', String(s.voice));
     const prox = $('setProximity');
     if (prox) prox.setAttribute('aria-checked', String(s.proximity !== false));
+    const guide = $('setLaneGuide');
+    if (guide) guide.setAttribute('aria-checked', String(s.laneGuide === true));
     const coach = $('setCoach');
     if (coach) coach.setAttribute('aria-checked', String(s.coach !== false));
     const pairs = [['setMaster', SoundEngine.muted ? 0 : SoundEngine.volume], ['setMusic', s.musicVolume], ['setSfx', s.sfxVolume]];
@@ -36,7 +48,7 @@ export function createPanel(ctx) {
     if (sensOut) sensOut.textContent = `${Number(SaveStore.data.tiltSensitivity || 1).toFixed(1)}x`;
   }
 
-  $('setTilt').addEventListener('click', () => toggleTilt());
+  $('setTilt').addEventListener('click', () => toggleTilt().then(renderCards, renderCards));
   $('setTiltInvert').addEventListener('click', () => { settings().tiltInvert = !settings().tiltInvert; save(); syncPanel(); });
   $('setTiltRecenter').addEventListener('click', recenterTilt);
   const voice = $('setVoice');
@@ -47,6 +59,9 @@ export function createPanel(ctx) {
   });
   const prox = $('setProximity');
   if (prox) prox.addEventListener('click', () => { settings().proximity = settings().proximity === false; save(); syncPanel(); });
+  // Lane guide (0219, src/lane-guide.js): opt-in, so only `true` turns it on (no default in main's settings.js).
+  const guide = $('setLaneGuide');
+  if (guide) guide.addEventListener('click', () => { settings().laneGuide = settings().laneGuide !== true; save(); syncPanel(); renderCards(); });
   const coach = $('setCoach');
   if (coach) coach.addEventListener('click', () => {
     settings().coach = settings().coach === false;
@@ -54,6 +69,7 @@ export function createPanel(ctx) {
     if (!settings().coach) {
       const tip = $('interactiveCoachBanner');
       if (tip) { tip.style.opacity = '0'; tip.style.pointerEvents = 'none'; }
+      document.body.classList.remove('coach-up');
       const steer = $('steerHint');
       if (steer) steer.classList.add('hidden');
     }
@@ -68,7 +84,7 @@ export function createPanel(ctx) {
       const b = e.target.closest('button[data-value]');
       if (!b) return;
       settings()[seg.dataset.setting] = b.dataset.value;
-      save(); applyAll();
+      save(); applyAll(); applyCameraFx();
     });
   }
   $('setMaster').addEventListener('input', (e) => { SoundEngine.init(); SoundEngine.setVolume(Number(e.target.value) / 100); });
@@ -89,6 +105,7 @@ export function createPanel(ctx) {
   let swallowUp = ''; // the key just bound: its keyup must not also click the focused button (Space does)
   const note = (text) => { if (keysNote) keysNote.textContent = text; };
   function renderKeys() {
+    renderCards(); // the pause cards name the keys too (0204)
     if (!keysBox) return;
     const keys = applyKeys(InputState, settings().keys);
     if (!keysBox.firstChild) {
@@ -157,6 +174,7 @@ export function createPanel(ctx) {
 
   return {
     sync: syncPanel,
+    tiltText: tiltStatusText,
     open() {
       syncPanel();
       capturing = '';

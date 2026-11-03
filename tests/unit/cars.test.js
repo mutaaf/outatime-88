@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CAR_SPECS, STATS, STAT_BUDGET, STARTER_CAR, carParams, displayStats, ensureGarage, unlockProgress,
-  grantEarnedCars, buyCar, recordRace, noteRivalBeaten, isOwned,
+  CAR_SPECS, STAT_BUDGET, STARTER_CAR, carParams, ensureGarage, unlockProgress,
+  grantEarnedCars, recordRace, noteRivalBeaten, isOwned,
 } from '../../src/cars.js';
+import { STATS, displayStats, buyCar } from '../../src/car-shop.js';
 import { POP_CULTURE_ROSTER } from '../../src/data.js';
 
 const freshSave = (extra = {}) => ensureGarage({ fluxCoins: 250, progress: {}, ...extra });

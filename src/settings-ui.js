@@ -6,24 +6,23 @@ import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState } from './input.js';
 import { SoundEngine } from './audio.js';
-import { normalizeSettings, reducedMotionFor, screenAngle, tiltAngle, tiltSteer, tiltStatusText, difficultyOf } from './settings.js';
+import { normalizeSettings, reducedMotionFor, difficultyOf } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 let tiltStatus = 'off';
 let systemReduce = false;
 let resumeOnClose = false;
-let gotSignal = false;
 let signalTimer = 0;
 let hooks = { announce() {} };
-// Tilt goes through a One Euro filter (ticket 0183): steady when you hold the phone still,
-// no lag when you swing it. Tuned on a 60 Hz sensor with 0.5° noise and a 9 Hz hand tremor:
-// jitter at rest drops ~2.5×, and a swerve reaches 90% within one sensor sample, as unfiltered.
-// The filter is its own tiny chunk, fetched when tilt is turned on (main stays in budget).
-let tiltFilter = null;
-const loadTiltFilter = () => import('./onefilter.js').then(({ createOneEuro }) => {
-  tiltFilter = tiltFilter || createOneEuro({ minCutoff: 0.8, beta: 0.5, snap: 6 }); // a 6°+ jump is a swerve, never jitter
-}).catch(() => {});
-let tiltDotPct = -1;
+// The sensor maths, its One Euro filter and the reader are their own chunk (src/tilt.js),
+// fetched when tilt is turned on (0223: main stays in budget). A reading that lands before the
+// chunk is kept, so the first one still sets the zero; a failed fetch is retried on the next one.
+let tilt = null;
+let tiltLoading = null;
+let pending = null;
+const loadTilt = () => (tiltLoading = tiltLoading || import('./tilt.js').then(({ createTiltReader }) => {
+  tilt = createTiltReader(InputState, SaveStore, () => { clearTimeout(signalTimer); setTiltStatus('on'); });
+}).catch((e) => { tiltLoading = null; throw e; }));
 
 export const settings = () => SaveStore.data.settings;
 export const currentDifficulty = () => difficultyOf(SaveStore.data.settings);
@@ -35,30 +34,19 @@ function save() { SaveStore.save(); }
 // --- Tilt ---------------------------------------------------------------------------------
 
 function onOrientation(e) {
-  if (e.beta == null && e.gamma == null) return;
-  const angle = tiltAngle(e.beta, e.gamma, screenAngle(window));
-  if (!gotSignal) {
-    gotSignal = true;
-    clearTimeout(signalTimer);
-    if (tiltFilter) tiltFilter.reset();
-    InputState.tiltZeroOffset = angle;
-    setTiltStatus('on');
-  }
-  if (!InputState.tiltEnabled) return;
-  const raw = tiltFilter ? tiltFilter.filter(angle, e.timeStamp || performance.now()) : angle;
-  InputState.tiltRawAngle = raw;
-  InputState.tiltSteerVal = tiltSteer(raw, InputState.tiltZeroOffset, {
-    sensitivity: SaveStore.data.tiltSensitivity || 1,
-    invert: settings().tiltInvert,
-  });
-  // The meters move in whole percent: no style write (and layout) for sub-pixel jitter.
-  const pct = Math.round(Math.max(6, Math.min(94, 50 + InputState.tiltSteerVal * 44)));
-  if (pct === tiltDotPct) return;
-  tiltDotPct = pct;
-  for (const id of ['tiltIndicatorDot', 'setTiltDot']) {
-    const dot = $(id);
-    if (dot) dot.style.left = `${pct}%`;
-  }
+  if (tilt) { tilt.read(e); return; }
+  if (e.beta == null && e.gamma == null) return; // no angles (some browsers send one as you listen)
+  pending = e;
+  if (!tiltLoading) startTilt();
+}
+
+/** Fetches the reader, then arms it and reads the reading held while it loaded. */
+function startTilt() {
+  loadTilt().then(() => {
+    if (tiltStatus !== 'waiting') return;
+    tilt.arm();
+    if (pending) { const e = pending; pending = null; tilt.read(e); }
+  }).catch(() => {});
 }
 
 function setTiltStatus(status) {
@@ -69,7 +57,8 @@ function setTiltStatus(status) {
   const sw = $('setTilt');
   if (sw) sw.setAttribute('aria-checked', String(on));
   const st = $('tiltStatus');
-  if (st) { st.textContent = tiltStatusText(status); st.dataset.status = status; }
+  // The sentence comes from the panel's chunk (0195); the panel is the only place it shows.
+  if (st) { if (panel) st.textContent = panel.tiltText(status); st.dataset.status = status; }
   const chip = $('btnTitleTilt');
   if (chip) {
     chip.setAttribute('aria-pressed', String(on));
@@ -97,13 +86,14 @@ export async function enableTilt() {
     try { resp = await DOE.requestPermission(); } catch (e) { resp = 'denied'; }
     if (resp !== 'granted') { setTiltStatus('denied'); return false; }
   }
-  loadTiltFilter();
   window.removeEventListener('deviceorientation', onOrientation, true);
   window.addEventListener('deviceorientation', onOrientation, true);
-  gotSignal = false;
   setTiltStatus('waiting');
+  if (tilt) tilt.arm();
+  else startTilt();
   clearTimeout(signalTimer);
-  signalTimer = setTimeout(() => { if (!gotSignal) setTiltStatus('nosignal'); }, 1500);
+  // No reading at all in 1.5 s (one held for the chunk counts) = no sensor.
+  signalTimer = setTimeout(() => { if (tilt ? tilt.armed : !pending) setTiltStatus('nosignal'); }, 1500);
   settings().tilt = true;
   save();
   return true;
@@ -111,6 +101,7 @@ export async function enableTilt() {
 
 export function disableTilt() {
   window.removeEventListener('deviceorientation', onOrientation, true);
+  pending = null;
   clearTimeout(signalTimer);
   settings().tilt = false;
   save();
@@ -143,6 +134,7 @@ function applyAll() {
   applyMotion();
   SoundEngine.setMix(s.musicVolume, s.sfxVolume);
   SoundEngine.setMusicStyle(s.musicStyle);
+  document.documentElement.dataset.hudSize = s.hud; // 0195: CSS scales the HUD text
   if (panel) panel.sync();
 }
 
@@ -184,6 +176,7 @@ export function openSettings() {
   // A live race (sprint 3) can't pause — friends are still driving — so settings open over it.
   // Already paused counts too: the back gesture, the controls panel and the layout editor all
   // reopen this panel over a paused race, and RESUME must still resume it.
+  InputState.nosOn = false; // a tapped-on NOS (0222) stops when the menu opens, live races included
   resumeOnClose = GameState.mode !== 'LIVE' && (GameState.status === 'PLAYING' || GameState.status === 'PAUSED');
   if (GameState.status === 'PLAYING' && resumeOnClose) GameState.status = 'PAUSED';
   return loadPanel().then((p) => p.open());
@@ -214,17 +207,12 @@ export function initSettings({ announce } = {}) {
   $('btnSettingsDone').addEventListener('click', closeSettings);
   // Switching apps mid-race pauses with the panel up, so coming back shows ▶ RESUME instead
   // of a race that kept going (or a frozen-looking frame) behind your back.
-  // Ticket 0032. Audio sleeps while hidden and wakes on return (or on the next tap, on iOS).
+  // Ticket 0032. Audio sleeps while hidden and wakes on return: SoundEngine.wake() (0212).
   const onHide = () => {
     if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE' && !settingsOpen()) openSettings();
-    const a = SoundEngine.ctx;
-    if (a && a.state === 'running') a.suspend().catch(() => {});
+    SoundEngine.wake(true);
   };
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { onHide(); return; }
-    const a = SoundEngine.ctx;
-    if (a && a.state === 'suspended' && !SoundEngine.muted) a.resume().catch(() => {});
-  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) onHide(); });
   window.addEventListener('pagehide', onHide);
   $('settingsModal').addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
   // While the panel is open the race neither steers nor starts behind it: keys aimed at the
@@ -239,8 +227,9 @@ export function initSettings({ announce } = {}) {
   // A tap on the title chip is the gesture iOS needs for the permission prompt.
   if (chip) chip.addEventListener('click', (e) => { e.stopPropagation(); toggleTilt(); });
   // Tilt was on last visit: Android/desktop resume at once; iOS re-asks on the first tap.
-  // Rebound keys (0013): the panel's chunk applies them, so it loads at boot only when a save has some.
-  if (settings().keys) loadPanel();
+  // Rebound keys (0013) and calmer camera effects (0216): the panel's chunk applies them, so it
+  // loads at boot only when a save has some.
+  if (settings().keys || settings().cameraFx !== 'full') loadPanel();
   setTiltStatus('off');
   if (settings().tilt) {
     const DOE = window.DeviceOrientationEvent;

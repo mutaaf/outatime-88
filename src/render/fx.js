@@ -6,12 +6,16 @@ import { PICKUPS } from '../pickups.js';
 import { RS, carArt, pickupArt, hzArt, sparks } from '../main.js';
 import { mainCtx, viewW, viewH, beginMainFrame, roadCanvasHeight, getActiveEraRenderConfig } from './canvas.js';
 
-/** NOS adds a push-in and speed lines on top of the speed feel (calm mode: none). */
+/** NOS adds a push-in and speed lines on top of the speed feel (calm mode: none). Camera effects
+ *  (0216) scale the shake and push-in, never the speed lines. */
 export function nosFeel(feel) {
   if (GameState.nosBurning && GameState.status === 'PLAYING' && !GameState.reducedMotion) {
     feel.fov += 0.045;
     feel.lines = Math.max(feel.lines, 0.85);
   }
+  const k = GameState.cameraFx;
+  feel.fov = 1 + (feel.fov - 1) * k;
+  feel.shake *= k;
   return feel;
 }
 

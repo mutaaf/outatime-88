@@ -31,6 +31,9 @@
   <meta name="twitter:title" content="OUTATIME 88 — race me" />
   <meta name="twitter:description" content="Six racers, three laps, hit 88 mph. Can you beat my time?" />
   <meta name="twitter:image" content="https://mutaafaziz.com/outatime/og.jpg" />
+  <!-- Marquee ads (owner decision 2026-10-30, AGENTS.md §3.3, docs/ADS.md): the same-origin loader
+       at mutaafaziz.com/ads/v1/ads.js. Menu slots only; races show only first-party sponsor boards. -->
+  <script async src="../ads/v1/ads.js" data-app="outatime" data-slots="title:banner:menu,postrace:interstitial:menu,bonus:rewarded:menu"></script>
 </head>
 <body class="on-title relative w-full h-full select-none overflow-hidden bg-slate-950">
 
@@ -312,8 +315,8 @@
   <!-- FORK CUE (ticket 0019): two compact arrows, a word each; the announcer stays the one banner.
        Labels are unit-tested (tests/unit/fork.test.js); main.js only toggles .fork-lean. -->
   <div id="forkChoiceBanner" class="slot-fork hidden pointer-events-none absolute inset-x-0 z-20 flex justify-center gap-3 sm:gap-10 px-3">
-    <div id="forkLeftCard" class="fork-cue px-2.5 py-1 rounded-lg bg-slate-950/85 border-2 border-cyan-400 text-cyan-300 font-arcade text-[11px] sm:text-xs font-bold whitespace-nowrap">◀ SKY-LOOP ⚡</div>
-    <div id="forkRightCard" class="fork-cue px-2.5 py-1 rounded-lg bg-slate-950/85 border-2 border-orange-400 text-orange-300 font-arcade text-[11px] sm:text-xs font-bold whitespace-nowrap">TUNNEL ⏱️ ▶</div>
+    <div id="forkLeftCard" class="fork-cue px-2.5 py-1 rounded-lg bg-slate-950 border-2 border-cyan-400 text-cyan-300 font-arcade text-[11px] sm:text-xs font-bold whitespace-nowrap">◀ SKY-LOOP ⚡</div>
+    <div id="forkRightCard" class="fork-cue px-2.5 py-1 rounded-lg bg-slate-950 border-2 border-orange-400 text-orange-300 font-arcade text-[11px] sm:text-xs font-bold whitespace-nowrap">TUNNEL ⏱️ ▶</div>
   </div>
 
   <!-- TOUCH CONTROLS (ticket 0041): filled by src/touch/controller.js on touch devices —
@@ -382,7 +385,7 @@
            racer, link a device or save the racer. No login anywhere. -->
       <button id="btnRacer" type="button" class="racer-pill mt-3 inline-flex items-center gap-3 px-3 py-1 rounded-full bg-slate-950/70 border border-slate-700/80 font-arcade text-[10px] sm:text-xs" aria-label="Racer: switch, link a device, save">
         <span class="racer-pill-name"><span aria-hidden="true">👤</span> <span id="racerPillName">RACER</span></span>
-        <span class="text-slate-400">BEST</span><span id="titleBestScore" class="font-black led-cyan">0</span>
+        <span class="text-slate-400">BEST</span><span id="titleBestScore" class="font-black led-cyan" aria-label="No best score yet">—</span>
         <span id="titleTotalWarps" class="led-amber font-bold">⚡ 0</span>
       </button>
     </div>
@@ -399,7 +402,7 @@
       </button>
       <!-- Live races (sprint 3): the second way in, one tap from the title. -->
       <button id="btnOpenLive" type="button" class="friends-cta" aria-label="Race friends live"><span aria-hidden="true">👥</span> RACE FRIENDS</button>
-      <div class="flex flex-wrap items-center justify-center gap-2">
+      <div class="title-chips flex flex-wrap items-center justify-center gap-2">
         <button id="btnTitleTilt" type="button" class="title-tilt hidden" aria-pressed="false" aria-label="Tilt steering"><span aria-hidden="true">📱</span> TILT STEERING <b>OFF</b></button>
         <button id="btnViewMode" type="button" class="title-view" aria-pressed="false" aria-label="3D view"><span aria-hidden="true">🧊</span> VIEW <b class="v2">2D</b><b class="v3">3D</b></button>
       </div>
@@ -415,6 +418,8 @@
       <div id="titleRival" class="title-rival font-arcade" role="status" aria-live="polite"></div>
       <!-- Offline play (ticket 0150): how much of the game is saved for a flight. -->
       <button id="offlinePill" type="button" class="offline-pill hidden font-arcade" aria-live="polite"></button>
+      <!-- Marquee banner (2026-10-30): menu context only; collapsed until the loader fills it. -->
+      <div id="titleAd" class="title-ad" data-marquee="title" data-marquee-context="menu"></div>
     </div>
 
     <!-- Icons live in the bottom corners so the car between them stays the hero. -->
@@ -550,6 +555,7 @@
         </div>
       </div>
 
+      <section id="garageControls" class="ctl-ref ctl-ref-wide hidden" aria-label="Controls"></section>
       <div class="garage-grid mt-3">
         <!-- Showroom stage -->
         <div class="garage-stage-col">
@@ -597,7 +603,8 @@
         <div id="upgradesList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"></div>
       </div>
 
-      <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <!-- Pause actions (0240): pinned to the bottom of the sheet (garage.css .garage-actions), never below the shop. -->
+      <div id="garageActions" class="garage-actions mt-3 flex items-center justify-between gap-2">
         <button id="btnChangeEventFromGarage" class="min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-arcade text-xs font-bold">
           🌍 CHANGE LEVEL
         </button>
@@ -698,6 +705,7 @@
       </div>
       <ul id="pauseGoals" class="end-goals pause-goals hidden" aria-label="Endless goals"></ul>
       <div id="pauseShop" class="power-shop hidden" role="group" aria-label="Power-up upgrades"></div>
+      <section id="pauseControls" class="ctl-ref hidden" aria-label="Controls"></section>
 
       <section class="set-section" aria-labelledby="setHeadSteer">
         <h3 id="setHeadSteer">🎮 STEERING</h3>
@@ -778,6 +786,10 @@
           <span>Proximity cue</span>
           <button id="setProximity" type="button" role="switch" aria-checked="true" class="switch" aria-label="Proximity cue"><i></i></button>
         </div>
+        <div class="set-row">
+          <span>Lane guide</span>
+          <button id="setLaneGuide" type="button" role="switch" aria-checked="false" class="switch" aria-label="Lane guide: a tone pans toward the open lane"><i></i></button>
+        </div>
       </section>
 
       <section class="set-section" aria-labelledby="setHeadView">
@@ -796,6 +808,18 @@
           <button type="button" data-value="ultra">ULTRA</button>
         </div>
         <div id="setGfxNote" class="set-status mt-1.5">Auto picks the best quality this device holds at full speed.</div>
+        <div class="set-label">HUD size</div>
+        <div class="seg" data-setting="hud" role="group" aria-label="HUD size">
+          <button type="button" data-value="normal">NORMAL</button>
+          <button type="button" data-value="large">LARGE</button>
+        </div>
+        <div class="set-label">Camera effects</div>
+        <div class="seg" data-setting="cameraFx" role="group" aria-label="Camera effects" aria-describedby="setCameraFxNote">
+          <button type="button" data-value="full">FULL</button>
+          <button type="button" data-value="gentle">GENTLE</button>
+          <button type="button" data-value="off">OFF</button>
+        </div>
+        <div id="setCameraFxNote" class="set-status mt-1.5">Camera shake and the push-in at speed. Speed lines and the warp colours stay. CALM motion turns these off too.</div>
       </section>
 
       <section class="set-section" aria-labelledby="setHeadGame">
@@ -806,6 +830,18 @@
           <button type="button" data-value="normal">NORMAL</button>
           <button type="button" data-value="hard">HARD</button>
         </div>
+        <div class="set-label">Rivals</div>
+        <div class="seg" data-setting="rivals" role="group" aria-label="Rivals" aria-describedby="setRivalsNote">
+          <button type="button" data-value="pack">CLOSE PACK</button>
+          <button type="button" data-value="fair">FAIR FIELD</button>
+        </div>
+        <div id="setRivalsNote" class="set-status mt-1.5">FAIR FIELD: rivals behind you push less and leaders wait less (40% of the usual catch-up). Starts next race. Live races and the daily always use CLOSE PACK.</div>
+        <div class="set-label">NOS button</div>
+        <div class="seg" data-setting="nos" role="group" aria-label="NOS button" aria-describedby="setNosNote">
+          <button type="button" data-value="hold">HOLD</button>
+          <button type="button" data-value="toggle">TAP ON/OFF</button>
+        </div>
+        <div id="setNosNote" class="set-status mt-1.5">TAP ON/OFF: tap NOS (Shift, N, pad LB or the touch NOS button) to burn, tap again to stop. It stops by itself when the tank runs dry, on a crash, at a warp and when you pause.</div>
         <div class="set-label">Screen shake &amp; flashes</div>
         <div class="seg" data-setting="motion" role="group" aria-label="Motion">
           <button type="button" data-value="auto">AUTO</button>
@@ -851,6 +887,8 @@
         <ul id="endGoals" class="end-goals hidden" aria-label="Endless goals"></ul>
         <!-- Power-up upgrades (ticket 0177): longer magnet / shield / 2X, paid in earned FLUX cash only. -->
         <div id="endShop" class="power-shop hidden" role="group" aria-label="Power-up upgrades"></div>
+        <!-- Opt-in rewarded ad (Marquee, 2026-10-30): shown only when the bonus slot has fill (src/ads.js). -->
+        <button id="btnBonusAd" type="button" class="bonus-ad hidden">🎬 Watch a short ad for 2× coins</button>
 
         <!-- Leaderboard submission (ticket 0025): initials once, then every run posts itself. -->
         <div id="endBoardBox" class="end-board">

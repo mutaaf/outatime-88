@@ -76,8 +76,22 @@ Depth over breadth: polish one moment until it sings before adding three.
    src/worker/). No third-party host, ever. QR codes are drawn locally (`src/qr.js`). The e2e smoke test fails on any non-localhost request. No accounts and no
    personal data: see § Privacy model.
    No analytics, ad networks, trackers, fonts or scripts from CDNs. Everything else is bundled.
-   The only ads are first-party sponsor boards bundled under `/outatime/ads/`, chosen by
-   context only, reporting aggregate per-campaign counts (docs/ADS.md).
+   In a race the only ads are first-party sponsor boards bundled under `/outatime/ads/`, chosen
+   by context only, reporting aggregate per-campaign counts (docs/ADS.md).
+   **One exception (owner decision, 2026-10-30, "split by audience"):** index.html loads the
+   Marquee ad loader from the same origin, relative to the base path (`../ads/v1/ads.js` →
+   `mutaafaziz.com/ads/v1/ads.js`, the separate Marquee Worker; `data-app="outatime"`). Only
+   menu-context slots are declared (`title` banner, `postrace` interstitial, `bonus` rewarded),
+   and the glue is the lazy `src/ads.js`. Through Marquee, Google ads tagged child-directed
+   (`data-tag-for-child-directed-treatment=1`) may appear **only outside gameplay**: the title,
+   results / back to the title, and an opt-in rewarded video. Rewarded is **opt-in only** (the
+   player taps "Watch a short ad for 2× coins"; the button shows only when the slot has fill).
+   **No ad ever shows mid-race**: the app never calls Marquee while a race is on (PLAYING,
+   PAUSED, GRID), never in a live room or TV mode, and Marquee itself refuses Google for any
+   `gameplay` slot. Every call is fire-and-forget and a missing `window.marquee` is a no-op; the
+   game never waits on an ad. Gameplay requests stay first-party. The e2e guard still fails on any
+   non-localhost request; tests answer the same-origin `/ads/v1/ads.js` with a stub
+   (`stubAds` in tests/e2e/helpers.js), which locally would 404. Allow-list nothing else.
 4. **Frame budget.** The render loop must hold 60fps on a mid-range laptop and stay
    playable on a recent phone. No per-frame allocations in hot paths (reuse vectors and
    arrays), no layout thrash from the HUD.
@@ -119,6 +133,9 @@ Depth over breadth: polish one moment until it sings before adding three.
   Both are stored only as salted hashes, and redemption is rate-limited.
 - **Shared devices:** "Switch racer" keeps each sibling's racer and local save on one iPad.
   "Forget this device" removes the racer from every local store and clears the cookie.
+- **Ads (2026-10-30):** Marquee counts are aggregate only (slot | campaign | source → n); no
+  racer id, cookie, IP or device data is sent to it, and the racer credential never reaches it.
+  Google ads are child-directed and menu-only (§3.3); nothing about the player picks an ad.
 - **For other features:** `src/identity.js` is the client API (publicId, profile, addFriends,
   saveProfileData…); `src/worker/identity.js` is the server side. Reuse them — don't invent
   another id.
@@ -138,13 +155,20 @@ src/render/         The 2D-canvas pseudo-3D renderer (0015), in the startup bund
                       sprites.js (items, obstacles, cars + tags, wrecks, AR) · player.js (drawPlayerCar) ·
                       fx.js (car FX, speed lines, warp tunnel, sparks, the 3D overlay). Each file ≤ 500 lines
 src/race-step.js    Lazy race step (0170): updateGame(dt), LiveTraffic.update, race rules (damage,
-                      streaks, takedowns, specials, time warp), race start/finish, race HUD;
+                      streaks, time warp), race start/finish, race HUD; takedowns + specials in src/race-specials.js;
                       imports only from ./main.js
+src/race-specials.js Race-step chunk only (0227): side-slam takedown (triggerRivalTakedown), the crew specials
+                      ZONE / AGRO / ROAR + their tint fade, the pulse beam, the obstacle shatter FX. Imported only by
+                      race-step.js (so it merges into that chunk), which re-exports what main calls
 src/data.js         Pure content tables: levels, eras, roster, upgrades, road/pace/camera config
 src/backdrop.js     Main-bundle shim for the 2D era worlds (0100): lazy-loads src/scenes/stage.js, flat fallback
 src/scenes/         Lazy: stage.js (layer cache, parallax, per-frame set pieces), s<era>.js (one scene per
                       era: build() paints layers once, anim()/front() draw live details allocation-free),
-                      kit.js (painting helpers), eggs.js (pure easter-egg triggers), quality.js (tiers:
+                      kit.js (painting helpers; strip() paints through a tee into the layer and a sign-free twin, records
+                      each sign() box with a clean patch cropped from the twin, groups overlapping boxes, and stage
+                      covers a group as it nears the screen edge: fadeEdgeSigns, 0237), eggs.js (pure easter-egg triggers), tags.js (rival nameplates, 0238: the
+                      layout keeps the rivals ahead/behind, ≤ 3 plates, none over another or a lane-ahead pickup, 150 ms fades;
+                      its own lazy chunk tags-*.js, < 1.5 kB, fetched by stage and counted in the backdrop total), quality.js (tiers:
                       layers / live detail / weather / layer resolution, read ONLY via getQuality(),
                       which defaults to 'high'; plug the capability governor in with
                       setQualitySource(fn)). Nods: docs/EASTER_EGGS.md
@@ -161,19 +185,46 @@ src/hazards.js      Endless hazards (0186): pure rules — run-ending road hazar
                       crumbling lanes, train, missing guardrail, storm lightning), fuel, NOS heat, stall, the Patrol,
                       checkpoints, deaths by cause (save.endless.hz). Lazy, with src/hazard-run.js (glue, loaded by main after
                       the race step; the race step calls step/reset/onContinue/noteEnd through RS.hz) and src/hazard-art.js (2D art + HUD)
+src/era-hazards.js  Era signature hazards (0113), pure, race-step chunk only: one knockable prop per era id (kind, rate,
+                      body, HUD label; cone penalty, never HP). eraSpill() swaps some planProps patterns for the era's
+                      spill on the far side of the line, rolled by a seed hash (the race RNG is untouched); 2D art is
+                      src/scenes/era-props.js in the lazy stage chunk, 3D a coloured block (meshes.js ERA_PROP_3D)
+src/fair-field.js   "Fair field" (0211), pure, race-flow chunk only: Settings → RIVALS scales the rubber band (FAIR_FIELD
+                      0.4, close pack 1); race start sets GameState.catchUp (1 in rooms and dailies), read by rival-ai
+                      fillWorld (w.band) and raceflow rivalTargetMph (the fallback driver)
+src/arrival.js      Arrival stretch (0218), pure, race-late chunk only: the run's first warp queues an authored stretch for the
+                      era it lands in (1985 today) on track.run; the race step builds it in place of the next biome, one ARRIVAL
+                      feature (set-piece rules keep it clear), then the generator resumes unchanged. Solo races only
+src/race-late.js    Race-late chunk (0233): what the race step first needs well after the lights, the opt-in lane guide
+                      (src/lane-guide.js, 0219) and the arrival stretch (src/arrival.js). race-step.js import()s it as soon as it runs
+                      and null-checks both until it lands; put cold, after-GO race code here, not in race-step
+src/resume-beat.js  Resume beat (0231), pure, race-step chunk only: a solo race back from PAUSED holds the sim for 3 → 2 → 1
+                      (0.3 s each, wall clock) while the road draws. main's loop calls raceStep.resumeHold() once per frame
+                      (resumed = last frame PAUSED, not LIVE/TV, raceTime > 0); GameState.resumeBeat is the number shown (0 = none)
+src/flash-budget.js Flash budget (0234), pure, race-step chunk only: allowFlash(ms, area) lets at most 3 flashes over 20% of the
+                      screen through per second (race clock; layers within 100 ms are one flash). The warp flash (and the era
+                      sky wash with it, GameState.warpLit) and the storm-bolt wash ask it; a refused one shows its calm strength
+src/camera-fx.js    "Camera effects" (0216), pure, settings-panel chunk only: Settings → Camera effects sets GameState.cameraFx
+                      (full 1 / gentle 0.4 / off 0); nosFeel, the 2D hit-shake and the 3D shake/warp kick multiply by it.
+                      Speed lines, flashes and warp colours stay; calm motion still turns all of it off; the sim never reads it
+src/nos-toggle.js   NOS TAP ON/OFF (0222), pure, race-step chunk only: Settings → NOS button (settings.nos 'hold' | 'toggle'); a press
+                      (InputState.nosTap: keydown, touch NOS, pad LB edge) flips InputState.nosOn; a crash, a warp, not racing or
+                      not burning (tank dry) turns it off, and main's loop clears it whenever the race isn't stepping (pause)
 src/powerups.js     Runner power-ups (0177): magnet / shield / 2X timers, upgrade levels (FLUX cash only); lazy (race-step + runner-ui).
                       Road placement is pickups.js powerupAt (track.power = Endless tier, 0 off)
 src/popups.js       Floating pickup / score labels (0114), pure layout: above the car's roofline (GameState.carBox from
-                      drawPlayerCar), stacked newest-nearest, clamped to the canvas; drawn by the lazy src/pickup-art.js
+                      drawPlayerCar), stacked newest-nearest, clamped to the canvas; drawn by the lazy src/pickup-art.js.
+                      At most 2: a dodge chain is one growing plate (src/chain-plate.js, race step only; 0205) + one other
 src/scoring.js      Penalty rules (hits, wall scrapes) + the run log the Worker recomputes
 src/cars.js         Car ratings (same 30-point budget each), unlock rules, carParams() → the physics
-                      numbers a car drives with; career counters. Balance is unit-tested.
+                      numbers a car drives with; career counters. Balance is unit-tested. The garage's rating
+                      bars and buying are src/car-shop.js (garage chunk only, 0223)
 src/state.js        GameState — the one mutable state object every system reads/writes
 src/save.js         SaveStore (localStorage persistence, see invariant 6)
 src/identity.js     Zero-login identity client: who is playing, friends, link/recovery codes (0090)
 src/racer-ui.js     Boots identity, syncs the save with the racer, friends from `from=` links
 src/racer-panel.js  The RACER panel (switch, link a device, save my racer, forget) — lazy chunk
-src/racer-saves.js  One local save per racer on a shared device; merges server bests
+src/racer-saves.js  One local save per racer on a shared device (RACER panel chunk only; server bests merge in src/progress.js)
 src/qr.js           On-device QR encoder (links, invites, share cards) — no QR service
 src/worker/identity.js  Identity routes: /api/me, /link, /recovery, /use, /forget
 src/worker/compete.js   Seasons, track/class/friends boards, rank movement, rivals, streaks,
@@ -185,6 +236,7 @@ src/results-ui.js   Results card text, initials/score posting, leaderboard modal
 src/ghost-codec.js  Compact ghost traces (distance + lane at 5 Hz), shared with the Worker
 src/ghost.js        Ghost recorder (every race) and ghost racing on the HUD strip (0092)
 src/audio.js        SoundEngine (Web Audio synth: engine, SFX, music loop); UI hooks via setAudioHooks;
+                      wake() is the one place the context sleeps or resumes (mute, hidden tab, iOS 'interrupted', 0212);
                       the score (src/music.js) is a lazy chunk, loadMusic() preloads it after boot
 src/sfx/tuner.js    Lazy (0193): the street-tuner layer, all synthesized — turbo spool, blow-off, shift chirp,
                       limiter, overrun pops, launch burble, NOS click/hiss/whoosh + purge, squeal layer, drift tone,
@@ -197,7 +249,7 @@ src/input.js        InputState + pollGamepad() (deadzone + response curve, analo
 src/keybinds.js     Rebindable keys (0013), pure, in the lazy settings-panel chunk: one rebindable key per driving
                       action + fixed arrows, conflicts refused; applyKeys sets InputState.keyMap (e.code → the default
                       code main.js acts on) and .boostKey; settings-ui loads the panel chunk at boot only when keys are rebound
-src/onefilter.js    Lazy (loads when tilt turns on): One Euro filter, steady at rest, lag-free on a swerve (0183)
+src/onefilter.js    One Euro filter, steady at rest, lag-free on a swerve (0183); part of the lazy tilt chunk (src/tilt.js)
 src/forcefeel.js    Lazy: gamepad dual rumble + phone pulses from tyre slip, wheelspin, walls, landings (0183)
 src/physics.js      RigidBody3D (impulses, suspension, gravity, wall rebound, static/sleep, reset() for pools)
 src/materials.js    Per-object materials (mass, bounce, friction, static/knockable, damage) + impulse maths
@@ -221,6 +273,9 @@ src/perf/           Graphics quality (ticket 0041), render-only — the sim is i
                       with hysteresis) · gfx.js (the controller both renderers read) ·
                       gfx-boot.js (lazy: Settings → GRAPHICS, ?debug overlay). See § Graphics tiers.
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
+                      Desktop race (0229): main's loop sets body.race-on while the race steps (the driver badge
+                      fades out; back on pause/results); src/coach-dock.js dockDeskCoach (race-step chunk, re-exported
+                      for race-flow's coach) puts the coach tip in the HUD row beside the place card
 src/near-fade.js    Near-camera traffic (0200), pure: a car passing beside the camera eases to ≤ 22% of the view and 35% alpha;
                       depth = road-scaled car width / view width; car-sprite.js drawNear applies it to every non-player car
 src/warp-cue.js     WARP READY cue (0112), pure: createReadyCue(min) is true once per fill (re-arms 5 below). The race step
@@ -228,6 +283,11 @@ src/warp-cue.js     WARP READY cue (0112), pure: createReadyCue(min) is true onc
                       tick on its edge; the HUD label, hints and the touch WARP button (READY + double border) read it
 src/slipstream.js   Slipstream charge cue (0197), lazy (race flow + tuner): draftCharge → rising tone, greener speed
                       lines, an eased edge tint and a 2 Hz READY pulse; main only calls RS.wake from drawSpeedLines
+src/focus-scope.js  Menu focus scope (0207), lazy via home.js: a shown menu takes focus, Tab/Shift+Tab loop inside, focus goes back to
+                      its opener on close (never while racing); Ranks/share close on Escape. Watches each menu's `hidden` class
+src/ads.js          Marquee ad glue (2026-10-30), lazy: onResults (2× COINS rewarded offer, opt-in, only with fill),
+                      onMenuReturn (postrace interstitial from the session's 2nd race on; never live/TV), beforeAd/afterAd hold
+                      the frame loop (main's adHeld, which also refuses race starts) and silence the mix. Main only has adCue()
 src/onboarding.js   First-run steer prompt (the race teaches; the title is one tap)
 src/play-hints.js   In-race prompts worded for the input in hand (0007), pure: pad X/RB/Y, phone BOOST, else keys;
                       InputState.lastInput is set only through setLastInput (src/input.js), which keeps body.input-pad
@@ -244,12 +304,18 @@ src/sharelink.js    Challenge links (?track=&beat=&by=), share copy — pure
 src/share-ui.js     Share button/sheet, challenge banner (lazy chunk)
 src/share.js        Share card renderer, native share / copy / save (lazy chunk); scripts/make-og.mjs → public/og.jpg
 src/hud.js          Race HUD writer (change-only DOM writes) + hudRects() for no-overlap checks
+src/strip-marks.js  Track strip, lazy (race-flow chunk): stripMarks() letters (0167) and fanOut()/createStripFan(), which spread a
+                      pack sideways in race order, YOU fixed, sizes from a ResizeObserver (0209)
 src/live/           Live races, a lazy chunk (loaded on RACE FRIENDS or a ?room= link):
                       controller.js (menu/lobby/countdown/results UI + race glue via hooks)
                       net.js (room socket, reconnect, clock sync) · ghosts.js (interpolation)
                       identity.js (seats follow the racer, 0090) · share.js · live.css
-src/settings.js     Settings rules: defaults/normalise (SaveStore.data.settings), difficulty, motion, tilt maths
-src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor()
+src/settings.js     Settings rules: defaults/normalise (SaveStore.data.settings), difficulty, motion
+src/tilt.js         Lazy (0223, fetched when tilt turns on): tilt maths (screenAngle/tiltAngle/tiltSteer), the One Euro
+                      filter (src/onefilter.js) and the deviceorientation reader that writes InputState
+src/tilt-text.js    The panel's tilt status sentences, pure; imported only by the lazy settings-panel chunk (0195)
+src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor();
+                      applyAll() sets html[data-hud-size] (0195: LARGE scales the race HUD's text by --hk in styles.css)
 src/touch/          Touch controls (ticket 0061), Roblox/Fortnite style:
                       touch-ui.js (one full-screen Pointer Events surface: thumbstick / D-pad /
                       tilt, action arc, shortcuts, look-drag; sample() writes InputState
@@ -419,7 +485,7 @@ frame, and `waitForFunction` on the state you expect rather than `waitForTimeout
 time limit (flicks, swipes) send their input events as one burst. Frame-time tests carry
 `{ tag: '@perf' }` and run alone, one at a time, after the rest (the `perf` project).
 
-Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 59 kB gzipped at startup — the entry chunk plus every chunk it statically imports (raised 58 → 59 on 2026-10-19 for the analog gamepad and the lazy force-feel/tilt-filter hooks, 0183; today ~58.3 kB on CI; brought down from 73.2 on 2026-10-18 by moving the race step to a lazy chunk, ticket 0170). **Rule: new features ship as lazy chunks; main only gets the hooks that load them.** Main holds what the title needs on its first frame (the 2D renderer, input binding, menus' entry points, track generation and the shared sim modules); the race step (`race-step-*.js`, ≤ 23 kB gzipped, today ~17 kB on CI: `updateGame` and traffic stepping; race start/finish, the coach and the race HUD are `race-flow-*.js`, ≤ 9 kB, and the rigid-body world `rigid-*.js`, ≤ 5 kB, both fetched alongside it and handed over before a race starts — the race step calls them through `RF`/`useRigid`, never a static import) loads in parallel with the title and every race start waits for it (`startNewRace` in main resolves once it is in); code it moves imports only from `./main.js` (shared-module bindings arrive through one `RACE_DEPS` object, state both sides write lives on `RS`), so the bundler doesn't split common chunks off the entry. Other lazy chunks: Endless hazards (`hazard-run-*.js` + `hazards-*.js`, `hazard-art-*.js`, ~11 kB gzipped together), the car painter (`car-sprite-*.js`, with src/car-paint.js and src/car-shapes.js), the rival AI (`rival-ai-*.js`), offline (`offline-*.js`), the steering-mode switch (`steermode-ui-*.js`), set-piece art (`setpieces-2d-*.js`), the touch kit (`bridge-*.js`, touch devices only; its Controls panel `panel-*.js` on first open) — it must never import three statically or src/live/ statically; live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js` and its imports: three.js + src/render3d, downloaded only when 3D is on) ≤ 172 kB gzipped (today ~169 kB; raised from 170 on 2026-10-18 when the car shapes from 0157 put it at the edge), era backdrops + roadside (`stage-*.js` incl. roadside art and name tags < 10 kB, six `s<era>-*.js` < 5 kB each, shared kit chunk) ≤ 25 kB gzipped in total (today ~23 kB), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
+Budgets (enforced by `tests/e2e/budget.spec.js`): main JS ≤ 58 kB gzipped at startup — the entry chunk plus every chunk it statically imports (lowered 59 → 58 on 2026-10-29 by 0223, which took main from 58.98 to ~57.3 kB: modules only the race uses import directly into the race chunks instead of riding RACE_DEPS, the tilt sensor is `tilt-*.js`, the garage's ratings/buying `src/car-shop.js`; raised 58 → 59 on 2026-10-19 for the analog gamepad, 0183; brought down from 73.2 on 2026-10-18 by moving the race step to a lazy chunk, ticket 0170). **Rule: new features ship as lazy chunks; main only gets the hooks that load them.** Main holds what the title needs on its first frame (the 2D renderer, input binding, menus' entry points, track generation and the shared sim modules); the race step (`race-step-*.js`, ≤ 23 kB gzipped, today ~22.0 kB after 0233 moved the lane guide and arrival stretch to `race-late-*.js` (~1.7 kB): `updateGame` and traffic stepping; race start/finish, the coach and the race HUD are `race-flow-*.js`, ≤ 9 kB (today ~8.3 kB), and the rigid-body world `rigid-*.js`, ≤ 5 kB, both fetched alongside it and handed over before a race starts — the race step calls them through `RF`/`useRigid`, never a static import) loads in parallel with the title and every race start waits for it (`startNewRace` in main resolves once it is in); code it moves imports only from `./main.js` (shared-module bindings arrive through one `RACE_DEPS` object, state both sides write lives on `RS`), so the bundler doesn't split common chunks off the entry; a module that only the race chunks use (scoring.js, fork.js) is the exception and is imported there directly, since listing it in `RACE_DEPS` keeps it in main (0223). Other lazy chunks: Endless hazards (`hazard-run-*.js` + `hazards-*.js`, `hazard-art-*.js`, ~11 kB gzipped together), the car painter (`car-sprite-*.js`, with src/car-paint.js and src/car-shapes.js), the rival AI (`rival-ai-*.js`), offline (`offline-*.js`), the steering-mode switch (`steermode-ui-*.js`), set-piece art (`setpieces-2d-*.js`), the touch kit (`bridge-*.js`, touch devices only; its Controls panel `panel-*.js` on first open) — it must never import three statically or src/live/ statically; live-race chunk (`controller-*.js`, loaded on RACE FRIENDS or a `?room=` link) ≤ 20 kB gzipped (today ~13 kB), 3D chunk (`view-*.js` and its imports: three.js + src/render3d, downloaded only when 3D is on) ≤ 172 kB gzipped (today ~169 kB; raised from 170 on 2026-10-18 when the car shapes from 0157 put it at the edge), era backdrops + roadside (`stage-*.js` incl. roadside art, name tags and the kit < 10 kB, seven `s<era>-*.js` < 5 kB each, their shared chunks, and the nameplate layout `tags-*.js` < 1.5 kB) < 31 kB gzipped in total (today ~30.5 kB; raised 29 → 30 on 2026-11-01 for 0237's edge-faded signs, ~750 B, after ~70 B of dedupes; 30 → 31 on 2026-11-01 for 0238's nameplate layout, ~1.3 kB in its own chunk, which took ~0.4 kB out of the stage chunk), CSS ≤ 25 kB gzipped (today ~17 kB), fonts woff2-only where possible. Frame-time baseline in `docs/PERF.md`.
 
 ## 6 · The agents
 

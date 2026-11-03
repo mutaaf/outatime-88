@@ -27,12 +27,13 @@ export const RIVAL_PACES = [92, 86, 80, 74, 68];
  * stays a race: one that falls far behind you pushes, one far ahead eases off.
  * @param pace  the rival's race pace (mph, difficulty applied)
  * @param lead  rival progress minus yours (positive = rival ahead)
+ * @param k     catch-up scale (src/fair-field.js: 1 = close pack, less = a fairer field)
  */
-export function rivalTargetMph(pace, lead) {
-  if (lead < -220) return pace + 26;
-  if (lead < -60) return pace + 10;
-  if (lead > 700) return pace - 18;
-  if (lead > 350) return pace - 8;
+export function rivalTargetMph(pace, lead, k = 1) {
+  if (lead < -220) return pace + 26 * k;
+  if (lead < -60) return pace + 10 * k;
+  if (lead > 700) return pace - 18 * k;
+  if (lead > 350) return pace - 8 * k;
   return pace;
 }
 

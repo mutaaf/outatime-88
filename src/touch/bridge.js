@@ -22,7 +22,7 @@ const loadPanel = () => import('./panel.js');
 export function connectTouch(game) {
   SaveStore.data.controls = normalizeControls(SaveStore.data.controls);
   let respawnCooldown = 0;
-  const status = { flux: 0, warpReady: false, calm: false, specials: 0, airborne: false, respawn: 1 };
+  const status = { flux: 0, warpReady: false, calm: false, specials: 0, airborne: false, respawn: 1, nosOn: false };
   const mirrorPlayer = { z: 0, x: 0 };
   const mirrorGroups = [];
   const cfg = () => SaveStore.data.controls;
@@ -81,6 +81,7 @@ export function connectTouch(game) {
         status.specials = GameState.specialCharges;
         status.airborne = GameState.playerY > 12;
         status.respawn = 1 - respawnCooldown / RESPAWN_COOLDOWN_S;
+        status.nosOn = !!InputState.nosOn; // NOS TAP ON/OFF switched on (0222)
         return status;
       },
       drawMirror: (ctx, w, h) => {

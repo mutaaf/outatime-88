@@ -47,6 +47,10 @@ export function createAnnouncer({ now, show, hide }) {
     update() {
       if (current && now() >= current.until) next();
     },
+    /** Takes `main` down if it is the one showing; the queue waits on (0231's resume beat). */
+    dismiss(main) {
+      if (current && current.main === main) next();
+    },
     isVisible() { return current !== null; },
     pending() { return queue.length; },
     clear() { queue.length = 0; current = null; hide(); },

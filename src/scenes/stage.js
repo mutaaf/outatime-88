@@ -15,7 +15,8 @@ const LOADERS = {
 export const SCENE_IDS = Object.keys(LOADERS);
 
 import { getQuality, tier, TIERS, setQualitySource } from './quality.js';
-import { roadsideFor, drawProp, drawHazard, contactShadow, drawTags, stats as roadStats } from './roadside.js';
+import { fadeEdgeSigns, layer } from './kit.js';
+import { roadsideFor, drawProp, drawHazard, contactShadow, stats as roadStats } from './roadside.js';
 
 export { getQuality, setQualitySource };
 
@@ -27,7 +28,7 @@ let scrollRaw = 0;
 
 // Per-frame facts handed to the scene. One object, mutated in place.
 const F = {
-  era: '', detail: 1, weather: true, t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false,
+  era: '', detail: 1, weather: true, t: 0, raceTime: 0, speed: 0, lap: 1, laps: 0, warp: -1, reduced: false, lit: true,
   rw: 0, rh: 0, hz: 0, k: 1, offs: [0, 0, 0, 0], W: 0, mem: null,
   /** Screen x of layer `i`'s layer-space x. */
   x(i, lx) {
@@ -78,8 +79,7 @@ function build(scene, id, rw, rh) {
  */
 // Roadside billboard faces: two lines of copy on the era's colours, painted once.
 function adSprite([top, bottom, bg, fg]) {
-  const c = document.createElement('canvas');
-  c.width = 160; c.height = 56;
+  const c = layer(160, 56);
   const ctx = c.getContext('2d');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, 160, 56);
   ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -117,7 +117,7 @@ export function draw(ctx, rw, rh, hz, era, s) {
 
   const W = built.layers.length ? built.layers[0].c.width / built.k : rw;
   F.era = id; F.t = s.t; F.raceTime = s.raceTime; F.speed = s.speed; F.lap = s.lap; F.laps = s.laps;
-  F.warp = s.warp; F.reduced = s.reduced; F.detail = T.detail; F.weather = T.weather; F.rw = rw; F.rh = rh; F.hz = hz; F.k = built.k; F.W = W; F.mem = built.mem;
+  F.warp = s.warp; F.reduced = s.reduced; F.lit = s.lit !== false && !s.reduced; F.detail = T.detail; F.weather = T.weather; F.rw = rw; F.rh = rh; F.hz = hz; F.k = built.k; F.W = W; F.mem = built.mem;
 
   // Sky + ground plate (static; slides with the horizon when the road pitches).
   const sky = built.sky;
@@ -138,6 +138,7 @@ export function draw(ctx, rw, rh, hz, era, s) {
     const y = hz - hzL / built.k;
     ctx.drawImage(L.c, -off, y, W, h);
     if (W - off < rw) ctx.drawImage(L.c, W - off, y, W, h);
+    fadeEdgeSigns(ctx, L.c.signs, off, y, W, rw, built.k); // 0237
   }
   if (scene.anim) scene.anim(ctx, F, built);
   costMs += (performance.now() - t0 - costMs) * 0.05;
@@ -153,7 +154,8 @@ export function weather(ctx, rw, rh) {
 
 /** The current scene's egg flags (for tests via ?debug). */
 export function debug() {
-  return built ? { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes), road: roadStats } : null;
+  if (!built) return null;
+  return { q: built.q, id: built.id, eggs: built.flags || null, k: built.k, ms: costMs, loaded: Object.keys(scenes), road: roadStats, plates: tagMod ? Array.from(tagMod.placed.slice(0, tagMod.S * roadStats.tags)) : [], rw: built.rw, signs: built.layers.slice(0, TIERS[built.q].layers).flatMap((L) => L.c.signs) }; // signs: 0237
 }
 
 /** A new race: easter eggs can fire again and the parallax restarts. */
@@ -182,4 +184,12 @@ export function hazard(ctx, ow, baseY, roadW, rw, rh) {
   return !!R && drawHazard(ctx, R, ow, baseY, rh, rw, depthOf(roadW, rw), TIERS[built.q].detail >= 0.5);
 }
 export function shadow(ctx, x, y, w) { contactShadow(ctx, x, y, w); return true; }
-export { drawTags as tags };
+// Name tags (0238): their own lazy chunk, fetched as the stage loads; none drawn until it lands.
+let tagMod = null, tagReq = null;
+const loadTags = () => { tagReq = import('./tags.js').then((m) => { tagMod = m; }).catch(() => { tagReq = null; }); }; // retried on the next frame
+loadTags();
+export function tags(ctx, pool, n, blocks, nb, rw, rh) {
+  if (tagMod) roadStats.tags = tagMod.drawTags(ctx, pool, n, blocks, nb, rw, rh);
+  else if (!tagReq) loadTags();
+}
+export { drawEraProp as eraProp } from './era-props.js';

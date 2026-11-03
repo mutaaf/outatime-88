@@ -3,6 +3,7 @@
 // racing in at most 3 taps.
 import { test, expect } from '@playwright/test';
 import { LIVE_PORT } from '../../playwright.config.js';
+import { stubAds } from './helpers.js';
 import { LENGTHS } from '../../src/worker/live-rules.js';
 
 const BASE = `http://127.0.0.1:${LIVE_PORT}`;
@@ -14,6 +15,7 @@ let sharedCode = null;
 
 function watch(page) {
   const problems = [];
+  stubAds(page); // the same-origin Marquee loader 404s locally (helpers.js)
   page.on('console', (m) => { if (m.type() === 'error') problems.push(`console.error: ${m.text()}`); });
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   page.on('request', (r) => {

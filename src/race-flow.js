@@ -5,25 +5,29 @@
 // and the race step calls back in through RF (set by useFlow), never a static import, so the
 // bundler keeps them separate.
 import {
-  RACE_DEPS, DEBUG_MODE, LiveTraffic, RAI, RC, RS, activeCarParams, announcer, burstSparks,
+  RACE_DEPS, DEBUG_MODE, LiveTraffic, adCue, RAI, RC, RS, activeCarParams, announcer, burstSparks,
   callouts, carPaint, ceremonyReady, drive, ghostRace, hideCoach, hudView, initTrack, lateral,
   live, loadGarageUI, loadShareUi, restoreSoloSettings, smoke2d, sparks, steerModes, syncAudioUI,
   syncModeButtons, syncRunnerUi, todaysDaily, touch, triggerAnnouncement, updateEraHud,
   withResults
 } from './main.js';
 import { createFair, fairPayload } from './fairplay.js';
+// Only the race chunks use these, so they import them directly and never ship at startup (0223).
+import { createPenaltyLog, penaltyPoints, breakdown, logPayload } from './scoring.js';
+import { catchUpScale } from './fair-field.js';
 import { wakeFrame } from './slipstream.js';
 import { playHint } from './play-hints.js';
 import { createPlaceCall } from './place-call.js';
+import { stripMarks, createStripFan } from './strip-marks.js';
 import {
   endlessSolo, nearMisses, cashAcc, earnCash, resetRunner, steerWheel, resetNos, showForkCue,
-  ghostRecorder
+  ghostRecorder, dockDeskCoach, obstacleTip
 } from './race-step.js';
 const {
   CAR_SPECS, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, POP_CULTURE_ROSTER,
-  ROAD_CFG, SaveStore, SoundEngine, WORLD_LEVELS, applyRunResult, beginRun, breakdown,
-  createDrive, createHud, createLateral, createOnboarding, createPenaltyLog, createRaceClock,
-  finishBonus, isNewPlayer, lapOf, logPayload, missionsDone, mulberry32, ordinal, penaltyPoints,
+  ROAD_CFG, SaveStore, SoundEngine, WORLD_LEVELS, applyRunResult, beginRun,
+  createDrive, createHud, createLateral, createOnboarding, createRaceClock,
+  finishBonus, isNewPlayer, lapOf, missionsDone, mulberry32, ordinal,
   pickMissions, preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace,
   resetBackdrop, utcDay
 } = RACE_DEPS;
@@ -36,9 +40,20 @@ RS.wake = (c, W, H) => wakeFrame(c, W, H, GameState, RS.fxClock);
 
 // Coach (ticket 0002): teaches only what you haven't learned yet, in one short line, and
 // always yields to the announcer so two messages never stack.
-export const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', HIGH_LIGHT_GATE: 'slide', FLUX_CRATE: 'smash' };
+const COACH_LESSON = { PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump', HIGH_LIGHT_GATE: 'slide', FLUX_CRATE: 'smash' };
 
-export const COACH_LEARNED_AFTER = 2;
+const COACH_LEARNED_AFTER = 2;
+
+// Portrait phones (0228): the first-race thumb guide (body.tc-guiding) and the coach take turns.
+// The coach waits while the guide is up; the GO tip it held back shows once after, for TIP_OWED_MS,
+// if nothing else has the card within TIP_OWED_WITHIN ms of the guide going (it is a GO tip, not a
+// mid-race one). 480 px is the ticket's line, narrower than the compact HUD's 599 px.
+const phoneTall = typeof matchMedia === 'function' ? matchMedia('(max-width: 480px) and (orientation: portrait)') : null;
+const TIP_OWED_MS = 4000;
+const TIP_OWED_WITHIN = 2000;
+let tipOwed = false;
+let tipUntil = 0;
+let guideAt = 0;
 
 export function updateInteractiveCoach(currentSegIdx) {
   const banner = document.getElementById('interactiveCoachBanner');
@@ -52,6 +67,17 @@ export function updateInteractiveCoach(currentSegIdx) {
   const nowMs = performance.now();
   if (announcer.isVisible()) { RS.coachYieldUntil = nowMs + 350; hideCoach(banner); return; }
   if (nowMs < RS.coachYieldUntil) { hideCoach(banner); return; }
+  // The guide's chunk loads after GO on a slow phone: while it is still due (touch, not yet seen,
+  // early in the race) the coach waits for it too, so it never shows first and fades under it.
+  const guideDue = document.body.classList.contains('tc-guiding') || (GameState.raceTime < 5 && GameState.mode !== 'LIVE'
+    && SaveStore.data.controls && !SaveStore.data.controls.coachSeen && document.documentElement.classList.contains('touch-ui'));
+  if (guideDue && phoneTall && phoneTall.matches) {
+    if (GameState.distance < 300) tipOwed = true;
+    guideAt = nowMs;
+    hideCoach(banner);
+    return;
+  }
+  if (tipOwed && nowMs - guideAt > TIP_OWED_WITHIN) tipOwed = false;
 
   // Nearest un-hit obstacle within ~2,800 Z-units that the player still needs coaching on.
   let foundObs = null;
@@ -72,47 +98,30 @@ export function updateInteractiveCoach(currentSegIdx) {
   const descEl = document.getElementById('coachDesc');
   if (!iconEl || !titleEl || !descEl) return;
 
+  if (foundObs || GameState.warpReady) tipUntil = 0; // another card took over: the owed tip is spent
   if (foundObs) {
-    const t = foundObs.item.type;
-    const open = foundObs.item.offset >= 0 ? '◀ LEFT' : 'RIGHT ▶';
-    if (t === 'PINE_TREE_HAZARD') {
-      iconEl.textContent = '🌲'; titleEl.textContent = 'TREE AHEAD';
-      descEl.textContent = `Graze the gold ring for a slingshot — or go ${open}`;
-    } else if (t === 'LOW_LASER_BAR') {
-      iconEl.textContent = '🟠'; titleEl.textContent = 'LOW LASER';
-      descEl.textContent = `Hop it (W / ▲ / swipe up) — or go ${open}`;
-    } else if (t === 'HIGH_LIGHT_GATE') {
-      iconEl.textContent = '🔵'; titleEl.textContent = 'HIGH GATE';
-      descEl.textContent = `Hold drift to duck (S / ▼ / swipe down) — or go ${open}`;
-    } else if (t === 'FLUX_CRATE') {
-      iconEl.textContent = '📦'; titleEl.textContent = 'FLUX CRATE';
-      descEl.textContent = 'Smash straight through it for flux + HP';
-    } else if (t === 'REPAIR_WRENCH') {
-      if (GameState.hp >= GameState.maxHp) { hideCoach(banner); return; }
-      iconEl.textContent = '🔧'; titleEl.textContent = 'REPAIR';
-      descEl.textContent = `Grab the wrench (${foundObs.item.offset < 0 ? 'left' : (foundObs.item.offset > 0 ? 'right' : 'center')}) for +25 HP`;
-    } else {
-      iconEl.textContent = '⚡'; titleEl.textContent = 'BARRIER';
-      descEl.textContent = `Go ${open}, jump it, or boost-smash it`;
-    }
+    if (!obstacleTip(foundObs.item, GameState.hp >= GameState.maxHp, iconEl, titleEl, descEl)) { hideCoach(banner); return; }
   } else if (GameState.warpReady && GameState.timeWarps === 0) {
     iconEl.textContent = '⚡'; titleEl.textContent = 'FLUX FULL';
     descEl.textContent = hintNow().coachFlux;
-  } else if (GameState.distance < 300) { // just after the green light
+  } else if (GameState.distance < 300 || tipOwed || nowMs < tipUntil) { // just after the green light
+    if (tipOwed) { tipOwed = false; tipUntil = nowMs + TIP_OWED_MS; }
     iconEl.textContent = '🎓'; titleEl.textContent = 'TIP';
     descEl.textContent = 'Draft the green wake behind rivals for a slingshot';
   } else {
     hideCoach(banner);
     return;
   }
+  if (!document.body.classList.contains('coach-up')) dockDeskCoach(banner);
   banner.style.opacity = '1';
   banner.style.pointerEvents = '';
+  document.body.classList.add('coach-up');
 }
 
 // Race HUD (ticket 0051): one reused view object, repainted ~20 times a second.
-export let raceHud = null;
+let raceHud = null;
 
-export let hudNextAt = 0;
+let hudNextAt = 0;
 // Place changes for screen readers (0030): #hudPlaceCall, a visually hidden polite live line.
 const placeCall = createPlaceCall({
   now: () => performance.now(),
@@ -120,11 +129,11 @@ const placeCall = createPlaceCall({
 });
 const phonePortrait = typeof matchMedia === 'function' ? matchMedia('(max-width: 599px) and (orientation: portrait)') : null;
 
-export function updateRaceHud(force) {
+function updateRaceHud(force) {
   const now = performance.now();
   if (!force && now < hudNextAt) return;
   hudNextAt = now + 50;
-  if (!raceHud) raceHud = createHud();
+  if (!raceHud) raceHud = createHud(document, stripMarks, createStripFan());
   hudView.position = GameState.racePosition;
   hudView.total = GameState.totalRacers;
   hudView.progress = GameState.distance;
@@ -254,22 +263,22 @@ export function updateLiveHud(forceHud) {
 }
 
 /** Cars a race just unlocked: the full-screen reveal lands just after the results, so the score is seen first. */
-export function carNamesFor(ids) {
+function carNamesFor(ids) {
   if (ids.length) setTimeout(() => loadGarageUI().then((ui) => ui.queueReveals(ids)), 1100);
   return ids.map((id) => (POP_CULTURE_ROSTER.find((c) => c.id === id) || {}).car).filter(Boolean);
 }
 
-export function setSteerHint(on) {
+function setSteerHint(on) {
   const el = document.getElementById('steerHint');
   if (el) el.classList.toggle('hidden', !on);
 }
 
-export function updateOnboarding() {
+function updateOnboarding() {
   if (InputState.left || InputState.right || Math.abs(InputState.touchSteerVal) > 0.2 || Math.abs(GameState.playerVX) > 0.6) RS.onboarding.steer();
   setSteerHint(SaveStore.data.settings.coach !== false && RS.onboarding.hint(performance.now()) === 'steer');
 }
 
-export function applyDailyModifier(id) {
+function applyDailyModifier(id) {
   if (id === 'HEAT_WAVE') GameState.heatLevel += 2;
   else if (id === 'GLASS_CHASSIS') { GameState.maxHp = Math.round(GameState.maxHp / 2); GameState.hp = GameState.maxHp; }
   else if (id === 'FLUX_STORM') GameState.fluxCharge = Math.max(GameState.fluxCharge, 60);
@@ -320,6 +329,8 @@ export function startNewRace(opts) {
   // Endless missions pay the Endless cash rate too, in round numbers (docs/BALANCE.md).
   if (endlessSolo()) for (const m of GameState.missions) m.reward = Math.max(10, Math.round((m.reward * ENDLESS.cash) / 5) * 5);
   GameState.trafficGapScale = 1;
+  // Settings → RIVALS (0211): how hard the rubber band pulls this race; rooms and dailies ignore it.
+  GameState.catchUp = catchUpScale(SaveStore.data.settings && SaveStore.data.settings.rivals, { mode: liveRace ? 'LIVE' : GameState.mode, daily });
 
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
 
@@ -415,6 +426,8 @@ export function startNewRace(opts) {
   const coachBanner = document.getElementById('interactiveCoachBanner');
   if (coachBanner) hideCoach(coachBanner);
   RS.coachYieldUntil = performance.now() + 350;
+  tipOwed = false;
+  tipUntil = 0;
   document.getElementById('leaderboardModal').classList.add('hidden');
   GameState.autoGas = SaveStore.data.controls.autoAccel !== false;
   if (touch) touch.raceStart();
@@ -452,10 +465,10 @@ export function startNewRace(opts) {
   }
 }
 
-export const lineupSeen = new Set();
+const lineupSeen = new Set();
 
 /** The grid front to back: rivals in slot order, then you. */
-export function gridOrder() {
+function gridOrder() {
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   const spec = CAR_SPECS[me.id];
   return LiveTraffic.racers.map((r) => ({ driver: r.driver, short: r.short, car: r.car, crew: r.crew, color: r.color, accent: r.accent, shape: r.shape, bodyColor: r.bodyColor, accentColor: r.accentColor, underglow: r.underglow }))
@@ -464,14 +477,14 @@ export function gridOrder() {
 }
 
 /** Your car's look for the race stage and results: its shape in your garage paint. */
-export function myCarLook() {
+function myCarLook() {
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   return { shape: me.shape, ...carPaint(me), glow: SaveStore.data.underglow || me.glow };
 }
 
-export const specLine = (st) => `SPD ${st.speed} · ACC ${st.accel} · GRIP ${st.grip} · ARMOR ${st.armor}`;
+const specLine = (st) => `SPD ${st.speed} · ACC ${st.accel} · GRIP ${st.grip} · ARMOR ${st.armor}`;
 
-export function beginRaceStart(lvl, { ceremony }) {
+function beginRaceStart(lvl, { ceremony }) {
   GameState.lapSplits = [];
   RS.lapStartedAt = 0;
   RS.lapNow = 1;
@@ -500,7 +513,7 @@ export function beginRaceStart(lvl, { ceremony }) {
   if (!lineup) RC.stage.grid(gridOrder());
 }
 
-export function applyLaunch(result) {
+function applyLaunch(result) {
   RS.launchJudged = true;
   const fx = result && RC.LAUNCH_EFFECT[result];
   if (!fx) return;
@@ -512,7 +525,7 @@ export function applyLaunch(result) {
   if (result === 'perfect') { SoundEngine.playTone(660, 'sawtooth', 0.25, 0.14, 1320); burstSparks(18, 190, 1); }
 }
 
-export const startHooks = {
+const startHooks = {
   field: () => gridOrder(),
   announceLevel() {
     const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
@@ -526,7 +539,7 @@ export const startHooks = {
   },
 };
 
-export const handleStartEvents = (events) => RC.playStartEvents(events, startHooks);
+const handleStartEvents = (events, dt) => RC.playStartEvents(events, startHooks, dt);
 
 export function updateRaceStart(rawDt) {
   if (RS.startSeq.inLineup && (RS.skipRequested || InputState.boostPressed)) {
@@ -540,7 +553,7 @@ export function updateRaceStart(rawDt) {
     if (RS.launchPressAt == null && !RS.startSeq.inLineup) RS.launchPressAt = RS.startSeq.t + rawDt;
   }
   GameState.speed = 0;
-  handleStartEvents(RS.startSeq.update(rawDt));
+  handleStartEvents(RS.startSeq.update(rawDt), rawDt);
 }
 
 /** After GO: the late rocket-start window, the GO! hold, live callouts, the finish roll-out. */
@@ -550,7 +563,7 @@ export function updateRaceCeremony(rawDt) {
       InputState.boostPressed = false;
       applyLaunch(RC.judgeLaunch(RS.startSeq.t));
     }
-    handleStartEvents(RS.startSeq.update(rawDt));
+    handleStartEvents(RS.startSeq.update(rawDt), rawDt);
   }
   if (GameState.launchStall > 0) {
     GameState.launchStall -= rawDt;
@@ -596,7 +609,7 @@ export function finishRace() {
 }
 
 /** Finish order for the whole field, a headline for how it went, Retry / Next (ticket 0052). */
-export function renderRaceResults(badgeText, lvl) {
+function renderRaceResults(badgeText, lvl) {
   if (!RC) return; // the ceremony chunk never loaded: plain results
   const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
   RC.renderResults({
@@ -670,6 +683,7 @@ export function endRaceRun(customBadgeText = null) {
     document.getElementById('endScoreText').textContent = GameState.score.toLocaleString();
     document.getElementById('gameOverModal').classList.remove('hidden');
   });
+  adCue('onResults'); // opt-in 2× COINS offer when Marquee has fill (src/ads.js; menus only)
 }
 
 /** LiveTraffic's race-time methods: main.js keeps its data fields and assigns these on load. */

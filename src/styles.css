@@ -110,6 +110,11 @@ html, body {
    for controls (ticket 0061). Steer prompt: bottom-left until the touch controller moves it. */
 #driverBadgeBar { left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: 46vw; }
 .touch-ui #driverBadgeBar { display: none !important; }
+/* 0229: the badge (car name, NEXT CAR) is title/garage information: it fades out while the race steps
+   (main.js sets body.race-on) and is back on pause and results. */
+#driverBadgeBar { transition: opacity 0.25s ease-out, visibility 0s; }
+body.race-on #driverBadgeBar { opacity: 0; visibility: hidden; transition: opacity 0.25s ease-out, visibility 0s 0.25s; }
+[data-motion="reduce"] #driverBadgeBar, [data-motion="reduce"] body.race-on #driverBadgeBar { transition: none; }
 #steerHint { left: max(16px, env(safe-area-inset-left)); bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)); }
 
 /* Compact HUD: phones (either orientation) and small tablets. One slim HUD row, no driver
@@ -139,10 +144,25 @@ html, body {
 /* 32px down: clear of the ±N HP pop that drops from under the place card (≤ 20px + 14px drift). */
 :root[data-hud="full"]:not(.touch-ui) #coachCard { max-width: min(300px, 26vw); margin-top: 32px; }
 :root[data-hud="full"]:not(.touch-ui) #btnDismissCoach { white-space: nowrap; }
+/* 0229: with room in the HUD row (coach-dock.js dockDeskCoach sets .coach-desk and the --cd-* box), the tip is a
+   chip under the track strip, between the place card and the time pills: off the road, the start arch and the
+   announcer's lane. Short of ~240 px of room (narrow windows, HUD LARGE) it keeps the spot above. */
+:root[data-hud="full"]:not(.touch-ui) .hud-times { justify-self: center; }
+:root[data-hud="full"]:not(.touch-ui) #interactiveCoachBanner.coach-desk {
+  top: var(--cd-t, 54px); left: var(--cd-l, 210px); right: auto; width: var(--cd-w, 260px); padding: 0;
+}
+:root[data-hud="full"]:not(.touch-ui) .coach-desk #coachCard {
+  margin-top: 0; max-width: 100%; max-height: var(--cd-h, 66px); padding: 3px 5px 3px 10px !important; gap: 8px !important;
+  border-width: 1.5px; box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+}
+:root[data-hud="full"]:not(.touch-ui) .coach-desk #coachIcon { display: none; }
+:root[data-hud="full"]:not(.touch-ui) .coach-desk #coachTitle { font-size: 10px; line-height: 1.2; }
+:root[data-hud="full"]:not(.touch-ui) .coach-desk #coachDesc { font-size: 11px; line-height: 1.25; margin-top: 1px; }
 [data-hud="compact"] #forkChoiceBanner > div { font-size: 10px !important; padding: 3px 7px !important; max-width: 32vw; }
 /* The branch you are lined up for leans forward (scale, never transform: see LESSONS). */
-.fork-cue { scale: 0.92; opacity: 0.85; transition: scale 120ms ease-out, opacity 120ms ease-out; }
-.fork-cue.fork-lean { scale: 1.06; opacity: 1; }
+/* The cards stay opaque (0242: never read against a sign through them); the other branch dims, not fades. */
+.fork-cue { scale: 0.92; filter: brightness(0.82); transition: scale 120ms ease-out, filter 120ms ease-out; }
+.fork-cue.fork-lean { scale: 1.06; filter: none; }
 @media (prefers-reduced-motion: reduce) { .fork-cue { transition: none; } }
 @media (max-width: 380px) {
   [data-hud="compact"] #fluxHudCol { width: 44px !important; }
@@ -267,7 +287,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .set-status { font-size: 12px; line-height: 1.35; color: #cbd5e1; min-height: 1.35em; }
 .set-status[data-status="on"] { color: #6ee7b7; }
 .set-status[data-status="denied"], .set-status[data-status="unsupported"], .set-status[data-status="nosignal"] { color: #fda4af; }
-.set-range { width: min(58%, 260px); height: 32px; accent-color: #22d3ee; cursor: pointer; }
+.set-range { width: min(58%, 260px); height: 44px; accent-color: #22d3ee; cursor: pointer; } /* 0210: a 44px touch target in the 48px row */
 .set-btn { min-height: 44px; padding: 0 14px; border-radius: 12px; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800;
   color: #fde68a; background: rgba(245, 158, 11, 0.16); border: 1px solid rgba(251, 191, 36, 0.6); }
 #btnEditControls.hidden { display: none; }
@@ -307,6 +327,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 /* Race HUD (ticket 0051). One grid; areas move per screen shape. Sizes scale with the
    viewport (vmin) so a 13" iPad reads as well as a phone. */
 .race-hud {
+  --hk: 1; /* HUD text size (0195): Settings → HUD SIZE → LARGE sets 1.3 */
   --hud-gap: clamp(6px, 1.2vmin, 14px);
   --hud-pad: clamp(6px, 1.1vmin, 12px);
   display: grid; gap: var(--hud-gap); align-items: start;
@@ -323,14 +344,14 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 }
 .hud-pos { grid-area: pos; min-width: clamp(96px, 16vmin, 190px); }
 .pos-line { display: flex; align-items: baseline; gap: 4px; line-height: 0.9; }
-.pos-num { font-size: clamp(34px, 8.5vmin, 92px); font-weight: 900; font-style: italic; letter-spacing: -0.03em; color: #fff;
+.pos-num { font-size: calc(clamp(34px, 8.5vmin, 92px) * var(--hk)); font-weight: 900; font-style: italic; letter-spacing: -0.03em; color: #fff;
   text-shadow: 0 0 14px rgba(255, 255, 255, 0.45), 0 3px 0 #ff007f; }
-.pos-of { font-size: clamp(13px, 2.4vmin, 26px); font-weight: 800; color: #cbd5e1; }
+.pos-of { font-size: calc(clamp(13px, 2.4vmin, 26px) * var(--hk)); font-weight: 800; color: #cbd5e1; }
 .hud-pos[data-place="p1"] { border-color: #fde047; box-shadow: 0 0 22px rgba(253, 224, 71, 0.4); }
 .hud-pos[data-place="p1"] .pos-num { color: #fde047; text-shadow: 0 0 18px rgba(253, 224, 71, 0.8), 0 3px 0 #b45309; }
 .hud-pos[data-place="p2"] .pos-num { color: #e2e8f0; text-shadow: 0 0 14px rgba(226, 232, 240, 0.7), 0 3px 0 #475569; }
 .hud-pos[data-place="p3"] .pos-num { color: #fdba74; text-shadow: 0 0 14px rgba(251, 146, 60, 0.7), 0 3px 0 #9a3412; }
-.hud-lap { margin-top: 4px; font-size: clamp(11px, 2vmin, 20px); font-weight: 900; letter-spacing: 0.12em; color: #67e8f9; }
+.hud-lap { margin-top: 4px; font-size: calc(clamp(11px, 2vmin, 20px) * var(--hk)); font-weight: 900; letter-spacing: 0.12em; color: #67e8f9; }
 .hud-lap.is-final { color: #fde047; text-shadow: 0 0 10px rgba(253, 224, 71, 0.7); }
 .hud-hp { margin-top: 5px; height: clamp(5px, 0.8vmin, 9px); border-radius: 9999px; background: #1e293b; overflow: hidden; }
 .hud-hp i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #10b981, #a3e635); border-radius: inherit; }
@@ -362,10 +383,23 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-track::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: rgba(226, 232, 240, 0.25); }
 .lap-tick { position: absolute; top: 18%; bottom: 18%; width: 2px; background: rgba(103, 232, 249, 0.6); }
 .finish-flag { position: absolute; right: -0.55em; top: 50%; transform: translateY(-50%); font-size: clamp(16px, 2.8vmin, 30px); }
-.hud-dots { position: absolute; inset: 0 0.7em 0 0.7em; }
+/* 0167: inset by half the YOU tag (it scales with vmin), so a marker at the start or the flag stays inside the strip;
+   the lap ticks shift by the same inset so a car on a lap line sits on its tick (p·W + in·(1 − 2p) at p = ⅓, ⅔). */
+.hud-track { --strip-in: max(19px, calc(9px + 1.5vmin)); }
+.hud-dots { position: absolute; inset: 0 var(--strip-in); }
+.hud-track .lap-tick { translate: calc(var(--strip-in) / 3) 0; }
+.hud-track .lap-tick + .lap-tick { translate: calc(var(--strip-in) / -3) 0; }
 .hud-dot { position: absolute; top: 50%; left: 0; width: clamp(10px, 1.6vmin, 18px); height: clamp(10px, 1.6vmin, 18px);
   transform: translate(-50%, -50%); border-radius: 9999px; background: var(--dot); border: 2px solid rgba(2, 6, 23, 0.9);
   box-shadow: 0 0 8px var(--dot); }
+/* 0167: a rival marker is a letter, not just a colour: white on near-black (≥ 15:1), the rival's colour as its ring.
+   The cars directly ahead / behind wear the gap pills' ▲ / ▼ and sit above the rest. */
+.hud-dot:not(.hud-dot-you):not(.hud-dot-ghost) { width: auto; min-width: clamp(14px, 2.4vmin, 24px); height: clamp(14px, 2.4vmin, 24px);
+  padding: 0 2px; display: flex; align-items: center; justify-content: center; white-space: nowrap; line-height: 1;
+  font-size: clamp(9px, 1.5vmin, 14px); font-weight: 900; color: #fff; background: #020617; border-color: var(--dot); box-shadow: 0 0 6px var(--dot); }
+.hud-dot[data-near='ahead'], .hud-dot[data-near='behind'] { z-index: 1; }
+.hud-dot[data-near='ahead']::before { content: '▲'; font-size: 0.75em; margin-right: 1px; }
+.hud-dot[data-near='behind']::before { content: '▼'; font-size: 0.75em; margin-right: 1px; }
 .hud-dot-you { z-index: 2; width: auto; height: auto; padding: 1px 6px; border-radius: 8px; font-size: clamp(8px, 1.3vmin, 13px);
   font-weight: 900; color: #05050d; background: #fff; border: 2px solid #ff8800; box-shadow: 0 0 10px #ff8800; }
 
@@ -373,20 +407,20 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-times { grid-area: times; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px clamp(6px, 1.4vmin, 16px); min-width: 0; }
 .hud-clockbox { display: inline-flex; align-items: baseline; gap: clamp(6px, 1.2vmin, 12px); padding: 2px clamp(8px, 1.4vmin, 14px);
   border-radius: 9999px; background: rgba(2, 6, 23, 0.85); border: 1px solid rgba(148, 163, 184, 0.35); }
-.hud-time { font-size: clamp(13px, 2.4vmin, 26px); font-weight: 900; font-variant-numeric: tabular-nums; color: #f8fafc; }
-.hud-clock { font-size: clamp(11px, 2vmin, 20px); font-weight: 800; color: #fcd34d; }
+.hud-time { font-size: calc(clamp(13px, 2.4vmin, 26px) * var(--hk)); font-weight: 900; font-variant-numeric: tabular-nums; color: #f8fafc; }
+.hud-clock { font-size: calc(clamp(11px, 2vmin, 20px) * var(--hk)); font-weight: 800; color: #fcd34d; }
 .hud-clock.hidden { display: none; }
-.gap { flex: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 9999px;
-  font-size: clamp(10px, 1.7vmin, 17px); font-weight: 800; background: rgba(2, 6, 23, 0.8); }
+.gap { flex: none; min-width: 0; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 9999px;
+  font-size: calc(clamp(10px, 1.7vmin, 17px) * var(--hk)); font-weight: 800; background: rgba(2, 6, 23, 0.8); }
 .gap:empty { display: none; }
 .gap-ahead { color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.45); }
 .gap-behind { color: #a5f3fc; border: 1px solid rgba(34, 211, 238, 0.4); }
 
 .hud-speed { grid-area: speed; min-width: clamp(104px, 17vmin, 200px); text-align: right; }
 .spd-line { display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; line-height: 0.9; }
-.spd-num { font-size: clamp(28px, 6.6vmin, 72px); font-weight: 900; font-style: italic; font-variant-numeric: tabular-nums;
+.spd-num { font-size: calc(clamp(28px, 6.6vmin, 72px) * var(--hk)); font-weight: 900; font-style: italic; font-variant-numeric: tabular-nums;
   color: #ff3b3b; text-shadow: 0 0 12px rgba(255, 42, 42, 0.7); }
-.spd-line small { font-size: clamp(9px, 1.5vmin, 15px); font-weight: 800; color: #cbd5e1; }
+.spd-line small { font-size: calc(clamp(9px, 1.5vmin, 15px) * var(--hk)); font-weight: 800; color: #cbd5e1; }
 .hud-speed.is-88 .spd-num { color: #00f0ff; text-shadow: 0 0 16px rgba(0, 240, 255, 0.9); }
 .hud-meter { position: relative; margin-top: 5px; height: clamp(5px, 0.9vmin, 10px); border-radius: 9999px; background: #1e293b; overflow: hidden; }
 .hud-meter i { display: block; height: 100%; width: 0; border-radius: inherit; }
@@ -412,6 +446,10 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-steer { display: inline-flex; align-items: center; gap: 3px; min-height: 26px; padding: 2px 8px; border-radius: 9999px; white-space: nowrap;
   font: 800 clamp(8px, 1.2vmin, 11px)/1 Orbitron, sans-serif; letter-spacing: 0.06em; color: #a5f3fc;
   background: rgba(2, 6, 23, 0.85); border: 1.5px solid rgba(34, 211, 238, 0.45); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+/* 0210: a 44px tap target without a bigger pill. The hit area reaches 3.5px up (inside the 4px
+   gap under the gear) and 15.5px down (inset counts from inside the 1.5px border). */
+.hud-steer { position: relative; }
+.hud-steer::after { content: ''; position: absolute; inset: -5px -2px -17px; }
 .hud-steer span { font-size: 1.25em; line-height: 1; }
 .hud-steer i { font-style: normal; font-size: 1.2em; }
 .hud-steer[data-assist="auto"] { border-color: #f472b6; color: #fbcfe8; }
@@ -447,26 +485,42 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   .hud-pos, .hud-speed { min-width: min-content; }
   .spd-foot { flex-wrap: wrap; justify-content: flex-end; row-gap: 0; text-align: right; }
   .hud-score { white-space: nowrap; }
-  .gap { font-size: 10px; padding: 1px 3px; text-align: center; }
+  .gap { font-size: calc(10px * var(--hk)); padding: 1px 3px; text-align: center; }
   /* 0190: the clock drops under the race time when the column is too narrow for both. */
   .hud-clockbox { flex-wrap: wrap; justify-content: center; column-gap: 6px; row-gap: 0; padding: 2px 6px; border-radius: 12px; }
 }
 /* 0202: the narrowest phones (320–374 px) — slimmer big numbers so every column keeps its text and the row fits. */
 @media (max-width: 374px) and (orientation: portrait) {
-  .pos-num { font-size: 28px; }
-  .spd-num { font-size: 24px; }
+  .pos-num { font-size: calc(28px * var(--hk)); }
+  .spd-num { font-size: calc(24px * var(--hk)); }
   .hud-lap { letter-spacing: 0.04em; }
   .hud-card { padding-left: 6px; padding-right: 6px; }
   .hud-steer b { display: none; } /* the mode's icon stays; its name is in the button's label */
+  .hud-steer::after { left: -9px; right: -9px; } /* 0210: the icon-only pill still takes a 44px tap */
 }
 /* Short landscape screens (phones on their side): one slim row. */
 @media (max-height: 520px) and (orientation: landscape) {
   .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto auto; grid-template-areas: "pos track times speed gear"; align-items: center; }
   .hud-times { flex-direction: column; flex-wrap: nowrap; gap: 2px; }
   .gap-behind { display: none; }
-  .pos-num { font-size: 30px; }
-  .spd-num { font-size: 26px; }
+  .pos-num { font-size: calc(30px * var(--hk)); }
+  .spd-num { font-size: calc(26px * var(--hk)); }
   .hud-pos, .hud-speed { min-width: 0; }
+}
+/* LARGE (0195) on the smallest phones on their side (568x320): the bigger cards leave the strip a few px, and its
+   YOU tag spilled onto the times. The gap pills still say who is ahead and behind, so the strip steps aside. */
+@media (max-height: 520px) and (max-width: 619px) and (orientation: landscape) {
+  [data-hud-size="large"] .hud-track { display: none; }
+}
+/* HUD SIZE → LARGE (0195): the numbers a racer reads at speed (place, lap, gaps, clock, mph) grow 1.3x. */
+[data-hud-size="large"] .race-hud { --hk: 1.3; }
+/* Upright screens: the bigger times column would squeeze between the cards on phones, so on every
+   portrait screen (one layout, tablets included) it gets its own row under them (gap pills and clock
+   side by side, wrapping when they must), and the strip a full row below that. */
+@media (orientation: portrait) {
+  [data-hud-size="large"] .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "pos . speed gear" "times times times times" "track track track track"; }
+  [data-hud-size="large"] .hud-times { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; }
 }
 /* RACER panel (ticket 0090): who's playing, link a device, recovery code. */
 .racer-pill { min-height: 44px; color: #e2e8f0; }
@@ -566,6 +620,69 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 /* Title (0026): the event chip and today's missions; side by side on a phone on its side. */
 .title-lines { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 @media (max-height: 430px) { .title-lines { flex-direction: row; gap: 14px; } }
+/* Desktop and landscape-tablet titles (0208): the hero car fills the lower middle (its top sits at
+   about 89vh - 18.8vw), so PLAY sits right under the racer chip with RACE FRIENDS and VIEW on its
+   row either side of it (dense: they share PLAY's row, under a challenge banner if one shows), the
+   hook cards flank the car (home.css), and the offline pill drops to the bottom edge between the
+   corner icons. */
+@media (min-width: 900px) and (min-height: 600px) and (min-aspect-ratio: 5/4) {
+  .title-screen .title-mid { display: grid; grid-template-columns: 1fr auto 1fr; grid-auto-flow: row dense; gap: 12px; align-items: center; justify-items: center; margin: 10px 0 auto; }
+  .title-mid > * { grid-column: 1 / -1; }
+  .title-mid > #btnStartRace { grid-column: 2; }
+  .title-mid > #btnOpenLive { grid-column: 1; justify-self: end; }
+  .title-mid > .title-chips { grid-column: 3; justify-self: start; }
+  .title-mid > .offline-pill { position: absolute; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); translate: -50% 0; }
+}
+/* Phones on their side (0226): the hero car fills the lower middle third (~32-68vw, from ~50vh), so
+   the wordmark and racer chip share the top row, RACE FRIENDS / PLAY / TILT + VIEW share the next,
+   the hook card and the pitch flank the car (home.css) and the offline pill drops to the bottom edge. */
+@media (max-height: 430px) and (orientation: landscape) {
+  .title-screen .title-top { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .title-screen .wordmark { font-size: min(2.1rem, 4.6vw); flex-wrap: nowrap; }
+  .title-top > .racer-pill { margin-top: 0; }
+  .title-screen .title-mid { display: grid; grid-template-columns: 1fr auto 1fr; grid-auto-flow: row dense; gap: 6px 10px; align-items: center; justify-items: center; margin: 6px 0 auto; }
+  .title-mid > * { grid-column: 1 / -1; }
+  .title-mid > #btnStartRace { grid-column: 2; width: min(32vw, 260px); min-height: 56px; padding: 6px 12px; }
+  .title-mid > #btnOpenLive { grid-column: 1; justify-self: end; padding: 0 16px; }
+  .title-mid > .title-chips { grid-column: 3; justify-self: start; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .title-mid > #btnStartRace .play-cta-hint { margin-top: 4px; letter-spacing: 0.12em; }
+  .title-chips > .title-tilt { gap: 6px; padding: 0 10px; font-size: 11px; }
+  .title-chips > .title-view { font-size: 11px; }
+  /* Centred in the gap between the icon groups (2 icons left, 3 right: 34 px left of centre), so it clears GARAGE at 568 px. */
+  .title-mid > .offline-pill { position: absolute; left: calc(50% - 34px); bottom: max(8px, env(safe-area-inset-bottom)); translate: -50% 0; }
+  /* A friend's challenge takes the hook card's place beside the car instead of pushing PLAY's row onto it. */
+  .title-mid > #challengeBanner { position: absolute; left: max(16px, env(safe-area-inset-left)); bottom: max(64px, calc(env(safe-area-inset-bottom) + 58px));
+    width: calc(30vw - 16px); max-width: 15rem; flex-wrap: wrap; gap: 4px 8px; padding: 6px 8px 6px 12px; }
+  .title-mid > #challengeBanner .challenge-go { margin-left: auto; }
+  .title-screen:has(#challengeBanner:not(.hidden)) .home-hooks { display: none; }
+}
+/* Portrait phones (0230): the hero car is ~50vw wide from ~76vh (src/render/player.js), so TILT and VIEW
+   share one row (two under ~350 px) and the stack above it stays short enough to end over the car's roof. */
+@media (max-width: 480px) and (orientation: portrait) {
+  .title-chips { gap: 6px; }
+  .title-chips > * { white-space: nowrap; letter-spacing: 0.06em; }
+  .title-chips > .title-tilt { gap: 5px; padding: 0 6px 0 10px; }
+  .title-chips > .title-view { gap: 4px; padding: 0 6px 0 10px; }
+  .title-view b { padding: 3px 7px; }
+  #btnStartRace .play-cta-hint { letter-spacing: 0.14em; }
+  /* A friend's challenge takes the hook cards' place, as on landscape phones. */
+  .title-screen:has(#challengeBanner:not(.hidden)) .home-hooks { display: none; }
+}
+/* Narrow phones: the chips drop their emoji to stay on one row (they wrap only under ~350 px). */
+@media (max-width: 380px) and (orientation: portrait) {
+  .title-chips > * > span[aria-hidden] { display: none; }
+  #btnStartRace { padding-inline: 16px; } /* room for the one-line subtitle (0239) */
+}
+@media (max-width: 480px) and (max-height: 700px) and (orientation: portrait) {
+  /* The middle hugs the top bar, so the free height opens over the car instead of around the stack. */
+  .title-screen .title-mid { margin: 8px 0 auto; }
+  .title-screen { padding-top: max(14px, env(safe-area-inset-top)); }
+  .title-screen .wordmark { font-size: 2.4rem; }
+  .play-cta { min-height: 64px; }
+  .play-cta-label { font-size: 24px; }
+  #btnStartRace .play-cta-hint { font-size: 9px; letter-spacing: 0.08em; }
+  .title-mid { gap: 6px; }
+}
 @media (max-height: 700px) and (orientation: portrait) { .end-missions { margin-top: 3px; gap: 1px; font-size: 9px; } .end-missions li { padding: 0 8px; } }
 .rank-card { margin-top: 2px; padding: 8px 10px; border-radius: 14px; background: linear-gradient(135deg, rgba(255, 0, 127, 0.18), rgba(0, 240, 255, 0.12)); border: 1px solid rgba(255, 0, 127, 0.55); font-family: 'Orbitron', sans-serif; }
 .rank-card-in { animation: rankPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
@@ -604,6 +721,9 @@ body.race-starting .race-stage { pointer-events: auto; background: radial-gradie
    controls underneath (stick, ⚡ rocket start). Only the skip button stays on top. */
 html.touch-ui body.race-starting .race-stage { pointer-events: none; }
 body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHint { visibility: hidden; }
+/* 0243: the first-run steer prompt steps aside while a score plate is up (src/pickup-art.js), at once
+   (no 0.25 s touch-kit delay), and comes back once the plates settle. */
+body.labels-up #steerHint { visibility: hidden !important; transition: none !important; }
 .rc-card { display: flex; align-items: center; gap: clamp(12px, 2.4vmin, 26px); max-width: min(92vw, 640px); padding: clamp(12px, 2vmin, 22px) clamp(16px, 3vmin, 32px);
   border-radius: 24px; background: linear-gradient(120deg, rgba(10, 6, 30, 0.94), rgba(30, 6, 40, 0.9)); border: 2px solid #ff2bd6;
   box-shadow: 0 0 40px rgba(255, 43, 214, 0.45), inset 0 0 30px rgba(0, 0, 0, 0.6); }
@@ -654,7 +774,16 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .rc-finish-place { font-size: clamp(64px, 15vmin, 160px); font-weight: 900; font-style: italic; line-height: 0.95; color: #fde047; text-shadow: 0 0 30px rgba(253, 224, 71, 0.8), 0 6px 0 #b45309; }
 .rc-finish-line { font-size: clamp(14px, 2.6vmin, 26px); font-weight: 900; letter-spacing: 0.12em; color: #fff; }
 @media (max-height: 560px) { .race-stage .rc-grid { display: none !important; } .race-stage { justify-content: flex-end; padding-bottom: 12px; } }
-[data-motion="reduce"] .rc-pop, [data-motion="reduce"] .rc-finish, [data-motion="reduce"] .rc-flag { animation: none !important; }
+/* Phones (ticket 0215): the grid's chips, then your car's stats, never together; the first-race
+   thumb guide waits until both are gone (racestage.js sets data-beat and body.rc-grid-up). */
+@media (max-width: 479px) and (min-height: 561px) {
+  .rc-grid[data-beat="chips"] .rc-mycar, .rc-grid[data-beat="stats"] .rc-chip, .rc-grid[data-beat="none"] { display: none; }
+  .rc-grid[data-beat] > * { animation: rc-beat 0.25s ease-out; }
+}
+@keyframes rc-beat { from { opacity: 0; } to { opacity: 1; } }
+body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
+[data-motion="reduce"] .rc-pop, [data-motion="reduce"] .rc-finish, [data-motion="reduce"] .rc-flag, [data-motion="reduce"] .rc-grid[data-beat] > * { animation: none !important; }
+[data-motion="reduce"] .tc-guide { transition: none; }
 
 /* Results (ticket 0052): headline + finish order, then score, board and Retry / Next / Ranks.
    Two columns when there's width; everything fits without scrolling down to 360x640. */
@@ -728,6 +857,11 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 
 .end-penalty { font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 800; color: #fda4af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .end-penalty:empty { display: none; }
+/* 0213: this browser can't save; one dismissible line on the results card. */
+.save-notice { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; padding: 2px 2px 2px 10px; border-radius: 10px; border: 1px solid rgba(251, 191, 36, 0.6); background: rgba(69, 26, 3, 0.85); color: #fde68a; font-size: 12px; font-weight: 600; line-height: 1.3; text-align: left; }
+.save-notice > span { flex: 1; min-width: 0; }
+.save-notice-x { flex: none; min-width: 44px; min-height: 44px; border-radius: 8px; color: #fde68a; font-size: 14px; font-weight: 800; }
+.save-notice-x:hover, .save-notice-x:focus-visible { background: rgba(251, 191, 36, 0.2); }
 /* Share (ticket 0053) */
 .end-share { margin-top: 10px; width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 14px 8px 8px; border-radius: 18px; text-align: left;
   background: linear-gradient(120deg, #ff2bd6, #7c3aed 55%, #00b8d9); box-shadow: 0 0 26px rgba(255, 43, 214, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.25);
@@ -771,7 +905,6 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
   .end-share-text small { display: none; }
   .end-board { margin-top: 4px; padding: 3px 6px; }
   .end-actions-2 { margin-top: 0; }
-  .end-link { min-height: 32px; }
   .end-stats small { font-size: 7px; }
 }
 @media (max-height: 700px) and (orientation: portrait) {
@@ -827,6 +960,16 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
 .end-goals li b { color: #fde047; }
 .end-goals .goals-head { background: none; padding: 0 2px; color: #fde68a; font-weight: 900; }
 .pause-goals { margin: 10px 0 4px; }
+/* Pause controls card (0204): the six driving controls for the input in hand, 3 × 2 (6 × 1 in a wide garage). */
+.ctl-ref { margin-top: 10px; padding: 8px 10px 10px; border-radius: 14px; background: rgba(2, 6, 23, 0.85); border: 1px solid #1e293b; }
+.ctl-ref h3 { font: 900 11px/1.2 'Orbitron', sans-serif; letter-spacing: 0.14em; color: #67e8f9; margin-bottom: 6px; }
+.ctl-ref h3 small { margin-left: 6px; font-size: 10px; color: #cbd5e1; letter-spacing: 0.1em; }
+.ctl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ctl-grid > div { min-width: 0; padding: 4px 6px; border-radius: 8px; background: rgba(15, 23, 42, 0.9); }
+.ctl-grid dt { font: 700 10px/1.2 'Orbitron', sans-serif; letter-spacing: 0.08em; color: #94a3b8; }
+.ctl-grid dd { font: 800 12px/1.25 'Orbitron', sans-serif; color: #f8fafc; overflow-wrap: anywhere; }
+.ctl-note { margin-top: 6px; font: 700 11px/1.3 'Orbitron', sans-serif; letter-spacing: 0.04em; color: #cbd5e1; }
+@media (min-width: 640px) { .ctl-ref-wide .ctl-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .power-shop { margin: 8px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font: 700 clamp(9px, 1.4vmin, 12px)/1.25 'Orbitron', sans-serif; }
 .power-shop.hidden { display: none; }
 .power-shop .shop-head { grid-column: 1 / -1; color: #fde68a; font-weight: 900; text-align: left; padding: 0 2px; }
@@ -862,3 +1005,60 @@ body.race-starting #touchControlsLayer .steer-group, body.race-starting #steerHi
   font: 900 16px/1 'Orbitron', sans-serif; box-shadow: 0 4px 0 #14532d; }
 .continue-wallet { margin: 6px 0 10px; color: #94a3b8; font-size: 11px; font-weight: 700; }
 .continue-no { min-height: 44px; padding: 0 16px; border-radius: 12px; background: #1e293b; color: #cbd5e1; font: 800 12px/1 'Orbitron', sans-serif; }
+
+/* Windows High Contrast and "more contrast" (0214). Forced colours drop our fills, gradients and
+   glows, so every control gets a system-colour edge, a selected state gets a fill AND a marker
+   (✓, an underline, the switch knob's side), and focus is a Highlight outline. CSS only; the
+   default look is untouched. */
+@media (forced-colors: active) {
+  /* Colour and style only: a width stays where a rule set one (a 2px "selected" edge keeps its weight). */
+  button, select, summary, [role="button"], [role="tab"], [role="switch"] { border: 1px solid ButtonText; border-style: solid !important; border-color: ButtonText !important; }
+  :focus-visible { outline: 3px solid Highlight !important; outline-offset: 2px !important; }
+  /* Selected: Highlight fill, opted out of the text backplate (it would paint Canvas behind HighlightText). */
+  :is(.seg button[aria-pressed="true"], .steer-picker button[aria-pressed="true"], .key-btn[aria-pressed="true"],
+    .board-tab[aria-selected="true"], .racer-chip.on, .live-chip.on, .live-hot.on, .tc-seg button.on, .tc-presets button.on,
+    .tc-editbar button[aria-pressed="true"], .garage-thumb.is-view, .title-tilt[aria-pressed="true"] b,
+    .title-view[aria-pressed="false"] .v2, .title-view[aria-pressed="true"] .v3) { forced-color-adjust: none; background: Highlight; color: HighlightText !important; box-shadow: none; }
+  :is(.seg button[aria-pressed="true"], .steer-picker button[aria-pressed="true"], .board-tab[aria-selected="true"], .racer-chip.on,
+    .live-chip.on, .live-hot.on, .tc-seg button.on, .tc-presets button.on, .garage-thumb.is-view) :not(.thumb-swatch) { color: inherit !important; }
+  .title-view[aria-pressed="false"] .v2, .title-view[aria-pressed="true"] .v3, .title-tilt[aria-pressed="true"] b { text-decoration: underline 2px; }
+  .switch { background: Canvas; }
+  .switch i { background: ButtonText; }
+  .switch[aria-checked="true"] { background: Highlight; }
+  .switch[aria-checked="true"] i { background: HighlightText; }
+  /* A paint or a car colour is content, not decoration: keep it, and ring the chosen one. Bars and
+     pips are data. garage.css loads after this file and wins ties, hence !important. */
+  .paint-swatch, .thumb-swatch { forced-color-adjust: none; }
+  .paint-swatch.is-on { outline: 3px solid Highlight !important; }
+  .tier-pips span { border: 1px solid CanvasText; }
+  .tier-pips span.on, .spec-base { background: CanvasText !important; }
+  .spec-up { background: Highlight !important; }
+}
+@media (prefers-contrast: more) {
+  /* No glow: a hard dark edge instead, which keeps text over the road readable. */
+  * { text-shadow: 0 1px 0 #000 !important; }
+  .board-tab, .seg button, .set-btn, .steer-picker button, .garage-thumb, .racer-chip, .live-chip, .title-view, .title-tilt,
+  .tc-seg button, .tc-presets button { border-width: 2px; }
+}
+@media (forced-colors: active), (prefers-contrast: more) {
+  .seg button[aria-pressed="true"]::before, .steer-picker button[aria-pressed="true"]::before, .board-tab[aria-selected="true"]::before,
+  .racer-chip.on::before, .live-chip.on::before, .tc-seg button.on::before, .tc-presets button.on::before,
+  .tc-editbar button[aria-pressed="true"]::before, .garage-thumb.is-view::before { content: '✓ '; }
+  /* Stacked (column) cards: the ✓ sits in the corner rather than adding a row. */
+  .garage-thumb.is-view, .steer-picker button[aria-pressed="true"], .tc-seg button.on, .tc-presets button.on { position: relative; }
+  .garage-thumb.is-view::before, .steer-picker button[aria-pressed="true"]::before, .tc-seg button.on::before,
+  .tc-presets button.on::before { position: absolute; top: 2px; left: 5px; font-size: 10px; line-height: 1; }
+}
+
+/* Marquee ads (2026-10-30, src/ads.js): menus only. The title banner takes no room until filled. */
+.title-ad { width: min(100%, 728px); max-height: 120px; overflow: hidden; }
+.title-ad:empty, .title-ad[hidden] { display: none; }
+.bonus-ad { display: block; margin: 8px auto 0; min-height: 44px; padding: 8px 16px; border-radius: 999px; font: 900 clamp(10px, 1.6vmin, 13px)/1.2 'Orbitron', sans-serif;
+  color: #052e16; background: linear-gradient(180deg, #86efac, #22c55e); border: 1px solid #bbf7d0; cursor: pointer; }
+.bonus-ad.hidden { display: none; }
+.bonus-ad:disabled { opacity: 0.6; cursor: wait; }
+/* 0231: the resume beat's 3, 2, 1 is one big number in the announcer's pill. The number swaps
+   in place (no slide), and calm motion drops the scale pop. */
+#announcerMain.is-beat { font-size: clamp(28px, 8vw, 44px); line-height: 1.1; padding: 2px 22px; transition: opacity 0.12s; }
+[data-motion="reduce"] #announcerMain.is-beat { transform: none !important; transition: none; }
+@media (prefers-reduced-motion: reduce) { #announcerMain.is-beat { transform: none !important; transition: none; } }

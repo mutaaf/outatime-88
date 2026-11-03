@@ -7,7 +7,17 @@ import { lapOf, ordinal, formatRaceTime, formatGap, gapSeconds, RACE_LAPS } from
 
 const SPEED_FULL = 160; // mph at a full speed bar; 88 sits at 55%
 
-export function createHud(doc = document) {
+/** Each strip marker at its exact share of the strip (0209: the race uses src/strip-marks.js, which fans a pack out). */
+function placeExact(field, dots) {
+  for (const d of dots.values()) {
+    const left = Math.round(d.frac * 1000) / 10;
+    if (left !== d.left) { d.left = left; d.node.style.left = `${left}%`; }
+  }
+}
+
+/** marks(names) → one short label per rival for the track strip (src/strip-marks.js, ticket 0167);
+ *  place(field, dots, layer) → writes each marker's left from its `frac`. */
+export function createHud(doc = document, marks = () => [], place = placeExact) {
   const $ = (id) => doc.getElementById(id);
   const el = {
     pos: $('hudPos'), posOf: $('hudPosOf'), posCard: $('hudPosCard'), lap: $('hudLap'), hp: $('hudHp'),
@@ -56,14 +66,16 @@ export function createHud(doc = document) {
     if (!same) {
       el.dots.textContent = '';
       dots.clear();
+      const labels = marks(field.filter((e) => !e.isPlayer).map((e) => e.short));
+      let r = 0;
       for (const e of field) {
         const node = doc.createElement('span');
         node.className = e.isPlayer ? 'hud-dot hud-dot-you' : 'hud-dot';
         node.style.setProperty('--dot', e.isPlayer ? '#ffffff' : (e.color || '#94a3b8'));
         node.title = e.isPlayer ? 'You' : e.short;
-        if (e.isPlayer) node.textContent = 'YOU';
+        node.textContent = e.isPlayer ? 'YOU' : labels[r++] || '';
         el.dots.appendChild(node);
-        dots.set(e.id, { node, left: -1 });
+        dots.set(e.id, { node, frac: 0, left: -1, near: '' });
       }
     }
   }
@@ -117,12 +129,14 @@ export function createHud(doc = document) {
       for (const e of field) {
         const d = dots.get(e.id);
         if (!d) continue;
-        const frac = s.infinite
+        d.frac = s.infinite
           ? 0.5 + Math.max(-0.5, Math.min(0.5, (e.progress - s.progress) / 1200))
           : Math.max(0, Math.min(1, e.progress / s.length));
-        const left = Math.round(frac * 1000) / 10;
-        if (left !== d.left) { d.left = left; d.node.style.left = `${left}%`; }
+        // 0167: the markers the ▲/▼ gap pills talk about wear the same arrow (CSS).
+        const near = e === a ? 'ahead' : e === b ? 'behind' : '';
+        if (near !== d.near) { d.near = near; d.node.dataset.near = near; }
       }
+      place(field, dots, el.dots);
 
       const mph = Math.max(0, Math.round(s.mph));
       text(el.speed, 'speed', String(mph));

@@ -1,12 +1,12 @@
 ---
 id: 0188
 title: A flash guard — an e2e proves no effect strobes more than 3 times a second
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-10-19
-pr:
+pr: 161
 ---
 
 ## Why
@@ -25,10 +25,10 @@ through a scripted stress race (warp + crash + ability + storm lightning). No ga
 changes unless the probe finds a violation; if so cap/space that effect (min gap 334 ms).
 
 ## Acceptance criteria
-- [ ] Stress race at full motion: no overlay with opacity ≥ 0.1 rises more than 3 times in any 1 s window
-- [ ] The same run under `reducedMotion: 'reduce'` shows none ≥ 0.1
-- [ ] Any effect that failed is spaced in code and named in the PR body
-- [ ] No new per-frame DOM writes in the game (the probe lives in the test)
+- [x] Stress race at full motion: no overlay with opacity ≥ 0.1 rises more than 3 times in any 1 s window
+- [x] The same run under `reducedMotion: 'reduce'` shows none ≥ 0.1
+- [x] Any effect that failed is spaced in code and named in the PR body
+- [x] No new per-frame DOM writes in the game (the probe lives in the test)
 
 ## Test plan
 `tests/e2e/flash-guard.spec.js`, waiting on the game (`racing`, `simWait`, `nextFrames`),
@@ -36,3 +36,11 @@ not the clock.
 
 ## Out of scope
 Luminance maths per WCAG's relative-luminance formula; the 3D post-processing bloom.
+
+## Shipped notes
+The probe (`tests/e2e/helpers.js` installFlashProbe / flashRises) samples `#warpFlash` and
+`#abilityTintOverlay` (computed opacity × background alpha) and every translucent light wash
+drawn across a 2D canvas from its corner, once per frame. Under calm motion it found two layers
+at or over 0.1: the Endless storm-bolt wash (0.28, `src/hazard-art.js`, now ×0.2 → ≤ 0.07) and
+the ZONE/AGRO tint (exactly 0.1, `src/race-step.js`, now at half strength). At full motion no
+effect broke the 3-a-second line, so none needed spacing.

@@ -128,7 +128,7 @@ export function degreeHz(tr, degree, octave) {
 
 /**
  * The music director. `synth` is src/music.js (its scheduler plays the synthwave cue).
- * getState() → { status, racePhase, muted, style, eraId, mode, tier, speed, nos, patrol, warp }.
+ * getState() → { status, racePhase, muted, style, eraId, mode, tier, speed, nos, patrol, warp, warps }.
  */
 export function createDirector(ctx, out, getState, synth) {
   const lookahead = 0.12;
@@ -140,8 +140,10 @@ export function createDirector(ctx, out, getState, synth) {
   // The synthwave scheduler only plays while it's the cue.
   const synthSched = synth ? synth.createScheduler(ctx, out, () => {
     const s = base || {};
-    return { playing: cue === 'synthwave', speed: s.speed || 0, eraId: s.eraId, warp: Boolean(s.warp) };
-  }) : null;
+    return { playing: cue === 'synthwave', speed: s.speed || 0, eraId: s.eraId, warp: Boolean(s.warp), warps: s.warps };
+  }, { sting: false }) : null;
+  // The warp landing sting (0217) plays over whichever cue is on, so it lives here, not in a cue.
+  const sting = synth && synth.createSting ? synth.createSting(ctx, out) : null;
 
   // Street voices go through one stage, level-matched to the synthwave score (rendered offline:
   // racing cues sit ~6 dB under their raw sum; the home loop plays as written).
@@ -239,11 +241,20 @@ export function createDirector(ctx, out, getState, synth) {
   return {
     lookahead,
     get cue() { return cue; },
+    get stings() { return (sting ? sting.count : 0) + (synthSched ? synthSched.stings : 0); },
+    get stingKey() { return sting ? sting.lastKey : null; },
     tick() {
       const now = ctx.currentTime;
       base = getState();
       if (nextTime < now) nextTime = now;
       const want = cueFor(base);
+      // The sting plays in the key of the cue the warp lands in, on the beat of the one playing now.
+      if (sting && sting.landed(base.eraId, base.warps, want !== null)) {
+        const t = now + synth.STING_DELAY;
+        const at = cue === 'synthwave' && synthSched ? synthSched.beatAfter(t)
+          : STREET_TRACKS[cue] ? synth.beatAt(nextTime, step, stepSeconds(STREET_TRACKS[cue].bpm), t) : t;
+        sting.play(STREET_TRACKS[want] || synth.scoreFor(base.eraId), at);
+      }
       const g = out && out.gain;
       if (want === null && cue !== null && !fading) {
         // Off the road (results, pause, muted): fade out over ~1.5 s rather than cut.
@@ -295,11 +306,12 @@ export function createMusic(se, G, synth) {
   const duck = ctx.createGain();
   inG.connect(lp); lp.connect(duck); duck.connect(se.musicBus);
   se.musicIn = inG; se.musicLP = lp; se.musicDuck = duck;
-  const s = { status: '', racePhase: '', muted: false, style: 'auto', eraId: '', mode: '', tier: 1, speed: 0, nos: false, patrol: false, warp: false };
+  const s = { status: '', racePhase: '', muted: false, style: 'auto', eraId: '', mode: '', tier: 1, speed: 0, nos: false, patrol: false, warp: false, warps: 0 };
   return createDirector(ctx, inG, () => {
     s.status = G.status; s.racePhase = G.racePhase; s.muted = se.muted; s.style = se.musicStyle;
     s.eraId = (ERAS[G.eraIndex] || ERAS[0]).id; s.mode = G.mode; s.tier = G.tier || 1; s.speed = G.speed || 0;
     s.nos = Boolean(G.nosBurning); s.patrol = Boolean(G.patrolOn); s.warp = G.warpActiveTimer > 0;
+    s.warps = G.timeWarps;
     return s;
   }, synth);
 }

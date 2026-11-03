@@ -42,9 +42,9 @@ describe('easter eggs', () => {
     expect(run({ era: '1985', lap: 3, speed: 10 })[EGGS.BIKE_MOON]).toBe(false);
   });
 
-  it('1985: the mall loses a pine once history changes after lap 1', () => {
-    expect(run({ era: '1985', lap: 1 })[EGGS.PINES]).toBe(false);
-    expect(run({ era: '1985', lap: 2 })[EGGS.PINES]).toBe(true);
+  it('1985: the mall loses an elm once history changes after lap 1', () => {
+    expect(run({ era: '1985', lap: 1 })[EGGS.ELMS]).toBe(false);
+    expect(run({ era: '1985', lap: 2 })[EGGS.ELMS]).toBe(true);
   });
 
   it('2015: the shark lunges every 25 s and the rain stops exactly on the half-minute', () => {

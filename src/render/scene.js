@@ -35,7 +35,7 @@ export function renderScene() {
     pixelCanvas.height = bh;
   }
   if (carArt) { carArt.setSpriteScale(pk); carArt.beginFrame(); }
-  if (pickupArt && pickupArt.setPixelScale) pickupArt.setPixelScale(pk);
+  if (pickupArt && pickupArt.setPixelScale) pickupArt.setPixelScale(pk, rw, rh);
   GameState.pixelScale = pk; // for lazy 2D art (billboards…): cache at pixelScale × drawn size
 
   const ctx = pixelCtx;
@@ -44,7 +44,7 @@ export function renderScene() {
 
   // Screen Shake on Takedown / Roar / Boost
   if (GameState.screenShake > 0 && !GameState.reducedMotion) {
-    const mag = GameState.screenShake * 2.5;
+    const mag = GameState.screenShake * 2.5 * GameState.cameraFx;
     ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
   }
 
@@ -125,7 +125,7 @@ export function renderScene() {
   } else { GameState.loopRide = 0; GameState.loopFall = 0; }
   if (GameState.cameraMode !== 2 && !rideOwnsCar) {
     drawPlayerCar(ctx, rw, rh, eraCfg);
-    if (smoke2d) smoke2d.draw(ctx, rw, rh, smokeRoadX, smokeRoadW, SaveStore.data.underglow);
+    if (smoke2d) smoke2d.draw(ctx, rw, rh, smokeRoadX, smokeRoadW, SaveStore.data.underglow, GameState.carW);
   }
 
   drawCarFx(ctx, rw, rh);
@@ -165,16 +165,19 @@ export function renderScene() {
   const shakeX = feel.shake * Math.sin(RS.fxClock * 61.0) * (viewW / 1280);
   const shakeY = feel.shake * Math.sin(RS.fxClock * 47.0 + 1.3) * (viewW / 1280);
   mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX, shakeY, viewW, viewH);
-  // Time-warp chromatic split: two offset additive ghosts for ~0.9 s after a warp.
+  // Time-warp chromatic split: two offset additive ghosts for ~0.9 s after a warp (not when the
+  // flash budget held the warp's flash back, 0234: warpLit is false then, and under calm motion).
   if (GameState.warpFxTimer > 0 && !GameState.reducedMotion) {
     const k = GameState.warpFxTimer / 0.9;
-    const off = 10 * k * (viewW / 1280);
-    mainCtx.globalCompositeOperation = 'lighter';
-    mainCtx.globalAlpha = 0.22 * k;
-    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, viewW, viewH);
-    mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, viewW, viewH);
-    mainCtx.globalAlpha = 1;
-    mainCtx.globalCompositeOperation = 'source-over';
+    if (GameState.warpLit) {
+      const off = 10 * k * (viewW / 1280);
+      mainCtx.globalCompositeOperation = 'lighter';
+      mainCtx.globalAlpha = 0.22 * k;
+      mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX - off, shakeY, viewW, viewH);
+      mainCtx.drawImage(pixelCanvas, cropX, cropY, cropW, cropH, shakeX + off, shakeY, viewW, viewH);
+      mainCtx.globalAlpha = 1;
+      mainCtx.globalCompositeOperation = 'source-over';
+    }
     drawWarpTunnel(mainCtx, k);
   }
   drawSpeedLines(mainCtx, feel.lines);

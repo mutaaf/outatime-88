@@ -16,11 +16,11 @@ Triggers live in `src/scenes/eggs.js` (unit-tested in `tests/unit/eggs.test.js`)
 | 2026 | Giant marshmallow-ish parade balloon rises behind the roofline | Final lap | Original puffy figure with a cap and bow tie; no character name or design marks |
 | 2026 | BIJOU double bill: "ALIENS FROM PLUTO II + ATTACK OF THE 50 FT MALL" | Theatre marquee with chasing bulbs and premiere searchlights | Invented parody titles |
 | 2026 | DOT'S DINER, VHS · LASERDISC, ARCADE; "88 MPH · NOT ONE MILE LESS" billboard | Square + roadside boards | Invented names |
-| 1985 Cedar Ridge | **TRIPLE PINES MALL** loses a pine — and the sign says DOUBLE PINES — after lap 1 | Mall pylon, mid layer | Invented name; history-changing joke without the film's mall name |
+| 1985 Cedar Ridge | **SIX ELMS MALL** loses an elm — and the sign says FIVE ELMS — after lap 1 | Mall pylon, mid layer | Invented name, round elms (not pines); history-changing joke without the film's mall name (0224) |
 | 1985 | **A kid's bike with a basket crosses the full moon** | Final lap, if you're moving | Generic silhouette of a bike and rider against a moon; no creature, no names |
 | 1985 | ARCADE 88 with a glowing maze-chaser cabinet | Strip mall | Generic cabinet glow and a dot; no game characters |
-| 1985 | BLOCKBUSTED video ("BE KIND · REWIND") | Strip mall + roadside board | Invented parody name, original colours (not the real store's) |
-| 1985 | VIPER KAN DOJO ("KARATE FOR KIDS · SAT") | Strip mall | Invented name, no mottos |
+| 1985 | VIDEO VORTEX ("NEW TAPES · FRIDAYS") | Strip mall + roadside board | Invented name and copy; no real chain's name or slogan (0224) |
+| 1985 | LOTUS DOJO ("BELTS FOR ALL · SAT") | Strip mall + roadside board | Invented name; no rival dojo, no film's tagline (0224) |
 | 1985 | One house whose string lights flicker in sequence | Suburb | Holiday lights on a house |
 | 1985 | WALK-TAPE 2000 personal stereo ad | Roadside board | Invented product |
 | 1885 Canyon | Town clock still a scaffold: "CLOCK DEDICATION SAT." | Frontier town | Generic frontier scene |

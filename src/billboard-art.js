@@ -14,7 +14,7 @@
 import { GameState } from './state.js';
 import { track } from './track.js';
 import { drawRoadsideAd } from './backdrop.js';
-import { covers, boardAlpha } from './board-fade.js';
+import { covers, cueCovers, forkCueBox, stripBox, stripFade, boardAlpha, edgeFade, EDGE } from './board-fade.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -156,6 +156,13 @@ let faceGen = 0;
 const stats = { impressions: 0, posted: 0, painted: 0, boards: 0, faded: 0, covered: 0 };
 // ?debug (0203): the last board that faded for something behind it, and that thing's rect.
 const lastFade = { alpha: 1, kind: '', item: null, board: [0, 0, 0, 0], behind: [0, 0, 0, 0] };
+// ?debug (0221): boards met with > 15% of the face off screen, and the widest board beside the
+// road as a share of the view.
+const edge = { clipped: 0, maxW: 0 };
+// Boards drawn under the fork cue (0242): how many, the most opaque one, the last one's face rect.
+const cue = { hits: 0, maxAlpha: 0, last: [0, 0, 0, 0], vw: 0, vh: 0 };
+// Boards drawn reaching into the HUD strip (0244): how many, and the most opaque one.
+const strip = { hits: 0, maxAlpha: 0 };
 let lastBucket = 0, lastPx = 0;
 
 function clearFaces() { faces.clear(); faceGen++; }
@@ -437,7 +444,70 @@ if (typeof window !== 'undefined') {
 }
 
 export function debug() {
-  return { ...stats, lastFade, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
+  return { ...stats, lastFade, edge, cue, strip, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
+}
+
+/** The FOV push-in the blit will crop the road buffer by this frame (src/render/scene.js:
+ *  speedFeel + nosFeel). Mirrored here so the lazy chunk adds nothing to main; keep in step. */
+function viewCrop() {
+  const g = GameState;
+  if (g.reducedMotion || g.status !== 'PLAYING') return 1;
+  const t = Math.min(1, Math.max(0, (g.speed - 40) / 48));
+  return 1 + (0.07 * t * t + (g.nosBurning ? 0.045 : 0)) * g.cameraFx;
+}
+
+/** The fork cue's cards as view shares (0242). The race step sets GameState.forkCue ('OFF' | 'LEFT' |
+ *  'RIGHT'); the cards are measured when the cue comes up or their slot moves, never per
+ *  frame and never on a lean flip (the lean only scales a card about its centre). No race, no box:
+ *  quitting to the title or results on the fork leaves forkCue set, and the attract road draws on. */
+let cueKey = '';
+const cueBox = { n: 0, r: new Float32Array(8) };
+function forkBox() {
+  const st = GameState.status;
+  if (st !== 'PLAYING' && st !== 'PAUSED') return null;
+  // Re-measured when the cards can have moved: the window size, the HUD's slot for them (layout.js
+  // moves --slot-fork as the header resizes) or the compact/full HUD. Inline-style reads: no layout.
+  const shown = GameState.forkCue && GameState.forkCue !== 'OFF', root = shown && document.documentElement;
+  const key = shown ? `${innerWidth}x${innerHeight}|${root.style.getPropertyValue('--slot-fork')}|${root.dataset.hud}` : '';
+  if (key !== cueKey) {
+    cueKey = key;
+    cueBox.n = 0;
+    const view = key && !document.body.classList.contains('on-title') && document.getElementById('canvasContainer');
+    if (view) {
+      forkCueBox(cueBox, ['forkLeftCard', 'forkRightCard'].map((id) => {
+        const el = document.getElementById(id), r = el && el.getBoundingClientRect();
+        return r ? { cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: el.offsetWidth, h: el.offsetHeight } : { w: 0 };
+      }), view.getBoundingClientRect());
+    }
+    GameState.forkBox = cueBox;
+  }
+  return GameState.forkBox;
+}
+
+/** The HUD strip (#hudTrack, #hudTimes) as view shares (0244), for any race on screen (the grid
+ *  included: solo grids are PLAYING, live ones GRID). Measured once and again only when a
+ *  ResizeObserver on the header and the two elements, or a window resize, says it can have moved
+ *  (the 1fr track bar resizes whenever a card beside it grows). No race, no box. */
+let stripDirty = true, stripWatch = null;
+const stripRects = { n: 0, r: new Float32Array(8) };
+const markStrip = () => { stripDirty = true; };
+function hudStrip() {
+  const st = GameState.status;
+  if (st !== 'PLAYING' && st !== 'PAUSED' && st !== 'GRID') return null;
+  if (stripDirty && typeof document !== 'undefined') {
+    stripDirty = false;
+    const els = [document.getElementById('hudTrack'), document.getElementById('hudTimes')];
+    if (!stripWatch && typeof ResizeObserver !== 'undefined') {
+      stripWatch = new ResizeObserver(markStrip);
+      for (const el of [document.querySelector('header'), ...els]) if (el) stripWatch.observe(el);
+      addEventListener('resize', markStrip);
+    }
+    const view = document.getElementById('canvasContainer');
+    stripRects.n = 0;
+    if (view) stripBox(stripRects, els.map((el) => el && el.getBoundingClientRect()), view.getBoundingClientRect());
+    GameState.hudStrip = stripRects;
+  }
+  return GameState.hudStrip;
 }
 
 // ── 2D ─────────────────────────────────────────────────────────────────────────────────
@@ -450,22 +520,43 @@ export function debug() {
 export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now = performance.now()) {
   const kind = item.type === 'CLOCK_TOWER_BILLBOARD' ? 'ERA' : (SPEC[item.kind] ? item.kind : 'ROADSIDE');
   const s = SPEC[kind];
-  const w = s.w * roadW;
+  // A board beside the road stops growing at EDGE.maxW of the view (0221); its height above the
+  // road shrinks with it, so a capped board stays in proportion on shorter legs.
+  const w = s.overhead ? s.w * roadW : Math.min(s.w * roadW, rw * EDGE.maxW);
   if (w < 3) return;
   const h = w / s.aspect;
-  const bottom = roadY - s.lift * roadW;
+  const bottom = roadY - s.lift * (w / s.w);
   const top = bottom - h;
   const left = x - w / 2;
   if (top > rh || roadY < 0 || left > rw || left + w < 0) return;
+  // Beside the road, crossing the edge of the view, it fades with the share of its face off
+  // screen (0221). Overhead boards keep their centred text whole and stay solid until you pass
+  // under them. Roll set pieces (scene.js rotate + scale) aren't allowed for: the fade assumes the
+  // flat view.
+  const crop = viewCrop();
+  const ef = s.overhead ? 1 : edgeFade(left, left + w, rw, crop);
+  if (ef < 1 - 0.15 / EDGE.fade) edge.clipped++; // more than 15% of it off screen
+  if (!s.overhead && w / rw > edge.maxW) edge.maxW = w / rw;
+  if (ef <= 0) return;
   stats.boards++;
   const night = String(eraId) !== '1955';
   const b = Math.max(1, w * 0.022);
   const hit = drawn ? covers(drawn, left - b, top - b, left + w + b, bottom + b) : -1;
-  if (hit >= 0) item.bh = now;
-  const alpha = boardAlpha(item.bh ? (now - item.bh) / 1000 : Infinity);
+  // Under a fork cue card (0242) it fades the same way, so SKY-LOOP / TUNNEL is the one text there.
+  const underCue = cueCovers(forkBox(), left - b, top - b, left + w + b, bottom + b, rw, rh, crop);
+  if (hit >= 0 || underCue) item.bh = now;
+  // Reaching into the HUD strip (0244) it eases see-through too: the timer and gaps read on dim art.
+  const sf = stripFade(hudStrip(), left - b, top - b, left + w + b, bottom + b, rw, rh, crop);
+  const cover = boardAlpha(item.bh ? (now - item.bh) / 1000 : Infinity);
+  const alpha = Math.min(cover, sf) * ef;
+  if (sf < 1) { strip.hits++; if (alpha > strip.maxAlpha) strip.maxAlpha = alpha; }
+  if (underCue) {
+    cue.hits++; if (alpha > cue.maxAlpha) cue.maxAlpha = alpha;
+    cue.last[0] = left - b; cue.last[1] = top - b; cue.last[2] = left + w + b; cue.last[3] = bottom + b; cue.vw = rw; cue.vh = rh;
+  }
   const prevAlpha = ctx.globalAlpha;
-  if (alpha < 1) {
-    ctx.globalAlpha = prevAlpha * alpha;
+  if (alpha < 1) ctx.globalAlpha = prevAlpha * alpha;
+  if (cover < 1) {
     stats.faded++;
     if (hit >= 0) {
       stats.covered++;
@@ -506,7 +597,9 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now 
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(item.fc, left, top, w, h);
     ctx.imageSmoothingEnabled = smooth;
-    if (alpha === 1) noteView(item, cid, left, top, w, h, rw, rh, now); // a see-through face isn't a viewed ad
+    // A see-through face (0203, 0244) or one mostly faded at the edge (0221) isn't a viewed ad; one
+    // that only grazes the HUD strip (still near solid) is.
+    if (cover === 1 && sf >= 0.9 && ef >= 0.5) noteView(item, cid, left, top, w, h, rw, rh, now);
   }
   if (night && w > 20) {
     // Two lamp heads on the top bezel washing the face with warm light.

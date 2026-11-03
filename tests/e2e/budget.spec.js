@@ -31,7 +31,11 @@ test('main bundle stays in budget and does not contain three.js', () => {
   // 58 → 59 (0183, 2026-10-19): TV mode, runner power-ups and handling v4 took main to ~57.9 on
   // CI; the analog gamepad (it runs every sim step) and the hooks for the lazy force-feel and
   // tilt-filter chunks add ~0.4. The features themselves are lazy.
-  expect(total).toBeLessThan(59);
+  // 59 → 58 (0223, 2026-10-29): main was 58.98 with ~13 bytes free. Scoring and the fork cue moved
+  // into the race chunks, the tilt sensor into its own chunk (src/tilt.js), the garage's ratings
+  // and buying (src/car-shop.js) and the RACER panel's save parking out of startup: ~57.3 today.
+  console.log(`[budget] main startup ${total.toFixed(2)} kB gzipped (limit 58)`); // the CI number, in the CI log
+  expect(total).toBeLessThan(58);
   for (const f of files) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('WebGLRenderer');
 });
 
@@ -40,7 +44,7 @@ test('the race step is a lazy chunk in its own budget (0170)', () => {
   const step = files.filter((f) => /^race-step-.*\.js$/.test(f));
   expect(step.length).toBe(1);
   console.log(`[budget] race-step ${gz(step[0]).toFixed(2)} kB gzipped (limit 23)`); // the CI number, in the CI log
-  expect(gz(step[0])).toBeLessThan(23); // today ~17 kB on CI (0176: race start/finish, coach and HUD moved to race-flow): updateGame, traffic stepping
+  expect(gz(step[0])).toBeLessThan(23); // today ~22.0 kB (0233 moved the lane guide and arrival stretch to race-late, the coach's obstacle cards in; 0231 resume beat; 0222 NOS tap toggle; 0223 moved scoring and the fork cue in; 0176: race start/finish, coach and HUD are race-flow): updateGame, traffic stepping
   for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('TOO SLOW FOR THE LOOP');
 });
 
@@ -48,8 +52,20 @@ test('race start/finish, the coach and the race HUD are their own lazy chunk (01
   const files = readdirSync(DIR);
   const flow = files.filter((f) => /^race-flow-.*\.js$/.test(f));
   expect(flow.length).toBe(1);
-  expect(gz(flow[0])).toBeLessThan(9); // today ~7.1 kB
+  expect(gz(flow[0])).toBeLessThan(9); // today ~8.3 kB (0233: names only it reads are no longer exported, the coach's obstacle cards went to race-step)
   expect(startup()).not.toContain(flow[0]); // never part of what a first visit downloads
+});
+
+test('the lane guide and arrival stretch are their own small lazy chunk (0233)', () => {
+  const files = readdirSync(DIR);
+  const late = files.filter((f) => /^race-late-.*\.js$/.test(f));
+  expect(late.length).toBe(1);
+  expect(gz(late[0])).toBeLessThan(3); // today ~1.7 kB
+  expect(startup()).not.toContain(late[0]);
+  const step = files.filter((f) => /^race-step-.*\.js$/.test(f));
+  expect(step.length).toBe(1);
+  expect(readFileSync(`${DIR}/${late[0]}`, 'utf8')).toContain('lo:330,hi:880'); // the guide's GUIDE table is here…
+  expect(readFileSync(`${DIR}/${step[0]}`, 'utf8')).not.toContain('lo:330,hi:880'); // …and not in the step chunk
 });
 
 test('the rigid-body world is its own small lazy chunk (0176)', () => {
@@ -104,7 +120,11 @@ test('era backdrops are lazy chunks, each small (ticket 0100)', () => {
   for (const f of scenes) { expect(gz(f), f).toBeLessThan(5); total += gz(f); }
   for (const f of new Set(shared)) { if (f === stage[0]) continue; expect(gz(f), f).toBeLessThan(6); total += gz(f); }
   expect(gz(stage[0]), 'stage + roadside').toBeLessThan(10);
-  expect(total).toBeLessThan(29); // 25 → 29 for the seventh world, the 2061 orbit (ticket 0155)
+  const tagChunk = files.filter((f) => /^tags-.*\.js$/.test(f)); // rival name tags (0238): their own lazy chunk
+  expect(tagChunk.length).toBe(1);
+  expect(gz(tagChunk[0]), 'name tags').toBeLessThan(1.5);
+  total += gz(tagChunk[0]);
+  expect(total).toBeLessThan(31); // 25 → 29 for the seventh world, the 2061 orbit (ticket 0155); 29 → 30 for edge-faded signs (0237); 30 → 31 for the nameplate layout (0238, its own tags chunk, ~1.3 kB; the stage chunk lost ~0.4 kB)
   const main = files.find((f) => /^index-.*\.js$/.test(f));
   expect(readFileSync(`${DIR}/${main}`, 'utf8')).not.toContain('GIANT ANTS ATE OHIO');
 });

@@ -36,7 +36,7 @@ async function race(page, { tilt = false } = {}) {
   await page.goto(`${APP}?debug`);
   await page.waitForFunction(() => window.__OT);
   if (tilt) {
-    const filter = page.waitForResponse((r) => /onefilter-[^/]*\.js$/.test(r.url())); // tilt's own chunk
+    const filter = page.waitForResponse((r) => /\/tilt-[^/]*\.js$/.test(r.url())); // tilt's own chunk (src/tilt.js + its filter)
     await page.locator('#btnTitleTilt').evaluate((b) => b.click());
     await filter;
     await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 0, gamma: 0 })));

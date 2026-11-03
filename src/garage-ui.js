@@ -2,7 +2,8 @@
 // unlock, buy, paint and upgrade, plus the full-screen reveal when a new car unlocks.
 // DOM only; the rules live in src/cars.js and main.js passes in what it owns.
 
-import { CAR_SPECS, STATS, STAT_LABELS, displayStats, isOwned, unlockProgress, buyCar, ensureGarage } from './cars.js';
+import { CAR_SPECS, isOwned, unlockProgress, ensureGarage } from './cars.js';
+import { STATS, STAT_LABELS, displayStats, buyCar } from './car-shop.js';
 import { createTurntable } from './car-art.js';
 import './garage.css';
 
@@ -71,7 +72,12 @@ export function createGarageUI(deps) {
       box.appendChild(b);
     });
     const cur = box.children[viewIdx];
-    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'center', behavior: deps.reducedMotion() ? 'auto' : 'smooth' });
+    // Centre the car in the strip by scrolling the strip only: scrollIntoView would also scroll the sheet (the strip can sit in
+    // #garageModal's scroll-padding band above the pinned pause actions, 0240) and shift the Garage on open.
+    if (cur && box.scrollTo) {
+      const left = box.scrollLeft + cur.getBoundingClientRect().left - box.getBoundingClientRect().left - (box.clientWidth - cur.offsetWidth) / 2;
+      box.scrollTo({ left, behavior: deps.reducedMotion() ? 'auto' : 'smooth' });
+    }
   }
 
   function renderPrimary(c) {
@@ -348,6 +354,8 @@ export function createGarageUI(deps) {
       viewIdx = focus >= 0 ? focus : deps.selectedIndex();
       if (!turntable) turntable = make2D();
       render();
+      // Escape / P mid-race pauses here: the controls card (0204) lives in the settings panel's chunk.
+      import('./settings-panel.js').then((m) => m.renderControlsRef($('garageControls'))).catch(() => {});
       // In 3D mode, swap in the real 3D models once the (already loaded) chunk answers.
       const p3 = deps.preview3d && !turntable.is3D ? deps.preview3d() : null;
       if (p3) {

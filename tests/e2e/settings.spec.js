@@ -32,12 +32,15 @@ test('the title gear opens settings; choices survive a reload', async ({ page })
   await expect(page.locator('#setProximity')).toHaveAttribute('aria-checked', 'true'); // on by default (0191)
   await page.locator('#setProximity').click();
   await expect(page.locator('#setProximity')).toHaveAttribute('aria-checked', 'false');
+  await expect(page.locator('#setLaneGuide')).toHaveAttribute('aria-checked', 'false'); // off by default (0219)
+  await page.locator('#setLaneGuide').click();
+  await expect(page.locator('#setLaneGuide')).toHaveAttribute('aria-checked', 'true');
   await page.locator('#setMusic').fill('30');
   await page.keyboard.press('Enter'); // focus is in the panel: Enter must not start a race
   expect(await page.evaluate(() => window.__OT.GameState.status)).not.toBe('PLAYING');
   await page.locator('#btnSettingsDone').click();
   await expect(page.locator('#settingsModal')).toBeHidden();
-  expect((await saved(page)).settings).toMatchObject({ difficulty: 'hard', motion: 'reduce', musicVolume: 0.3, voice: false, proximity: false });
+  expect((await saved(page)).settings).toMatchObject({ difficulty: 'hard', motion: 'reduce', musicVolume: 0.3, voice: false, proximity: false, laneGuide: true });
   expect(await page.evaluate(() => window.__OT.GameState.reducedMotion)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.dataset.motion)).toBe('reduce');
 
@@ -46,6 +49,7 @@ test('the title gear opens settings; choices survive a reload', async ({ page })
   await expect(page.locator('[data-setting="difficulty"] [data-value="hard"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#setMusic')).toHaveValue('30');
   await expect(page.locator('#setProximity')).toHaveAttribute('aria-checked', 'false');
+  await expect(page.locator('#setLaneGuide')).toHaveAttribute('aria-checked', 'true');
   expect(problems).toEqual([]);
 });
 

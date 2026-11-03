@@ -197,6 +197,59 @@ Not changed:
 The "runs to buy every power-up level" rows in the *before* table use today's ladder
 (⚡27,000). Against the old ⚡15,150 ladder a casual player needed about 8 runs for all of it.
 
+## Rubber band (ticket 0196)
+
+Rivals have a capped rubber band (`src/rival-ai.js` `AI.band`: a rival far behind you may push
+up to +14 mph, one far ahead eases off by up to 18 mph, less at higher tiers). The claim is
+that it keeps a race close without deciding it: a clean drive still wins, by a clear margin.
+
+- **Harness:** `BAL_MODE=band BAL_SKILLS=expert BAL_RACES=10 npm run balance` reproduces the
+  table below. It races every level with the same seed twice, band on and band off. Which goes
+  first alternates per race. The band is switched through the page's own copy of the lazy
+  rival-AI chunk, so the game ships nothing for it. One warm-up race per page is not recorded,
+  because a page's first race runs slower and messier. A race that never reaches the flag is
+  counted as a DNF. `node tests/balance/report.mjs <label>` prints one table per bot.
+- **Unit test:** `tests/unit/rubber-band.test.js`. It races the default field (the five roster
+  cars after the starter, at `RIVAL_PACES` on NORMAL, with their personalities, the nemesis and
+  the race's difficulty ramp) through the real rival AI. The road and racing line are each
+  level's own. The opponent is a clean player at a steady 112 or 124 mph, which brackets the
+  clean expert finishes below (112.9–124.6 mph average).
+  - It asserts, on every level and seed:
+    - a win by at least 1.5 s with the band on (the tightest is 2.39 s, level 6 at 112 mph);
+    - with the band on you keep at least half of your band-off lead;
+    - the band never adds to the lead of a player who leads all race.
+  - The 1.5 s margin mostly guards rival pace. The half-the-lead check is the band guard: raising
+    `push` from 14 to 35 mph fails it.
+  - Not modelled: the standing start, traffic and obstacles, car-to-car contact and fork
+    biomes. Its band costs (up to ~3.4 s at 124 mph) are a model, not the game.
+- **Limits:**
+  - On HARD (rival pace ×1.1) a clean 112 mph player loses with or without the band. That
+    is rival pace, not the band.
+  - A player well behind the leaders gains from the band, because the leaders ease off.
+  - The claim is about a clean player who leads.
+- **Result (2026-10-26):** no level fails the bound, so the constants are unchanged.
+
+#### rubber band, expert bot (10 seeded races per level, each raced with the band on and off)
+
+Gap = the first rival's finish minus yours (+ = you won by that much). Clean = no traffic or
+obstacle hits. "Band costs" = gap off − gap on, which includes the bot's own run-to-run spread
+(its finish moves by up to ~2.5 s between the two races of a pair). "Rivals gain" = how much
+sooner the first rival finishes with the band on, which is the band alone.
+
+| level | clean races on / off | gap band on: min / median | gap band off: min / median | band costs: median / max | rivals gain: median / max | wins on / off (all races) | DNF |
+|---|---|---|---|---|---|---|---|
+| 1 LVL1_CLOCK_HOLLOW | 9 / 9 | 3.92 / 5.07 s | 5.20 / 5.59 s | 1.15 / 5.45 s | 1.07 / 3.74 s | 10 / 10 of 10 | 0 |
+| 2 LVL2_RED_ROCK | 10 / 10 | 4.04 / 5.06 s | 5.01 / 7.41 s | 2.02 / 2.79 s | 1.79 / 2.65 s | 10 / 10 of 10 | 0 |
+| 3 LVL3_TOKYO_2015 | 10 / 10 | 3.59 / 4.47 s | 4.27 / 5.99 s | 1.59 / 2.80 s | 1.51 / 2.10 s | 10 / 10 of 10 | 0 |
+| 4 LVL4_MULHOLLAND_2088 | 10 / 10 | 3.64 / 4.39 s | 4.04 / 6.01 s | 1.47 / 3.15 s | 1.36 / 2.17 s | 10 / 10 of 10 | 0 |
+| 5 LVL5_INFINITE_HW | 10 / 10 | 3.42 / 4.94 s | 3.70 / 5.08 s | 0.88 / 2.41 s | 0.88 / 1.50 s | 10 / 10 of 10 | 0 |
+| 6 LVL6_LOW_ORBIT | 9 / 10 | 4.27 / 4.76 s | 3.76 / 5.89 s | 0.88 / 3.15 s | 1.02 / 2.11 s | 10 / 10 of 10 | 0 |
+
+- **What the band does:** it brings the first rival home about 1–1.8 s sooner (median), and
+  3.7 s at most. No clean race with the band on is won by less than 3.4 s.
+- **Fast versus slow drivers:** the band works hardest against fast drivers. A slower clean
+  driver gives rivals behind less reason to push, because the push starts 220 behind you.
+
 ## Caveats
 
 - **Bots aren't kids.** The skill table is a model, and the numbers mean "for a player who

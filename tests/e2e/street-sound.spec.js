@@ -64,3 +64,33 @@ test('Settings → MUSIC STYLE switches the score and is remembered', async ({ p
   expect(await audio(page, () => [window.__OT.audio().musicStyle, window.__OT.save().settings.musicStyle])).toEqual(['street', 'street']);
   expect(problems).toEqual([]);
 });
+
+// Ticket 0217: a warp that lands in a new era plays one music sting; a muted warp plays none.
+test('a warp landing plays one music sting, and none while muted', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.goto(`${APP}?debug`);
+  await page.locator('#btnStartRace').click();
+  await page.waitForFunction(() => window.__OT.audio().scheduler, null, { timeout: 20_000 });
+  await racing(page);
+  expect(await audio(page, () => window.__OT.audio().scheduler.stings)).toBe(0); // none on race start
+  const warp = async () => {
+    const before = await page.evaluate(() => window.__OT.GameState.timeWarps);
+    await page.waitForFunction((b) => {
+      const g = window.__OT.GameState;
+      if (g.timeWarps > b) return true;
+      g.fluxCharge = 100; g.speed = 100; g.sinceWarp = 99; g.warpActiveTimer = 0;
+      return false;
+    }, before, { timeout: 5000 });
+  };
+  await warp();
+  await expect.poll(() => audio(page, () => window.__OT.audio().scheduler.stings), { timeout: 5000 }).toBe(1);
+  // The rest of the warp plays no second sting.
+  await page.waitForFunction(() => window.__OT.GameState.warpActiveTimer <= 0, null, { timeout: 20_000 });
+  expect(await audio(page, () => window.__OT.audio().scheduler.stings)).toBe(1);
+
+  await audio(page, () => window.__OT.audio().setMuted(true));
+  await warp();
+  await page.waitForFunction(() => window.__OT.GameState.warpActiveTimer <= 0, null, { timeout: 20_000 });
+  expect(await audio(page, () => window.__OT.audio().scheduler.stings)).toBe(1);
+  expect(problems).toEqual([]);
+});

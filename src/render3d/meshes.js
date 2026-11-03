@@ -345,6 +345,7 @@ export function propKinds() {
 }
 
 // ── Obstacles (few at a time: pooled groups) ──────────────────────────────────
+const ERA_PROP_3D = { SIDEWALK_SIGN: '#38bdf8', SHOPPING_CART: '#cbd5e1', TUMBLEWEED: '#c08a4a', DRONE_WRECK: '#64748b', LIGHT_PYLON: '#d946ef', MILK_CRATE: '#2dd4bf', ICE_SHARD: '#7dd3fc' };
 export function buildObstacle(type, width) {
   const g = new Group();
   if (type === 'TRAFFIC_CONE') {
@@ -400,6 +401,11 @@ export function buildObstacle(type, width) {
     const band = new Mesh(new BoxGeometry(2.3, 0.25, 2.3), new MeshBasicMaterial({ color: NEON_CYAN }));
     band.position.y = 1.1;
     g.add(box, band);
+  } else if (ERA_PROP_3D[type]) {
+    // Era signature props (0113): one small block in the prop's colour (the art is the 2D view's).
+    const box = new Mesh(new BoxGeometry(0.8, 0.9, 0.8), new MeshLambertMaterial({ color: ERA_PROP_3D[type] }));
+    box.position.y = 0.45;
+    g.add(box);
   } else {
     const wall = new Mesh(new BoxGeometry(width, 1.6, 0.3), new MeshBasicMaterial({ color: NEON_CYAN, transparent: true, opacity: 0.45, depthWrite: false }));
     wall.position.y = 0.9;
