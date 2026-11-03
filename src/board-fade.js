@@ -108,16 +108,19 @@ export function stripBox(box, rects, view) {
 /**
  * Opacity for a board face [l, r] × [t, b] on a road buffer `vw` × `vh` against the HUD strip
  * `box` (view shares; the view shows the buffer's middle 1/`crop`, mapped as cueCovers does):
- * 1 clear of it, easing to STRIP.alpha as the face reaches STRIP.ramp of the view into it.
+ * 1 clear of it, easing to STRIP.alpha as the face reaches STRIP.ramp of the view height into it,
+ * both down from its edge and across from its sides.
  */
 export function stripFade(box, l, t, r, b, vw, vh, crop = 1) {
   if (!box || !box.n) return 1;
   const sw = vw / crop, sh = vh / crop, cx = (vw - sw) * 0.5, cy = (vh - sh) * 0.46, a = box.r, ramp = STRIP.ramp * sh;
   let f = 1;
   for (let i = 0, k = 0; i < box.n; i++, k += 4) {
-    if (!(cx + a[k] * sw < r && cx + a[k + 2] * sw > l)) continue;
+    // How far the face reaches in, down and across: both ease, so a board sliding in from the
+    // side (steering, a bend) fades as smoothly as one rising into it.
+    const ox = Math.min(cx + a[k + 2] * sw, r) - Math.max(cx + a[k] * sw, l);
     const d = Math.min(cy + a[k + 3] * sh, b) - Math.max(cy + a[k + 1] * sh, t);
-    if (d > 0) f = Math.min(f, 1 - (1 - STRIP.alpha) * Math.min(1, d / ramp));
+    if (ox > 0 && d > 0) f = Math.min(f, 1 - (1 - STRIP.alpha) * Math.min(1, d / ramp) * Math.min(1, ox / ramp));
   }
   return f;
 }

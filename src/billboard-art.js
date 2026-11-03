@@ -597,8 +597,9 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now 
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(item.fc, left, top, w, h);
     ctx.imageSmoothingEnabled = smooth;
-    // A see-through face (0203, 0244) or one mostly faded at the edge (0221) isn't a viewed ad.
-    if (cover === 1 && sf === 1 && ef >= 0.5) noteView(item, cid, left, top, w, h, rw, rh, now);
+    // A see-through face (0203, 0244) or one mostly faded at the edge (0221) isn't a viewed ad; one
+    // that only grazes the HUD strip (still near solid) is.
+    if (cover === 1 && sf >= 0.9 && ef >= 0.5) noteView(item, cid, left, top, w, h, rw, rh, now);
   }
   if (night && w > 20) {
     // Two lamp heads on the top bezel washing the face with warm light.

@@ -202,6 +202,16 @@ describe('the HUD strip (0244)', () => {
     for (let d = -1; d <= ramp * 2; d += 1) { const f = at(d); expect(f).toBeLessThanOrEqual(prev); expect(prev - f).toBeLessThan(0.05); prev = f; }
   });
 
+  it('eases as a face slides in from the side too (steering, a bend), never popping', () => {
+    // Deep in the times box's height band (66..100), sliding right across its left edge at 536.
+    const at = (ox) => stripFade(box, 300, 60, 536 + ox, 300, 1280, 720); // below the track bar (padded to 49)
+    expect(at(-1)).toBe(1);
+    expect(at(ramp / 2)).toBeCloseTo(1 - (1 - STRIP.alpha) / 2, 5);
+    expect(at(ramp)).toBeCloseTo(STRIP.alpha, 5);
+    let prev = 1;
+    for (let ox = -1; ox <= ramp * 2; ox += 1) { const f = at(ox); expect(f).toBeLessThanOrEqual(prev); expect(prev - f).toBeLessThan(0.05); prev = f; }
+  });
+
   it('maps through the FOV push-in crop', () => {
     // At crop 1.1 the view shows the middle of the buffer: the strip's bottom (104 / 720 of the
     // view) lands lower on the buffer, at cy + share × sh.

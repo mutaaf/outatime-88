@@ -72,6 +72,15 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844, touch
     if (vp.width === 1280) expect(out.deep).toBeGreaterThan(0);
     expect(out.solid).toEqual([]);
     if (out.under) expect((await page.evaluate(() => window.__OT.ads().strip.hits))).toBeGreaterThan(0);
+    if (vp.width === 1280) {
+      // The HUD moves with the window mid-grid: the strip must be measured again, never stale.
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await nextFrames(page, 4);
+      const again = await sampleGrid(page, 30);
+      expect(again.err).toBeUndefined();
+      expect(again.grid).toBeGreaterThan(5);
+      expect(again.solid).toEqual([]);
+    }
     expect(problems).toEqual([]);
     await ctx.close();
   });
