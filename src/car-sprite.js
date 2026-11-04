@@ -214,8 +214,8 @@ export function lookOf(mv) {
  * (src/near-fade.js, ticket 0200). Render-only; the simulation never sees it.
  */
 /** Near-camera props (0245) for src/render/sprites.js, here so main stays small: how far a prop is
- *  into the near zone (from its road width / view width), its width multiplier, its opacity. */
-export { propFade, nearAlpha };
+ *  into the near fade (from how far it is behind you), its width multiplier, its opacity. */
+export { propFade, nearAlpha, PROP };
 export const propScale = (cover, t) => nearScale(cover, t, PROP.cover);
 
 export function drawNear(ctx, look, x, groundY, carW, o, out) {

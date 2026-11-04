@@ -2,8 +2,8 @@
 // edge in the first seconds was a LOW_LASER_BAR hurdle (navy #1e293b posts, red #ef4444 beam,
 // yellow #fde047 core; src/render/sprites.js drawRoadside) passed on the right: lane-wide
 // hurdles are 0.42 road widths, so beside the camera one covered half the view, solid. Props now
-// fade at the same depth as the cars beside them (src/near-fade.js propFade): further up the road
-// the hurdle is drawn exactly as before; beside the camera it is ≤ 8% of the view and see-through.
+// fade once their centre is behind your rear bumper (src/near-fade.js propFade): ahead of and
+// alongside you the hurdle is drawn exactly as before; beside the camera it is ≤ 8% and see-through.
 // Render-only: the test holds one hurdle in place beside your lane, the player is invulnerable.
 import { test, expect } from '@playwright/test';
 import { APP, watchPage, racing } from './helpers.js';
@@ -45,7 +45,8 @@ const barAt = (page, d) => page.evaluate((d) => new Promise((done) => {
     for (const o of t.drawObstacles) if (o !== bar) o.worldZ = g.trackPos + 90000;
     for (const c of t.traffic) c.worldZ = g.trackPos + 90000;
     for (const c of t.racers) c.worldZ = g.trackPos + 90000;
-    bar.worldZ = g.trackPos + d; bar.offset = g.playerX + 0.4; // clear of you: halfW 0.21 + yours 0.136 bar.y = 0; bar.rot = 0;
+    bar.worldZ = g.trackPos + d; bar.offset = g.playerX + 0.4; // beside your lane: halfW 0.21 + yours 0.136 < 0.4
+    bar.y = 0; bar.rot = 0;
     if (bar.vx !== undefined) bar.vx = 0;
     if (bar.vz !== undefined) bar.vz = 0;
   };
@@ -56,10 +57,9 @@ const barAt = (page, d) => page.evaluate((d) => new Promise((done) => {
     let n = 4;
     (function tick() { try {
       const B = window.__bar;
-      // This callback runs right after the game's own frame, and props are drawn at their worldZ
-      // against the camera's blended player Z (src/render-pose.js): the depth the frame drew.
-      const cam = g.renderPlayerZ != null ? g.renderPlayerZ - 1250 : g.trackPos;
-      if (B && B.cur.w) frames.push({ dz: bar.worldZ - cam, cover: (Math.min(B.cur.w, B.cur.r) - Math.max(0, B.cur.l)) / B.cur.w, alpha: B.cur.alpha });
+      // This callback runs right after the game's own frame: the fade it drew used this depth
+      // (the prop's worldZ against trackPos; src/render/sprites.js).
+      if (B && B.cur.w) frames.push({ dz: bar.worldZ - g.trackPos, cover: (Math.min(B.cur.w, B.cur.r) - Math.max(0, B.cur.l)) / B.cur.w, alpha: B.cur.alpha });
       window.__bar = { cur: { l: Infinity, r: -Infinity, w: 0, alpha: 0 } };
       if (n-- > 0) { hold(); requestAnimationFrame(tick); } else { window.__bar = null; done({ frames }); }
     } catch (e) { window.__bar = null; done({ err: String(e) }); } })();
@@ -79,16 +79,28 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844, touch
     expect(ahead.frames.length).toBeGreaterThan(0);
     for (const f of ahead.frames) expect(f.alpha).toBe(1);
 
-    // Beside the camera (where the scout saw the slab), down to the near plane: at most 8% of the
-    // canvas on screen, and see-through. The player is at 1250 and cars are fully faded from
-    // ~1150 (0200); a prop is drawn at its segment (200 long), so every frame whose prop is a
-    // full segment past that, 920 or nearer by the depth it was drawn at, is checked.
+    // Alongside your car (its centre past your rear bumper at 1250 - 105): the solid hurdle.
+    let alongside = 0;
+    for (const d of [1250, 1170]) {
+      const level = await barAt(page, d);
+      expect(level.err).toBeUndefined();
+      for (const f of level.frames) {
+        if (f.dz <= 1145) continue;
+        alongside++;
+        expect(f.alpha, `alpha alongside at dz=${Math.round(f.dz)}`).toBe(1);
+      }
+    }
+    expect(alongside).toBeGreaterThan(3);
+
+    // Behind you, beside the camera (where the scout saw the slab), down to the near plane: at
+    // most 8% of the canvas on screen, and see-through. Fully faded from dz 995 (PROP.len 150
+    // after its centre passes your rear bumper); not drawn at all from ~850 (the near plane).
     let checked = 0, onScreen = 0;
-    for (const d of [1000, 950, 900, 850, 800]) {
+    for (const d of [980, 940, 900, 870]) {
       const near = await barAt(page, d);
       expect(near.err).toBeUndefined();
       for (const f of near.frames) {
-        if (f.dz > 920) continue;
+        if (f.dz > 995) continue;
         checked++;
         if (f.cover > 0) onScreen++;
         expect(f.cover, `cover at dz=${Math.round(f.dz)}`).toBeLessThanOrEqual(CAP);

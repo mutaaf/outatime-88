@@ -30,6 +30,7 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
   const field = LiveTraffic.fieldEntries, me = GameState.racePosition - 1;
   const tagA = field[me - 1], tagB = field[me + 1];
   for (let m = 0; m < allMovingCars.length; m++) moverSeg[m] = allMovingCars[m].takenDown ? -1 : Math.floor(allMovingCars[m].worldZ / ROAD_CFG.segLength);
+  const pRear = GameState.trackPos + ROAD_CFG.playerZOffset - (carArt ? carArt.PROP.rear : 0); // your rear bumper (0245)
   for (let i = visibleSegments.length - 1; i >= 0; i--) {
     const seg = visibleSegments[i];
     if (hzArt && GameState.hz && GameState.hz.on) hzArt.seg(ctx, seg);
@@ -131,10 +132,10 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
       const oy = roadY - oyLift;
       let ow = Math.max(12, roadW * (ob.halfW * 2.0));
       let oh = Math.max(7, ow * 0.58);
-      // Beside the camera a prop eases down to 8% of the view and 35% alpha, at the same depth as
-      // the cars (0245: a lane-wide hurdle passed on the right was a solid half-screen slab). The
+      // Once its centre is behind your rear bumper a prop eases down to 8% of the view and 35% alpha
+      // (0245: a lane-wide hurdle passed on the right was a solid half-screen slab). The
       // maths lives in the lazy car painter (src/near-fade.js); until it lands props draw as before.
-      const pt = carArt ? carArt.propFade(roadW / rw) : 0;
+      const pt = carArt ? carArt.propFade(pRear - ob.worldZ) : 0;
       if (pt > 0) { const k = carArt.propScale(ow / rw, pt); ow *= k; oh *= k; }
       noteSeen(ox - ow * 0.55, oy - oh * 1.7, ox + ow * 0.55, oy + oh * 0.5);
 

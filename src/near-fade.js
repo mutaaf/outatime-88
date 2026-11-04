@@ -35,16 +35,26 @@ export function nearScale(cover, t, cap = NEAR.cover) {
 }
 
 // Near-camera props (ticket 0245): obstacles and knockable props (hurdles, barriers, gates,
-// cones, barrels, era props) fade at the same depth as the cars beside them. A lane-wide hurdle
-// passed on the right used to stand at the screen edge as a solid navy slab with a red-yellow
-// band (half the view wide); it now eases to 8% of the view and 35% alpha on its way past.
+// cones, barrels, era props) fade once they are behind you. A lane-wide hurdle passed on the right
+// used to stand at the screen edge as a solid navy slab with a red-yellow band (half the view
+// wide); it now eases to 8% of the view and 35% alpha on its way past the camera. The fade is in
+// world units, not screen size (segment snapping and the FOV kick don't move it): it starts once
+// the prop's centre is behind your rear bumper. A prop whose centre is alongside your car is always
+// solid; only a long prop's trailing half (halfL 145) can still be clipped while it fades, and it
+// is gone from the 2D view ~150 units later anyway (the near plane), so waiting for its far end
+// would leave the slab on screen.
 export const PROP = {
-  q: 0.32,      // a car's road-scaled width (sprites.js): depth = PROP.q × road width / view width
+  rear: 105,    // the player's half-length (race-step playerHalfL): your rear bumper is pz - rear
+  len: 150,     // world units from "centre at your rear bumper" to fully faded (about a car fade)
   cover: 0.072, // widest a prop's box (ow) may be once faded, as a share of the view width …
   spill: 1.1,   // … since art reaches ±0.55·ow: 0.072 × 1.1 ≈ 8% of the view on screen
 };
 
-/** How far into the near zone a prop is, from its road width as a share of the view width. */
-export function propFade(roadShare) {
-  return nearFade(PROP.q * roadShare);
+/** How far into the near fade a prop is, from how far its centre is behind the player's rear
+ *  bumper (`past`, world units; ≤ 0 while its centre is alongside or ahead of you): 0 → 1. */
+export function propFade(past) {
+  if (!(past > 0)) return 0;
+  if (past >= PROP.len) return 1;
+  const s = past / PROP.len;
+  return s * s * (3 - 2 * s);
 }
