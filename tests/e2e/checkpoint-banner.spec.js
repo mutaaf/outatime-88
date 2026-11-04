@@ -16,14 +16,22 @@ async function checkpoint(page) {
   await page.evaluate(() => window.__OT.ready());
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await racing(page, { minTime: 0.5 });
-  // Let the start-of-race callouts clear (a checkpoint has their priority and would queue).
-  await page.waitForFunction(() => document.getElementById('announcerMain').style.opacity !== '1', null, { timeout: 15000 });
-  await page.evaluate(() => {
+  // A live race can queue the gate's banner behind other callouts until it goes stale, or pre-empt
+  // it (LOW HP…) before it is measured: arm a fresh gate each try until one is caught on screen.
+  const arm = () => page.evaluate(() => {
     const g = window.__OT.GameState, track = window.__OT.track();
     const seg = track.seg(Math.floor((g.trackPos + 1250) / 200) + 6);
     seg.trackType = 'CHECKPOINT';
     seg.cpClaimed = false;
   });
+  for (let attempt = 1; ; attempt++) {
+    await arm();
+    try { return await measureCheckpoint(page); } catch (e) { if (attempt >= 3) throw e; }
+  }
+}
+
+/** Waits (up to 6 s) for the checkpoint banner to be fully in, then measures the announcer. */
+async function measureCheckpoint(page) {
   const handle = await page.waitForFunction(() => {
     const main = document.getElementById('announcerMain');
     if (!/CHECKPOINT/.test(main.textContent) || Number(getComputedStyle(main).opacity) < 0.98) return null;
@@ -46,7 +54,7 @@ async function checkpoint(page) {
       mainFont: parseFloat(getComputedStyle(textEl || main).fontSize), subFont: parseFloat(getComputedStyle(sub).fontSize),
       subBelow: textEl ? box(textEl).b <= (subBox ? subBox.t + 1 : -1) : false,
     };
-  }, null, { timeout: 20000, polling: 'raf' });
+  }, null, { timeout: 6000, polling: 'raf' });
   return handle.jsonValue();
 }
 

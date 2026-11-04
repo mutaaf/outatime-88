@@ -376,7 +376,8 @@ export const announcer = createAnnouncer({
   show(msg) {
     const mainEl = document.getElementById('announcerMain');
     const subEl = document.getElementById('announcerSub');
-    if (!mainEl || !subEl) return;
+    const textEl = document.getElementById('announcerText');
+    if (!mainEl || !subEl || !textEl) return;
     // The shared lane belongs to the announcer the moment it speaks — not a frame later —
     // so the coach can never be caught on screen with it.
     const coachBanner = document.getElementById('interactiveCoachBanner');
@@ -384,7 +385,7 @@ export const announcer = createAnnouncer({
     RS.coachYieldUntil = performance.now() + 350;
     // One box, one announcement (0247): the sub line (a checkpoint's reward…) is the box's own
     // smaller second line, never a second pill under it.
-    document.getElementById('announcerText').textContent = msg.main;
+    textEl.textContent = msg.main;
     mainEl.classList.toggle('is-beat', GameState.resumeBeat > 0); // the resume beat's big 3, 2, 1 (0231)
     mainEl.classList.toggle('has-sub', !!msg.sub);
     subEl.textContent = msg.sub;
