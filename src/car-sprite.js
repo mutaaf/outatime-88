@@ -13,6 +13,7 @@ import { buildCarModel, drawModel } from './car-art.js';
 import { shapeOf, topOf } from './car-shapes.js';
 import { projectLast } from './car-paint.js';
 import { nearFade, nearAlpha, nearScale } from './near-fade.js';
+export { propAlpha } from './near-fade.js'; // obstacles beside the camera (0245, src/render/sprites.js)
 
 export const YAW_STEPS = 15;       // body yaw from -YAW_MAX to +YAW_MAX, in equal steps
 export const YAW_MAX = 0.7;        // radians (GameState.carYaw is clamped to this)

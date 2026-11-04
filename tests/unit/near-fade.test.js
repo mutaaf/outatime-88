@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { NEAR, nearFade, nearAlpha, nearScale } from '../../src/near-fade.js';
+import { NEAR, nearFade, nearAlpha, nearScale, propAlpha, PROP_DEPTH } from '../../src/near-fade.js';
 import { drawCarAt, drawNear, clearSpriteCache, setSpriteScale } from '../../src/car-sprite.js';
 
 // Near-camera traffic (ticket 0200): a car passing beside the camera eases down to a quarter of
@@ -130,5 +130,33 @@ describe('drawNear (2D traffic)', () => {
     const d = ctx.draws[0];
     expect(out.w).toBeCloseTo(d.dw, 6);
     for (let i = 0; i < out.n; i++) { expect(out.x[i]).toBeGreaterThan(d.x); expect(out.x[i]).toBeLessThan(d.x + d.dw); }
+  });
+});
+
+// Ticket 0245: a lane obstacle (laser hurdle, gantry, barricade) you have steered round used to
+// pass the camera solid, a navy slab up to a third of the screen wide at the road edge. It now
+// takes the same depth fade as near traffic: solid ahead and level with you, see-through past you.
+describe('propAlpha (2D obstacles beside the camera)', () => {
+  it('is solid ahead and level with you, see-through past you, and never comes back', () => {
+    expect(propAlpha(400, 1280)).toBe(1);                // far up the road
+    expect(propAlpha(0.84 * 1280, 1280)).toBe(1);        // level with your car: the threat you read
+    expect(propAlpha(1.0 * 1280, 1280)).toBeCloseTo(NEAR.alpha, 5); // beside the camera
+    expect(propAlpha(3 * 390, 390)).toBeCloseTo(NEAR.alpha, 5);     // the near plane, phone
+    expect(propAlpha(500, 0)).toBe(1);                   // no view yet
+    expect(propAlpha(NaN, 1280)).toBe(1);
+    let prev = 1;
+    for (let r = 0; r <= 4; r += 0.01) {
+      const a = propAlpha(r * 844, 844);
+      expect(a).toBeLessThanOrEqual(prev);
+      expect(a).toBeGreaterThanOrEqual(NEAR.alpha - 1e-9); expect(a).toBeLessThanOrEqual(1);
+      prev = a;
+    }
+  });
+
+  it('only the props you still race are wider than 8% of the view at full alpha', () => {
+    // The widest obstacle is 0.42 of the road (halfW 0.21); past the fade start it is never solid.
+    for (let r = 0.1; r <= 4; r += 0.01) {
+      if (0.42 * r > 0.08 && propAlpha(r * 1280, 1280) === 1) expect(r).toBeLessThanOrEqual(NEAR.from / PROP_DEPTH + 1e-9);
+    }
   });
 });

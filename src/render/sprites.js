@@ -134,6 +134,10 @@ export function drawRoadside(ctx, rw, rh, eraCfg) {
       noteSeen(ox - ow * 0.55, oy - oh * 1.7, ox + ow * 0.55, oy + oh * 0.5);
 
       ctx.save();
+      // Past your car on its way by the camera it draws see-through, like near traffic (0245;
+      // src/near-fade.js propAlpha, reached through the lazy car painter to keep main's budget).
+      const pa = carArt ? carArt.propAlpha(roadW, rw) : 1;
+      if (pa < 1) ctx.globalAlpha *= pa;
       ctx.translate(ox, oy - oh * 0.5);
       ctx.rotate(ob.rot);
 

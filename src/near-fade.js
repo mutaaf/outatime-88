@@ -33,3 +33,16 @@ export function nearScale(cover, t) {
   if (!(cover > NEAR.cover)) return 1;
   return 1 - Math.max(0, Math.min(1, t || 0)) * (1 - NEAR.cover / cover);
 }
+
+// Ticket 0245: obstacles on the road (laser hurdle, gantry, barricade, barrels) take the same
+// depth fade. Their depth is measured like a car's: the width a car would have on that road row
+// (PROP_DEPTH of the road) over the view width, so a prop fades exactly where a car beside it
+// would — solid ahead and level with you (what you hop, duck or steer round), 35% once it is
+// on its way past the camera, where it used to stand as a slab a third of the screen wide.
+export const PROP_DEPTH = 0.32; // a car's width as a share of the road (src/render/sprites.js)
+
+/** Opacity for an obstacle drawn on a road row `roadW` wide, in a view `vw` wide. */
+export function propAlpha(roadW, vw) {
+  if (!(vw > 0) || !(roadW > 0)) return 1;
+  return nearAlpha(nearFade((roadW * PROP_DEPTH) / vw));
+}
