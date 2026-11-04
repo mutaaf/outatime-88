@@ -12,7 +12,7 @@
 import { buildCarModel, drawModel } from './car-art.js';
 import { shapeOf, topOf } from './car-shapes.js';
 import { projectLast } from './car-paint.js';
-import { nearFade, nearAlpha, nearScale } from './near-fade.js';
+import { nearFade, nearAlpha, nearScale, propFade, PROP } from './near-fade.js';
 
 export const YAW_STEPS = 15;       // body yaw from -YAW_MAX to +YAW_MAX, in equal steps
 export const YAW_MAX = 0.7;        // radians (GameState.carYaw is clamped to this)
@@ -213,6 +213,11 @@ export function lookOf(mv) {
  * beside the camera is eased down to a quarter of the view's width and faded to 35%
  * (src/near-fade.js, ticket 0200). Render-only; the simulation never sees it.
  */
+/** Near-camera props (0245) for src/render/sprites.js, here so main stays small: how far a prop is
+ *  into the near fade (from how far it is behind you), its width multiplier, its opacity. */
+export { propFade, nearAlpha, PROP };
+export const propScale = (cover, t) => nearScale(cover, t, PROP.cover);
+
 export function drawNear(ctx, look, x, groundY, carW, o, out) {
   return place(ctx, look, x, groundY, carW, o, out, true);
 }

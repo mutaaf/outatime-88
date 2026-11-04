@@ -1,12 +1,12 @@
 ---
 id: 0245
 title: The dark slab with a red-yellow-red stripe at the right road edge during the first seconds is either given a clear identity or faded like other near objects
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-11-04
-pr:
+pr: 226
 ---
 
 ## Why
