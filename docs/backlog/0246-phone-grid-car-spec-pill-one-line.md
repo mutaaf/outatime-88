@@ -1,12 +1,12 @@
 ---
 id: 0246
 title: Phone grid shows one short car line, not a two-line spec pill stacked under the level banner and above the lights card
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-04
-pr:
+pr: 228
 ---
 
 ## Why
@@ -25,10 +25,10 @@ In `src/racestage.js` (the `rc-mycar` span, ~line 130) and `src/styles.css` (`.r
 on desktop and in the garage). It must fit on one line (ellipsis on the car name if needed).
 
 ## Acceptance criteria
-- [ ] At 390x844 the `.rc-mycar` pill is a single line (height under 1.6 line-heights) and has no SPD/ACC/GRIP/ARMOR text
-- [ ] At 1280x720 the pill is unchanged
-- [ ] The pill never overlaps the lights card or the level banner at 390x844, 844x390 and 1280x720
-- [ ] Works with touch and keyboard; no frame-time regression
+- [x] At 390x844 the `.rc-mycar` pill is a single line (height under 1.6 line-heights) and has no SPD/ACC/GRIP/ARMOR text
+- [x] At 1280x720 the pill is unchanged
+- [x] The pill never overlaps the lights card or the level banner at 390x844, 844x390 and 1280x720
+- [x] Works with touch and keyboard; no frame-time regression
 
 ## Test plan
 Add an e2e in a new small spec file that starts level 1 at the three viewports, waits for the
