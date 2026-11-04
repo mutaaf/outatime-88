@@ -203,9 +203,10 @@ test.describe('resume beat (keyboard, 1280x720)', () => {
   const record = (page) => page.evaluate(() => {
     const log = window.__beatLog = [];
     const el = document.getElementById('announcerMain');
+    const line = document.getElementById('announcerText'); // the main line; GET READY is the box's second line (0247)
     (function tick() {
       const g = window.__OT.GameState;
-      log.push({ t: performance.now(), n: g.resumeBeat, d: g.distance, s: g.status, text: el.textContent, big: el.classList.contains('is-beat') });
+      log.push({ t: performance.now(), n: g.resumeBeat, d: g.distance, s: g.status, text: line.textContent, sub: document.getElementById('announcerSub').textContent, big: el.classList.contains('is-beat') });
       if (log.length < 2000) requestAnimationFrame(tick);
     })();
   });
@@ -238,7 +239,7 @@ test.describe('resume beat (keyboard, 1280x720)', () => {
     expect(beat.every((r) => r.s === 'PLAYING')).toBe(true);
     // 3, 2, 1 in order, each in the one announcement slot (nothing else on it), shown big.
     expect([...new Set(beat.map((r) => r.n))]).toEqual([3, 2, 1]);
-    for (const r of beat) { expect(r.text).toBe(String(r.n)); expect(r.big).toBe(true); }
+    for (const r of beat) { expect(r.text).toBe(String(r.n)); expect(r.sub).toBe('GET READY'); expect(r.big).toBe(true); }
     // The race does not move during the beat, which lasts ~0.9 s of wall time.
     const d0 = log.find((r) => r.s === 'PAUSED').d;
     for (const r of beat) expect(r.d).toBe(d0);

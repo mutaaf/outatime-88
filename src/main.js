@@ -382,20 +382,20 @@ export const announcer = createAnnouncer({
     const coachBanner = document.getElementById('interactiveCoachBanner');
     if (coachBanner) hideCoach(coachBanner);
     RS.coachYieldUntil = performance.now() + 350;
-    mainEl.textContent = msg.main;
+    // One box, one announcement (0247): the sub line (a checkpoint's reward…) is the box's own
+    // smaller second line, never a second pill under it.
+    document.getElementById('announcerText').textContent = msg.main;
     mainEl.classList.toggle('is-beat', GameState.resumeBeat > 0); // the resume beat's big 3, 2, 1 (0231)
+    mainEl.classList.toggle('has-sub', !!msg.sub);
     subEl.textContent = msg.sub;
     mainEl.style.opacity = '1';
     mainEl.style.transform = 'scale(1.06)';
-    subEl.style.opacity = msg.sub ? '1' : '0';
   },
   hide() {
     const mainEl = document.getElementById('announcerMain');
-    const subEl = document.getElementById('announcerSub');
-    if (!mainEl || !subEl) return;
+    if (!mainEl) return;
     mainEl.style.opacity = '0';
     mainEl.style.transform = 'scale(0.9)';
-    subEl.style.opacity = '0';
   },
 });
 
