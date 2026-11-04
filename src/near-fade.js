@@ -28,8 +28,23 @@ export function nearAlpha(t) {
   return 1 - (1 - NEAR.alpha) * Math.max(0, Math.min(1, t || 0));
 }
 
-/** Width multiplier for a body covering `cover` of the view width at fade `t`: eases to the cap. */
-export function nearScale(cover, t) {
-  if (!(cover > NEAR.cover)) return 1;
-  return 1 - Math.max(0, Math.min(1, t || 0)) * (1 - NEAR.cover / cover);
+/** Width multiplier for a body covering `cover` of the view width at fade `t`: eases to `cap`. */
+export function nearScale(cover, t, cap = NEAR.cover) {
+  if (!(cover > cap)) return 1;
+  return 1 - Math.max(0, Math.min(1, t || 0)) * (1 - cap / cover);
+}
+
+// Near-camera props (ticket 0245): obstacles and knockable props (hurdles, barriers, gates,
+// cones, barrels, era props) fade at the same depth as the cars beside them. A lane-wide hurdle
+// passed on the right used to stand at the screen edge as a solid navy slab with a red-yellow
+// band (half the view wide); it now eases to 8% of the view and 35% alpha on its way past.
+export const PROP = {
+  q: 0.32,      // a car's road-scaled width (sprites.js): depth = PROP.q × road width / view width
+  cover: 0.072, // widest a prop's box (ow) may be once faded, as a share of the view width …
+  spill: 1.1,   // … since art reaches ±0.55·ow: 0.072 × 1.1 ≈ 8% of the view on screen
+};
+
+/** How far into the near zone a prop is, from its road width as a share of the view width. */
+export function propFade(roadShare) {
+  return nearFade(PROP.q * roadShare);
 }

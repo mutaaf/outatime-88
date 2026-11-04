@@ -278,6 +278,8 @@ src/layout.js       Compact/full HUD decision + measured overlay slots (zero-ove
                       for race-flow's coach) puts the coach tip in the HUD row beside the place card
 src/near-fade.js    Near-camera traffic (0200), pure: a car passing beside the camera eases to ≤ 22% of the view and 35% alpha;
                       depth = road-scaled car width / view width; car-sprite.js drawNear applies it to every non-player car
+                      Props (0245): sprites.js fades every obstacle/prop at the same depth (propFade) down to 8% of the view,
+                      through carArt (the lazy car painter re-exports propFade/propScale/nearAlpha; main had ~140 B free)
 src/warp-cue.js     WARP READY cue (0112), pure: createReadyCue(min) is true once per fill (re-arms 5 below). The race step
                       sets GameState.warpReady (a boost would warp now: meter ≥ 92, cooldown over, racing) and plays a rising
                       tick on its edge; the HUD label, hints and the touch WARP button (READY + double border) read it
