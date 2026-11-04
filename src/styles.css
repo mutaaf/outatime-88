@@ -738,6 +738,12 @@ body.labels-up #steerHint { visibility: hidden !important; transition: none !imp
 .rc-mycar { flex-basis: 100%; margin: 0 auto; padding: 3px 12px; border-radius: 999px; font-size: clamp(10px, 1.5vmin, 13px); font-weight: 700; text-align: center;
   color: #e2e8f0; background: rgba(2, 6, 23, 0.86); border: 1px solid #ff8800; }
 .rc-mycar b { color: #fde047; }
+/* 0246: under 600 px wide the pill is one line, CAR NAME · CLASS; the spec stays for desktop and the garage. */
+@media (max-width: 599px) {
+  .rc-mycar { white-space: nowrap; overflow: hidden; }
+  .rc-mycar-spec { display: none; }
+  .rc-mycar-name { display: inline-block; max-width: calc(100% - 13em); overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
+}
 .pod-carbox { display: grid; place-items: center; width: 40px; height: 28px; }
 .pod-car { width: 40px; height: 28px; object-fit: contain; }
 .rc-text { display: flex; flex-direction: column; min-width: 0; text-align: left; }

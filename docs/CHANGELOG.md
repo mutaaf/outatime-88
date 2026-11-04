@@ -174,3 +174,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-02 · 0243 · The first-run "thumb here to steer" prompt steps aside while a score plate is up and comes back after, so the two never sit on the same pixels
 2026-11-03 · 0244 · On the start grid the overhead gantry goes see-through where it rises behind the track bar, gap pill and timer, so the HUD strip reads on calm art
 2026-11-04 · 0245 · A hurdle, barrier or cone you have just passed fades and shrinks beside the camera like the cars do, so a lane-wide hurdle never stands at the screen edge as a solid navy slab or under the phone buttons
+2026-11-04 · 0246 · On a phone the start grid's car pill is one short line, car name and class, instead of a two-line stat strip above the lights; desktop keeps the full spec

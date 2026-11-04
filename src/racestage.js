@@ -127,7 +127,7 @@ export const stage = {
     const me = field.find((r) => r.isPlayer);
     // One compact row of six chips (ticket 0111): place, initials and colour, the road stays in view.
     el.innerHTML = field.map((r, i) => `<span class="rc-chip${r.isPlayer ? ' rc-chip-you' : ''}" style="--c1:${esc(r.color)}"><b>P${i + 1}</b> ${esc(r.isPlayer ? 'YOU' : r.short)}</span>`).join('')
-      + (me && me.cls ? `<span class="rc-mycar">${esc(me.car || '')} · <b>${esc(me.cls)}</b>${me.specLine ? ` · ${esc(me.specLine)}` : ''}</span>` : '');
+      + (me && me.cls ? `<span class="rc-mycar"><span class="rc-mycar-name">${esc(me.car || '')}</span> · <b>${esc(me.cls)}</b>${me.specLine ? `<span class="rc-mycar-spec"> · ${esc(me.specLine)}</span>` : ''}</span>` : '');
     el.classList.remove('hidden');
     gridOff();
     if (!phoneMq && window.matchMedia) phoneMq = window.matchMedia(PHONE_GRID);
