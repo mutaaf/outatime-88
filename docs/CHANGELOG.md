@@ -177,3 +177,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-04 · 0246 · On a phone the start grid's car pill is one short line, car name and class, instead of a two-line stat strip above the lights; desktop keeps the full spec
 2026-11-04 · 0247 · A checkpoint and its reward (and every announcement with a second line) now read as one banner: the reward is the box's own smaller second line, not a second pill under it.
 2026-11-05 · 0248 · On a phone held sideways the start lights are one slim row above the road, so your car and the traffic ahead stay in view at GO
+2026-11-05 · 0249 · The nemesis intro no longer lands on top of the fork cards or a crash plate: it waits until they are gone, so the lane choice is the one thing to read

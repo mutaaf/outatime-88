@@ -460,15 +460,21 @@ export function fillWorld(w, field, playerZ, road, g, s2w) {
   return w;
 }
 
+/** The nemesis intro is skipped for a race once it has waited this long (s) for a clear screen (0249). */
+export const NEMESIS_LATEST = 25;
+
 /**
  * Race-call extras for this frame. `c` is the position callout (or null): when a rival's pass
  * just dropped you, its sub-line says who and how. Returns the nemesis intro [main, sub] once,
- * about 7 s in, when nothing else is being called.
+ * about 7 s in, when nothing else is being called. `blocked` (fork cards or an impact plate up,
+ * ticket 0249) holds it back too; it fires on the first clear frame, or not at all after 25 s.
  */
-export function raceCalls(w, field, c) {
+export function raceCalls(w, field, c, blocked) {
   const by = w.passedYou;
   if (c && c.kind === 'down' && by && w.time - w.passedYouAt < 3) c.sub = `${by.nemesis ? '😈 ' : ''}${by.short} — ${by.ai.lastPassHow}`;
-  if (w.nemesisCalled || w.time < 7 || c) return null;
+  if (w.nemesisCalled || w.time < 7) return null;
+  if (w.time >= NEMESIS_LATEST) { w.nemesisCalled = true; return null; }
+  if (c || blocked) return null;
   w.nemesisCalled = true;
   const n = field.racers.find((r) => r.nemesis);
   return n ? [`😈 NEMESIS: ${n.short}`, `${n.driver.toUpperCase()} IS GUNNING FOR YOU`] : null;
