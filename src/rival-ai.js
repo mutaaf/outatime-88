@@ -463,6 +463,9 @@ export function fillWorld(w, field, playerZ, road, g, s2w) {
 /** The nemesis intro is skipped for a race once it has waited this long (s) for a clear screen (0249). */
 export const NEMESIS_LATEST = 25;
 
+/** A crew is two drivers in one car ("Vex & Ion Arden"): it takes a plural verb (ticket 0250). */
+const CREW = / & /;
+
 /**
  * Race-call extras for this frame. `c` is the position callout (or null): when a rival's pass
  * just dropped you, its sub-line says who and how. Returns the nemesis intro [main, sub] once,
@@ -477,5 +480,5 @@ export function raceCalls(w, field, c, blocked) {
   if (c || blocked) return null;
   w.nemesisCalled = true;
   const n = field.racers.find((r) => r.nemesis);
-  return n ? [`😈 NEMESIS: ${n.short}`, `${n.driver.toUpperCase()} IS GUNNING FOR YOU`] : null;
+  return n ? [`😈 NEMESIS: ${n.short}`, `${n.driver.toUpperCase()} ${CREW.test(n.driver) ? 'ARE' : 'IS'} GUNNING FOR YOU`] : null;
 }

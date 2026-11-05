@@ -1,12 +1,12 @@
 ---
 id: 0250
 title: A crew rival's nemesis line reads "ARE GUNNING FOR YOU", not "IS" ("VEX & ION ARDEN")
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: content
 created: 2026-11-05
-pr:
+pr: 234
 ---
 
 ## Why

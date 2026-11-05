@@ -1,6 +1,7 @@
 // Rival racing AI (ticket 0160): corners, passes, NOS, loops, the tier ramp and determinism.
 import { describe, it, expect } from 'vitest';
 import { AI, aiTier, driverProfile, createBrain, rampBrain, cornerMph, createAiWorld, stepRival, pickNemesis, raceCalls, NEMESIS_LATEST } from '../../src/rival-ai.js';
+import { POP_CULTURE_ROSTER, MULTIVERSE_POOL } from '../../src/data.js';
 
 const DT = 1 / 120;
 const S2W = 125; // sim Z per mph·s (11000 / 88 at pace 1)
@@ -270,5 +271,34 @@ describe('raceCalls: the nemesis intro', () => {
     expect(w.nemesisCalled).toBe(true);
     w.time = 30;
     expect(raceCalls(w, field, null, false)).toBe(null);
+  });
+});
+
+// Ticket 0250: a crew (two drivers, "A & B") takes a plural verb in the nemesis intro.
+describe('raceCalls: crew grammar', () => {
+  const intro = (driver) => {
+    const w = createAiWorld(); w.time = 7;
+    return raceCalls(w, { racers: [{ short: 'X', driver, nemesis: true }] }, null, false);
+  };
+
+  it('a crew driver ARE gunning for you; a single driver IS', () => {
+    expect(intro('Vex & Ion Arden')).toEqual(['😈 NEMESIS: X', 'VEX & ION ARDEN ARE GUNNING FOR YOU']);
+    expect(intro('Kai Mercer')).toEqual(['😈 NEMESIS: X', 'KAI MERCER IS GUNNING FOR YOU']);
+  });
+
+  it('every roster driver gets the verb that agrees with it', () => {
+    // The crews, by hand: a new two-driver name must be added here (and read right) on purpose.
+    const CREWS = ['Rook & The Professor', 'Vex & Ion Arden', 'Ada Voss & LUMEN', 'Drs. Penn & Okafor', 'Cody & Clay Brandt'];
+    const drivers = [...POP_CULTURE_ROSTER, ...MULTIVERSE_POOL].map((r) => r.driver);
+    expect(drivers.filter((d) => d.includes('&')).sort()).toEqual([...CREWS].sort());
+    for (const driver of drivers) {
+      expect(intro(driver)[1], driver).toBe(`${driver.toUpperCase()} ${CREWS.includes(driver) ? 'ARE' : 'IS'} GUNNING FOR YOU`);
+    }
+    expect(intro('Rook & The Professor')[1]).toBe('ROOK & THE PROFESSOR ARE GUNNING FOR YOU');
+    expect(intro('Ada Voss & LUMEN')[1]).toBe('ADA VOSS & LUMEN ARE GUNNING FOR YOU');
+  });
+
+  it('an ampersand inside a single name (no spaces) stays singular', () => {
+    expect(intro('R&B Rico')[1]).toBe('R&B RICO IS GUNNING FOR YOU');
   });
 });
