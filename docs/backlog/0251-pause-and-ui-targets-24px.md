@@ -23,9 +23,9 @@ fix offenders with padding (hit area only, no visual redesign). Touches `src/sty
 `src/touch/`, new spec.
 
 ## Acceptance criteria
-- [ ] New e2e reports zero offenders at 390x844 and 844x390 (title, grid, mid-run, pause)
-- [ ] No visual layout change beyond invisible padding
-- [ ] 1280x720 unchanged
+- [x] New e2e reports zero offenders at 390x844 and 844x390 (title, grid, mid-run, pause)
+- [x] No visual layout change beyond invisible padding
+- [x] 1280x720 unchanged
 
 ## Test plan
 `tests/e2e/target-size.spec.js`: query buttons/[role=button]/inputs, assert bounding boxes.

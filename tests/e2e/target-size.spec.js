@@ -24,8 +24,11 @@ const MUST = {
   pause: ['btnResumeFromGarage'],
   results: ['btnPlayAgain', 'btnOpenGarageFromEnd', 'btnSelectLevelFromEnd'],
   'grid lineup': ['rcSkip'],
+  // Touch: the WARP pad the lights tell you to tap, and pause. With a mouse the stage covers the
+  // HUD and the lights are a status, not a control: that screen must audit as empty.
   'grid lights': [],
 };
+const MUST_TOUCH = { ...MUST, 'grid lights': ['tcBoost', 'tcPause'] };
 
 const homeReady = (page) => page.waitForFunction(() => document.querySelector('#homeHooks')?.childElementCount > 0);
 
@@ -99,16 +102,23 @@ async function walk(page, check) {
 }
 
 /** The start grid (ticket 0251): a real race's lineup (TAP TO SKIP) and its lights, which the
- *  debug walk above skips. Audited while the ceremony owns the screen. */
+ *  debug walk above skips. The frame loop is held (__OT.sim(0)) while each phase is audited, and
+ *  the phase is asserted still on screen, so a slow runner can't audit the race HUD instead. */
 async function walkGrid(page, check) {
   await page.goto(`${APP}?debug`);
   await homeReady(page);
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE', intro: true }));
-  await expect(page.locator('#rcSkip')).toBeVisible({ timeout: 10_000 });
-  await check('grid lineup');
+  const held = async (screen, sel) => {
+    await expect(page.locator(sel)).toBeVisible({ timeout: 10_000 });
+    await page.evaluate(() => window.__OT.sim(0));
+    await check(screen);
+    expect(await page.evaluate(() => window.__OT.GameState.racePhase), `${screen}: still the grid`).toBe('START');
+    await expect(page.locator(sel)).toBeVisible({ timeout: 1 });
+    await page.evaluate(() => window.__OT.release());
+  };
+  await held('grid lineup', '#rcSkip');
   await page.locator('#rcSkip').click();
-  await expect(page.locator('#rcLights')).toBeVisible({ timeout: 10_000 });
-  await check('grid lights');
+  await held('grid lights', '#rcLights');
 }
 
 test('mouse at 1280x720: every control is 24x24 or spaced like one', async ({ page }) => {
@@ -127,6 +137,7 @@ test('mouse at 1280x720: start grid: every control is 24x24 or spaced like one',
   await walkGrid(page, async (screen) => {
     const list = await targets(page);
     expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST[screen]));
+    if (screen === 'grid lights') expect(list, 'the stage covers the HUD during the lights').toEqual([]);
     expect(pointerFails(list), `${screen}: undersized controls`).toEqual([]);
   });
   expect(problems).toEqual([]);
@@ -152,7 +163,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
       const problems = watchPage(page);
       await walkGrid(page, async (screen) => {
         const list = await targets(page);
-        expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST[screen]));
+        expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST_TOUCH[screen]));
         expect(touchFails(list), `${screen}: controls under 44 px`).toEqual([]);
       });
       expect(problems).toEqual([]);
