@@ -25,13 +25,16 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       if (forks.length) g.trackPos = forks[forks.length - 1].p2.world.z + 3000;
       g.invulnTimer = 30; g.playerX = 0; g.speed = 70; g.autoGas = true; // drive on: no stall call
     }, CREW);
+    // The call first (a clear message if it was held back or skipped), then the banner it shows.
+    await page.waitForFunction(() => window.__OT.traffic().aiWorld.nemesisCalled, null, { timeout: 40000 });
+    expect(await page.evaluate(() => window.__OT.traffic().aiWorld.nemesisCalled)).toBe(true);
     const seen = await (await page.waitForFunction(() => {
       const main = document.getElementById('announcerMain'), sub = document.getElementById('announcerSub');
       if (main.style.opacity !== '1' || !document.getElementById('announcerText').textContent.includes('NEMESIS')) return null;
       if (parseFloat(getComputedStyle(main).opacity) < 0.99) return null; // past the fade-in
       const s = sub.getBoundingClientRect(), m = main.getBoundingClientRect();
       return { text: sub.textContent, h: s.height, lh: parseFloat(getComputedStyle(sub).lineHeight), left: m.left, right: m.right };
-    }, null, { timeout: 40000, polling: 'raf' })).jsonValue();
+    }, null, { timeout: 10000, polling: 'raf' })).jsonValue();
     expect(seen.text).toBe('ROOK & THE PROFESSOR ARE GUNNING FOR YOU');
     expect(seen.h).toBeLessThan(seen.lh * 1.5); // one row
     expect(seen.left).toBeGreaterThanOrEqual(0);

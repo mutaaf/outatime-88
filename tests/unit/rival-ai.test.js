@@ -287,9 +287,12 @@ describe('raceCalls: crew grammar', () => {
   });
 
   it('every roster driver gets the verb that agrees with it', () => {
-    for (const { driver } of [...POP_CULTURE_ROSTER, ...MULTIVERSE_POOL]) {
-      const sub = intro(driver)[1];
-      expect(sub, driver).toBe(`${driver.toUpperCase()} ${driver.includes(' & ') ? 'ARE' : 'IS'} GUNNING FOR YOU`);
+    // The crews, by hand: a new two-driver name must be added here (and read right) on purpose.
+    const CREWS = ['Rook & The Professor', 'Vex & Ion Arden', 'Ada Voss & LUMEN', 'Drs. Penn & Okafor', 'Cody & Clay Brandt'];
+    const drivers = [...POP_CULTURE_ROSTER, ...MULTIVERSE_POOL].map((r) => r.driver);
+    expect(drivers.filter((d) => d.includes('&')).sort()).toEqual([...CREWS].sort());
+    for (const driver of drivers) {
+      expect(intro(driver)[1], driver).toBe(`${driver.toUpperCase()} ${CREWS.includes(driver) ? 'ARE' : 'IS'} GUNNING FOR YOU`);
     }
     expect(intro('Rook & The Professor')[1]).toBe('ROOK & THE PROFESSOR ARE GUNNING FOR YOU');
     expect(intro('Ada Voss & LUMEN')[1]).toBe('ADA VOSS & LUMEN ARE GUNNING FOR YOU');
