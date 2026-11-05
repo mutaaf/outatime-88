@@ -40,6 +40,8 @@ function sampleLights(page) {
             countText: document.getElementById('rcCount').textContent,
             hint: box(hint),
             hintText: hint.textContent,
+            layout: { pos: getComputedStyle(el).position, dir: getComputedStyle(el).flexDirection,
+              countPx: parseFloat(getComputedStyle(document.getElementById('rcCount')).fontSize) },
             others: ['announcerMain', 'coachCard', 'hudPosCard', 'hudTrack', 'hudTimes', 'hudSpeedCard']
               .map((id) => ({ id, b: box(document.getElementById(id)) })).filter((o) => o.b),
             car: c.x1 > c.x0 ? { l: c.x0, t: c.y0, r: c.x1, b: c.y1 } : null,
@@ -133,28 +135,23 @@ test.describe('landscape phone 844x390, a jumped start', () => {
   });
 });
 
-// The card on desktop and portrait phones, as measured on main before 0248 (±1 px). On a portrait
-// phone the grid's beats move the card up and down (0215), so only its width is pinned there.
-const UNCHANGED = [
-  { w: 1280, h: 720, card: { l: 393, t: 283, r: 887, b: 507 } },
-  { w: 390, h: 844, phone: true, card: { l: 16, r: 374 } },
-];
-
-for (const u of UNCHANGED) {
-  test.describe(`${u.w}x${u.h}`, () => {
-    test.use({ viewport: { width: u.w, height: u.h }, ...(u.phone ? { hasTouch: true, isMobile: true } : {}) });
+// Desktop and portrait phones keep main's card: in the stage's flow, stacked (lamps over the count
+// over the prompt), the count at its clamp(54px, 13vmin, 140px) size. Asserted from the styles, not
+// pixel boxes, which shift a few px with the runner's fonts.
+for (const [w, h, phone] of [[1280, 720, false], [390, 844, true]]) {
+  test.describe(`${w}x${h}`, () => {
+    test.use({ viewport: { width: w, height: h }, ...(phone ? { hasTouch: true, isMobile: true } : {}) });
 
     test('keeps the big stacked card', async ({ page }) => {
       const problems = watchPage(page);
       const frames = await toLights(page);
       const m = frames.find((f) => f.state === '3');
-      if (u.card) {
-        for (const k of Object.keys(u.card)) expect(Math.abs(m.card[k] - u.card[k])).toBeLessThanOrEqual(1);
-      }
-      // Stacked: lamps above the count above the prompt, full-size count.
+      expect(m.layout.pos).toBe('static');
+      expect(m.layout.dir).toBe('column');
+      expect(m.layout.countPx).toBeCloseTo(Math.min(140, Math.max(54, 0.13 * Math.min(w, h))), 0);
       expect(m.bulbs[0].b).toBeLessThanOrEqual(m.count.t + 1);
       expect(m.count.b).toBeLessThanOrEqual(m.hint.t + 1);
-      expect(m.count.b - m.count.t).toBeGreaterThan(50);
+      expect(Math.abs((m.card.l + m.card.r) / 2 - w / 2)).toBeLessThanOrEqual(1);
       expect(problems).toEqual([]);
     });
   });
