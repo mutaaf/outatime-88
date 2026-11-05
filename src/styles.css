@@ -780,6 +780,22 @@ body.labels-up #steerHint { visibility: hidden !important; transition: none !imp
 .rc-finish-place { font-size: clamp(64px, 15vmin, 160px); font-weight: 900; font-style: italic; line-height: 0.95; color: #fde047; text-shadow: 0 0 30px rgba(253, 224, 71, 0.8), 0 6px 0 #b45309; }
 .rc-finish-line { font-size: clamp(14px, 2.6vmin, 26px); font-weight: 900; letter-spacing: 0.12em; color: #fff; }
 @media (max-height: 560px) { .race-stage .rc-grid { display: none !important; } .race-stage { justify-content: flex-end; padding-bottom: 12px; } }
+/* 0248: landscape phones (under 480 px tall). The lights are one slim row (lamps, count, prompt)
+   whose bottom sits just above the road's horizon (46% of the height, src/render/road.js), under
+   the level banner: the car, the lane band and the traffic ahead stay in view at GO. */
+@media (max-height: 479px) {
+  .race-stage .rc-lights { position: absolute; left: 50%; bottom: calc(54% + 4px); transform: translateX(-50%);
+    flex-direction: row; gap: 8px; padding: 3px 12px; border-radius: 14px; white-space: nowrap; }
+  .rc-lights .rc-bulbs { gap: 5px; }
+  .rc-lights .rc-bulbs i { width: 16px; height: 16px; border-width: 2px; box-shadow: inset 0 0 5px #000; }
+  .rc-lights[data-state="3"] .rc-bulbs i:nth-child(1),
+  .rc-lights[data-state="2"] .rc-bulbs i:nth-child(-n+2),
+  .rc-lights[data-state="1"] .rc-bulbs i { box-shadow: 0 0 10px #ff1f1f; }
+  .rc-lights[data-state="go"] .rc-bulbs i { box-shadow: 0 0 12px #22ff66; }
+  .rc-lights .rc-count { min-width: 2.1em; font-size: 26px; text-shadow: 0 0 12px rgba(255, 31, 31, 0.8), 0 2px 0 #7f0000; }
+  .rc-lights[data-state="go"] .rc-count { text-shadow: 0 0 14px rgba(34, 255, 102, 0.9), 0 2px 0 #046b2a; }
+  .rc-lights .rc-hint { font-size: 10px; letter-spacing: 0.08em; }
+}
 /* Phones (ticket 0215): the grid's chips, then your car's stats, never together; the first-race
    thumb guide waits until both are gone (racestage.js sets data-beat and body.rc-grid-up). */
 @media (max-width: 479px) and (min-height: 561px) {
