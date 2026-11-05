@@ -1,12 +1,12 @@
 ---
 id: 0248
 title: Landscape phone start-lights card shrinks so the road and car stay visible at GO
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-05
-pr:
+pr: 231
 ---
 
 ## Why

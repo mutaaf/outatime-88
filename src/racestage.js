@@ -150,6 +150,7 @@ export const stage = {
     $('rcSkip').classList.add('hidden');
     const el = $('rcLights');
     el.classList.remove('hidden');
+    if (n === 3) el.classList.remove('rc-yield'); // a launch call hid it last race (0248)
     el.dataset.state = n === 'go' ? 'go' : String(n);
     if (n === 3) {
       const h = hint(); // a rebound BOOST key is named instead of SPACE (0013)
