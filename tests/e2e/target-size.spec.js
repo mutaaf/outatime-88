@@ -1,6 +1,7 @@
 // Target size (ticket 0210). Every visible control on the title, Settings, the garage, the race
-// HUD, the pause sheet and the results card must be big enough to hit: 24x24 CSS px with a mouse
-// (WCAG 2.2 SC 2.5.8, or the SC's spacing exception), 44x44 on a touch screen (invariant 5).
+// HUD, the pause sheet, the results card and the start grid (lineup and lights, 0251) must be big
+// enough to hit: 24x24 CSS px with a mouse (WCAG 2.2 SC 2.5.8, or the SC's spacing exception),
+// 44x44 on a touch screen (invariant 5).
 // The in-race touch pads have their own suite (touch-layouts.spec.js).
 //
 // A control's size is its real hit box, not its drawn box: a ::after that reaches past the edge
@@ -22,6 +23,8 @@ const MUST = {
   'race HUD': ['btnSteerMode'],
   pause: ['btnResumeFromGarage'],
   results: ['btnPlayAgain', 'btnOpenGarageFromEnd', 'btnSelectLevelFromEnd'],
+  'grid lineup': ['rcSkip'],
+  'grid lights': [],
 };
 
 const homeReady = (page) => page.waitForFunction(() => document.querySelector('#homeHooks')?.childElementCount > 0);
@@ -95,10 +98,33 @@ async function walk(page, check) {
   await check('results');
 }
 
+/** The start grid (ticket 0251): a real race's lineup (TAP TO SKIP) and its lights, which the
+ *  debug walk above skips. Audited while the ceremony owns the screen. */
+async function walkGrid(page, check) {
+  await page.goto(`${APP}?debug`);
+  await homeReady(page);
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE', intro: true }));
+  await expect(page.locator('#rcSkip')).toBeVisible({ timeout: 10_000 });
+  await check('grid lineup');
+  await page.locator('#rcSkip').click();
+  await expect(page.locator('#rcLights')).toBeVisible({ timeout: 10_000 });
+  await check('grid lights');
+}
+
 test('mouse at 1280x720: every control is 24x24 or spaced like one', async ({ page }) => {
   test.setTimeout(90_000);
   const problems = watchPage(page);
   await walk(page, async (screen) => {
+    const list = await targets(page);
+    expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST[screen]));
+    expect(pointerFails(list), `${screen}: undersized controls`).toEqual([]);
+  });
+  expect(problems).toEqual([]);
+});
+
+test('mouse at 1280x720: start grid: every control is 24x24 or spaced like one', async ({ page }) => {
+  const problems = watchPage(page);
+  await walkGrid(page, async (screen) => {
     const list = await targets(page);
     expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST[screen]));
     expect(pointerFails(list), `${screen}: undersized controls`).toEqual([]);
@@ -115,6 +141,16 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
       test.setTimeout(90_000);
       const problems = watchPage(page);
       await walk(page, async (screen) => {
+        const list = await targets(page);
+        expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST[screen]));
+        expect(touchFails(list), `${screen}: controls under 44 px`).toEqual([]);
+      });
+      expect(problems).toEqual([]);
+    });
+
+    test('the start grid: every control is at least 44x44', async ({ page }) => {
+      const problems = watchPage(page);
+      await walkGrid(page, async (screen) => {
         const list = await targets(page);
         expect(list.map((t) => t.el), `${screen}: controls audited`).toEqual(expect.arrayContaining(MUST[screen]));
         expect(touchFails(list), `${screen}: controls under 44 px`).toEqual([]);
