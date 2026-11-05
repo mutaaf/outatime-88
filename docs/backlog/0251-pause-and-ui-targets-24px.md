@@ -1,12 +1,12 @@
 ---
 id: 0251
 title: Every tappable control on the phone HUD is at least 24x24 CSS px (WCAG 2.5.8)
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: accessibility
 created: 2026-11-05
-pr:
+pr: 235
 ---
 
 ## Why
@@ -23,9 +23,9 @@ fix offenders with padding (hit area only, no visual redesign). Touches `src/sty
 `src/touch/`, new spec.
 
 ## Acceptance criteria
-- [ ] New e2e reports zero offenders at 390x844 and 844x390 (title, grid, mid-run, pause)
-- [ ] No visual layout change beyond invisible padding
-- [ ] 1280x720 unchanged
+- [x] New e2e reports zero offenders at 390x844 and 844x390 (title, grid, mid-run, pause)
+- [x] No visual layout change beyond invisible padding
+- [x] 1280x720 unchanged
 
 ## Test plan
 `tests/e2e/target-size.spec.js`: query buttons/[role=button]/inputs, assert bounding boxes.

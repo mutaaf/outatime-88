@@ -179,3 +179,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-05 · 0248 · On a phone held sideways the start lights are one slim row above the road, so your car and the traffic ahead stay in view at GO
 2026-11-05 · 0249 · The nemesis intro no longer lands on top of the fork cards or a crash plate: it waits until they are gone, so the lane choice is the one thing to read
 2026-11-05 · 0250 · A two-driver crew as your nemesis now reads right: "ROOK & THE PROFESSOR ARE GUNNING FOR YOU", not "IS"
+2026-11-05 · 0251 · TAP TO SKIP and the WARP and pause pads you can reach during the start lights are now checked for finger size on phones and desktop, like every other control (test only: all already pass)
