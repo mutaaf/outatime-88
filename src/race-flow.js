@@ -588,7 +588,7 @@ export function updateRaceCeremony(rawDt) {
     const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
     // Who got you and how, and the nemesis intro (ticket 0160, src/rival-ai.js). The intro waits
     // while the fork cards or an impact plate are up (0249): one text channel at a time.
-    const nc = RAI && LiveTraffic.aiWorld && RAI.raceCalls(LiveTraffic.aiWorld, LiveTraffic, c, introBlocked());
+    const nc = RAI && LiveTraffic.aiWorld && RAI.raceCalls(LiveTraffic.aiWorld, LiveTraffic, c, !LiveTraffic.aiWorld.nemesisCalled && introBlocked());
     if (nc) triggerAnnouncement(nc[0], nc[1], 1600, 2);
     if (c) {
       triggerAnnouncement(c.main, c.sub, 1500, c.kind === 'final' ? 3 : 2);

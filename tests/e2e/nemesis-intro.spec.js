@@ -28,6 +28,7 @@ const samples = (page) => page.evaluate(() => { window.__nemStop = true; return 
 
 for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
   test(`the nemesis intro waits for the fork cards at ${vp.width}x${vp.height}`, async ({ browser }) => {
+    test.slow(); // ~10 s of race time on a starved runner
     const ctx = await browser.newContext({ viewport: vp, reducedMotion: 'reduce', hasTouch: vp.width < 600 });
     const page = await ctx.newPage();
     const problems = watchPage(page);
@@ -72,25 +73,31 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
 }
 
 test('the nemesis intro waits for an impact plate', async ({ page }) => {
+  test.slow(); // ~10 s of race time on a starved runner
   const problems = watchPage(page);
   await page.goto(`${APP}?debug`);
   await page.locator('#btnStartRace').click();
   await racing(page);
   await page.waitForFunction(() => window.__OT.traffic().aiWorld && window.__OT.traffic().racers.some((r) => r.nemesis));
-  // One impact plate that stays up until 10 s into the race; the car kept out of trouble.
+  // One impact plate that stays up until 10 s into the race. The car is parked where it started,
+  // short of the first fork, so neither the cards nor a real crash plate decide the timing.
   await page.evaluate(() => {
-    const g = window.__OT.GameState;
+    const g = window.__OT.GameState, z = g.trackPos;
     const life = 10 - g.raceTime;
     g.hitShockwaves.push({ x: 0, y: -20, radius: 15, maxRadius: 145, color: '#ef4444', label: '💥 SOLID TRAFFIC IMPACT!', hit: true, life, maxLife: life });
-    window.__nemHold = setInterval(() => { g.invulnTimer = 30; g.hp = g.maxHp; }, 5);
+    window.__nemHold = setInterval(() => {
+      g.invulnTimer = 30; g.hp = g.maxHp; g.speed = 0; g.autoGas = false; g.trackPos = z; g.playerVX = 0;
+    }, 5);
   });
   await startSampling(page);
   await page.waitForFunction(() => window.__OT.traffic().aiWorld.nemesisCalled, null, { timeout: 60000 });
+  // Drive on, so a stall call doesn't hold the channel while we wait for the banner.
+  await page.evaluate(() => { clearInterval(window.__nemHold); const g = window.__OT.GameState; g.speed = 70; g.autoGas = true; });
   await page.waitForFunction(() => window.__nemSamples.some((x) => x.nem), null, { timeout: 20000 });
-  await page.evaluate(() => clearInterval(window.__nemHold));
   const s = await samples(page);
   const calledAt = s.find((x) => x.called), shownAt = s.find((x) => x.nem);
   expect(s.filter((x) => x.plate && x.t >= 7).length).toBeGreaterThan(10); // the plate was up past 7 s
+  expect(s.filter((x) => x.fork && x.t < calledAt.t)).toEqual([]); // the plate, not a fork, held it
   expect(calledAt.t, 'not while the plate is up').toBeGreaterThanOrEqual(9.9);
   expect(calledAt.t, 'announced within a second of the plate going').toBeLessThan(11);
   expect(shownAt.plate).toBe(false);
