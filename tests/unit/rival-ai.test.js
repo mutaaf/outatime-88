@@ -1,6 +1,6 @@
 // Rival racing AI (ticket 0160): corners, passes, NOS, loops, the tier ramp and determinism.
 import { describe, it, expect } from 'vitest';
-import { AI, aiTier, driverProfile, createBrain, rampBrain, cornerMph, createAiWorld, stepRival, pickNemesis } from '../../src/rival-ai.js';
+import { AI, aiTier, driverProfile, createBrain, rampBrain, cornerMph, createAiWorld, stepRival, pickNemesis, raceCalls, NEMESIS_LATEST } from '../../src/rival-ai.js';
 
 const DT = 1 / 120;
 const S2W = 125; // sim Z per mph·s (11000 / 88 at pace 1)
@@ -229,5 +229,46 @@ describe('rival AI: determinism and footprint', () => {
     expect(Object.keys(b).length).toBe(keys);
     expect(b.stats).toBe(stats);
     expect(w.cars.length).toBe(0);
+  });
+});
+
+// Ticket 0249: the nemesis intro waits for the fork cards and an impact plate, so the fork choice
+// (or the hit) is the one text on screen; it fires on the first clear frame, never after 25 s.
+describe('raceCalls: the nemesis intro', () => {
+  const field = { racers: [{ short: 'RAZOR', driver: 'Dax Kole' }, { short: 'VEX', driver: 'Vex', nemesis: true }] };
+  const at = (t) => { const w = createAiWorld(); w.time = t; return w; };
+
+  it('fires about 7 s in when nothing else is up, once', () => {
+    const w = at(6.9);
+    expect(raceCalls(w, field, null, false)).toBe(null);
+    w.time = 7;
+    expect(raceCalls(w, field, null, false)).toEqual(['😈 NEMESIS: VEX', 'VEX IS GUNNING FOR YOU']);
+    w.time = 8;
+    expect(raceCalls(w, field, null, false)).toBe(null);
+  });
+
+  it('waits while the fork cards or a plate are up, then fires on the first clear frame', () => {
+    const w = at(7);
+    for (let t = 7; t < 12; t += 0.5) { w.time = t; expect(raceCalls(w, field, null, true)).toBe(null); }
+    expect(w.nemesisCalled).toBe(false);
+    w.time = 12.01;
+    expect(raceCalls(w, field, null, false)).toEqual(['😈 NEMESIS: VEX', 'VEX IS GUNNING FOR YOU']);
+  });
+
+  it('a position callout still goes first', () => {
+    const w = at(9);
+    expect(raceCalls(w, field, { kind: 'up', main: 'P3' }, false)).toBe(null);
+    expect(raceCalls(w, field, null, false)).not.toBe(null);
+  });
+
+  it('is skipped for the race once it has waited past 25 s', () => {
+    expect(NEMESIS_LATEST).toBe(25);
+    const w = at(7);
+    for (let t = 7; t < NEMESIS_LATEST; t += 1) { w.time = t; expect(raceCalls(w, field, null, true)).toBe(null); }
+    w.time = NEMESIS_LATEST;
+    expect(raceCalls(w, field, null, false)).toBe(null);
+    expect(w.nemesisCalled).toBe(true);
+    w.time = 30;
+    expect(raceCalls(w, field, null, false)).toBe(null);
   });
 });

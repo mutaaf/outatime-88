@@ -561,6 +561,14 @@ export function updateRaceStart(rawDt) {
   handleStartEvents(RS.startSeq.update(rawDt), rawDt);
 }
 
+/** Fork cards on screen, or a hit / impact plate (spawnObstacleShatter, the shield save) still up. */
+function introBlocked() {
+  if (GameState.forkCue && GameState.forkCue !== 'OFF') return true;
+  const sw = GameState.hitShockwaves;
+  for (let i = 0; i < sw.length; i++) if (sw[i].hit && sw[i].label && sw[i].life > 0) return true;
+  return false;
+}
+
 /** After GO: the late rocket-start window, the GO! hold, live callouts, the finish roll-out. */
 export function updateRaceCeremony(rawDt) {
   if (RS.startSeq && !RS.startSeq.done) {
@@ -578,8 +586,9 @@ export function updateRaceCeremony(rawDt) {
     const lap = GameState.raceLength ? lapOf(GameState.distance, GameState.raceLength).lap : 1;
     if (lap > RS.lapNow) { GameState.lapSplits.push(GameState.raceTime - RS.lapStartedAt); RS.lapStartedAt = GameState.raceTime; RS.lapNow = lap; if (touch) touch.controls.haptics.pulse('lap'); }
     const c = callouts ? callouts.update(rawDt, GameState.racePosition, lap) : null;
-    // Who got you and how, and the nemesis intro (ticket 0160, src/rival-ai.js).
-    const nc = RAI && LiveTraffic.aiWorld && RAI.raceCalls(LiveTraffic.aiWorld, LiveTraffic, c);
+    // Who got you and how, and the nemesis intro (ticket 0160, src/rival-ai.js). The intro waits
+    // while the fork cards or an impact plate are up (0249): one text channel at a time.
+    const nc = RAI && LiveTraffic.aiWorld && RAI.raceCalls(LiveTraffic.aiWorld, LiveTraffic, c, !LiveTraffic.aiWorld.nemesisCalled && introBlocked());
     if (nc) triggerAnnouncement(nc[0], nc[1], 1600, 2);
     if (c) {
       triggerAnnouncement(c.main, c.sub, 1500, c.kind === 'final' ? 3 : 2);

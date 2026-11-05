@@ -1,12 +1,12 @@
 ---
 id: 0249
 title: The nemesis intro banner waits until the fork cards and an impact plate are gone
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-05
-pr:
+pr: 233
 ---
 
 ## Why
