@@ -1,12 +1,12 @@
 ---
 id: 0251
 title: Every tappable control on the phone HUD is at least 24x24 CSS px (WCAG 2.5.8)
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: accessibility
 created: 2026-11-05
-pr:
+pr: 235
 ---
 
 ## Why
