@@ -49,6 +49,9 @@ const COACH_LEARNED_AFTER = 2;
 // if nothing else has the card within TIP_OWED_WITHIN ms of the guide going (it is a GO tip, not a
 // mid-race one). 480 px is the ticket's line, narrower than the compact HUD's 599 px.
 const phoneTall = typeof matchMedia === 'function' ? matchMedia('(max-width: 480px) and (orientation: portrait)') : null;
+// Short screens (0248): the start lights are a slim row just under the message lane, so the coach
+// waits while the start card is up, and a launch call at GO takes the lane from the card.
+const shortScreen = typeof matchMedia === 'function' ? matchMedia('(max-height: 479px)') : null;
 const TIP_OWED_MS = 4000;
 const TIP_OWED_WITHIN = 2000;
 let tipOwed = false;
@@ -67,6 +70,7 @@ export function updateInteractiveCoach(currentSegIdx) {
   const nowMs = performance.now();
   if (announcer.isVisible()) { RS.coachYieldUntil = nowMs + 350; hideCoach(banner); return; }
   if (nowMs < RS.coachYieldUntil) { hideCoach(banner); return; }
+  if (shortScreen && shortScreen.matches && document.body.classList.contains('race-starting')) { RS.coachYieldUntil = nowMs + 350; hideCoach(banner); return; }
   // The guide's chunk loads after GO on a slow phone: while it is still due (touch, not yet seen,
   // early in the race) the coach waits for it too, so it never shows first and fades under it.
   const guideDue = document.body.classList.contains('tc-guiding') || (GameState.raceTime < 5 && GameState.mode !== 'LIVE'
@@ -521,6 +525,7 @@ function applyLaunch(result) {
   GameState.fluxCharge = Math.min(100, GameState.fluxCharge + fx.flux);
   GameState.launchStall = fx.stall;
   GameState.launchResult = result;
+  document.getElementById('rcLights')?.classList.add('rc-yield'); // its slot is the card's on short screens (0248)
   triggerAnnouncement(fx.text, result === 'early' ? 'WAIT FOR GREEN NEXT TIME' : `+${fx.mph} MPH OFF THE LINE`, 1400, 2);
   if (result === 'perfect') { SoundEngine.playTone(660, 'sawtooth', 0.25, 0.14, 1320); burstSparks(18, 190, 1); }
 }
