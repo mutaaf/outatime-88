@@ -102,7 +102,7 @@ function gapTo(left, top, w, h, x, y) {
 
 // The guide rings (0252): each wants to be its pad's diameter + 18 across, and pulses to 1.12×
 // (touch.css tc-pulse). At the pulse's peak no two rings may touch and no ring may reach another
-// pad's centre. Rings shrink toward d + 4 (just past the pad) to fit; if two still collide even
+// pad's centre. Rings shrink toward d + 4 (the 3 px border just over the pad's rim) to fit; if two still collide even
 // then, they cannot share the screen and take turns instead.
 const PULSE = 1.12;
 const RING_CLEAR = 2; // px between two rings, or between a ring and a pad's centre, at the peak
