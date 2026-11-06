@@ -180,3 +180,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-05 · 0249 · The nemesis intro no longer lands on top of the fork cards or a crash plate: it waits until they are gone, so the lane choice is the one thing to read
 2026-11-05 · 0250 · A two-driver crew as your nemesis now reads right: "ROOK & THE PROFESSOR ARE GUNNING FOR YOU", not "IS"
 2026-11-05 · 0251 · TAP TO SKIP and the WARP and pause pads you can reach during the start lights are now checked for finger size on phones and desktop, like every other control (test only: all already pass)
+2026-11-06 · 0252 · The first-race thumb guide's WARP and NOS rings no longer run through each other: they shrink to fit, or take turns when the pads sit too close (WARP first)

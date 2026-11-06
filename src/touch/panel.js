@@ -8,7 +8,7 @@ export { openLayoutEditor };
 import { ICONS } from './icons.js';
 import { SaveStore } from '../save.js';
 import { GameState } from '../state.js';
-import { placeTips } from './guide-tips.js';
+import { placeTips, ringSizes } from './guide-tips.js';
 
 const MOVEMENT_INFO = {
   dynamic: { name: 'Thumbstick', tag: 'Roblox', hint: 'Appears wherever your thumb lands.' },
@@ -167,6 +167,8 @@ export function closeControlsPanel() {
 /** Landscape phones (0225): the thumb guide's bubbles take turns, this long each. */
 export const GUIDE_TURN_MS = 2400;
 const ONE_AT_A_TIME = '(max-height: 479.98px)';
+/** Guide rings that can't share the screen (0252) swap this often: one pulse each. */
+export const RING_TURN_MS = 1100;
 
 /** First race on a touch screen: where each thumb goes. Shown once; replay from the panel. */
 export function maybeShowCoach(ctx) {
@@ -192,7 +194,12 @@ export function showThumbGuide({ settings, save, controls, done }) {
   const swipe = mv === 'dynamic' || mv === 'floating' || mv === 'fixed';
   const stickLabel = mv === 'dpad' ? 'TAP ◀ ▶ TO STEER' : mv === 'tilt' ? 'TILT TO STEER' : 'DRAG TO STEER';
   const g = h('div', { id: 'tcGuide', class: 'tc-guide', 'aria-hidden': 'true' });
-  const ring = (it, cls, k) => `<div class="tc-guide-ring ${cls}" data-k="${k}" style="left:${it.x}px;top:${it.y}px;width:${it.d + 18}px;height:${it.d + 18}px"></div>`;
+  // The rings never touch each other or reach another pad's centre (0252): sized to fit, or in turns.
+  const ringed = [b, n].filter((it) => it && !it.hidden);
+  const others = Object.values(items).filter((it) => it && !it.hidden);
+  const rs = ringSizes(ringed, others);
+  const ringD = new Map(ringed.map((it, i) => [it, rs.d[i]]));
+  const ring = (it, cls, k) => `<div class="tc-guide-ring ${cls}" data-k="${k}" style="left:${it.x}px;top:${it.y}px;width:${ringD.get(it)}px;height:${ringD.get(it)}px"></div>`;
   // The bubbles go beside their pads, never on one and never off the screen (0166); see placeTips.
   // The steering control as drawn: the D-pad and the tilt badge are sized off the stick's slot.
   const sd = mv === 'dpad' ? Math.round(s.d * 1.12) : mv === 'tilt' ? Math.max(64, Math.round(s.d * 0.62)) : s.d;
@@ -220,7 +227,7 @@ export function showThumbGuide({ settings, save, controls, done }) {
     const stale = controls.layoutNow().items !== items;
     const size = (el) => el.getBoundingClientRect();
     const spots = stale ? tips.map(() => null)
-      : placeTips(tips.map(([it], i) => ({ x: it.x, y: it.y, d: it.d, w: Math.ceil(size(els[i]).width), h: Math.ceil(size(els[i]).height) })), pads, view);
+      : placeTips(tips.map(([it], i) => ({ x: it.x, y: it.y, d: it.d, ring: ringD.has(it) ? ringD.get(it) / 2 : 0, w: Math.ceil(size(els[i]).width), h: Math.ceil(size(els[i]).height) })), pads, view);
     for (const old of g.querySelectorAll('.tc-guide-lead')) old.remove();
     spots.forEach((at, i) => {
       const el = els[i];
@@ -239,9 +246,15 @@ export function showThumbGuide({ settings, save, controls, done }) {
   // ring; touch.css also hides them while the coach tip shows, and the guide's clock holds then.
   const order = ['steer', 'nos', 'warp'].filter((k) => tips.some((t) => t[3] === k));
   const oneAtATime = () => window.matchMedia(ONE_AT_A_TIME).matches;
+  // Rings too close to share the screen even at their smallest take turns, WARP first (0252).
+  const ringOrder = ['warp', 'nos'].filter((k) => tips.some((t) => t[3] === k));
   const turn = (age) => {
     const now = oneAtATime() ? order[Math.floor(age / GUIDE_TURN_MS) % order.length] : null;
-    for (const el of g.querySelectorAll('[data-k]')) el.classList.toggle('tc-guide-off', !!now && el.dataset.k !== now);
+    const ringNow = !now && !rs.together ? ringOrder[Math.floor(age / RING_TURN_MS) % ringOrder.length] : null;
+    for (const el of g.querySelectorAll('[data-k]')) {
+      const off = now ? el.dataset.k !== now : !!ringNow && el.classList.contains('tc-guide-ring') && el.dataset.k !== ringNow;
+      el.classList.toggle('tc-guide-off', off);
+    }
   };
   let t0 = performance.now();
   place();

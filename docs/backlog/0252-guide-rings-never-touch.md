@@ -1,12 +1,12 @@
 ---
 id: 0252
 title: First-race thumb guide — the WARP and NOS pulse rings never overlap each other
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-06
-pr:
+pr: 238
 ---
 
 ## Why
@@ -27,10 +27,10 @@ If even the minimum ring (pad diameter + 4) would still collide at some size, sh
 rings one at a time (WARP first, as the guide already orders its bubbles).
 
 ## Acceptance criteria
-- [ ] At 390x844, 844x390 and 768x1024 no two `.tc-guide-ring` boxes intersect (circle test, centre distance >= sum of radii)
-- [ ] A ring never contains another pad's centre
-- [ ] Rings still pulse around WARP and NOS and clear when the guide ends, as today
-- [ ] No frame-time regression (rings are CSS only)
+- [x] At 390x844, 844x390 and 768x1024 no two `.tc-guide-ring` boxes intersect (circle test, centre distance >= sum of radii)
+- [x] A ring never contains another pad's centre
+- [x] Rings still pulse around WARP and NOS and clear when the guide ends, as today
+- [x] No frame-time regression (rings are CSS only)
 
 ## Test plan
 Extend `tests/e2e/touch-layouts.spec.js` next to the 0166 bubble test: fresh save per
