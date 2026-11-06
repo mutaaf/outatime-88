@@ -1,6 +1,7 @@
 {
   "_readme": "Operator control panel. Edit this file (GitHub web or mobile is fine) to pause or steer the agents. Every agent reads it first and obeys it. HOW OFTEN each agent runs is set on its routine schedule at https://claude.ai/code/routines, not here.",
   "paused": false,
+  "expires": "2027-02-05",
   "focus": "",
   "agents": {
     "scout": {
