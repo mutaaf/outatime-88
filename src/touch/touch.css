@@ -235,6 +235,8 @@ html, body { overscroll-behavior: none; }
 .tc-guide-ring { position: absolute; translate: -50% -50%; border-radius: 9999px; border: 3px solid #fde047; animation: tc-pulse 1.1s ease-in-out infinite; }
 .tc-guide-warp { color: #00f0ff; border-color: #00f0ff; box-shadow: 0 0 22px #00f0ff; }
 .tc-guide-nos { color: #fbbf24; border-color: #fbbf24; box-shadow: 0 0 22px #fbbf24; }
+/* Rings that can't share the screen take turns at any size (0252). */
+.tc-guide-ring.tc-guide-off { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .tc-guide-swipe, .tc-guide-ring { animation: none; } }
 body.tc-guiding #steerHint { visibility: hidden; }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { placeTips } from '../../src/touch/guide-tips.js';
+import { placeTips, ringSizes } from '../../src/touch/guide-tips.js';
 
 const hits = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const padBox = (p) => ({ x: p.x - p.d / 2, y: p.y - p.d / 2, w: p.d, h: p.d });
@@ -94,5 +94,51 @@ describe('thumb guide bubbles (0166)', () => {
     expect(p.y).toBeGreaterThanOrEqual(view.t);
     expect(p.x + 90).toBeLessThanOrEqual(view.r);
     expect(p.y + 26).toBeLessThanOrEqual(view.b);
+  });
+});
+
+describe('thumb guide rings (0252)', () => {
+  const PULSE = 1.12;
+  const near = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  // At the pulse's peak no two rings that show together touch, and no ring reaches another pad's centre.
+  const check = (rings, pads) => {
+    const { d, together } = ringSizes(rings, pads);
+    rings.forEach((g, i) => {
+      expect(d[i]).toBeGreaterThanOrEqual(g.d + 4);
+      expect(d[i]).toBeLessThanOrEqual(g.d + 18);
+      for (const p of pads) if (near(p, g) >= 1) expect((d[i] / 2) * PULSE).toBeLessThan(near(p, g));
+    });
+    if (together) {
+      for (let i = 0; i < rings.length; i++) for (let j = i + 1; j < rings.length; j++) {
+        expect(((d[i] + d[j]) / 2) * PULSE).toBeLessThanOrEqual(near(rings[i], rings[j]));
+      }
+    }
+    return { d, together };
+  };
+
+  it('keeps the full d + 18 ring when there is room', () => {
+    const rings = [{ x: 100, y: 100, d: 60 }, { x: 300, y: 100, d: 60 }];
+    expect(check(rings, rings)).toEqual({ d: [78, 78], together: true });
+  });
+
+  it('shrinks two close rings so they fit side by side', () => {
+    const rings = [{ x: 100, y: 100, d: 60 }, { x: 180, y: 100, d: 60 }];
+    const { d, together } = check(rings, rings);
+    expect(together).toBe(true);
+    expect(d[0]).toBeLessThan(78);
+  });
+
+  it('takes turns when the rings collide even at their smallest (the 390x844 WARP + NOS pair)', () => {
+    const rings = [PADS_390[0], PADS_390[2]]; // WARP 90 px, NOS 54 px, 82 px apart
+    const { d, together } = check(rings, PADS_390);
+    expect(together).toBe(false);
+    expect(d.every((x, i) => x >= rings[i].d + 4)).toBe(true);
+  });
+
+  it('never lets a ring reach a neighbouring pad\'s centre', () => {
+    const rings = [{ x: 100, y: 100, d: 60 }];
+    const pads = [...rings, { x: 150, y: 100, d: 30 }];
+    const { d } = check(rings, pads);
+    expect((d[0] / 2) * PULSE).toBeLessThan(50);
   });
 });
