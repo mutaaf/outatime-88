@@ -1,12 +1,12 @@
 ---
 id: 0253
 title: The obstacle crash line names the control for the input in hand, not keyboard letters
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-09
-pr:
+pr: 240
 ---
 
 ## Why
@@ -27,11 +27,11 @@ pad names on screen), without letters. Honour a rebound key where `playHint` alr
 Keep the label short enough to fit one line at 390 px.
 
 ## Acceptance criteria
-- [ ] On touch input the high-gate crash line contains no parenthesised key letters; it names the DRIFT pad
-- [ ] On touch input the low-bar crash line names the JUMP pad; on a gamepad it names its buttons
-- [ ] Keyboard words are unchanged (existing tests stay green)
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse
-- [ ] No frame-time regression, no new per-frame allocation (strings built once)
+- [x] On touch input the high-gate crash line contains no parenthesised key letters; it names the DRIFT pad
+- [x] On touch input the low-bar crash line names the JUMP pad; on a gamepad it names its buttons
+- [x] Keyboard words are unchanged (existing tests stay green)
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse
+- [x] No frame-time regression, no new per-frame allocation (strings built once)
 
 ## Test plan
 Extend `tests/unit/play-hints.test.js` (or add it) asserting the three kinds return the right
