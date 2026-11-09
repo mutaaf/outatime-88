@@ -375,8 +375,13 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 @keyframes hpHit1 { 0%, 40% { box-shadow: 0 0 0 2px #ef4444, 0 0 14px #ef4444; } 100% { box-shadow: none; } }
 @keyframes hpHeal0 { 0%, 40% { box-shadow: 0 0 0 2px #22c55e, 0 0 16px #4ade80; } 100% { box-shadow: none; } }
 @keyframes hpHeal1 { 0%, 40% { box-shadow: 0 0 0 2px #22c55e, 0 0 16px #4ade80; } 100% { box-shadow: none; } }
-@keyframes hpPop0 { 0% { opacity: 1; transform: translate(-50%, 0) scale(1.25); } 100% { opacity: 0; transform: translate(-50%, 14px) scale(1); } }
-@keyframes hpPop1 { 0% { opacity: 1; transform: translate(-50%, 0) scale(1.25); } 100% { opacity: 0; transform: translate(-50%, 14px) scale(1); } }
+/* 0255: starts 3px down so the 1.25x pop never laps the card's edge, and holds full strength for 40% of its
+   life (the fade takes the plate's contrast with it). --hp-y0 / --hp-s / --hp-drift: start offset, start scale, sink.
+   HUD LARGE on a portrait screen puts the gap pills ~12px under the card, so there it fades in place. */
+@keyframes hpPop0 { 0% { opacity: 1; transform: translate(-50%, var(--hp-y0, 3px)) scale(var(--hp-s, 1.25)); } 40% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, var(--hp-drift, 14px)) scale(1); } }
+@keyframes hpPop1 { 0% { opacity: 1; transform: translate(-50%, var(--hp-y0, 3px)) scale(var(--hp-s, 1.25)); } 40% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, var(--hp-drift, 14px)) scale(1); } }
 @keyframes hpLowPulse { from { opacity: 1; } to { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .hud-hp i.is-low { animation: none; } .hud-hp-pop[data-fx] { animation-duration: 1.4s; } }
 
@@ -524,6 +529,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   [data-hud-size="large"] .race-hud { grid-template-columns: auto minmax(0, 1fr) auto auto;
     grid-template-areas: "pos . speed gear" "times times times times" "track track track track"; }
   [data-hud-size="large"] .hud-times { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; }
+  [data-hud-size="large"] .hud-hp-pop { --hp-y0: 1px; --hp-s: 1; --hp-drift: 1px; }
 }
 /* RACER panel (ticket 0090): who's playing, link a device, recovery code. */
 .racer-pill { min-height: 44px; color: #e2e8f0; }

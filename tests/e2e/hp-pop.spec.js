@@ -6,6 +6,8 @@ import { APP, watchPage } from './helpers.js';
 const SIZES = [
   { name: 'desktop 1280x720', use: { viewport: { width: 1280, height: 720 } } },
   { name: 'phone 390x844', use: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
+  // HUD LARGE on a portrait phone puts the gap/clock row right under the place card (0195).
+  { name: 'phone 430x932 HUD LARGE', large: true, use: { viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true } },
 ];
 
 for (const size of SIZES) {
@@ -16,7 +18,8 @@ for (const size of SIZES) {
       const problems = watchPage(page);
       await page.goto(`${APP}?debug`);
       await page.locator('#btnStartRace').click();
-      await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING', null, { timeout: 20_000 });
+      await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING', null, { timeout: 30_000 });
+      if (size.large) await page.evaluate(() => { document.documentElement.dataset.hudSize = 'large'; });
       for (const kind of ['hit', 'heal']) {
         // Sample every frame from the change until the pop has faded (0.9 s, 1.4 s with calm motion).
         const out = await page.evaluate((kind) => new Promise((resolve) => {
@@ -25,22 +28,32 @@ for (const size of SIZES) {
           g.invulnTimer = 0;
           if (kind === 'hit') window.__OT.damage(20); else window.__OT.heal(12);
           const samples = [];
+          // Worst-case gap pills (both shown, long names), re-written every frame over the HUD's own writes.
+          const pills = () => { for (const id of ['hudGapAhead', 'hudGapBehind']) document.getElementById(id).textContent = '▲ NEMESIS +12.3s'; };
+          pills();
           const t0 = performance.now();
           const step = () => {
             try {
+              pills();
               const cs = getComputedStyle(pop);
               if (+cs.opacity > 0.05) {
                 const r = pop.getBoundingClientRect();
-                samples.push({ x: r.x, y: r.y, width: r.width, height: r.height });
+                samples.push({ t: performance.now() - t0, o: +cs.opacity, x: r.x, y: r.y, width: r.width, height: r.height });
               }
               if (performance.now() - t0 < 1600) return requestAnimationFrame(step);
+              const card = pop.parentElement.closest('[data-hud-rect]').getBoundingClientRect();
               const others = [];
+              const add = (n) => {
+                const r = n.getBoundingClientRect();
+                if (r.width && r.height) others.push({ id: n.id || n.className, x: r.x, y: r.y, width: r.width, height: r.height });
+              };
               for (const n of document.querySelectorAll('[data-hud-rect]')) {
                 if (n.contains(pop)) continue;
-                const r = n.getBoundingClientRect();
-                if (r.width && r.height) others.push({ id: n.id, x: r.x, y: r.y, width: r.width, height: r.height });
+                // On a portrait HUD LARGE the times are a full-width row whose empty ends are open sky:
+                // what must stay clear there is its pills and clock.
+                if (n.id === 'hudTimes') { for (const c of n.children) if (getComputedStyle(c).display !== 'none') add(c); } else add(n);
               }
-              resolve({ text: pop.textContent, fx: pop.dataset.fx, bg: cs.backgroundColor, color: cs.color, samples, others,
+              resolve({ dur: parseFloat(cs.animationDuration) * 1000, cardBottom: card.bottom, text: pop.textContent, fx: pop.dataset.fx, bg: cs.backgroundColor, color: cs.color, samples, others,
                 vw: innerWidth, vh: innerHeight });
             } catch (e) { resolve({ error: String(e) }); }
           };
@@ -63,12 +76,19 @@ for (const size of SIZES) {
           expect(ratio(text, under), `${kind} contrast over ${back}`).toBeGreaterThanOrEqual(4.5);
         }
 
-        // Geometry: on screen, and never over another HUD block, on any sampled frame.
+        // It holds full strength for the first part of its life (the fade takes the contrast with it):
+        // every frame seen in the first 0.3 s after it lit is fully opaque.
+        const lit = out.samples[0].t;
+        for (const s of out.samples) if (s.t - lit < 300 && s.t - lit < out.dur * 0.35) expect(s.o, `${kind} opacity at ${Math.round(s.t - lit)} ms`).toBeGreaterThan(0.99);
+
+        // Geometry: on screen, below its own card, and never over another HUD block, on any sampled frame.
         const hit = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
         for (const s of out.samples) {
           expect(s.x).toBeGreaterThanOrEqual(0);
           expect(s.y).toBeGreaterThanOrEqual(0);
           expect(s.x + s.width).toBeLessThanOrEqual(out.vw);
+          expect(s.y + s.height).toBeLessThanOrEqual(out.vh);
+          expect(s.y, `${kind} pop over its place card`).toBeGreaterThanOrEqual(out.cardBottom - 0.5);
           for (const o of out.others) expect(hit(s, o), `${kind} pop over #${o.id}`).toBeFalsy();
         }
       }
