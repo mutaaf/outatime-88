@@ -182,3 +182,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-05 · 0251 · TAP TO SKIP and the WARP and pause pads you can reach during the start lights are now checked for finger size on phones and desktop, like every other control (test only: all already pass)
 2026-11-06 · 0252 · The first-race thumb guide's WARP and NOS rings no longer run through each other: they shrink to fit, or take turns when the pads sit too close (WARP first)
 2026-11-09 · 0253 · Crash into a gate or bar on a phone or gamepad and the tip now names your DRIFT / JUMP pads or your pad's buttons, not keyboard letters
+2026-11-09 · 0254 · On a phone the crash tip and score popups now float clear of the touch pads instead of running under PAUSE or ROAR

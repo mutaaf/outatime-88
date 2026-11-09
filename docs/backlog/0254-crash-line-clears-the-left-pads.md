@@ -1,12 +1,12 @@
 ---
 id: 0254
 title: On a phone the obstacle crash line never runs under the left-hand pads or the score popups
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-09
-pr:
+pr: 241
 ---
 
 ## Why
