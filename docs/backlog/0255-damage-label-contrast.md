@@ -1,12 +1,12 @@
 ---
 id: 0255
 title: The floating damage label ("-15 HP") meets 4.5:1 contrast over the sky
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-11-09
-pr:
+pr: 242
 ---
 
 ## Why
@@ -21,9 +21,9 @@ Find where the damage readout is drawn (grep `HP` in `src/hud.js` / `src/race-st
 use (`src/popups.js` / `pickup-art.js`), keep its position and fade, and keep reduced-motion behaviour.
 
 ## Acceptance criteria
-- [ ] Label text vs its plate is ≥ 4.5:1 (unit-asserted from the colour constants)
-- [ ] It no longer sits unplated on the raw sky; screenshot at 1280x720 and 390x844 checked
-- [ ] No overlap with the place card or other HUD (`hudRects()` check) and no new console errors
+- [x] Label text vs its plate is ≥ 4.5:1 (unit-asserted from the colour constants)
+- [x] It no longer sits unplated on the raw sky; screenshot at 1280x720 and 390x844 checked
+- [x] No overlap with the place card or other HUD (`hudRects()` check) and no new console errors
 
 ## Test plan
 Unit test computing the contrast ratio of the label's text/plate constants; extend the existing

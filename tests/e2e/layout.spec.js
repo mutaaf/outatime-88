@@ -169,13 +169,15 @@ test.describe('desktop tip card', () => {
       expect(tip.x).toBeGreaterThanOrEqual(0);
       expect(tip.y + tip.height).toBeLessThanOrEqual(vp.height);
       for (const sel of PANELS) if (all[sel]) expect(overlap(tip, all[sel]), `tip overlaps ${sel}`).toBeFalsy();
-      // The ±N HP pop drops from under the place card (scaled 1.25, drifting 14 px, "−100 HP" wide):
-      // the tip stays off its whole path, so a hit or a repair always reads.
+      // The ±N HP pop drops from under the place card on its plate (0255: starts 3 px down at 1.25x, drifts 14 px,
+      // "−100 HP" wide): the tip stays off its whole path, so a hit or a repair always reads. Its real box, measured.
       const pop = await page.evaluate(() => {
         const card = document.getElementById('hudPosCard').getBoundingClientRect();
-        const fs = parseFloat(getComputedStyle(document.getElementById('hudHpPop')).fontSize) * 1.25;
-        const w = fs * 0.6 * 7, cx = card.left + card.width / 2;
-        return { x: cx - w / 2, y: card.bottom, width: w, height: fs + 14 };
+        const el = document.getElementById('hudHpPop'), was = el.textContent;
+        el.textContent = '−100 HP';
+        const w = el.offsetWidth * 1.25, h = el.offsetHeight, cx = card.left + card.width / 2;
+        el.textContent = was;
+        return { x: cx - w / 2, y: card.bottom, width: w, height: Math.max(14 + h, 3 + h * 1.125) + 1 };
       });
       expect(overlap(tip, pop), 'tip over the HP pop').toBeFalsy();
       // GOT IT still clears it for the rest of the race.
