@@ -116,6 +116,64 @@ describe('layoutLabels with touch pads', () => {
     }
   });
 
+  it('steering under a plate never makes it hop: it follows the car only inside its gap', () => {
+    const failures = [];
+    for (const env0 of ENVS) {
+      const env = { ...env0, autoAccel: true, size: 1 };
+      for (const p of PRESET_IDS) {
+        const pads = padsOf(presetLayout(p, env));
+        const B = new Float32Array(64), out = labelSlots();
+        const n = padBoxes(pads, pads.length / 4, env.vw, env.vh, env.vw, env.vh, B);
+        const base = fallbackBox(env.vw, env.vh, { x0: 0, y0: 0, x1: 0, y1: 0 });
+        const half = (base.x1 - base.x0) / 2;
+        for (const label of [POPUP, CRASH[0]]) {
+          for (const dir of [-1, 1]) {
+            const e = { label, hit: true, life: 0.7, maxLife: 0.7 };
+            let last = null;
+            // The car slides 2 px a frame across the road during the plate's life.
+            for (let f = 0; f < 120 && e.life > 0; f++) {
+              const cx = env.vw / 2 + dir * f * 2;
+              if (cx - half < 0 || cx + half > env.vw) break;
+              const box = { ...base, x0: cx - half, x1: cx + half };
+              e.life = 0.7 - f * 0.005;
+              if (layoutLabels([e], box, env.vw, env.vh, measure, out, false, B, n) !== 1) { last = null; continue; }
+              const r = rects(out, 1)[0];
+              if (last && (Math.abs(r.y0 - last.y0) > 1 || Math.abs(r.x0 - last.x0) > 2.01)) failures.push(`${p} ${env.vw}x${env.vh} "${label}" hop at frame ${f}: (${last.x0.toFixed(1)},${last.y0.toFixed(1)}) → (${r.x0.toFixed(1)},${r.y0.toFixed(1)})`);
+              for (const pr of boxesOf(B, n)) if (hit(r, pr)) failures.push(`${p} ${env.vw}x${env.vh} "${label}" over a pad at frame ${f}`);
+              last = r;
+            }
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('a chain plate that pops (grows for a moment) stays put and off the pads', () => {
+    const failures = [];
+    for (const env0 of ENVS) {
+      const env = { ...env0, autoAccel: true, size: 1 };
+      for (const p of PRESET_IDS) {
+        const pads = padsOf(presetLayout(p, env));
+        const B = new Float32Array(64), out = labelSlots();
+        const n = padBoxes(pads, pads.length / 4, env.vw, env.vh, env.vw, env.vh, B);
+        const box = fallbackBox(env.vw, env.vh, { x0: 0, y0: 0, x1: 0, y1: 0 });
+        const e = { label: '⚡ CLOSE SHAVE! +1200 x6', chain: true, merged: true, life: 1.3, maxLife: 1.3 };
+        let lastY = null;
+        for (let age = 0; age < 0.4; age += 0.01) {
+          e.life = 1.3 - age;
+          expect(layoutLabels([e], box, env.vw, env.vh, measure, out, false, B, n)).toBe(1);
+          const r = rects(out, 1)[0];
+          for (const pr of boxesOf(B, n)) if (hit(r, pr)) failures.push(`${p} ${env.vw}x${env.vh} pop over a pad at ${age.toFixed(2)}`);
+          // Its bottom edge only floats up (the pop grows it upward from there).
+          if (lastY !== null && Math.abs(r.y1 - lastY) > LABEL.rise * 0.02 + 1) failures.push(`${p} ${env.vw}x${env.vh} hop at ${age.toFixed(2)}: ${lastY.toFixed(1)} → ${r.y1.toFixed(1)}`);
+          lastY = r.y1;
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
   it('without pads (desktop, keyboard) placement is unchanged', () => {
     const box = fallbackBox(1280, 720, { x0: 0, y0: 0, x1: 0, y1: 0 });
     const list = () => [{ label: POPUP, life: 0.5, maxLife: 0.9 }, { label: CRASH[0], hit: true, life: 0.5, maxLife: 0.7 }];

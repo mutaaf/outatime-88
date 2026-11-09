@@ -51,8 +51,9 @@ export function padBoxes(pads, n, vw, vh, rw, rh, out) {
   return m;
 }
 
-// Where fitBand put a plate (x); module scalars, so the layout allocates nothing.
-let fitX = 0;
+// Where fitBand put a plate (x) and the free gap it found there (lo..hi); module scalars, so the
+// layout allocates nothing.
+let fitX = 0, fitLo = 0, fitHi = 0;
 /**
  * Lowest top edge ≤ `y` at which a w×h band, centred near `cx`, touches none of the `n` boxes
  * in `avoid` (keeping `gap`), between the margins `m`; sets fitX. Slides sideways first, lifts
@@ -69,7 +70,7 @@ function fitBand(y, w, h, cx, m, rw, gap, avoid, n) {
       else if (avoid[i] >= cx) hi = Math.min(hi, avoid[i] - gap);
       else { lo = cx; hi = cx; }
     }
-    if (hi - lo >= w) { fitX = Math.min(hi - w, Math.max(lo, cx - w * 0.5)); return y; }
+    if (hi - lo >= w) { fitX = Math.min(hi - w, Math.max(lo, cx - w * 0.5)); fitLo = lo; fitHi = hi; return y; }
     y = lift - gap - h;
   }
   return NaN;
@@ -164,10 +165,28 @@ export function layoutLabels(list, box, rw, rh, measure, out, still, avoid, nAvo
       // A car high up: rather close the gap under it than send it to the side stack.
       if (y < top0 && k > n) y = Math.min(box.y0 - gap - t * rise - n * (h0 + gap), top - gap) - h;
       if (y >= top0 && nAvoid > 0) {
-        // Test the whole float (from here up to where it ends), so the answer holds all its life.
-        const ahead = (1 - t) * rise;
-        const yt = fitBand(y - ahead, w, h + rise, cx, m, rw, gap, avoid, nAvoid);
-        y = yt === yt ? yt + ahead : -Infinity;
+        // Placed at its settled size (never a chain plate's pop), over its whole float (from here up
+        // to where the rise ends), and latched: the lift and the gap between pads stay on the entry,
+        // the plate follows the car only inside that gap, and it is placed again only if it would
+        // now touch a pad. So steering or a pop never makes it hop.
+        const k1 = Math.min(1, fit), sw = (e.lw + padX * 2) * k1, sh = h0 * k1;
+        const ys = y + h - sh - (1 - t) * rise; // the settled plate's band top
+        let ok = e.padLo !== undefined && e.padHi - e.padLo >= sw;
+        if (ok) {
+          fitX = Math.min(e.padHi - sw, Math.max(e.padLo, cx - sw * 0.5));
+          ok = !touches(fitX, ys - e.padDy, sw, sh + rise, gap, avoid, nAvoid);
+        }
+        if (!ok) {
+          const yt = fitBand(ys, sw, sh + rise, cx, m, rw, gap, avoid, nAvoid);
+          ok = yt === yt;
+          if (ok) { e.padDy = ys - yt; e.padLo = fitLo; e.padHi = fitHi; } else e.padLo = undefined;
+        }
+        if (ok) {
+          y -= e.padDy;
+          const room = e.padHi - e.padLo; // a popping plate grows in place, never past its gap
+          if (w > room) { const q = room / w; s *= q; w = room; y += h * (1 - q); h *= q; }
+          fitX = Math.min(e.padHi - w, Math.max(e.padLo, fitX + (sw - w) * 0.5));
+        } else y = -Infinity;
       } else fitX = Math.min(rw - m - w, Math.max(m, cx - w * 0.5));
       if (y >= top0) { x = fitX; top = y; }
       else { side = true; sideY = Math.max(top0, Math.min(box.y0, bottom - h)) - gap; }
