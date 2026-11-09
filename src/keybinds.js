@@ -117,11 +117,12 @@ export function blocksDefault(map, code, target) {
 }
 
 let guarded = false;
-/** Applies saved bindings to the game: main.js's key translation and the boost key prompts name. */
+/** Applies saved bindings to the game: main.js's key translation and the boost / brake keys prompts name. */
 export function applyKeys(input, saved) {
   const k = normalizeKeys(saved);
   input.keyMap = remapFor(k);
   input.boostKey = k.boost === DEFAULT_KEYS.boost ? '' : keyName(k.boost);
+  input.downKey = k.down === DEFAULT_KEYS.down ? '' : keyName(k.down); // the crash line's slide key (0253)
   if (!guarded && typeof window !== 'undefined') {
     guarded = true;
     window.addEventListener('keydown', (e) => { if (blocksDefault(input.keyMap, e.code, e.target)) e.preventDefault(); });
