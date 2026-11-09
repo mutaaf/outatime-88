@@ -1871,7 +1871,7 @@ export const LiveTrafficMethods = {
               ob.offset - GameState.playerX,
               '#ff5500',
               '#fde047',
-              shielded ? '🛡️ SHIELD BASH!' : ob.type === 'LOW_LASER_BAR' ? '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!' : (ob.type === 'HIGH_LIGHT_GATE' ? '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!' : '💥 BARRICADE IMPACT! -14 HP')
+              shielded ? '🛡️ SHIELD BASH!' : ob.type === 'LOW_LASER_BAR' ? RF.hintNow().jump : (ob.type === 'HIGH_LIGHT_GATE' ? RF.hintNow().slide : '💥 BARRICADE IMPACT! -14 HP')
             );
           }
         }

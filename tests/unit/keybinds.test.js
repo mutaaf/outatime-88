@@ -103,6 +103,10 @@ describe('keyboard bindings (ticket 0013)', () => {
     applyKeys(input, null);
     expect(input.keyMap).toBeNull();
     expect(input.boostKey).toBe('');
+    applyKeys(input, { ...DEFAULT_KEYS, down: 'KeyL' });
+    expect(input.downKey).toBe('L'); // the crash line's slide key (0253)
+    applyKeys(input, null);
+    expect(input.downKey).toBe('');
   });
 
   it('keyboard prompts name a rebound BOOST key, pads keep their buttons', () => {
