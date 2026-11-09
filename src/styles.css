@@ -362,8 +362,11 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .hud-hp[data-fx="hit1"] { animation: hpHit1 0.5s ease-out; }
 .hud-hp[data-fx="heal0"] { animation: hpHeal0 0.7s ease-out; }
 .hud-hp[data-fx="heal1"] { animation: hpHeal1 0.7s ease-out; }
+/* 0255: on its own near-opaque plate, so the text holds ≥ 4.5:1 over any sky (tests/unit/hp-pop-contrast.test.js).
+   No vertical padding and line-height 1.1: the box plus its 14px drift stays inside the coach tip's 32px gap below. */
 .hud-hp-pop { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); pointer-events: none; opacity: 0;
-  font: 900 clamp(11px, 1.7vmin, 16px)/1 ui-monospace, monospace; white-space: nowrap; text-shadow: 0 2px 0 #0008; }
+  font: 900 clamp(11px, 1.7vmin, 16px)/1.1 ui-monospace, monospace; white-space: nowrap;
+  background: rgba(2, 6, 23, 0.9); padding: 0 0.35em; border-radius: 4px; box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35); }
 .hud-hp-pop[data-fx^="hit"] { color: #fca5a5; }
 .hud-hp-pop[data-fx^="heal"] { color: #86efac; }
 .hud-hp-pop[data-fx$="0"] { animation: hpPop0 0.9s ease-out; }
