@@ -94,6 +94,7 @@ export function connectTouch(game) {
       },
     },
   });
+  GameState.touchPads = controls.pads; // the floating labels keep clear of them (0254, src/pickup-art.js)
 
   /** Settings the race reads directly: auto-accelerate and steer assist. */
   function apply() {

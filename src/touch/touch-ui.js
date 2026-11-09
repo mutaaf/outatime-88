@@ -106,6 +106,10 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   const effectiveMovement = () => (h.tiltOn() ? 'tilt' : movementFor(S()) === 'tilt' ? (PRESETS[S().preset] || PRESETS.default).movement : movementFor(S()));
   let movement = effectiveMovement();
   let tiltWas = h.tiltOn();
+  // Every shown pad as a screen box (CSS px: x0 y0 x1 y1), for the floating labels to keep clear
+  // of (0254, src/popups.js); n = 0 while the controls are hidden. Rewritten only on relayout.
+  const pads = { r: new Float32Array(4 * (ACTION_IDS.length + SHORTCUT_IDS.length + 1)), n: 0, vw: 1, vh: 1, ver: 0 };
+  const padBox = (x, y, d) => { const o = pads.n++ * 4; pads.r[o] = x - d / 2; pads.r[o + 1] = y - d / 2; pads.r[o + 2] = x + d / 2; pads.r[o + 3] = y + d / 2; };
   const btnList = [];        // hit-test records { id, cx, cy, r, enabled }
   const btnById = {};
   const pressCount = {};
@@ -210,6 +214,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     root.dataset.tcMovement = movement;
     layer.style.setProperty('--tc-opacity', String(S().opacity));
     btnList.length = 0;
+    pads.n = 0; pads.vw = env.vw; pads.vh = env.vh; pads.ver++;
     for (const id of [...ACTION_IDS, ...SHORTCUT_IDS]) {
       const it = layout[id];
       const b = el[id];
@@ -221,6 +226,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       const rec = btnById[id] || (btnById[id] = { id, cx: 0, cy: 0, r: 0, enabled: true });
       rec.cx = it.x; rec.cy = it.y; rec.r = it.d / 2; rec.enabled = true;
       btnList.push(rec);
+      padBox(it.x, it.y, it.d);
     }
     const s = layout.stick;
     stk.hx = s.x; stk.hy = s.y; stk.d = s.d; stk.travel = s.d * STICK_TRAVEL;
@@ -228,6 +234,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     stick.style.opacity = '';
     place(dpad, { x: s.x, y: s.y, d: Math.round(s.d * 1.12) });
     place(tilt, { x: s.x, y: s.y, d: Math.max(64, Math.round(s.d * 0.62)) });
+    padBox(s.x, s.y, movement === 'dpad' ? Math.round(s.d * 1.12) : movement === 'tilt' ? Math.max(64, Math.round(s.d * 0.62)) : s.d);
     stick.classList.toggle('tc-hidden', movement === 'dpad' || movement === 'tilt');
     dpad.classList.toggle('tc-hidden', movement !== 'dpad');
     tilt.classList.toggle('tc-hidden', movement !== 'tilt');
@@ -644,6 +651,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     root.classList.toggle('touch-ui', on);
     if (!on) {
       releaseAll();
+      pads.n = 0; pads.ver++;
       const hint = doc.getElementById('steerHint');
       if (hint) { hint.style.left = ''; hint.style.top = ''; hint.style.bottom = ''; }
     }
@@ -651,7 +659,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   }
 
   return {
-    sample, render, relayout, releaseAll, setActive,
+    sample, render, relayout, releaseAll, setActive, pads,
     isActive: () => active,
     setEditing(on) { editing = on; if (on) releaseAll(); layer.classList.toggle('tc-editing', on); },
     applySettings() { movement = effectiveMovement(); equipped = SPECIALS.includes(S().special) ? S().special : equipped; syncSpecialIcon(); relayout(); },

@@ -7,7 +7,8 @@
 // and the floating pickup / score labels (src/popups.js). Nothing allocates per frame once the
 // cache is warm.
 
-import { LABEL, labelSlots, layoutLabels, fallbackBox } from './popups.js';
+import { LABEL, labelSlots, layoutLabels, fallbackBox, padBoxes } from './popups.js';
+import { GameState } from './state.js';
 import { haloCap, haloSize, haloAlpha, ringSize, GLOW, RING } from './pickup-halo.js';
 
 // Shape-coded art per kind: coin = disc + star, flux core = hexagon + bolt, repair = rounded
@@ -432,6 +433,18 @@ export function drawPowerHud(ctx, rw, rh, st, carX, carY, t, still) {
 
 const slots = labelSlots();
 stats.slots = slots;
+// The touch pads on the road buffer (0254), remapped only when the pads or the buffer size change.
+const padBuf = new Float32Array(64);
+let padN = 0, padVer = -1, padRw = 0, padRh = 0;
+function padsOnBuffer(rw, rh) {
+  const p = GameState.touchPads;
+  if (!p || !p.n) return 0;
+  if (p.ver !== padVer || rw !== padRw || rh !== padRh) {
+    padVer = p.ver; padRw = rw; padRh = rh;
+    padN = padBoxes(p.r, p.n, p.vw, p.vh, rw, rh, padBuf);
+  }
+  return padN;
+}
 const LABEL_FONT = `bold ${LABEL.font}px Orbitron, sans-serif`;
 let measureCtx = null;
 const measure = (text) => measureCtx.measureText(text).width;
@@ -457,7 +470,7 @@ export function drawLabels(ctx, rw, rh, list, box, still) {
   ctx.save();
   ctx.font = LABEL_FONT;
   measureCtx = ctx;
-  const n = layoutLabels(list, b, rw, rh, measure, slots, still);
+  const n = layoutLabels(list, b, rw, rh, measure, slots, still, padBuf, padsOnBuffer(rw, rh));
   stats.labels = n;
   markLabels(n > 0);
   ctx.textAlign = 'center';

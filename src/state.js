@@ -94,6 +94,7 @@ export const GameState = {
   upcomingCurveSum: 0,
   // 2026 3D Animated Power-Up & Obstacle Impact FX
   pickupAnimations: [], // Magnetic fly-to-car animations when acquiring powerups!
+  touchPads: null,      // the touch kit's pad boxes in CSS px { r, n, vw, vh, ver } (0254), null without it
   hitShockwaves: [],    // Expanding 3D shockwave rings & floating badges on hit/acquire!
   carBox: { x0: 0, y0: 0, x1: 0, y1: 0 }, // the player car on screen (drawPlayerCar), for labels (0114)
   carW: 0, // the player car's drawn width in px (drawPlayerCar), for the tyre smoke's scale (0230)

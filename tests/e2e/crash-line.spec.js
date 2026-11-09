@@ -8,8 +8,8 @@ import { APP, watchPage, racing } from './helpers.js';
 /** Drive into a `type` obstacle held just ahead in your lane until the crash pushes `label`
  *  (GameState.hitShockwaves). Every other obstacle, car and racer is parked far up the road, so
  *  only this one can be hit; the deadline is race time, not wall clock. Resolves { label } or { err }. */
-async function crashInto(page, type, input, label) {
-  return page.evaluate(([type, input, label]) => new Promise((done) => {
+async function crashInto(page, type, input, label, keep = false) {
+  return page.evaluate(([type, input, label, keep]) => new Promise((done) => {
     const { GameState: g, InputState: inp } = window.__OT, t = window.__OT.traffic();
     const ob = t.obstacles.find((o) => o.type === type);
     if (!ob) { done({ err: `no ${type}` }); return; }
@@ -23,7 +23,11 @@ async function crashInto(page, type, input, label) {
       for (const c of t.traffic) c.worldZ = g.trackPos + 90000;
       for (const c of t.racers) c.worldZ = g.trackPos + 90000;
       const seen = g.hitShockwaves.map((s) => s.label || '');
-      if (seen.includes(label)) { finish({ label }); return; }
+      if (seen.includes(label)) {
+        // keep: hold the plate up in the same tick it was seen (0254 measures it after more round trips).
+        if (keep) { const e = g.hitShockwaves.find((s) => s.label === label); e.life = e.maxLife = 60; }
+        finish({ label }); return;
+      }
       const other = seen.find((l) => /BLOCKED/.test(l));
       if (other) { finish({ label: other }); return; } // wrong words: let the assertion show them
       if (g.status !== 'PLAYING' || g.raceTime - t0 > 10) { finish({ err: `no crash in ${(g.raceTime - t0).toFixed(1)} s of race (${g.status}): ${seen.join(' | ')}` }); return; }
@@ -31,7 +35,7 @@ async function crashInto(page, type, input, label) {
     };
     const iv = setInterval(hold, 5);
     hold();
-  }), [type, input, label]);
+  }), [type, input, label, keep]);
 }
 
 async function start(page) {
@@ -83,3 +87,59 @@ test.describe('desktop (keyboard)', () => {
     expect(problems).toEqual([]);
   });
 });
+
+// Ticket 0254: on a phone the crash line (and any popup with it) never runs under a touch pad.
+// The plates are laid out on the road buffer (GameState.hitShockwaves → src/popups.js); this maps
+// each drawn plate to the screen at both ends of the FOV crop and checks it against every shown pad.
+for (const [w, h] of [[390, 844], [844, 390]]) {
+  test.describe(`phone ${w}x${h} (touch)`, () => {
+    test.use({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+
+    test('the crash line stays clear of every touch pad', async ({ page }, info) => {
+      const problems = watchPage(page);
+      await start(page);
+      await page.waitForFunction(() => window.__OT.touch && window.__OT.touch() && window.__OT.pickupArt(), null, { timeout: 20000 });
+      const gate = await crashInto(page, 'HIGH_LIGHT_GATE', 'touch', '💥 BLOCKED! HOLD DRIFT TO SLIDE UNDER!', true);
+      expect(gate.err).toBeUndefined();
+      // The crash plate is held up (crashInto keep): add a score popup beside it, both in the one lane.
+      // Only these two stay in the list, so the drawn slots index them.
+      await page.evaluate(() => {
+        const g = window.__OT.GameState, list = g.hitShockwaves;
+        const crash = list.find((e) => /BLOCKED/.test(e.label || ''));
+        list.length = 0;
+        if (crash) list.push(crash);
+        list.push({ x: 0, y: 0, radius: 12, maxRadius: 115, color: '#fde047', label: '+1500 ⚡ 1.88GW!', life: 60, maxLife: 60 });
+      });
+      const seen = await page.waitForFunction(() => {
+        const s = window.__OT.pickupArt(), list = window.__OT.GameState.hitShockwaves;
+        if (!s || !s.labels) return null;
+        const plates = [];
+        for (let i = 0; i < s.labels; i++) {
+          const o = i * 7, e = list[s.slots[o + 5]];
+          plates.push({ label: e && e.label, x0: s.slots[o], y0: s.slots[o + 1], x1: s.slots[o] + s.slots[o + 2], y1: s.slots[o + 1] + s.slots[o + 3] });
+        }
+        if (plates.length < 2 || !plates.some((p) => /BLOCKED/.test(p.label || ''))) return null;
+        const pads = [...document.querySelectorAll('#touchControlsLayer .tc-btn, #tcStick, #tcDpad, #tcTilt')]
+          .filter((e) => !e.classList.contains('tc-hidden') && getComputedStyle(e).display !== 'none')
+          .map((e) => { const r = e.getBoundingClientRect(); return { id: e.id, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; })
+          .filter((r) => r.x1 > r.x0);
+        return { plates, pads, rw: s.rw, rh: s.rh, vw: innerWidth, vh: innerHeight };
+      }, null, { timeout: 10000 }).then((hnd) => hnd.jsonValue());
+      expect(seen.pads.length).toBeGreaterThan(4);
+      const hits = [];
+      for (const f of [1, 1.115]) {
+        const sx = (bx) => (bx - seen.rw * (1 - 1 / f) * 0.5) * f * seen.vw / seen.rw;
+        const sy = (by) => (by - seen.rh * (1 - 1 / f) * 0.46) * f * seen.vh / seen.rh;
+        for (const p of seen.plates) {
+          const q = { x0: sx(p.x0), y0: sy(p.y0), x1: sx(p.x1), y1: sy(p.y1) };
+          for (const r of seen.pads) if (q.x0 < r.x1 && r.x0 < q.x1 && q.y0 < r.y1 && r.y0 < q.y1) hits.push(`"${p.label}" over ${r.id} at fov ${f}`);
+        }
+      }
+      const [a, b] = seen.plates;
+      if (a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1) hits.push('the crash plate and the popup overlap');
+      await page.screenshot({ path: info.outputPath(`crash-line-pads-${w}x${h}.png`) });
+      expect(hits).toEqual([]);
+      expect(problems).toEqual([]);
+    });
+  });
+}
