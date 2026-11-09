@@ -8,6 +8,9 @@
 // One hit-text lane (0220): a label keeps the slot it landed in (slot 0 nearest the car), so a new one
 // stacks one plate above a live one instead of shoving it. When the lane is full an impact (`hit`)
 // outranks a pickup plate, then the newest wins; a label that loses its place is gone for good.
+// Touch pads (0254): `avoid` holds the on-screen pads as buffer boxes (padBoxes below); a plate that
+// would touch one slides sideways within the gap between pads or lifts above them, so a crash line
+// never runs under PAUSE or ROAR. The test covers the whole float, so a plate never jumps mid-life.
 
 export const LABEL = {
   font: 11,     // px on the road buffer
@@ -30,6 +33,56 @@ const pick = new Int32Array(LABEL.max); // source index per slot, -1 = free
 // Who keeps a place in the lane: the chain plate, then impacts, then the newest.
 const rank = (e, i) => (e.chain ? 4e6 : 0) + (e.hit ? 2e6 : 0) + i;
 
+/**
+ * Touch pads from screen space (CSS px, x0 y0 x1 y1 per pad) into the road buffer (rw×rh, drawn
+ * over a vw×vh screen): each box covers where the pad lands at every FOV crop from none to
+ * LABEL.fovMax, so the answer doesn't move with speed. Writes `out`, returns the count.
+ */
+export function padBoxes(pads, n, vw, vh, rw, rh, out) {
+  const F = LABEL.fovMax, kx = rw / vw, ky = rh / vh;
+  const cx = rw * (1 - 1 / F) * 0.5, cy = rh * (1 - 1 / F) * 0.46;
+  const m = Math.min(n, out.length >> 2);
+  for (let i = 0; i < m * 4; i += 4) {
+    out[i] = Math.min(pads[i] * kx, cx + pads[i] * kx / F);
+    out[i + 1] = Math.min(pads[i + 1] * ky, cy + pads[i + 1] * ky / F);
+    out[i + 2] = Math.max(pads[i + 2] * kx, cx + pads[i + 2] * kx / F);
+    out[i + 3] = Math.max(pads[i + 3] * ky, cy + pads[i + 3] * ky / F);
+  }
+  return m;
+}
+
+// Where fitBand put a plate (x); module scalars, so the layout allocates nothing.
+let fitX = 0;
+/**
+ * Lowest top edge ≤ `y` at which a w×h band, centred near `cx`, touches none of the `n` boxes
+ * in `avoid` (keeping `gap`), between the margins `m`; sets fitX. Slides sideways first, lifts
+ * over the lowest box in the way otherwise. NaN when nothing fits.
+ */
+function fitBand(y, w, h, cx, m, rw, gap, avoid, n) {
+  for (let guard = 0; guard <= n; guard++) {
+    let lo = m, hi = rw - m, lift = -Infinity;
+    const y1 = y + h;
+    for (let i = 0; i < n * 4; i += 4) {
+      if (avoid[i + 3] + gap <= y || avoid[i + 1] - gap >= y1 || avoid[i + 2] + gap <= m || avoid[i] - gap >= rw - m) continue;
+      if (avoid[i + 1] > lift) lift = avoid[i + 1];
+      if (avoid[i + 2] <= cx) lo = Math.max(lo, avoid[i + 2] + gap);
+      else if (avoid[i] >= cx) hi = Math.min(hi, avoid[i] - gap);
+      else { lo = cx; hi = cx; }
+    }
+    if (hi - lo >= w) { fitX = Math.min(hi - w, Math.max(lo, cx - w * 0.5)); return y; }
+    y = lift - gap - h;
+  }
+  return NaN;
+}
+
+/** Whether the box x, y, w, h comes within `gap` of any of the `n` boxes in `avoid`. */
+function touches(x, y, w, h, gap, avoid, n) {
+  for (let i = 0; i < n * 4; i += 4) {
+    if (avoid[i] - gap < x + w && x < avoid[i + 2] + gap && avoid[i + 1] - gap < y + h && y < avoid[i + 3] + gap) return true;
+  }
+  return false;
+}
+
 /** The car's screen box when the renderer hasn't published one (3D view): drawPlayerCar's maths. */
 export function fallbackBox(rw, rh, out) {
   const carW = Math.max(58, Math.floor(rw * 0.22));
@@ -44,9 +97,10 @@ export function fallbackBox(rw, rh, out) {
  * Lays out the labelled entries of `list` ({ label, life, maxLife }, oldest first) around the
  * car `box` ({ x0, y0, x1, y1 }) on a rw×rh canvas. `measure(text)` gives the text width at
  * LABEL.font; it is called once per entry (cached on it). `still` (reduced motion) stops the
- * float. Writes `out` slots, returns the count.
+ * float. `avoid` / `nAvoid`: touch pad boxes on the buffer (padBoxes) no plate may touch. Writes
+ * `out` slots, returns the count.
  */
-export function layoutLabels(list, box, rw, rh, measure, out, still) {
+export function layoutLabels(list, box, rw, rh, measure, out, still, avoid, nAvoid = 0) {
   const { padX, padY, gap, margin, max, stride } = LABEL;
   const rise = still ? 0 : LABEL.rise;
   // The part of the buffer that reaches the screen at the deepest FOV crop.
@@ -109,7 +163,13 @@ export function layoutLabels(list, box, rw, rh, measure, out, still) {
       y = Math.min(box.y0 - gap - t * rise - k * (h0 + gap), top - gap) - h;
       // A car high up: rather close the gap under it than send it to the side stack.
       if (y < top0 && k > n) y = Math.min(box.y0 - gap - t * rise - n * (h0 + gap), top - gap) - h;
-      if (y >= top0) { x = Math.min(rw - m - w, Math.max(m, cx - w * 0.5)); top = y; }
+      if (y >= top0 && nAvoid > 0) {
+        // Test the whole float (from here up to where it ends), so the answer holds all its life.
+        const ahead = (1 - t) * rise;
+        const yt = fitBand(y - ahead, w, h + rise, cx, m, rw, gap, avoid, nAvoid);
+        y = yt === yt ? yt + ahead : -Infinity;
+      } else fitX = Math.min(rw - m - w, Math.max(m, cx - w * 0.5));
+      if (y >= top0) { x = fitX; top = y; }
       else { side = true; sideY = Math.max(top0, Math.min(box.y0, bottom - h)) - gap; }
     }
     if (side) {
@@ -119,6 +179,7 @@ export function layoutLabels(list, box, rw, rh, measure, out, still) {
       y = sideY + gap;
       if (y + h > bottom) break;
       x = rightRoom >= leftRoom ? box.x1 + gap : box.x0 - gap - w;
+      if (nAvoid > 0 && touches(x, y - rise, w, h + rise, gap, avoid, nAvoid)) break;
       sideY = y + h;
     }
     const o = n * stride;

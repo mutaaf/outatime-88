@@ -83,3 +83,50 @@ test.describe('desktop (keyboard)', () => {
     expect(problems).toEqual([]);
   });
 });
+
+// Ticket 0254: on a phone the crash line (and any popup with it) never runs under a touch pad.
+// The plates are laid out on the road buffer (GameState.hitShockwaves → src/popups.js); this maps
+// each drawn plate to the screen at both ends of the FOV crop and checks it against every shown pad.
+for (const [w, h] of [[390, 844], [844, 390]]) {
+  test.describe(`phone ${w}x${h} (touch)`, () => {
+    test.use({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+
+    test('the crash line stays clear of every touch pad', async ({ page }, info) => {
+      const problems = watchPage(page);
+      await start(page);
+      await page.waitForFunction(() => window.__OT.touch && window.__OT.touch() && window.__OT.pickupArt(), null, { timeout: 20000 });
+      const gate = await crashInto(page, 'HIGH_LIGHT_GATE', 'touch', '💥 BLOCKED! HOLD DRIFT TO SLIDE UNDER!');
+      expect(gate.err).toBeUndefined();
+      // A score popup at the same moment: both plates share the lane.
+      await page.evaluate(() => window.__OT.GameState.hitShockwaves.push({ x: 0, y: 0, radius: 12, maxRadius: 115, color: '#fde047', label: '+1500 ⚡ 1.88GW!', life: 0.9, maxLife: 0.9 }));
+      const seen = await page.waitForFunction(() => {
+        const s = window.__OT.pickupArt(), list = window.__OT.GameState.hitShockwaves;
+        if (!s || !s.labels) return null;
+        const plates = [];
+        for (let i = 0; i < s.labels; i++) {
+          const o = i * 7, e = list[s.slots[o + 5]];
+          plates.push({ label: e && e.label, x0: s.slots[o], y0: s.slots[o + 1], x1: s.slots[o] + s.slots[o + 2], y1: s.slots[o + 1] + s.slots[o + 3] });
+        }
+        if (!plates.some((p) => /BLOCKED/.test(p.label || ''))) return null;
+        const pads = [...document.querySelectorAll('#touchControlsLayer .tc-btn, #tcStick, #tcDpad')]
+          .filter((e) => !e.classList.contains('tc-hidden') && getComputedStyle(e).display !== 'none')
+          .map((e) => { const r = e.getBoundingClientRect(); return { id: e.id, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; })
+          .filter((r) => r.x1 > r.x0);
+        return { plates, pads, rw: s.rw, rh: s.rh, vw: innerWidth, vh: innerHeight };
+      }, null, { timeout: 10000 }).then((hnd) => hnd.jsonValue());
+      expect(seen.pads.length).toBeGreaterThan(4);
+      const hits = [];
+      for (const f of [1, 1.115]) {
+        const sx = (bx) => (bx - seen.rw * (1 - 1 / f) * 0.5) * f * seen.vw / seen.rw;
+        const sy = (by) => (by - seen.rh * (1 - 1 / f) * 0.46) * f * seen.vh / seen.rh;
+        for (const p of seen.plates) {
+          const q = { x0: sx(p.x0), y0: sy(p.y0), x1: sx(p.x1), y1: sy(p.y1) };
+          for (const r of seen.pads) if (q.x0 < r.x1 && r.x0 < q.x1 && q.y0 < r.y1 && r.y0 < q.y1) hits.push(`"${p.label}" over ${r.id} at fov ${f}`);
+        }
+      }
+      await page.screenshot({ path: info.outputPath(`crash-line-pads-${w}x${h}.png`) });
+      expect(hits).toEqual([]);
+      expect(problems).toEqual([]);
+    });
+  });
+}
