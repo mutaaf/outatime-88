@@ -207,6 +207,26 @@ export function haze(ctx, W, y0, y1, color, alpha) {
   ctx.restore();
 }
 
+/**
+ * Horizon seam (0256): the roofline's dark base meets the brighter ground (wet sheen, reflections,
+ * the horizon glow) on one row. A cached 1 px wide sprite, `up` rows above the horizon and `down`
+ * below, fades the ground's own colour `rgb` in over the base of the layers and back out, so no
+ * row steps abruptly. seamAlpha: its alpha per row (smoothstep up to 1 at the horizon, then down).
+ */
+export function seamAlpha(up, down) {
+  const a = new Float32Array(up + down);
+  for (let i = 0; i < up + down; i++) {
+    const t = i < up ? (i + 1) / up : 1 - (i - up + 1) / (down + 1);
+    a[i] = t * t * (3 - 2 * t);
+  }
+  return a;
+}
+export function seamSprite(rgb, up, down) {
+  const c = layer(1, up + down), ctx = c.getContext('2d');
+  seamAlpha(up, down).forEach((a, i) => { ctx.fillStyle = `rgba(${rgb},${a.toFixed(3)})`; ctx.fillRect(0, i, 1, 1); });
+  return c;
+}
+
 /** Mountain / mesa ridge silhouette across the whole tile width (seamless). */
 export function ridge(ctx, W, base, amp, rough, color, seed, mesa = false) {
   const r = rng(seed);
@@ -438,7 +458,8 @@ export function groundGrid(ctx, w, hz, h, color, alpha) {
   ctx.strokeStyle = color; ctx.globalAlpha = alpha; ctx.lineWidth = 1;
   const vx = w / 2;
   for (let i = -24; i <= 24; i++) { ctx.beginPath(); ctx.moveTo(vx + i * w * 0.004, hz); ctx.lineTo(vx + i * w * 0.12, h); ctx.stroke(); }
-  for (let j = 1; j < 18; j++) { const y = hz + (h - hz) * Math.pow(j / 18, 2.2); ctx.globalAlpha = alpha * (0.3 + j / 18); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  // the first lines melt into the horizon haze (0256)
+  for (let j = 1; j < 18; j++) { const y = hz + (h - hz) * Math.pow(j / 18, 2.2); ctx.globalAlpha = alpha * (0.3 + j / 18) * Math.min(1, j / 4); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
   ctx.restore();
 }
 

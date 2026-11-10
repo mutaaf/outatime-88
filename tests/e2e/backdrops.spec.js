@@ -80,3 +80,41 @@ test('roadside art: era props replace the cartoon kit, never fill the screen, an
   expect(road.tags).toBeLessThanOrEqual(3);
   expect(problems).toEqual([]);
 });
+
+// Ticket 0256: where the roofline meets the ground (wet sheen, reflections, the horizon glow) no
+// row of the backdrop steps hard in brightness. The backdrop is drawn on its own (the stage
+// chunk's draw() onto a spare canvas, no road on top), in every era, on a phone and a laptop.
+for (const [width, height] of [[390, 844], [1280, 720]]) {
+  test(`no hard seam where the roofline meets the ground at ${width}x${height} (ticket 0256)`, async ({ page }) => {
+    const problems = watchPage(page);
+    await page.setViewportSize({ width, height });
+    await page.goto(`${APP}?debug`);
+    await page.locator('#btnStartRace').click();
+    await page.waitForFunction(() => window.__OT.GameState.racePhase === 'RACING');
+    for (let i = 0; i < ERAS.length; i++) {
+      await page.evaluate((n) => { window.__OT.GameState.eraIndex = n; }, i);
+      await page.waitForFunction((id) => window.__OT.backdrop()?.id === id, ERAS[i], { timeout: 8000 });
+      await nextFrames(page, 2);
+      const r = await page.evaluate(async () => {
+        const url = performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\/stage-[^/]*\.js$/.test(n));
+        const stage = await import(url); // the same module instance the game draws with
+        const g = document.getElementById('gameCanvas');
+        const c = document.createElement('canvas'); c.width = g.width; c.height = g.height;
+        const ctx = c.getContext('2d');
+        const hz = Math.round(c.height * 0.46);
+        const drawn = stage.draw(ctx, c.width, c.height, hz, { id: window.__OT.backdrop().id },
+          { curve: 0, trackPos: 0, playerX: 0, t: 1, raceTime: 1, speed: 0, lap: 1, laps: 3, warp: -1, reduced: true, lit: true });
+        const { data } = ctx.getImageData(0, 0, c.width, c.height);
+        const row = (y) => { let s = 0; for (let x = 0; x < c.width; x++) { const q = (y * c.width + x) * 4; s += data[q] * 0.299 + data[q + 1] * 0.587 + data[q + 2] * 0.114; } return s / c.width; };
+        // the seam band: from well up the roofline's base to just under the horizon
+        const up = Math.round(Math.max(16, c.height * 0.035)), down = Math.round(Math.max(4, c.height * 0.01));
+        let worst = 0, at = 0, prev = row(hz - up);
+        for (let y = hz - up + 1; y <= hz + down; y++) { const v = row(y); if (Math.abs(v - prev) > worst) { worst = Math.abs(v - prev); at = y - hz; } prev = v; }
+        return { drawn, worst, at };
+      });
+      expect(r.drawn, `${ERAS[i]}: the stage drew the scene`).toBe(true);
+      expect(r.worst, `${ERAS[i]}: luminance step between rows near the horizon (row ${r.at} from it)`).toBeLessThanOrEqual(6);
+    }
+    expect(problems).toEqual([]);
+  });
+}

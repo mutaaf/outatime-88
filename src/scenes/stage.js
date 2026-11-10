@@ -15,7 +15,7 @@ const LOADERS = {
 export const SCENE_IDS = Object.keys(LOADERS);
 
 import { getQuality, tier, TIERS, setQualitySource } from './quality.js';
-import { fadeEdgeSigns, layer } from './kit.js';
+import { fadeEdgeSigns, layer, seamSprite } from './kit.js';
 import { roadsideFor, drawProp, drawHazard, contactShadow, stats as roadStats } from './roadside.js';
 
 export { getQuality, setQualitySource };
@@ -70,7 +70,20 @@ function build(scene, id, rw, rh) {
   out.id = id; out.rw = rw; out.rh = rh; out.k = k; out.hz0 = hz0; out.q = getQuality();
   out.mem = scene.memory ? scene.memory() : {};
   out.ads = (scene.ads || []).map(adSprite);
+  out.seam = seam(out, rh);
   return out;
+}
+
+// The horizon seam (0256), baked once per build: the mean colour of the ground just under the
+// seam (plate + the layers this tier draws, reflections included) fading in over the roofline's base.
+function seam(o, rh) {
+  const up = Math.round(Math.max(16, rh * 0.035)), down = Math.round(Math.max(4, rh * 0.01));
+  const t = layer(256, 1), ctx = t.getContext('2d'), k = o.k, j = down + 1;
+  ctx.drawImage(o.sky, 0, Math.round((o.pad + o.hz0 + j) * k), o.sky.width, 1, 0, 0, 256, 1);
+  for (const L of o.layers.slice(0, TIERS[o.q].layers)) ctx.drawImage(L.c, 0, o.hzL + Math.round(j * k), L.c.width, 1, 0, 0, 256, 1);
+  const d = ctx.getImageData(0, 0, 256, 1).data, m = [0, 0, 0];
+  for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) m[c] += d[i + c] / 256;
+  return { c: seamSprite(m.map(Math.round).join(','), up, down), up, h: up + down };
 }
 
 /**
@@ -140,6 +153,8 @@ export function draw(ctx, rw, rh, hz, era, s) {
     if (W - off < rw) ctx.drawImage(L.c, W - off, y, W, h);
     fadeEdgeSigns(ctx, L.c.signs, off, y, W, rw, built.k); // 0237
   }
+  const sm = built.seam;
+  ctx.drawImage(sm.c, 0, hz - sm.up, rw, sm.h); // 0256: no hard edge where the roofline meets the ground
   if (scene.anim) scene.anim(ctx, F, built);
   costMs += (performance.now() - t0 - costMs) * 0.05;
   return true;
