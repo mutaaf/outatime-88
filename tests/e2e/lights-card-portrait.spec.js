@@ -48,6 +48,9 @@ function sampleLights(page) {
             count: rect(document.getElementById('rcCount')),
             bulbs: [...el.querySelectorAll('.rc-bulbs i')].map(rect),
             skip: shown(document.getElementById('rcSkip')),
+            grid: shown(document.getElementById('rcGrid')),
+            gridParts: [...document.querySelectorAll('#rcGrid > *')].map(shown).filter(Boolean),
+            banner: shown(document.getElementById('announcerMain')),
             others: ['announcerMain', 'coachCard', 'hudPosCard', 'hudTrack', 'hudTimes', 'hudSpeedCard', 'btnHudSettings']
               .map((id) => ({ id, b: shown(document.getElementById(id)) })).filter((o) => o.b),
             pads: Array.from({ length: (gs.touchPads && gs.touchPads.n) || 0 }, (_, i) => {
@@ -95,7 +98,8 @@ async function toLights(page, input) {
   return sampleLights(page);
 }
 
-for (const [w, h, input] of [[390, 844, 'touch'], [390, 844, 'keys'], [430, 932, 'touch'], [360, 780, 'touch']]) {
+// 480x800: chips and the car pill show together (the 0215 beats are under 480 px), two rows.
+for (const [w, h, input] of [[390, 844, 'touch'], [390, 844, 'keys'], [430, 932, 'touch'], [360, 780, 'touch'], [375, 667, 'touch'], [480, 800, 'touch']]) {
   test.describe(`portrait phone ${w}x${h}, ${input} prompt`, () => {
     test.use({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
 
@@ -128,9 +132,16 @@ for (const [w, h, input] of [[390, 844, 'touch'], [390, 844, 'keys'], [430, 932,
         expect(overlaps(f.card, f.skip), `${at} over the skip pill`).toBe(false);
         for (const o of f.others) expect(overlaps(f.card, o.b), `${at} over #${o.id}`).toBe(false);
         for (const o of f.pads) expect(overlaps(f.card, o.b), `${at} over ${o.id}`).toBe(false);
+        // the grid's chips / car pill sit above the card, under the level banner
+        for (const g of f.gridParts) {
+          expect(overlaps(f.card, g), `${at} grid ${JSON.stringify(g)} under the card`).toBe(false);
+          expect(overlaps(f.banner, g), `${at} grid ${JSON.stringify(g)} over the banner`).toBe(false);
+        }
       }
+      expect(lights.some((f) => f.gridParts.length > 0)).toBe(true);
       // GO: the card is shown, then gone (opacity 0) by 0.5 s of race clock.
       expect(frames.some((f) => f.state === 'go')).toBe(true);
+      expect(frames.some((f) => f.racing && f.raceTime >= 0.5), 'no frame sampled 0.5 s after GO').toBe(true);
       for (const f of frames.filter((x) => x.racing && x.raceTime >= 0.5)) {
         expect(f.opacity, `GO + ${f.raceTime.toFixed(2)} s`).toBeLessThan(0.02);
       }
