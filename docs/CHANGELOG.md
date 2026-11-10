@@ -184,3 +184,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-09 · 0253 · Crash into a gate or bar on a phone or gamepad and the tip now names your DRIFT / JUMP pads or your pad's buttons, not keyboard letters
 2026-11-09 · 0254 · On a phone the crash tip and score popups now float clear of the touch pads instead of running under PAUSE or ROAR
 2026-11-09 · 0255 · The −N HP / +N HP pop under the place card now sits on a dark plate, so what a hit cost reads clearly over any sky
+2026-11-10 · 0256 · The town's base now melts into the street at the horizon in every era, instead of a hard straight line cutting across the scenery

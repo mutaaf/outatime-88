@@ -1,12 +1,12 @@
 ---
 id: 0256
 title: The horizon haze band has no hard edge across the backdrop (phone and desktop)
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-10
-pr:
+pr: 244
 ---
 
 ## Why
@@ -24,12 +24,12 @@ in `src/`) and make it a vertical gradient that fades to zero alpha at its top e
 single row changes luminance abruptly. Same colour and strength at the horizon line.
 
 ## Acceptance criteria
-- [ ] In a race at 390x844 and 1280x720, the mean luminance of consecutive pixel rows
+- [x] In a race at 390x844 and 1280x720, the mean luminance of consecutive pixel rows
       across the backdrop (road excluded) never steps by more than 6 levels between rows
       in the band region.
-- [ ] Every era backdrop passes the same check.
-- [ ] Haze colour at the horizon line is unchanged (within 4 levels per channel).
-- [ ] No frame-time regression (gradient is cached, not rebuilt per frame).
+- [x] Every era backdrop passes the same check.
+- [x] Haze colour at the horizon line is unchanged (within 4 levels per channel).
+- [x] No frame-time regression (gradient is cached, not rebuilt per frame).
 
 ## Test plan
 Extend `tests/e2e/backdrops.spec.js`: screenshot the backdrop strip per era at both
