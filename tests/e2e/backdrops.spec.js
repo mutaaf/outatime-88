@@ -102,7 +102,7 @@ for (const [width, height] of [[390, 844], [1280, 720]]) {
         const c = document.createElement('canvas'); c.width = g.width; c.height = g.height;
         const ctx = c.getContext('2d');
         const hz = Math.round(c.height * 0.46);
-        stage.draw(ctx, c.width, c.height, hz, { id: window.__OT.backdrop().id },
+        const drawn = stage.draw(ctx, c.width, c.height, hz, { id: window.__OT.backdrop().id },
           { curve: 0, trackPos: 0, playerX: 0, t: 1, raceTime: 1, speed: 0, lap: 1, laps: 3, warp: -1, reduced: true, lit: true });
         const { data } = ctx.getImageData(0, 0, c.width, c.height);
         const row = (y) => { let s = 0; for (let x = 0; x < c.width; x++) { const q = (y * c.width + x) * 4; s += data[q] * 0.299 + data[q + 1] * 0.587 + data[q + 2] * 0.114; } return s / c.width; };
@@ -110,8 +110,9 @@ for (const [width, height] of [[390, 844], [1280, 720]]) {
         const up = Math.round(Math.max(16, c.height * 0.035)), down = Math.round(Math.max(4, c.height * 0.01));
         let worst = 0, at = 0, prev = row(hz - up);
         for (let y = hz - up + 1; y <= hz + down; y++) { const v = row(y); if (Math.abs(v - prev) > worst) { worst = Math.abs(v - prev); at = y - hz; } prev = v; }
-        return { worst, at };
+        return { drawn, worst, at };
       });
+      expect(r.drawn, `${ERAS[i]}: the stage drew the scene`).toBe(true);
       expect(r.worst, `${ERAS[i]}: luminance step between rows near the horizon (row ${r.at} from it)`).toBeLessThanOrEqual(6);
     }
     expect(problems).toEqual([]);

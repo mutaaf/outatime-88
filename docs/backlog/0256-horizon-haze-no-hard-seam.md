@@ -38,3 +38,12 @@ gradient builder is a pure function.
 
 ## Out of scope
 New backdrop art, changing fog distance, the road surface.
+
+## Shipped notes (#244)
+The "band" was the horizon row itself: the dark base of the town meets the brighter ground
+(wet sheen, reflections, the horizon glow) in one row in every era. The fix fades the ground's
+own mean colour in over the roofline's base (3.5% of the height above the horizon, 1% below).
+So the horizon row now takes that ground colour on purpose. Criterion 3 holds for the ground
+band under the seam, which is unchanged. 2088's first three ground-grid lines fade into the
+same haze. Row steps elsewhere (rooftops higher up, 2088's grid further down) are drawn art,
+out of scope.
