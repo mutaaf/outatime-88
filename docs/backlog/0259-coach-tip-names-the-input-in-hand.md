@@ -1,12 +1,12 @@
 ---
 id: 0259
 title: The LOW LASER and HIGH GATE coach tips name the input in hand, not all three at once
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-10
-pr:
+pr: 248
 ---
 
 ## Why
