@@ -186,3 +186,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-09 · 0255 · The −N HP / +N HP pop under the place card now sits on a dark plate, so what a hit cost reads clearly over any sky
 2026-11-10 · 0256 · The town's base now melts into the street at the horizon in every era, instead of a hard straight line cutting across the scenery
 2026-11-10 · 0257 · On the start grid the SKIP pill now sits above the driver card, in the sky, instead of on the cars lined up beside you
+2026-11-10 · 0258 · Behind the scenes: the boot check now fails on any broken file, so a missing asset can't slip past next to the expected ad-loader miss on local builds

@@ -1,12 +1,12 @@
 ---
 id: 0258
 title: The ad loader's 404 on preview and local builds is expected, so e2e names it and fails on any other
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: tech-health
 created: 2026-11-10
-pr:
+pr: 246
 ---
 
 ## Why
@@ -21,9 +21,9 @@ ads loader path on localhost, and fail on any other 4xx/5xx or console error. To
 tests (`tests/e2e/`); do not change index.html or the loader.
 
 ## Acceptance criteria
-- [ ] The smoke test fails if any response other than `/ads/v1/ads.js` is >= 400.
-- [ ] The smoke test fails on any console error not caused by that one 404.
-- [ ] A deliberately missing asset (checked locally by hand, not committed) turns it red.
+- [x] The smoke test fails if any response other than `/ads/v1/ads.js` is >= 400.
+- [x] The smoke test fails on any console error not caused by that one 404.
+- [x] A deliberately missing asset (checked locally by hand, not committed) turns it red.
 
 ## Test plan
 Update the smoke spec's allow-list; the assertion is the test.
