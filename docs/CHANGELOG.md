@@ -188,3 +188,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-10 · 0257 · On the start grid the SKIP pill now sits above the driver card, in the sky, instead of on the cars lined up beside you
 2026-11-10 · 0258 · Behind the scenes: the boot check now fails on any broken file, so a missing asset can't slip past next to the expected ad-loader miss on local builds
 2026-11-10 · 0259 · The LOW LASER and HIGH GATE coach tips now name only your controls: H / E and S / ▼ on a keyboard, the JUMP and DRIFT pads on a phone, Y and B / LT on a gamepad (the keyboard tip used to say W, which is the gas)
+2026-11-10 · 0260 · On a phone held upright the start lights are now a slim strip in the sky above the road (lamps, count and a one-line rocket-start prompt), so you can see the cars you're about to race, and it fades away the moment you hit GO
