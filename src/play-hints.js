@@ -5,14 +5,15 @@
  * `slide` under a high gate, `jump` a low bar). A pad names its buttons (X / RB boost,
  * Y hover, B / LT brake), a paired TV phone its BOOST / BRAKE / JUMP buttons, a touchscreen
  * its DRIFT and JUMP pads; keyboard and "no input yet" keep the original words (touch too,
- * for the boost prompts).
+ * for the boost prompts). `hop` / `duck` (0259) are the coach card's LOW LASER and HIGH GATE
+ * advice, before its "— or go ◀ LEFT" (src/coach-dock.js obstacleTip).
  */
-const KEYS = { coachFlux: 'Hold 88 mph — or hit SPACE / ⚡ — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR SPACE!', ramp: 'PRESS SPACE OR HOVER FOR MID-AIR TRICK!', slide: '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!', jump: '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!' };
+const KEYS = { coachFlux: 'Hold 88 mph — or hit SPACE / ⚡ — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR SPACE!', ramp: 'PRESS SPACE OR HOVER FOR MID-AIR TRICK!', slide: '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!', jump: '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!', hop: 'Hop it (H / E)', duck: 'Hold drift to duck (S / ▼)' };
 export const PLAY_HINTS = Object.freeze({
   keys: Object.freeze(KEYS),
-  touch: Object.freeze({ ...KEYS, slide: '💥 BLOCKED! HOLD DRIFT TO SLIDE UNDER!', jump: '💥 BLOCKED! HIT JUMP OR STEER AROUND!' }),
-  pad: Object.freeze({ coachFlux: 'Hold 88 mph — or press X / RB — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR X!', ramp: 'PRESS X OR Y FOR A MID-AIR TRICK!', slide: '💥 BLOCKED! HOLD B / LT TO SLIDE UNDER!', jump: '💥 BLOCKED! JUMP (Y) OR STEER AROUND!' }),
-  phone: Object.freeze({ coachFlux: 'Hold 88 mph — or hit BOOST — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR BOOST!', ramp: 'HIT BOOST OR HOVER FOR A MID-AIR TRICK!', slide: '💥 BLOCKED! HOLD BRAKE TO SLIDE UNDER!', jump: '💥 BLOCKED! HIT JUMP OR STEER AROUND!' }),
+  touch: Object.freeze({ ...KEYS, slide: '💥 BLOCKED! HOLD DRIFT TO SLIDE UNDER!', jump: '💥 BLOCKED! HIT JUMP OR STEER AROUND!', hop: 'Tap JUMP to hop it', duck: 'Hold DRIFT to duck' }),
+  pad: Object.freeze({ coachFlux: 'Hold 88 mph — or press X / RB — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR X!', ramp: 'PRESS X OR Y FOR A MID-AIR TRICK!', slide: '💥 BLOCKED! HOLD B / LT TO SLIDE UNDER!', jump: '💥 BLOCKED! JUMP (Y) OR STEER AROUND!', hop: 'Hop it (Y)', duck: 'Hold B / LT to duck' }),
+  phone: Object.freeze({ coachFlux: 'Hold 88 mph — or hit BOOST — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR BOOST!', ramp: 'HIT BOOST OR HOVER FOR A MID-AIR TRICK!', slide: '💥 BLOCKED! HOLD BRAKE TO SLIDE UNDER!', jump: '💥 BLOCKED! HIT JUMP OR STEER AROUND!', hop: 'Hit JUMP to hop it', duck: 'Hold BRAKE to duck' }),
 });
 let rebound = null;
 /**
@@ -28,7 +29,7 @@ export function playHint(kind, boostKey = '', downKey = '') {
     for (const k of Object.keys(h)) {
       let t = h[k];
       if (boostKey) t = t.replace('SPACE', boostKey);
-      if (downKey) t = t.replace('(S)', `(${downKey})`);
+      if (downKey) t = t.replace('(S)', `(${downKey})`).replace('(S /', `(${downKey} /`);
       rebound[k] = t;
     }
   }

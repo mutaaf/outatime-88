@@ -192,10 +192,13 @@ test('1280x720 keyboard: the coach card docks in the HUD row beside the place ca
   expect(problems).toEqual([]);
 });
 
-/** Every line the coach can show on a phone (src/race-flow.js), the widest direction for each. */
+/** Every line the coach can show on a phone (src/race-flow.js), the widest direction for each; the
+ *  LOW LASER / HIGH GATE lines in every input's words (0259: touch, pad, keys, TV phone). */
 const COACH_LINES = [
-  'Graze the gold ring for a slingshot — or go RIGHT ▶', 'Hop it (W / ▲ / swipe up) — or go RIGHT ▶',
-  'Hold drift to duck (S / ▼ / swipe down) — or go RIGHT ▶', 'Smash straight through it for flux + HP',
+  'Graze the gold ring for a slingshot — or go RIGHT ▶', 'Tap JUMP to hop it — or go RIGHT ▶',
+  'Hold DRIFT to duck — or go RIGHT ▶', 'Hop it (Y) — or go RIGHT ▶', 'Hold B / LT to duck — or go RIGHT ▶',
+  'Hop it (H / E) — or go RIGHT ▶', 'Hold drift to duck (S / ▼) — or go RIGHT ▶',
+  'Hit JUMP to hop it — or go RIGHT ▶', 'Hold BRAKE to duck — or go RIGHT ▶', 'Smash straight through it for flux + HP',
   'Grab the wrench (center) for +25 HP', 'Go RIGHT ▶, jump it, or boost-smash it',
   'Hold 88 mph — or hit BOOST — to jump eras', 'Draft the green wake behind rivals for a slingshot',
 ];

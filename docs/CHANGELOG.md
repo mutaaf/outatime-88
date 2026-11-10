@@ -187,3 +187,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-10 · 0256 · The town's base now melts into the street at the horizon in every era, instead of a hard straight line cutting across the scenery
 2026-11-10 · 0257 · On the start grid the SKIP pill now sits above the driver card, in the sky, instead of on the cars lined up beside you
 2026-11-10 · 0258 · Behind the scenes: the boot check now fails on any broken file, so a missing asset can't slip past next to the expected ad-loader miss on local builds
+2026-11-10 · 0259 · The LOW LASER and HIGH GATE coach tips now name only your controls: H / E and S / ▼ on a keyboard, the JUMP and DRIFT pads on a phone, Y and B / LT on a gamepad (the keyboard tip used to say W, which is the gas)

@@ -2,10 +2,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PLAY_HINTS, playHint } from '../../src/play-hints.js';
+import { obstacleTip } from '../../src/coach-dock.js';
 
 describe('playHint', () => {
   it('keeps the original keyboard words for keys and no input yet (touch too, for the boost prompts)', () => {
-    const keys = { coachFlux: 'Hold 88 mph — or hit SPACE / ⚡ — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR SPACE!', ramp: 'PRESS SPACE OR HOVER FOR MID-AIR TRICK!', slide: '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!', jump: '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!' };
+    const keys = { coachFlux: 'Hold 88 mph — or hit SPACE / ⚡ — to jump eras', flux: '⚡ FLUX READY! HIT 88 MPH OR SPACE!', ramp: 'PRESS SPACE OR HOVER FOR MID-AIR TRICK!', slide: '💥 BLOCKED! HOLD DRIFT (S) TO SLIDE UNDER!', jump: '💥 BLOCKED! JUMP (H/E) OR STEER AROUND!', hop: 'Hop it (H / E)', duck: 'Hold drift to duck (S / ▼)' };
     for (const kind of ['keys', '', undefined, 'nonsense']) expect(playHint(kind)).toEqual(keys);
     const t = playHint('touch');
     for (const k of ['coachFlux', 'flux', 'ramp']) expect(t[k]).toBe(keys[k]);
@@ -59,10 +60,60 @@ describe('playHint', () => {
 
   it('every kind has every prompt, short enough for the HUD line', () => {
     for (const h of Object.values(PLAY_HINTS)) {
-      expect(Object.keys(h).sort()).toEqual(['coachFlux', 'flux', 'jump', 'ramp', 'slide']);
+      expect(Object.keys(h).sort()).toEqual(['coachFlux', 'duck', 'flux', 'hop', 'jump', 'ramp', 'slide']);
       expect(h.flux.length).toBeLessThanOrEqual(40);
       expect(h.slide.length).toBeLessThanOrEqual(42); // one plate line at 390 px, no longer than today's keyboard line
       expect(h.jump.length).toBeLessThanOrEqual(42);
+    }
+  });
+});
+
+// Ticket 0259: the coach card's LOW LASER / HIGH GATE lines name the input in hand, never all three.
+describe('obstacleTip (coach card)', () => {
+  const el = () => ({ textContent: '' });
+  const tip = (type, kind, boostKey = '', downKey = '') => {
+    const icon = el(), title = el(), line = el();
+    expect(obstacleTip({ type, offset: 0.3 }, false, icon, title, line, playHint(kind, boostKey, downKey))).toBe(true);
+    return line.textContent;
+  };
+  const both = (kind, b, d) => [tip('LOW_LASER_BAR', kind, b, d), tip('HIGH_LIGHT_GATE', kind, b, d)];
+
+  it('keys: the real jump keys (H / E) and S / ▼ to duck, no swipe, no W (that is the gas)', () => {
+    const [hop, duck] = both('keys');
+    expect(hop).toBe('Hop it (H / E) — or go ◀ LEFT');
+    expect(duck).toBe('Hold drift to duck (S / ▼) — or go ◀ LEFT');
+    for (const t of [hop, duck]) expect(t).not.toMatch(/swipe|\bW\b|▲/i);
+    expect(both('')).toEqual([hop, duck]); // no input yet: the keyboard words
+  });
+
+  it('touch names the on-screen JUMP and DRIFT pads: no key letters, no key arrows', () => {
+    const [hop, duck] = both('touch');
+    expect(hop).toMatch(/\bJUMP\b/);
+    expect(duck).toMatch(/\bDRIFT\b/);
+    for (const t of [hop, duck]) {
+      expect(t).not.toMatch(/\([^)]*\)|[▲▼]|\b(W|S|H|E)\b|swipe/);
+    }
+  });
+
+  it('a pad names its buttons (Y to hop, B / LT to duck); a TV phone its JUMP and BRAKE', () => {
+    const [hop, duck] = both('pad');
+    expect(hop).toMatch(/\(Y\)/);
+    expect(duck).toMatch(/\bB\b.*\bLT\b/);
+    for (const t of [hop, duck]) expect(t).not.toMatch(/swipe|[▲▼]|\b(W|S|H|E)\b|DRIFT|TAP/i);
+    const [phop, pduck] = both('phone');
+    expect(phop).toMatch(/\bJUMP\b/);
+    expect(pduck).toMatch(/\bBRAKE\b/);
+    for (const t of [phop, pduck]) expect(t).not.toMatch(/swipe|[▲▼]|\(/i);
+  });
+
+  it('a rebound BRAKE key is named in the duck line', () => {
+    expect(tip('HIGH_LIGHT_GATE', 'keys', '', 'K')).toBe('Hold drift to duck (K / ▼) — or go ◀ LEFT');
+    expect(tip('HIGH_LIGHT_GATE', 'touch', '', 'K')).toBe('Hold DRIFT to duck — or go ◀ LEFT');
+  });
+
+  it('every device fits one coach line at 390 px (no longer than the old keyboard line)', () => {
+    for (const kind of ['keys', 'touch', 'pad', 'phone']) {
+      for (const t of both(kind)) expect(t.length).toBeLessThanOrEqual(46);
     }
   });
 });
@@ -78,6 +129,9 @@ describe('race prompts use the table', () => {
     }
     expect(src('race-flow.js')).toMatch(/descEl\.textContent = hintNow\(\)\.coachFlux/);
     expect(src('race-flow.js')).toMatch(/fluxHint\.textContent = hintNow\(\)\.flux/);
+    // 0259: the coach card's obstacle tips get the words for the input in hand, and name no device outright.
+    expect(src('race-flow.js')).toMatch(/obstacleTip\([^)]*descEl, hintNow\(\)\)/);
+    expect(src('coach-dock.js')).not.toMatch(/swipe|W \/ ▲|S \/ ▼/);
     expect(src('race-step.js')).toMatch(/RF\.hintNow\(\)\.ramp/);
     // 0253: the obstacle crash lines too, never "(S)" / "(H/E)" hard-coded.
     expect(src('race-step.js')).not.toMatch(/\((S|H\/E)\)/);
