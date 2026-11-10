@@ -780,10 +780,11 @@ body.labels-up #steerHint { visibility: hidden !important; transition: none !imp
 .rc-hint { font-size: clamp(10px, 1.6vmin, 15px); font-weight: 800; letter-spacing: 0.14em; color: #fde68a; text-align: center; }
 .rc-skip { pointer-events: auto; min-height: 44px; padding: 0 18px; border-radius: 9999px; font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 800;
   letter-spacing: 0.14em; color: #e2e8f0; background: rgba(2, 6, 23, 0.8); border: 1px solid #475569; }
-/* 0257: during the lineup the skip pill sits in the sky above the card, never on the grid's cars
-   (the road and every car draw below the 46% horizon). The card keeps its old spot, 29 px over the
-   middle: the pill goes first in the stage's centred column and its -2×(height + gap) top margin
-   cancels it out of the column's height. Landscape phones (≤ 560 px tall) keep the bottom stack. */
+/* 0257: during the lineup the skip pill sits above the card, over the 46% horizon, never on the
+   rival cars lined up on the flat grid (they draw below it; a tall truck's roof may still poke up).
+   The card keeps its old spot, 29 px over the middle: the pill goes first in the stage's centred
+   column and its -2×(height + gap) top margin cancels it out of the column's height. Screens
+   ≤ 560 px tall (landscape phones, short portrait windows) keep the bottom stack. */
 @media (min-height: 561px) {
   .race-stage .rc-skip { --skip-h: 44px; order: -1; height: var(--skip-h); margin-top: calc(-2 * (var(--skip-h) + 14px)); }
 }
