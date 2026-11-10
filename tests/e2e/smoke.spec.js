@@ -37,9 +37,12 @@ test('boots with the real ads loader: only its own 404 is tolerated', async ({ p
     }
     // vite preview answers a missing file under /outatime/ with index.html and a 200 (SPA
     // fallback), so there a broken asset shows up as HTML where a script/style/image/font was
-    // asked for. Only documents may come back as HTML.
-    const type = r.request().resourceType();
-    if (type !== 'document' && /text\/html/.test(r.headers()['content-type'] || '')) {
+    // asked for. Only the page's own document may come back as HTML (a missing iframe page
+    // would get the fallback too, typed 'document').
+    const req = r.request();
+    const type = req.resourceType();
+    const ownPage = type === 'document' && req.frame() === page.mainFrame();
+    if (!ownPage && /text\/html/.test(r.headers()['content-type'] || '')) {
       problems.push(`missing asset (HTML fallback for a ${type}): ${r.url()}`);
     }
   });
