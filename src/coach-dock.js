@@ -28,14 +28,15 @@ export function dockDeskCoach(banner, again) {
 }
 
 /** Writes the coach card for the obstacle ahead (0002) into icon/title/line, allocation-free; false
- *  when there is nothing to say (a wrench at full HP). In this chunk with the dock, for the same reason (0233). */
-export function obstacleTip(item, fullHp, icon, title, line) {
+ *  when there is nothing to say (a wrench at full HP). In this chunk with the dock, for the same reason (0233).
+ *  `hint`: playHint() for the input in hand (race-flow's hintNow); its hop/duck words name that device's controls (0259). */
+export function obstacleTip(item, fullHp, icon, title, line, hint) {
   const t = item.type;
   const open = item.offset >= 0 ? '◀ LEFT' : 'RIGHT ▶';
   let i = '⚡', h = 'BARRIER', d = `Go ${open}, jump it, or boost-smash it`;
   if (t === 'PINE_TREE_HAZARD') { i = '🌲'; h = 'TREE AHEAD'; d = `Graze the gold ring for a slingshot — or go ${open}`; }
-  else if (t === 'LOW_LASER_BAR') { i = '🟠'; h = 'LOW LASER'; d = `Hop it (W / ▲ / swipe up) — or go ${open}`; }
-  else if (t === 'HIGH_LIGHT_GATE') { i = '🔵'; h = 'HIGH GATE'; d = `Hold drift to duck (S / ▼ / swipe down) — or go ${open}`; }
+  else if (t === 'LOW_LASER_BAR') { i = '🟠'; h = 'LOW LASER'; d = `${hint.hop} — or go ${open}`; }
+  else if (t === 'HIGH_LIGHT_GATE') { i = '🔵'; h = 'HIGH GATE'; d = `${hint.duck} — or go ${open}`; }
   else if (t === 'FLUX_CRATE') { i = '📦'; h = 'FLUX CRATE'; d = 'Smash straight through it for flux + HP'; }
   else if (t === 'REPAIR_WRENCH') {
     if (fullHp) return false;

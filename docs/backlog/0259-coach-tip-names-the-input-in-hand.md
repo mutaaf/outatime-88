@@ -1,12 +1,12 @@
 ---
 id: 0259
 title: The LOW LASER and HIGH GATE coach tips name the input in hand, not all three at once
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-10
-pr:
+pr: 248
 ---
 
 ## Why
@@ -25,6 +25,9 @@ lines from the active input: keys → "W / ▲" and "S / ▼" (honour rebinds th
 does); gamepad → its buttons; touch → "tap JUMP" / "hold DRIFT" (the on-screen pad names, see
 `src/touch/icons.js` LABELS). Reuse `src/play-hints.js` words; add the two kinds there if
 missing. Strings are built once per tip, no per-frame allocation. Keep each line one line at 390 px.
+
+Shipped note (#248): W / ▲ is ACCELERATE; the jump keys are H / E (main.js, 0253's crash line), so the
+keyboard tip names H / E. Jump is not rebindable (H/E are RESERVED); the duck line follows a rebound BRAKE key.
 
 ## Acceptance criteria
 - [ ] With `lastInput` keys the low-bar tip has no "swipe"; the high-gate tip has no "swipe"
