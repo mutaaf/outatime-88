@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { APP, watchPage, canvasLitFraction, hudNumber, skipToGreen } from './helpers.js';
+import { APP, watchPage, stubApi, canvasLitFraction, hudNumber, skipToGreen } from './helpers.js';
 
 test('boots at the base path with no errors and no external requests', async ({ page }) => {
   const problems = watchPage(page);
@@ -7,6 +7,67 @@ test('boots at the base path with no errors and no external requests', async ({ 
   expect(res.status()).toBe(200);
   await expect(page.locator('#btnStartRace')).toBeVisible();
   await page.waitForTimeout(1000);
+  expect(await canvasLitFraction(page)).toBeGreaterThan(0.05);
+  expect(problems).toEqual([]);
+});
+
+// Ticket 0258: every other spec answers the Marquee loader with a stub (stubAds), so the boot
+// they see never 404s. Here the loader is NOT stubbed: on vite preview (and any local build)
+// `../ads/v1/ads.js` lives in another Worker and 404s, which logs one console error. That exact
+// 404 on our own origin is the only failure allowed; any other response >= 400, failed request,
+// asset answered with the HTML fallback, or console error fails the boot, so a broken asset
+// can't hide beside the expected noise.
+const ADS_LOADER = '/ads/v1/ads.js';
+const isAdsLoader = (url) => {
+  try {
+    const u = new URL(url);
+    return ['localhost', '127.0.0.1'].includes(u.hostname) && u.pathname === ADS_LOADER;
+  } catch { return false; }
+};
+
+test('boots with the real ads loader: only its own 404 is tolerated', async ({ page }) => {
+  stubApi(page); // vite preview has no Worker; the API is not what this test is about
+  const problems = [];
+  const adsMisses = [];
+  page.on('response', (r) => {
+    if (r.status() >= 400) {
+      if (r.status() === 404 && isAdsLoader(r.url())) adsMisses.push(r.url());
+      else problems.push(`HTTP ${r.status()}: ${r.url()}`);
+      return;
+    }
+    // vite preview answers a missing file under /outatime/ with index.html and a 200 (SPA
+    // fallback), so there a broken asset shows up as HTML where a script/style/image/font was
+    // asked for. Only documents may come back as HTML.
+    const type = r.request().resourceType();
+    if (type !== 'document' && /text\/html/.test(r.headers()['content-type'] || '')) {
+      problems.push(`missing asset (HTML fallback for a ${type}): ${r.url()}`);
+    }
+  });
+  page.on('requestfailed', (r) => {
+    if (!isAdsLoader(r.url())) problems.push(`request failed: ${r.url()} (${r.failure()?.errorText})`);
+  });
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    // Chrome's "Failed to load resource: ... 404" carries the resource as its location.
+    if (/Failed to load resource/.test(m.text()) && isAdsLoader(m.location().url)) return;
+    problems.push(`console.error: ${m.text()} @ ${m.location().url}`);
+  });
+  page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (!['localhost', '127.0.0.1'].includes(u.hostname) && !['data:', 'blob:'].includes(u.protocol)) {
+      problems.push(`external request: ${r.url()}`);
+    }
+  });
+  const res = await page.goto(APP);
+  expect(res.status()).toBe(200);
+  await expect(page.locator('#btnStartRace')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  // The allowance is earned: the loader really was requested and really missed (if Marquee ever
+  // serves it locally, drop the allowance rather than keep a hole open).
+  expect(adsMisses.length).toBeGreaterThan(0);
+  // The game shrugs the missing loader off: no marquee, title still drawn.
+  expect(await page.evaluate(() => typeof window.marquee)).toBe('undefined');
   expect(await canvasLitFraction(page)).toBeGreaterThan(0.05);
   expect(problems).toEqual([]);
 });
