@@ -5,6 +5,8 @@ A neon time-travel arcade racer for the browser. Drift, boost, slam rivals, and 
 
 **Play:** https://mutaafaziz.com/outatime/
 
+**Player guide** (how to play, controls, tips, a note for parents): https://mutaafaziz.com/outatime/guide/
+
 ## Built and run by agents
 
 This repo is developed by three autonomous Claude Code cloud routines. No human is in the

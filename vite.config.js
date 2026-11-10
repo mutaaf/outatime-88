@@ -7,7 +7,7 @@ import { walk, precacheList, versionOf, bundleContent, publicContent } from './s
 // every HTML response. Path exclusions need a paid plan, so the game's HTML opts out with
 // `Cache-Control: no-transform` instead (AGENTS.md §3.3: no analytics). Workers static assets
 // read `_headers` from the root of the assets directory (./dist), one level above outDir.
-const HEADERS = ['/outatime/', '/outatime/index.html', '/outatime/pad.html', '/outatime/pad']
+const HEADERS = ['/outatime/', '/outatime/index.html', '/outatime/pad.html', '/outatime/pad', '/outatime/guide/', '/outatime/guide/index.html']
   .map((path) => `${path}\n  Cache-Control: public, max-age=0, must-revalidate, no-transform\n`)
   .join('') + '/outatime/sw.js\n  Cache-Control: no-cache\n';
 
@@ -49,7 +49,8 @@ export default defineConfig({
     outDir: 'dist/outatime',
     emptyOutDir: true,
     // TV mode (ticket 0175): the phone controller is its own small page, not the game.
-    rollupOptions: { input: { index: 'index.html', pad: 'pad.html' } },
+    // Player guide (ticket 0261): a static, script-free page at /outatime/guide/.
+    rollupOptions: { input: { index: 'index.html', pad: 'pad.html', guide: 'guide/index.html' } },
   },
   test: {
     include: ['tests/unit/**/*.test.js'],

@@ -294,6 +294,13 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .set-keys .set-row small { margin-left: 6px; font-size: 11px; font-weight: 600; color: #94a3b8; }
 .key-btn { min-width: 96px; }
 .key-btn[aria-pressed="true"] { color: #fff; border-color: #22d3ee; background: rgba(34, 211, 238, 0.18); }
+.set-link { display: inline-flex; align-items: center; text-decoration: none; }
+/* Player guide link in EVENTS (ticket 0261). */
+.guide-link { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 10px 0 0; padding: 0 14px; border-radius: 16px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: #a5f3fc; text-decoration: none;
+  background: rgba(2, 6, 23, 0.95); border: 1px solid rgba(0, 240, 255, 0.5); }
+.guide-link span { font-family: 'Inter', sans-serif; font-weight: 600; letter-spacing: 0; color: #94a3b8; text-transform: none; }
+.guide-link:hover, .guide-link:focus-visible { border-color: #00f0ff; color: #fff; }
 .set-btn.is-off, .tilt-meter.is-off { opacity: 0.4; pointer-events: none; }
 .switch { position: relative; flex-shrink: 0; width: 64px; height: 36px; border-radius: 9999px; background: #334155; border: 2px solid #475569; transition: background 0.15s; }
 /* A 48px tap target (0201): the hit area reaches 6px past the 36px track (inset counts from inside the border), within the 48px row. */

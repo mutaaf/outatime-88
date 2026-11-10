@@ -102,6 +102,11 @@ async function sizeOf(cache, keys) {
   return n;
 }
 
+/** Cache key for a page navigation: the game's own URLs share the base, other pages keep their path. */
+function navKey(pathname) {
+  return pathname === BASE || pathname === `${BASE}index.html` ? BASE : pathname;
+}
+
 function timeout(ms) {
   return new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
 }
@@ -119,10 +124,13 @@ self.addEventListener('fetch', (event) => {
       try {
         // Airplane Wi-Fi often "connects" but never answers: don't wait for it forever.
         const res = await Promise.race([fetch(req), timeout(NAV_TIMEOUT_MS)]);
-        if (res.ok && res.type === 'basic') (await caches.open(CACHE)).put(BASE, res.clone());
+        // Only the game page is cached as the base: another page under it (the guide, the phone
+        // pad) is cached under its own path, so visiting it never replaces the offline game (0261).
+        if (res.ok && res.type === 'basic') (await caches.open(CACHE)).put(navKey(url.pathname), res.clone());
         return res;
       } catch {
-        return (await caches.match(BASE, { ignoreSearch: true, ignoreVary: true })) || Response.error();
+        const opts = { ignoreSearch: true, ignoreVary: true };
+        return (await caches.match(navKey(url.pathname), opts)) || (await caches.match(BASE, opts)) || Response.error();
       }
     })());
     return;

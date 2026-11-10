@@ -144,6 +144,8 @@ Depth over breadth: polish one moment until it sings before adding three.
 
 ```
 index.html          Markup: canvas, HUD, touch controls, start/garage/results modals (Tailwind classes)
+guide/              Player guide (0261): static page at /outatime/guide/, its own Vite entry; NO script, ads or
+                      analytics. Keep its facts true when gameplay changes (controls, numbers, modes)
 src/main.js         Entry: what the title needs on its first frame — JarvisAI assist modes ·
                       LiveTraffic's data and init · UI (roster, level select, garage) ·
                       bindAllControls() · mainLoop(); exports what the race step and src/render/
