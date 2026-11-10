@@ -1,12 +1,12 @@
 ---
 id: 0257
 title: The grid "PRESS ENTER TO SKIP" pill never sits on the cars in the line-up
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-11-10
-pr:
+pr: 245
 ---
 
 ## Why
@@ -22,11 +22,11 @@ or beside the intro card's lower edge, whichever clears cars at 1280x720 and 390
 the grid/intro overlay code (`src/racecall.js` and its CSS). Text is unchanged.
 
 ## Acceptance criteria
-- [ ] At 1280x720 keyboard and 390x844 touch, the skip pill's box does not intersect the
+- [x] At 1280x720 keyboard and 390x844 touch, the skip pill's box does not intersect the
       player car or any rival car box during the intro.
-- [ ] The pill never overlaps the intro card, HUD cards or touch pads.
-- [ ] Wording per input is unchanged (keys / pad / phone / touch).
-- [ ] The pill still skips on its input.
+- [x] The pill never overlaps the intro card, HUD cards or touch pads.
+- [x] Wording per input is unchanged (keys / pad / phone / touch).
+- [x] The pill still skips on its input.
 
 ## Test plan
 In the grid e2e, read the pill rect and the on-screen car rects (published car boxes or
