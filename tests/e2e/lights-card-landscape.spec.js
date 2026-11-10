@@ -3,7 +3,8 @@
 // traffic just ahead stay visible while the lights count down and at GO. Lamps, the count and the
 // launch prompt all still show, unclipped, and the card never stacks with another text: on the
 // shortest screens (under ~375 px) it sits just under the level banner instead, and a launch call
-// at GO takes the lane from it. Desktop and portrait phones keep their card.
+// at GO takes the lane from it. Desktop keeps its card; portrait phones have their own slim card
+// (0260, lights-card-portrait.spec.js).
 import { test, expect } from '@playwright/test';
 import { APP, watchPage } from './helpers.js';
 
@@ -135,10 +136,10 @@ test.describe('landscape phone 844x390, a jumped start', () => {
   });
 });
 
-// Desktop and portrait phones keep main's card: in the stage's flow, stacked (lamps over the count
+// Desktop and portrait tablets keep main's card: in the stage's flow, stacked (lamps over the count
 // over the prompt), the count at its clamp(54px, 13vmin, 140px) size. Asserted from the styles, not
-// pixel boxes, which shift a few px with the runner's fonts.
-for (const [w, h, phone] of [[1280, 720, false], [390, 844, true]]) {
+// pixel boxes, which shift a few px with the runner's fonts. (Portrait phones: 0260.)
+for (const [w, h, phone] of [[1280, 720, false], [768, 1024, true]]) {
   test.describe(`${w}x${h}`, () => {
     test.use({ viewport: { width: w, height: h }, ...(phone ? { hasTouch: true, isMobile: true } : {}) });
 

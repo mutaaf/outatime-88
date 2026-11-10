@@ -1,12 +1,12 @@
 ---
 id: 0260
 title: Portrait phone start-lights card shrinks so the road and horizon stay in view at GO
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: player-feel
 created: 2026-11-10
-pr:
+pr: 249
 ---
 
 ## Why
@@ -25,11 +25,11 @@ line (shorten the `touch` launch copy in `src/racecall.js` only if it cannot fit
 over the first 0.4 s after GO rather than holding it. Desktop and landscape unchanged.
 
 ## Acceptance criteria
-- [ ] At 390x844 and 430x932 the card is ≤ 120 px tall and overlaps no HUD slot, no pad and not the SKIP pill
-- [ ] At GO the card is gone (opacity 0) within 0.5 s of the race clock
-- [ ] The rocket-start prompt is still fully visible and ≥ 4.5:1 contrast during the lights
-- [ ] Landscape phone and 1280x720 layouts are unchanged (existing grid e2e specs stay green)
-- [ ] No frame-time regression
+- [x] At 390x844 and 430x932 the card is ≤ 120 px tall and overlaps no HUD slot, no pad and not the SKIP pill
+- [x] At GO the card is gone (opacity 0) within 0.5 s of the race clock
+- [x] The rocket-start prompt is still fully visible and ≥ 4.5:1 contrast during the lights
+- [x] Landscape phone and 1280x720 layouts are unchanged (existing grid e2e specs stay green)
+- [x] No frame-time regression
 
 ## Test plan
 Extend the phone grid e2e (see tests/e2e touch-layouts / grid specs): sample the card box each
