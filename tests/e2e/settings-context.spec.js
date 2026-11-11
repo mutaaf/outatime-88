@@ -12,8 +12,8 @@ async function seeded(page) {
 }
 
 async function titleSettings(page) {
-  // The goals chunk repaints on the title too (syncRunnerUi): wait for it, so the panel is
-  // measured after the repaint that used to unhide the shop.
+  // The goals chunk fills the shop on the title too (syncRunnerUi): wait until it has, so the
+  // shop exists to be hidden (the first visit; on a later one it is already filled).
   await page.waitForFunction(() => document.querySelector('#pauseShop .shop-item'));
   await page.locator('#btnOpenSettings').click();
   await expect(page.locator('#settingsModal')).toBeVisible();
@@ -22,12 +22,14 @@ async function titleSettings(page) {
 async function leadsWithSettings(page) {
   await expect(page.locator('#pauseGoals')).toBeHidden();
   await expect(page.locator('#pauseShop')).toBeHidden();
-  // STEERING is the first section a player sees, in view without scrolling.
-  const first = page.locator('#settingsModal .set-section').first();
-  await expect(first.locator('h3')).toContainText('STEERING');
-  const box = await first.locator('h3').boundingBox();
-  const vh = page.viewportSize().height;
-  expect(box.y + box.height).toBeLessThanOrEqual(vh);
+  // STEERING is the first thing under the header, in view without scrolling: nothing sits
+  // between them (the goals + shop pushed it ~350 px down at either size).
+  const steer = page.locator('#setHeadSteer');
+  await expect(steer).toContainText('STEERING');
+  const head = await page.locator('#settingsTitle').boundingBox();
+  const box = await steer.boundingBox();
+  expect(box.y - (head.y + head.height)).toBeLessThan(80);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize().height);
   expect(await page.locator('#settingsModal').evaluate((m) => m.scrollTop)).toBe(0);
 }
 

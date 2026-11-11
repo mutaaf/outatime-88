@@ -192,4 +192,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-10 · 0261 · A player guide at mutaafaziz.com/outatime/guide/ (📖 PLAYER GUIDE in EVENTS and in Settings): modes, controls for keys, touch and gamepad, scoring, tips, settings and a note for parents, as a plain page with no ads; visiting it (or the phone pad) no longer replaces the game saved for offline play
 2026-11-11 · 0262 · Car names in the garage strip are bigger (10 px) and stay bright on cars you haven't unlocked yet (only the car's swatch dims), long names wrap instead of being cut, and the ▲/▼ spec comparisons are easier to read
 2026-11-11 · 0263 · The results card's stat captions (SCORE, PLACE · WARPS, PEAK · TAKEDOWNS, FLUX CASH) are 10px and brighter on every screen, down from 7-8px on phones
-2026-11-11 · 0264 · Settings opened from the title or the garage start with STEERING: the Endless goals and the power-up shop now show only when you pause a run
+2026-11-11 · 0264 · Settings opened from the title start with STEERING: the Endless goals and the power-up shop now show only when you open settings from a paused run
