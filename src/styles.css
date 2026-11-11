@@ -883,7 +883,7 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
 .pod-note { margin-top: 3px; font-size: 10px; color: #94a3b8; text-align: right; }
 .end-stats { margin-top: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; text-align: left; }
 .end-stats .led-box { border-radius: 10px; padding: 5px 9px; display: flex; flex-direction: column; min-width: 0; }
-.end-stats small { font-family: 'Orbitron', sans-serif; font-size: 8px; color: #94a3b8; }
+.end-stats small { font-family: 'Orbitron', sans-serif; font-size: 10px; line-height: 1.2; color: #cbd5e1; } /* 0263: never under 10px, 4.5:1+ on the card */
 .end-stats b { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .end-board { margin-top: 8px; padding: 6px; border-radius: 14px; background: rgba(2, 6, 23, 0.8); border: 1px solid rgba(34, 211, 238, 0.4); min-height: 20px; }
 .end-board:not(:has(#initialsForm:not(.hidden))):not(:has(#endRankText:not(:empty))):not(:has(#endRankCard:not(:empty))) { display: none; }
@@ -925,7 +925,6 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
   .pod-name small, .pod-note { display: none; }
   .end-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   .end-stats .led-box { padding: 3px 5px; }
-  .end-stats small { font-size: 7px; }
   .end-stats b { font-size: 10px; }
 }
 
@@ -979,7 +978,6 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
   .end-share-text small { display: none; }
   .end-board { margin-top: 4px; padding: 3px 6px; }
   .end-actions-2 { margin-top: 0; }
-  .end-stats small { font-size: 7px; }
 }
 @media (max-height: 700px) and (orientation: portrait) {
   .end-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }

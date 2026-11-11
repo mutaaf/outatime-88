@@ -1,7 +1,7 @@
 ---
 id: 0263
 title: Results card stat captions never drop below 10px on phones
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
