@@ -12,7 +12,7 @@ const lum = ([r, g, b]) => {
 };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1280, height: 720 }]) {
+for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { width: 640, height: 360 }, { width: 844, height: 390 }, { width: 1280, height: 720 }]) {
   test(`results stat captions are readable at ${vp.width}x${vp.height}`, async ({ page }) => {
     const problems = watchPage(page);
     await page.setViewportSize(vp);
@@ -50,21 +50,22 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
         const s = document.createElement('span');
         s.style.cssText = `font:${cs.font};letter-spacing:${cs.letterSpacing};white-space:nowrap;position:absolute`;
         document.body.appendChild(s);
-        let word = 0; for (const w of small.textContent.split(/\s+/)) { s.textContent = w; word = Math.max(word, s.getBoundingClientRect().width); }
+        let word = 0; for (const w of small.innerText.split(/\s+/)) { s.textContent = w; word = Math.max(word, s.getBoundingClientRect().width); }
         s.remove();
         return {
-          text: small.textContent, size: parseFloat(cs.fontSize), color: rgb(cs.color), opacity: +cs.opacity,
+          text: small.innerText, lines: Math.round(small.getBoundingClientRect().height / parseFloat(cs.lineHeight)), size: parseFloat(cs.fontSize), color: rgb(cs.color), opacity: +cs.opacity,
           bg: bgUnder(small), small: box(small), b: box(b), inner, cell: box(cell), word,
           bClipped: b.scrollWidth > b.clientWidth + 1,
         };
       });
       const btn = box(document.querySelector('#btnPlayAgain'));
       // How much taller the bigger captions make the card: the stats grid against the same grid with
-      // the old 8 px captions (the larger of the two sizes it had), measured in this layout.
+      // the captions as they were before 0263 (8 px, 7 px on short phones), measured in this layout.
       const grid = document.querySelector('.end-stats');
       const now = grid.getBoundingClientRect().height;
       const old = document.createElement('style');
-      old.textContent = '.end-stats small { font-size: 8px !important; line-height: normal !important; }';
+      old.textContent = '.end-stats small { font-size: 8px !important; line-height: normal !important; }'
+        + '@media (max-height: 700px) and (orientation: portrait), (max-height: 520px) and (orientation: landscape) { .end-stats small { font-size: 7px !important; } }';
       document.head.appendChild(old);
       const before = grid.getBoundingClientRect().height;
       old.remove();
@@ -76,6 +77,9 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
       expect(c.size, `${c.text} font-size`).toBeGreaterThanOrEqual(10);
       expect(c.opacity).toBe(1);
       expect(contrast(c.color, c.bg), `${c.text} contrast`).toBeGreaterThanOrEqual(4.5);
+      // As bright as slate-300 (#cbd5e1) or brighter, not the old dim slate-400.
+      expect(lum(c.color), `${c.text} colour`).toBeGreaterThanOrEqual(lum([203, 213, 225]) - 1e-6);
+      expect(c.lines, `${c.text} wraps`).toBe(1);
       // Caption and number sit inside their cell's content box, caption above the number.
       expect(c.small.left, `${c.text} left`).toBeGreaterThanOrEqual(c.inner.left);
       expect(c.small.right, `${c.text} right`).toBeLessThanOrEqual(c.inner.right);
@@ -90,7 +94,7 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
       expect(a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5,
         `${m.cells[i].text} overlaps ${m.cells[j].text}`).toBe(false);
     }
-    // The card scrolls no further than before: two caption rows grow ~2-3 px each, never a wrap.
+    // The card scrolls no further than before: two caption rows grow ~2-3 px each.
     expect(m.grow, 'stats grid growth (px)').toBeLessThanOrEqual(8);
     // The replay button stays a real target, reachable on the card.
     expect(Math.min(m.btn.width, m.btn.height)).toBeGreaterThanOrEqual(44);
