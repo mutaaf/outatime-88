@@ -1,12 +1,12 @@
 ---
 id: 0264
 title: Settings opened from the title leads with settings, not Endless goals and the power-up shop
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-11-11
-pr:
+pr: 254
 ---
 
 ## Why
