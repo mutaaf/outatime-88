@@ -67,7 +67,7 @@ export function createGarageUI(deps) {
       b.setAttribute('aria-selected', String(i === viewIdx));
       b.setAttribute('aria-label', `${c.car}${owned ? '' : ' (locked)'}`);
       const p = paintOf(c);
-      b.innerHTML = `<span class="thumb-swatch" style="background:linear-gradient(135deg, ${owned ? p.body : '#1e1b3a'}, ${owned ? c.glow : '#0f172a'})"></span><span class="thumb-name">${owned ? '' : '🔒 '}${esc(c.car.replace(/^'\d\d /, ''))}</span>`;
+      b.innerHTML = `<span class="thumb-swatch" style="background:linear-gradient(135deg, ${owned ? p.body : '#1e1b3a'}, ${owned ? c.glow : '#0f172a'})">${owned ? '' : '<span class="thumb-lock" aria-hidden="true">🔒</span>'}</span><span class="thumb-name">${esc(c.car.replace(/^'\d\d /, ''))}</span>`;
       b.addEventListener('click', () => show(i));
       box.appendChild(b);
     });
