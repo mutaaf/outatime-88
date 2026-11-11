@@ -14,12 +14,14 @@ describe('touch control names', () => {
   it('names are sentence case words, never all caps or an emoji', () => {
     for (const id of IDS) {
       expect(NAMES[id], id).toMatch(/^[A-Z][a-z]+( [a-z-]+)*$/);
-      expect(NAMES[id], id).not.toBe(NAMES[id].toUpperCase());
     }
   });
   it('names are distinct from each other', () => {
     const seen = IDS.map((id) => NAMES[id]);
     expect(new Set(seen).size).toBe(seen.length);
+  });
+  it('each name contains its visible label (WCAG 2.5.3 Label in Name)', () => {
+    for (const id of IDS) expect(NAMES[id].toLowerCase(), id).toContain(LABELS[id].toLowerCase());
   });
   it('names say what the button does', () => {
     expect(NAMES.horn).toMatch(/nitro/i);

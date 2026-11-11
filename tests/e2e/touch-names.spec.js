@@ -1,8 +1,8 @@
 // Touch button names (ticket 0266): mid-race on a phone, every button in the touch layer has a
-// spoken name in words (sentence case, not an emoji or a shouted abbreviation), and the live
-// state names (WARP ready, NOS on) follow the same rule.
+// spoken name in words (sentence case, not an emoji or a shouted abbreviation). The live state
+// names ("Warp ready", "Nos nitro boost on") are checked in warp-ready.spec.js and nos-toggle.spec.js.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage } from './helpers.js';
+import { APP, watchPage, touchReady, racing } from './helpers.js';
 
 const SAVE = JSON.stringify({ bestScore: 1, controls: { coachSeen: true } });
 
@@ -13,7 +13,8 @@ test('every touch button has a spoken name in words', async ({ browser }) => {
   await page.addInitScript((s) => localStorage.setItem('outatime_cruisn_88_save_v2', s), SAVE);
   await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.startRace());
-  await page.waitForFunction(() => document.querySelectorAll('#touchControlsLayer [role="button"]').length >= 10);
+  await touchReady(page);
+  await racing(page);
   const names = await page.evaluate(() => [...document.querySelectorAll('#touchControlsLayer [role="button"], #touchControlsLayer button')]
     .map((b) => ({ id: b.id, name: b.getAttribute('aria-label') || '' })));
   expect(names.length).toBeGreaterThanOrEqual(10);

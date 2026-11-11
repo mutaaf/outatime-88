@@ -28,8 +28,9 @@ export const LABELS = {
 };
 
 // Spoken names (0266): what each button does, in sentence case so a screen reader reads words, not
-// letters (the visible LABELS are short arcade caps like "NOS" and "RESET"). Used for aria-label only.
+// letters (the visible LABELS are short arcade caps like "NOS" and "RESET"). Each name contains its visible
+// label (WCAG 2.5.3 Label in Name: a voice user saying "tap NOS" hits it). Used for aria-label only.
 export const NAMES = {
-  boost: 'Warp', drift: 'Drift', jump: 'Jump', special: 'Crew special', accel: 'Gas', horn: 'Nitro boost',
+  boost: 'Warp', drift: 'Drift', jump: 'Jump', special: 'Crew special', accel: 'Gas', horn: 'Nos nitro boost',
   pause: 'Pause', rear: 'Look back', camera: 'Change camera', respawn: 'Reset to the road',
 };
