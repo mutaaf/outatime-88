@@ -12,23 +12,28 @@ const lum = ([r, g, b]) => {
 };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 720 }]) {
+for (const vp of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1280, height: 720 }]) {
   test(`garage strip names and deltas are readable at ${vp.width}x${vp.height}`, async ({ page }) => {
     const problems = watchPage(page);
     await page.setViewportSize(vp);
-    await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ onboarded: true })), KEY);
+    await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ onboarded: true, upgrades: { engine: 5, tires: 5, flux: 5, hover: 5 } })), KEY);
     await page.goto(APP);
     await page.locator('#btnOpenGarageFromTitle').click();
     await expect(page.locator('#garageModal')).toBeVisible();
-    // View a locked car so the specs compare it with yours and show deltas.
+    // View a locked car so the specs compare it with yours and show deltas; maxed upgrades give
+    // two-digit numbers, the widest value + delta the column holds.
     await page.locator('#garageThumbs .garage-thumb.is-locked').first().click();
     await expect(page.locator('#garageSpecs .spec-delta').first()).toBeVisible();
+    // Measure in the real face: the narrower fallback font would hide wraps and overflow.
+    await page.evaluate(() => document.fonts.ready);
+    expect(await page.evaluate(() => document.fonts.check("700 10px 'Orbitron'"))).toBeTruthy();
 
     const m = await page.evaluate(() => {
       const rgb = (s) => s.match(/[\d.]+/g).slice(0, 4).map(Number);
       // Effective opacity of an element: the product of its own and every ancestor's.
       const opacity = (el) => { let o = 1; for (let e = el; e; e = e.parentElement) o *= +getComputedStyle(e).opacity; return o; };
-      // Composite the background chain under el (top-most first) over the modal's dark shell.
+      // Composite the background chain under el (top-most first) over the shell's base colour (approximate: the
+      // shell's gradient is ignored; locked names must be undimmed, so ancestor opacity never scales the background).
       const bgUnder = (el) => {
         const layers = [];
         for (let e = el; e; e = e.parentElement) {
@@ -46,7 +51,15 @@ for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 720 }]) {
         return {
           locked: thumb.classList.contains('is-locked'), text: n.textContent,
           size: parseFloat(cs.fontSize), color: rgb(cs.color), alpha: opacity(n), bg: bgUnder(n),
-          sw: n.scrollWidth, cw: n.clientWidth, sh: n.scrollHeight, ch: n.clientHeight,
+          lines: Math.round(n.getBoundingClientRect().height / parseFloat(cs.lineHeight)),
+          box: (({ left, right, top, bottom }) => ({ left, right, top, bottom }))(n.getBoundingClientRect()),
+          inner: (() => { const r = thumb.getBoundingClientRect(), t = getComputedStyle(thumb);
+            return { left: r.left + parseFloat(t.borderLeftWidth), right: r.right - parseFloat(t.borderRightWidth), bottom: r.bottom - parseFloat(t.borderBottomWidth) }; })(),
+          // Widest single word, laid out alone in the same font: it must fit the line without breaking.
+          word: (() => { const s = document.createElement('span'); s.style.cssText = `font:${cs.font};letter-spacing:${cs.letterSpacing};white-space:nowrap;position:absolute`;
+            document.body.appendChild(s); let w = 0; for (const x of n.textContent.split(/[\s-]/)) { s.textContent = x; w = Math.max(w, s.getBoundingClientRect().width); } s.remove(); return w; })(),
+          cw: n.clientWidth, dashed: getComputedStyle(thumb).borderTopStyle === 'dashed', view: thumb.classList.contains('is-view'),
+          padlock: !!thumb.querySelector('.thumb-lock'),
           tw: thumb.getBoundingClientRect().width, th: thumb.getBoundingClientRect().height,
         };
       });
@@ -61,18 +74,26 @@ for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 720 }]) {
     expect(m.names.some((n) => n.locked), 'a fresh save has locked cars').toBeTruthy();
     for (const n of m.names) {
       expect(n.size, `${n.text} font-size`).toBeGreaterThanOrEqual(10);
-      expect(n.sw, `${n.text} not cut sideways`).toBeLessThanOrEqual(n.cw);
-      expect(n.sh, `${n.text} not cut below`).toBeLessThanOrEqual(n.ch + 1);
+      expect(n.lines, `${n.text} lines`).toBeLessThanOrEqual(3);
+      expect(n.word, `${n.text}: no word is split mid-word`).toBeLessThanOrEqual(n.cw + 0.5);
+      expect(n.box.left, `${n.text} inside its thumb (left)`).toBeGreaterThanOrEqual(n.inner.left - 0.5);
+      expect(n.box.right, `${n.text} inside its thumb (right)`).toBeLessThanOrEqual(n.inner.right + 0.5);
+      expect(n.box.bottom, `${n.text} inside its thumb (bottom)`).toBeLessThanOrEqual(n.inner.bottom + 0.5);
       expect(Math.min(n.tw, n.th), `${n.text} tap target`).toBeGreaterThanOrEqual(44);
       // Blend the text colour over its background at the opacity it really draws with.
       const a = n.alpha * (n.color[3] ?? 1);
       const shown = n.color.slice(0, 3).map((v, i) => v * a + n.bg[i] * (1 - a));
       expect(contrast(shown, n.bg), `${n.text} contrast`).toBeGreaterThanOrEqual(4.5);
-      if (n.locked) expect(n.alpha, `${n.text} not dimmed`).toBe(1);
+      if (n.locked) {
+        expect(n.alpha, `${n.text} not dimmed`).toBe(1);
+        expect(n.padlock, `${n.text}: a locked thumb shows its padlock`).toBeTruthy();
+        // The car being viewed wears the pink selection frame instead.
+        if (!n.view) expect(n.dashed, `${n.text}: a locked thumb has a dashed frame`).toBeTruthy();
+      }
     }
     expect(m.deltas.length).toBeGreaterThan(0);
     for (const d of m.deltas) expect(d, 'spec delta font-size').toBeGreaterThanOrEqual(10);
-    for (const n of m.nums) expect(n.right, 'spec number stays in its row').toBeLessThanOrEqual(n.rowRight + 1);
+    for (const n of m.nums) expect(n.sw, 'spec number and delta fit their column').toBeLessThanOrEqual(n.cw);
     expect(m.rows, 'strip is one row').toBe(1);
     expect(m.stripScroll, 'strip scrolls sideways').toBeTruthy();
     expect(problems).toEqual([]);
