@@ -1,12 +1,12 @@
 ---
 id: 0262
 title: Garage car-strip names and spec deltas are at least 10px and keep 4.5:1 when locked
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-11
-pr:
+pr: 252
 ---
 
 ## Why
@@ -23,11 +23,11 @@ state dim the thumb art/frame only (padlock icon and name stay full opacity, col
 or lighter). Let the name wrap to two lines inside the existing thumb width (no wider strip).
 
 ## Acceptance criteria
-- [ ] Computed font-size of every `.thumb-name` and `.spec-delta` is >= 10px at 390x844 and 1280x720
-- [ ] A locked thumb's name has contrast >= 4.5:1 against its rendered background
-- [ ] No thumb name is clipped or overflows its chip (scrollWidth <= clientWidth)
-- [ ] Strip is still one horizontally-scrolling row; 44px tap targets unchanged
-- [ ] No console errors; startup JS budget unchanged (CSS only)
+- [x] Computed font-size of every `.thumb-name` and `.spec-delta` is >= 10px at 390x844 and 1280x720
+- [x] A locked thumb's name has contrast >= 4.5:1 against its rendered background
+- [x] No thumb name is clipped or overflows its chip (scrollWidth <= clientWidth)
+- [x] Strip is still one horizontally-scrolling row; 44px tap targets unchanged
+- [x] No console errors; startup JS budget unchanged (CSS only)
 
 ## Test plan
 Extend the garage e2e (tests/e2e, find with `grep -l garage`) to open `?garage` at 390x844,
