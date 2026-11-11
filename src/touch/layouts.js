@@ -370,3 +370,54 @@ export function hitsLane(it, lane, gap = 2) {
 export function overlaps(a, b, gap = 2) {
   return Math.hypot(a.x - b.x, a.y - b.y) < a.d / 2 + b.d / 2 + gap;
 }
+
+/**
+ * Where the first-run steer prompt (#steerHint, w×h px) goes (0265): the free spot nearest its
+ * home just above the stick, so it never covers a visible control (shortcuts included), the HUD,
+ * the message lane or the car (those two give way when nothing else fits), and stays fully on screen. `padD` is the movement pad's drawn
+ * size (the D-pad is bigger than the stick's home). Returns the box's top-left corner. On a short
+ * screen with no free spot it may sit on the stick it points at; with no room even then it returns
+ * null (the caller hides it: a prompt on a button is worse than none, the stick zone still shows).
+ */
+export function hintSpot(items, env, w, h, padD) {
+  const { vw, vh, safe } = env;
+  const st = items.stick;
+  const gap = 6;
+  const minX = safe.l + 8;
+  const maxX = Math.max(minX, vw - safe.r - 8 - w);
+  const maxY = vh - safe.b - 8 - h;
+  const hx = Math.max(minX, Math.min(maxX, st.x - 90));
+  const hy = st.y - (padD || st.d) / 2 - 44;
+  const car = carZone(vw, vh);
+  const blocks = [];
+  for (const k of Object.keys(items)) {
+    const it = items[k];
+    if (it.hidden) continue;
+    const r = (k === 'stick' && padD ? padD : it.d) / 2 + gap;
+    blocks.push({ x0: it.x - r, x1: it.x + r, y0: it.y - r, y1: it.y + r, stick: k === 'stick' });
+  }
+  const lane = env.lane;
+  const free = (x, y, avoidCar, avoidLane, onStick) => {
+    const top = avoidLane && lane && x < lane.x1 + gap && x + w > lane.x0 - gap ? Math.max(env.top, lane.y1) : env.top;
+    if (y < top + gap) return false;
+    if (avoidCar && x < car.x1 && x + w > car.x0 && y < car.y1 && y + h > car.y0) return false;
+    for (const b of blocks) if (!(onStick && b.stick) && x < b.x1 && x + w > b.x0 && y < b.y1 && y + h > b.y0) return false;
+    return true;
+  };
+  // Strictest first: clear of the car and the message lane, then over the car, then in the lane
+  // (short landscape: it spans most of the screen), and last on the stick itself.
+  const TIERS = [[true, true, false], [false, true, false], [false, false, false], [false, false, true]];
+  for (const [avoidCar, avoidLane, onStick] of TIERS) {
+    let best = null, bestD = Infinity;
+    for (let y = Math.round(env.top); y <= maxY; y += 8) {
+      const dy = Math.abs(y - hy);
+      if (dy >= bestD) continue;
+      for (let x = Math.round(minX); x <= maxX; x += 8) {
+        const d = dy + Math.abs(x - hx);
+        if (d < bestD && free(x, y, avoidCar, avoidLane, onStick)) { best = { x, y }; bestD = d; }
+      }
+    }
+    if (best) return best;
+  }
+  return null;
+}

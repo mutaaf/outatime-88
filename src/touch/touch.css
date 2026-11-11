@@ -239,6 +239,8 @@ html, body { overscroll-behavior: none; }
 .tc-guide-ring.tc-guide-off { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .tc-guide-swipe, .tc-guide-ring { animation: none; } }
 body.tc-guiding #steerHint { visibility: hidden; }
+/* 0265: no spot clear of the buttons (short landscape, big custom pads): no prompt rather than one on a button. */
+:root.touch-ui #steerHint.tc-hint-off { visibility: hidden; transition: none; }
 
 /* --- Layout editor bar ------------------------------------------------------------------------ */
 .tc-editbar {
