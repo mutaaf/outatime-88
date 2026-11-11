@@ -1,12 +1,12 @@
 ---
 id: 0263
 title: Results card stat captions never drop below 10px on phones
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-11-11
-pr:
+pr: 253
 ---
 
 ## Why
@@ -24,10 +24,15 @@ results markup (index.html / src/results-ui.js); never shrink the number. Card m
 scroll the page at 390x844 or 360x640 beyond what it does today.
 
 ## Acceptance criteria
-- [ ] Every `.end-stats small` computed font-size >= 10px at 360x640, 390x844, 844x390, 1280x720
-- [ ] Caption contrast >= 4.5:1 on the card background
-- [ ] No caption or number is clipped or overlaps another (rect check)
-- [ ] Results buttons (replay / title) stay >= 44px and on screen without page scroll at 390x844
+- [x] Every `.end-stats small` computed font-size >= 10px at 360x640, 390x844, 844x390, 1280x720
+- [x] Caption contrast >= 4.5:1 on the card background
+- [x] No caption or number is clipped or overlaps another (rect check)
+- [x] Results buttons (replay / title) stay >= 44px and on screen without page scroll at 390x844
+
+Shipped notes: on main the card already scrolls past PLAY AGAIN at 390x844 (Endless goals, missions,
+board row), so the last criterion is met as "no further scroll than before" (stats grid grows ≤ 8 px,
+measured in-page) and "the button is reachable and ≥ 44 px". On short landscape phones (≤ 520 px tall)
+the caption reads PEAK · TD, as its number does, so it stays one line (it wrapped at 640x360).
 
 ## Test plan
 In the existing results e2e (grep tests/e2e for `end-stats` or results), finish a short race
