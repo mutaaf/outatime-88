@@ -10,7 +10,7 @@ import { stickVector, followThumb, clampToRing, dpadDirection, dpadAxes, smoothS
 import { hitButton, slideTransition } from './buttons.js';
 import { presetLayout, applyCustom, layoutKey, hintSpot, ACTION_IDS, SHORTCUT_IDS, PRESETS } from './layouts.js';
 import { movementFor } from './settings.js';
-import { ICONS, LABELS } from './icons.js';
+import { ICONS, LABELS, NAMES } from './icons.js';
 import { createHaptics } from './haptics.js';
 import './touch.css';
 
@@ -81,7 +81,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     b.id = `tc${id[0].toUpperCase()}${id.slice(1)}`;
     b.dataset.ctl = id;
     b.setAttribute('role', 'button');
-    b.setAttribute('aria-label', LABELS[id]);
+    b.setAttribute('aria-label', NAMES[id]);
     const hasRing = id === 'boost' || id === 'respawn' || id === 'special';
     b.innerHTML = (hasRing ? '<svg class="tc-ring" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46"/><circle class="tc-ring-fill" cx="50" cy="50" r="46" pathLength="100"/></svg>' : '')
       + `<span class="tc-ico">${ICONS[id]}</span><span class="tc-lbl">${LABELS[id]}</span>`
@@ -633,7 +633,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     el.boost.classList.toggle('tc-ready', on);
     el.boost.dataset.ready = on ? 'true' : 'false';
     boostLbl.textContent = on ? 'READY' : LABELS.boost;
-    el.boost.setAttribute('aria-label', on ? `${LABELS.boost} ready` : LABELS.boost);
+    el.boost.setAttribute('aria-label', on ? `${NAMES.boost} ready` : NAMES.boost);
   }
   // NOS TAP ON/OFF (0222): a tapped-on burn says so in text on the button, not only in colour.
   let nosOn = false;
@@ -643,7 +643,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     el.horn.classList.toggle('tc-on', on);
     el.horn.dataset.on = on ? 'true' : 'false';
     nosLbl.textContent = on ? 'NOS ON' : LABELS.horn;
-    el.horn.setAttribute('aria-label', on ? `${LABELS.horn} on` : LABELS.horn);
+    el.horn.setAttribute('aria-label', on ? `${NAMES.horn} on` : NAMES.horn);
   }
   function setRing(id, v) {
     const r = ring[id];

@@ -194,3 +194,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-11 · 0263 · The results card's stat captions (SCORE, PLACE · WARPS, PEAK · TAKEDOWNS, FLUX CASH) are 10px and brighter on every screen, down from 7-8px on phones
 2026-11-11 · 0264 · Settings opened from the title start with STEERING: the Endless goals and the power-up shop now show only when you open settings from a paused run
 2026-11-11 · 0265 · On phones the first-race "THUMB HERE TO STEER" prompt finds a free spot above the stick and never covers the PAUSE button or any other touch control
+2026-11-11 · 0266 · Screen readers now hear what every touch button does in plain words ("Nos nitro boost", "Reset to the road", "Change camera") instead of spelled-out caps; the buttons look the same
