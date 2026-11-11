@@ -1,7 +1,7 @@
 ---
 id: 0266
 title: The left-edge round touch button has a readable name for assistive tech and a visible glyph at rest
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
@@ -20,8 +20,8 @@ Audit touch buttons in src/touch/*.js and index.html; give each a short, specifi
 ("Pause", "Replay", "Camera"...) matching what it does. No visual change.
 
 ## Acceptance criteria
-- [ ] Every visible touch-controls button has a non-empty `aria-label` that is not an emoji
-- [ ] No visual diff on 390x844 and 1280x720
+- [x] Every visible touch-controls button has a non-empty `aria-label` that is not an emoji
+- [x] No visual diff on 390x844 and 1280x720
 
 ## Test plan
 e2e: on touch context mid-race, every `button` inside the touch layer has `aria-label` matching /^[A-Za-z]/.

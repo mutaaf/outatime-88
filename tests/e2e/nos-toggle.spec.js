@@ -155,7 +155,7 @@ test.describe('phone', () => {
     await horn.tap();
     await page.waitForFunction(() => window.__OT.GameState.nosBurning, null, { timeout: 15000 });
     await expect(horn.locator('.tc-lbl')).toHaveText('NOS ON');
-    await expect(horn).toHaveAttribute('aria-label', 'NOS on');
+    await expect(horn).toHaveAttribute('aria-label', 'Nitro boost on');
     await watchOut(page);
     expect(await simWait(page, 0.4)).toBe(true);
     expect(await stopWatch(page)).toBe(0); // no finger on it

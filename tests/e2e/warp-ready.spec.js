@@ -82,7 +82,7 @@ test.describe('touch, 390x844', () => {
     await page.waitForFunction(() => document.getElementById('tcBoost').dataset.ready === 'true');
     const on = await boostState(page);
     expect(on.label).toBe('READY');
-    expect(on.aria).toBe('WARP ready');
+    expect(on.aria).toBe('Warp ready');
     expect(on.border).toBe('double'); // a shape change a greyscale screen still shows
     expect(on.fits).toBe(true);
     expect(on.anim).toBe('tc-ready');

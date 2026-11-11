@@ -26,3 +26,10 @@ export const LABELS = {
   boost: 'WARP', drift: 'DRIFT', jump: 'JUMP', special: 'SPECIAL', accel: 'GAS', horn: 'NOS',
   pause: 'PAUSE', rear: 'LOOK BACK', camera: 'CAMERA', respawn: 'RESET',
 };
+
+// Spoken names (0266): what each button does, in sentence case so a screen reader reads words, not
+// letters (the visible LABELS are short arcade caps like "NOS" and "RESET"). Used for aria-label only.
+export const NAMES = {
+  boost: 'Warp', drift: 'Drift', jump: 'Jump', special: 'Crew special', accel: 'Gas', horn: 'Nitro boost',
+  pause: 'Pause', rear: 'Look back', camera: 'Change camera', respawn: 'Reset to the road',
+};
