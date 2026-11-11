@@ -27,16 +27,20 @@ for (const [name, opts] of VIEWS) {
     await page.locator('#btnStartRace').tap();
     const hint = page.locator('#steerHint');
     await expect(hint).toBeVisible({ timeout: 30000 });
-    const r = await page.evaluate(() => {
+    // Measured on a frame where the prompt is really shown (a score plate or coach tip can hide it).
+    const r = await (await page.waitForFunction(() => {
       const box = (el) => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
       const shown = (el) => { const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden' && el.getBoundingClientRect().width > 0; };
       const el = document.getElementById('steerHint');
+      const on = !el.classList.contains('hidden') && getComputedStyle(el).visibility === 'visible' && el.getBoundingClientRect().width > 0;
+      if (!on) return null;
       const pads = {};
       for (const b of document.querySelectorAll('#touchControlsLayer > .tc-btn:not(.tc-hidden), #tcStick:not(.tc-hidden), #tcDpad:not(.tc-hidden), #tcTilt:not(.tc-hidden)')) {
         if (shown(b)) pads[b.id || b.className] = box(b);
       }
-      return { hint: box(el), clipped: el.scrollWidth > el.clientWidth + 1, vw: innerWidth, vh: innerHeight, pads };
-    });
+      return { on, hint: box(el), clipped: el.scrollWidth > el.clientWidth + 1, vw: innerWidth, vh: innerHeight, pads };
+    }, null, { timeout: 30000 })).jsonValue();
+    expect(r.on, `${name}: prompt shown while measured`).toBe(true);
     expect(Object.keys(r.pads).length, `${name}: touch buttons on screen`).toBeGreaterThan(3);
     expect(r.hint.x, `${name}: hint left`).toBeGreaterThanOrEqual(0);
     expect(r.hint.y, `${name}: hint top`).toBeGreaterThanOrEqual(0);
@@ -45,9 +49,10 @@ for (const [name, opts] of VIEWS) {
     expect(r.clipped, `${name}: hint text clipped`).toBe(false);
     for (const [id, p] of Object.entries(r.pads)) expect(hits(r.hint, p), `${name}: hint ${JSON.stringify(r.hint)} covers ${id} ${JSON.stringify(p)}`).toBe(false);
     await info.attach(`steer-hint-pads-${name}.png`, { body: await page.screenshot(), contentType: 'image/png' });
-    // Still hides once the player steers (existing behaviour).
+    // Still hides once the player steers (existing behaviour) — at once, well inside the prompt's
+    // own 9 s run (src/onboarding.js STEER_HINT_MAX_MS), so this proves the steer did it.
     await page.keyboard.down('ArrowLeft');
-    await expect(hint).toBeHidden({ timeout: 10000 });
+    await expect(hint).toBeHidden({ timeout: 2000 });
     await page.keyboard.up('ArrowLeft');
     expect(problems).toEqual([]);
     await ctx.close();
