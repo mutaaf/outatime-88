@@ -179,6 +179,9 @@ export function openSettings() {
   InputState.nosOn = false; // a tapped-on NOS (0222) stops when the menu opens, live races included
   resumeOnClose = GameState.mode !== 'LIVE' && (GameState.status === 'PLAYING' || GameState.status === 'PAUSED');
   if (GameState.status === 'PLAYING' && resumeOnClose) GameState.status = 'PAUSED';
+  // Endless goals and the power-up shop belong to a paused run; from the title or the garage
+  // the panel leads with settings (0264, styles.css hides them on data-from="menu").
+  $('settingsModal').dataset.from = GameState.status === 'PLAYING' || GameState.status === 'PAUSED' ? 'race' : 'menu';
   return loadPanel().then((p) => p.open());
 }
 
