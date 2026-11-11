@@ -8,11 +8,15 @@
 import { InputState } from '../input.js';
 import { stickVector, followThumb, clampToRing, dpadDirection, dpadAxes, smoothSteer } from './stick.js';
 import { hitButton, slideTransition } from './buttons.js';
-import { presetLayout, applyCustom, layoutKey, ACTION_IDS, SHORTCUT_IDS, PRESETS } from './layouts.js';
+import { presetLayout, applyCustom, layoutKey, hintSpot, ACTION_IDS, SHORTCUT_IDS, PRESETS } from './layouts.js';
 import { movementFor } from './settings.js';
 import { ICONS, LABELS } from './icons.js';
 import { createHaptics } from './haptics.js';
 import './touch.css';
+
+// The steer prompt's box ("👍 THUMB HERE TO STEER", 11px arcade font + 2px border): ~199×33.
+const HINT_W = 206;
+const HINT_H = 36;
 
 const SLIDABLE = new Set(['boost', 'drift', 'jump', 'special', 'accel', 'horn']);
 const HOLD = new Set(['drift', 'accel', 'rear', 'horn']);
@@ -234,7 +238,8 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     stick.style.opacity = '';
     place(dpad, { x: s.x, y: s.y, d: Math.round(s.d * 1.12) });
     place(tilt, { x: s.x, y: s.y, d: Math.max(64, Math.round(s.d * 0.62)) });
-    padBox(s.x, s.y, movement === 'dpad' ? Math.round(s.d * 1.12) : movement === 'tilt' ? Math.max(64, Math.round(s.d * 0.62)) : s.d);
+    const padD = movement === 'dpad' ? Math.round(s.d * 1.12) : movement === 'tilt' ? Math.max(64, Math.round(s.d * 0.62)) : s.d;
+    padBox(s.x, s.y, padD);
     stick.classList.toggle('tc-hidden', movement === 'dpad' || movement === 'tilt');
     dpad.classList.toggle('tc-hidden', movement !== 'dpad');
     tilt.classList.toggle('tc-hidden', movement !== 'tilt');
@@ -247,9 +252,15 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     resetStickVisual();
     const hint = doc.getElementById('steerHint');
     if (hint) {
-      hint.style.left = `${Math.round(Math.max(env.safe.l + 8, Math.min(env.vw - 220, s.x - 90)))}px`;
-      hint.style.top = `${Math.round(s.y - s.d / 2 - 44)}px`;
-      hint.style.bottom = 'auto';
+      // 0265: the nearest free spot above the stick, never on a button (PAUSE sits at the edge).
+      // The prompt is usually display:none here, so its size falls back to the touch copy's.
+      const spot = hintSpot(layout, env, Math.max(HINT_W, hint.offsetWidth), Math.max(HINT_H, hint.offsetHeight), padD);
+      hint.classList.toggle('tc-hint-off', !spot);
+      if (spot) {
+        hint.style.left = `${spot.x}px`;
+        hint.style.top = `${spot.y}px`;
+        hint.style.bottom = 'auto';
+      }
     }
     mirror.style.left = `${Math.round(env.vw / 2 - 150)}px`;
     mirror.style.top = `${Math.round(Math.max(env.top, (env.lane ? env.lane.y1 : env.top)) + 6)}px`;
@@ -653,7 +664,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
       releaseAll();
       pads.n = 0; pads.ver++;
       const hint = doc.getElementById('steerHint');
-      if (hint) { hint.style.left = ''; hint.style.top = ''; hint.style.bottom = ''; }
+      if (hint) { hint.style.left = ''; hint.style.top = ''; hint.style.bottom = ''; hint.classList.remove('tc-hint-off'); }
     }
     else relayout();
   }

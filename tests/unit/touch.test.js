@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { stickVector, followThumb, clampToRing, dpadDirection, dpadAxes, smoothSteer } from '../../src/touch/stick.js';
 import { hitButton, slideTransition } from '../../src/touch/buttons.js';
 import {
-  presetLayout, layoutProblems, carProblems, applyCustom, toCustomItem, layoutKey, deviceClass, PRESET_IDS, SHORTCUT_IDS, ACTION_IDS,
+  presetLayout, layoutProblems, carProblems, applyCustom, toCustomItem, layoutKey, deviceClass, hintSpot, PRESET_IDS, SHORTCUT_IDS, ACTION_IDS,
 } from '../../src/touch/layouts.js';
 import { normalizeControls, movementFor, CONTROL_DEFAULTS } from '../../src/touch/settings.js';
 
@@ -249,5 +249,45 @@ describe('control settings', () => {
   it('every action id has a layout slot in every preset', () => {
     const env = { vw: 390, vh: 844, safe: { t: 0, r: 0, b: 0, l: 0 }, top: 82, lane: null, autoAccel: false };
     for (const p of PRESET_IDS) for (const id of ACTION_IDS) expect(presetLayout(p, env)[id], `${p}.${id}`).toBeTruthy();
+  });
+});
+
+describe('steer prompt spot (0265)', () => {
+  const W = 206, H = 36;
+  const covers = (x, y, it) => x < it.x + it.d / 2 && x + W > it.x - it.d / 2 && y < it.y + it.d / 2 && y + H > it.y - it.d / 2;
+  it('never covers a visible control, stays on screen and under the HUD, on every preset and screen', () => {
+    const failures = [];
+    for (const { name, env } of envs()) {
+      for (const p of PRESET_IDS) {
+        const L = presetLayout(p, env);
+        for (const padD of [L.stick.d, Math.round(L.stick.d * 1.12)]) {
+          const spot = hintSpot(L, env, W, H, padD);
+          // No room even on the stick: the prompt hides (only very short landscape screens).
+          if (!spot) { if (env.vh > 400 || p === 'default') failures.push(`${p} @ ${name}: no spot`); continue; }
+          const { x, y } = spot;
+          const probs = [];
+          if (x < env.safe.l || x + W > env.vw - env.safe.r || y + H > env.vh - env.safe.b || y < env.top) probs.push(`off screen ${x},${y}`);
+          for (const [id, it] of Object.entries(L)) {
+            if (it.hidden) continue;
+            // Short screens may park it on the stick it points at, never on a button.
+            if (id === 'stick' && (env.vh <= 400 && p !== 'default')) continue;
+            if (covers(x, y, id === 'stick' ? { ...it, d: padD } : it)) probs.push(`covers ${id}`);
+          }
+          if (probs.length) failures.push(`${p} @ ${name} pad ${padD}: ${probs.join('; ')}`);
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+  it('the 390x844 default layout: the prompt clears PAUSE at the left edge', () => {
+    const env = { vw: 390, vh: 844, safe: { t: 0, r: 0, b: 0, l: 0 }, top: 108, lane: { x0: 66, x1: 324, y1: 216 }, autoAccel: true, size: 1 };
+    const L = presetLayout('default', env);
+    expect(L.pause.hidden).toBe(false);
+    const { x, y } = hintSpot(L, env, W, H, L.stick.d);
+    expect(covers(x, y, L.pause)).toBe(false);
+    expect(covers(x, y, L.stick)).toBe(false);
+    // Still parked by the stick it points at: above it, on its side of the screen.
+    expect(y + H).toBeLessThanOrEqual(L.stick.y - L.stick.d / 2);
+    expect(x).toBeLessThan(env.vw / 2);
   });
 });

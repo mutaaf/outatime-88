@@ -1,12 +1,12 @@
 ---
 id: 0265
 title: The "THUMB HERE TO STEER" pill never covers the left-edge touch button
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-11
-pr:
+pr: 256
 ---
 
 ## Why
@@ -26,9 +26,9 @@ space is short, shift it above the stick zone or shorten it; keep it hidden once
 steered (existing behaviour).
 
 ## Acceptance criteria
-- [ ] With the hint visible, its bounding rect intersects no visible touch button (`#tcPause` and the left pad stack) at 390x844, 360x640, 844x390
-- [ ] Hint text is still fully visible (not clipped) and still hides after first steer
-- [ ] Desktop (1280x720) unchanged; no console errors
+- [x] With the hint visible, its bounding rect intersects no visible touch button (`#tcPause` and the left pad stack) at 390x844, 360x640, 844x390
+- [x] Hint text is still fully visible (not clipped) and still hides after first steer
+- [x] Desktop (1280x720) unchanged; no console errors
 
 ## Test plan
 e2e on touch contexts: start a race, wait for `#steerHint` visible, assert no rect overlap with
