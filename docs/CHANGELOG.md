@@ -195,3 +195,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-11 · 0264 · Settings opened from the title start with STEERING: the Endless goals and the power-up shop now show only when you open settings from a paused run
 2026-11-11 · 0265 · On phones the first-race "THUMB HERE TO STEER" prompt finds a free spot above the stick and never covers the PAUSE button or any other touch control
 2026-11-11 · 0266 · Screen readers now hear what every touch button does in plain words ("Nos nitro boost", "Reset to the road", "Change camera") instead of spelled-out caps; the buttons look the same
+2026-11-12 · 0267 · Every label on the race HUD is now at least 10px (the YOU marker and the tip's GOT IT 11px): MPH, FLUX, points, NOS, rival letters, the steering pill and the touch button names are easier to read at speed

@@ -1,12 +1,12 @@
 ---
 id: 0267
 title: In-race HUD labels never drop below 10px
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-12
-pr:
+pr: 259
 ---
 
 ## Why

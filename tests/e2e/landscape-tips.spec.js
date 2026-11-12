@@ -254,11 +254,12 @@ function expectSpot(r, when, width) {
 }
 
 // Docked where the HUD row has room for every coach line in two lines (from 222 px, and it stays
-// docked down to 204 px as the HUD's numbers grow); under that
-// (568x320, 640x360, HUD LARGE on small phones) the card keeps its old centred spot.
+// docked down to 204 px as the HUD's numbers grow); under that (568x320) the card keeps its old
+// centred spot. Since 0267 the steering pill is icon-only on phones under 700 px wide on their side,
+// which gives 640x360 and 667x375 LARGE the room to dock.
 for (const [viewport, hud, docked] of [
   [{ width: 667, height: 375 }, 'normal', true], [{ width: 844, height: 390 }, 'large', true], [{ width: 740, height: 360 }, 'large', true],
-  [{ width: 568, height: 320 }, 'normal', false], [{ width: 640, height: 360 }, 'normal', false], [{ width: 667, height: 375 }, 'large', false],
+  [{ width: 568, height: 320 }, 'normal', false], [{ width: 640, height: 360 }, 'normal', true], [{ width: 667, height: 375 }, 'large', true],
 ]) {
   test.describe(`landscape ${viewport.width}x${viewport.height}, HUD ${hud}`, () => {
     test.use({ viewport, hasTouch: true, isMobile: true });
