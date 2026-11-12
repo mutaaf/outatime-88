@@ -18,6 +18,8 @@ const overlap = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.
 
 // What the HUD shows mid-race: the race HUD, the coach tip, the touch buttons.
 const SCOPES = ['#raceHud', '#interactiveCoachBanner', '#touchControlsLayer'];
+// Contrast is read against the nearest solid background colour (gradient plates count as the colour
+// under them), so it is a floor check on the label colours, not a measurement of the painted plate.
 // Elements whose text must be at least 11 px (the rest: 10 px).
 const BIGGER = ['.hud-dot-you', '#btnDismissCoach'];
 
@@ -72,6 +74,7 @@ function measure([scopes, bigger]) {
 
 for (const { name, vp, touch } of [
   { name: '390x844 touch', vp: { width: 390, height: 844 }, touch: true },
+  { name: '375x667 touch', vp: { width: 375, height: 667 }, touch: true },
   { name: '1280x720 keys', vp: { width: 1280, height: 720 }, touch: false },
 ]) {
   test(`in-race HUD text is 10px or more at ${name}`, async ({ browser }) => {
@@ -109,7 +112,36 @@ for (const { name, vp, touch } of [
       }
       for (const p of m.pads) expect(overlap(m.blocks[i], p), `${m.blocks[i].id} overlaps pad ${p.id}`).toBe(false);
     }
+    for (const b of [...m.blocks, ...m.pads]) {
+      expect(b.left, `${b.id} off the left edge`).toBeGreaterThanOrEqual(-0.5);
+      expect(b.right, `${b.id} off the right edge`).toBeLessThanOrEqual(vp.width + 0.5);
+    }
     await page.screenshot({ path: test.info().outputPath(`hud-type-${vp.width}x${vp.height}.png`) });
+
+    // Worst case (as hud.spec): a nemesis ahead, WARP READY and a 7-digit score in the 10px foot. Every
+    // HUD block, the gear and steering pill included, stays on screen and apart.
+    await page.evaluate(() => {
+      window.__OT.pause();
+      const compact = matchMedia('(max-width: 599px) and (orientation: portrait)').matches;
+      document.getElementById('hudGapAhead').textContent = compact ? '▲ 😈+0.1s' : '▲ 😈RIN +0.1s';
+      document.getElementById('hudGapBehind').textContent = compact ? '▼ −9.9s' : '▼ VEX −9.9s';
+      document.getElementById('hudTime').textContent = '9:59.9';
+      document.getElementById('hudFluxLabel').textContent = '⚡ WARP READY';
+      document.getElementById('hudScore').textContent = `${(1234567).toLocaleString()} PTS`;
+      document.getElementById('hudPos').textContent = '2ND';
+    });
+    await page.waitForTimeout(200); // a running HUD would overwrite the text within a tick
+    const w = await page.evaluate(() => {
+      const R = (el) => (({ left, right, top, bottom }) => ({ id: el.id || el.className, left, right, top, bottom }))(el.getBoundingClientRect());
+      const blocks = [...document.querySelectorAll('[data-hud-rect], .hud-gearcol')].filter((el) => el.getBoundingClientRect().width > 0).map(R);
+      return { blocks, score: document.getElementById('hudScore').textContent, page: document.documentElement.scrollWidth };
+    });
+    expect(w.score).toContain('1,234,567');
+    expect(w.page).toBeLessThanOrEqual(vp.width);
+    for (const b of w.blocks) {
+      expect(b.left, `worst case: ${b.id} off the left edge`).toBeGreaterThanOrEqual(-0.5);
+      expect(b.right, `worst case: ${b.id} off the right edge`).toBeLessThanOrEqual(vp.width + 0.5);
+    }
     expect(problems).toEqual([]);
     await ctx.close();
   });

@@ -517,9 +517,9 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   .spd-line { gap: 2px; } /* 0267: MPH at 10px, the card no wider */
   .hud-score { white-space: normal; } /* 0267: at 10px a 7-digit score wraps its PTS under it rather than push the gear off */
 }
-/* 0267: small phones on their side (568-699 wide) have no room for a 10px mode name beside the cards and the strip:
-   the pill keeps its icon, the name stays in the button's label (as on the narrowest portrait phones, 0202). */
-@media (max-height: 520px) and (max-width: 699px) and (orientation: landscape) {
+/* 0267: phones upright, and small phones on their side (568-699 wide), have no room for a 10px mode name ("JOYSTICK")
+   beside the cards: the pill keeps its icon, the name stays in the button's label (as on the narrowest phones, 0202). */
+@media (max-width: 599px) and (orientation: portrait), (max-height: 520px) and (max-width: 699px) and (orientation: landscape) {
   .hud-steer b { display: none; }
   .hud-steer::after { left: -9px; right: -9px; }
 }

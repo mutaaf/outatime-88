@@ -74,7 +74,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
   tilt.id = 'tcTilt';
   tilt.setAttribute('role', 'button');
   tilt.setAttribute('aria-label', 'Re-centre tilt steering');
-  tilt.innerHTML = `<span class="tc-ico">${ICONS.recenter}</span><span class="tc-lbl">TILT · CENTER</span>`;
+  tilt.innerHTML = `<span class="tc-ico">${ICONS.recenter}</span><span class="tc-lbl">CENTER</span>`;
 
   for (const id of [...ACTION_IDS, ...SHORTCUT_IDS]) {
     const b = mk('div', `tc-btn tc-${id}${SHORTCUT_IDS.includes(id) ? ' tc-shortcut' : ''}${id === 'boost' ? ' tc-primary' : ''}`);
@@ -195,7 +195,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     const left = pos.right + 8;
     const banner = doc.getElementById('interactiveCoachBanner');
     if (!banner) return;
-    // Too narrow for two lines of a tip (568x320, 640x360, HUD LARGE on small phones): the card stays where it was.
+    // Too narrow for two lines of a tip (568x320, HUD LARGE on the smallest phones): the card stays where it was.
     const room = right - left;
     banner.classList.toggle('tc-coach-docked', room >= (banner.classList.contains('tc-coach-docked') ? COACH_UNDOCK_UNDER : COACH_DOCK_AT));
     // On the banner, not :root (a root custom property restyles the whole page), and only on change.
@@ -204,7 +204,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     set('--tc-chip-l', `${Math.round(left)}px`);
     set('--tc-chip-t', `${Math.round(top)}px`);
     set('--tc-chip-w', `${Math.round(Math.max(0, right - left))}px`);
-    set('--tc-chip-h', `${Math.max(28, Math.floor(header.getBoundingClientRect().bottom - top))}px`); // floor: never past the header's edge
+    set('--tc-chip-h', `${Math.max(28, Math.floor(header.getBoundingClientRect().bottom) - Math.round(top))}px`); // never past the header's edge
   }
 
   function relayout() {
