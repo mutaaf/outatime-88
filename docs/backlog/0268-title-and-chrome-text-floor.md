@@ -1,12 +1,12 @@
 ---
 id: 0268
 title: Title, garage and pill small print never drop below 10px
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-11-12
-pr:
+pr: 260
 ---
 
 ## Why

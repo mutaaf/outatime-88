@@ -27,14 +27,17 @@
 .hook-icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; font-size: 17px;
   background: color-mix(in srgb, var(--c) 16%, transparent); }
 .hook-text { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-.hook-text b { font: 900 11px/1.15 'Orbitron', sans-serif; letter-spacing: 0.05em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hook-text small { font: 700 9.5px/1.25 'Orbitron', sans-serif; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) 70%, #e2e8f0);
+/* 0268: titles wrap (two lines at most) rather than lose words to an ellipsis at 10px on a phone. */
+.hook-text b { font: 900 11px/1.15 'Orbitron', sans-serif; letter-spacing: 0.05em; color: #fff; overflow-wrap: break-word;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hook-text small { font: 700 10px/1.25 'Orbitron', sans-serif; letter-spacing: 0.04em; color: color-mix(in srgb, var(--c) 70%, #e2e8f0);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hook-bar { position: absolute; left: 11px; right: 11px; bottom: 4px; height: 3px; border-radius: 3px; background: rgba(148, 163, 184, 0.18); }
 .hook-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: calc(var(--p) * 100%); border-radius: inherit;
   background: linear-gradient(90deg, color-mix(in srgb, var(--c) 60%, #fff), var(--c)); box-shadow: 0 0 8px var(--c); }
-.home-hook.is-new::before { content: 'NEW'; position: absolute; top: 4px; right: 6px; padding: 1px 5px; border-radius: 6px;
-  font: 900 8px/1.3 'Orbitron', sans-serif; letter-spacing: 0.1em; color: #05050d; background: #fde047; }
+/* The NEW tag rides at the end of the title (0268: at 10px a corner badge sat on a wrapped title). */
+.home-hook.is-new .hook-text b::after { content: 'NEW' / ''; display: inline-block; margin-left: 6px; padding: 0 4px; border-radius: 5px; vertical-align: 1px;
+  font: 900 10px/1.3 'Orbitron', sans-serif; letter-spacing: 0.06em; color: #05050d; background: #fde047; }
 @keyframes hookIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: none; } }
 
 /* First visit: three beats, one after another, then they stay. */
@@ -53,8 +56,8 @@
   .home-hooks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: min(96vw, 30rem); }
   .home-hook { min-height: 48px; padding: 6px 8px 9px; gap: 7px; border-radius: 12px; }
   .hook-icon { width: 26px; height: 26px; font-size: 15px; }
-  .hook-text b { font-size: 9.5px; }
-  .hook-text small { font-size: 8.5px; }
+  .hook-text b { font-size: 10px; letter-spacing: 0.02em; }
+  .hook-text small { font-size: 10px; letter-spacing: 0.02em; }
 }
 @media (min-width: 701px) and (max-width: 1100px) { .home-hooks { grid-template-columns: repeat(2, minmax(0, 17rem)); } }
 /* Phones on their side: one card is all the height there is room for. */
