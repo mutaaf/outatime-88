@@ -144,6 +144,8 @@ body.race-on #driverBadgeBar { opacity: 0; visibility: hidden; transition: opaci
 /* 32px down: clear of the ±N HP pop that drops from under the place card (≤ 20px + 14px drift). */
 :root[data-hud="full"]:not(.touch-ui) #coachCard { max-width: min(300px, 26vw); margin-top: 32px; }
 :root[data-hud="full"]:not(.touch-ui) #btnDismissCoach { white-space: nowrap; }
+/* 0267: the tip's one button is read at speed: 11px, never the markup's 9px. */
+#btnDismissCoach { font-size: 11px; line-height: 1.2; }
 /* 0229: with room in the HUD row (coach-dock.js dockDeskCoach sets .coach-desk and the --cd-* box), the tip is a
    chip under the track strip, between the place card and the time pills: off the road, the start arch and the
    announcer's lane. Short of ~240 px of room (narrow windows, HUD LARGE) it keeps the spot above. */
@@ -400,7 +402,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .finish-flag { position: absolute; right: -0.55em; top: 50%; transform: translateY(-50%); font-size: clamp(16px, 2.8vmin, 30px); }
 /* 0167: inset by half the YOU tag (it scales with vmin), so a marker at the start or the flag stays inside the strip;
    the lap ticks shift by the same inset so a car on a lap line sits on its tick (p·W + in·(1 − 2p) at p = ⅓, ⅔). */
-.hud-track { --strip-in: max(19px, calc(9px + 1.5vmin)); }
+.hud-track { --strip-in: max(22px, calc(9px + 1.5vmin)); } /* 0267: 22px = half the 11px YOU tag */
 .hud-dots { position: absolute; inset: 0 var(--strip-in); }
 .hud-track .lap-tick { translate: calc(var(--strip-in) / 3) 0; }
 .hud-track .lap-tick + .lap-tick { translate: calc(var(--strip-in) / -3) 0; }
@@ -411,11 +413,11 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
    The cars directly ahead / behind wear the gap pills' ▲ / ▼ and sit above the rest. */
 .hud-dot:not(.hud-dot-you):not(.hud-dot-ghost) { width: auto; min-width: clamp(14px, 2.4vmin, 24px); height: clamp(14px, 2.4vmin, 24px);
   padding: 0 2px; display: flex; align-items: center; justify-content: center; white-space: nowrap; line-height: 1;
-  font-size: clamp(9px, 1.5vmin, 14px); font-weight: 900; color: #fff; background: #020617; border-color: var(--dot); box-shadow: 0 0 6px var(--dot); }
+  font-size: clamp(10px, 1.5vmin, 14px); font-weight: 900; color: #fff; background: #020617; border-color: var(--dot); box-shadow: 0 0 6px var(--dot); }
 .hud-dot[data-near='ahead'], .hud-dot[data-near='behind'] { z-index: 1; }
 .hud-dot[data-near='ahead']::before { content: '▲'; font-size: 0.75em; margin-right: 1px; }
 .hud-dot[data-near='behind']::before { content: '▼'; font-size: 0.75em; margin-right: 1px; }
-.hud-dot-you { z-index: 2; width: auto; height: auto; padding: 1px 6px; border-radius: 8px; font-size: clamp(8px, 1.3vmin, 13px);
+.hud-dot-you { z-index: 2; width: auto; height: auto; padding: 1px 6px; border-radius: 8px; font-size: clamp(11px, 1.3vmin, 13px);
   font-weight: 900; color: #05050d; background: #fff; border: 2px solid #ff8800; box-shadow: 0 0 10px #ff8800; }
 
 /* 0190: when the row is too narrow (portrait tablets), a gap pill wraps to its own line rather than shrinking into an ellipsis. */
@@ -435,7 +437,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .spd-line { display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; line-height: 0.9; }
 .spd-num { font-size: calc(clamp(28px, 6.6vmin, 72px) * var(--hk)); font-weight: 900; font-style: italic; font-variant-numeric: tabular-nums;
   color: #ff3b3b; text-shadow: 0 0 12px rgba(255, 42, 42, 0.7); }
-.spd-line small { font-size: calc(clamp(9px, 1.5vmin, 15px) * var(--hk)); font-weight: 800; color: #cbd5e1; }
+.spd-line small { font-size: calc(clamp(10px, 1.5vmin, 15px) * var(--hk)); font-weight: 800; color: #cbd5e1; }
 .hud-speed.is-88 .spd-num { color: #00f0ff; text-shadow: 0 0 16px rgba(0, 240, 255, 0.9); }
 .hud-meter { position: relative; margin-top: 5px; height: clamp(5px, 0.9vmin, 10px); border-radius: 9999px; background: #1e293b; overflow: hidden; }
 .hud-meter i { display: block; height: 100%; width: 0; border-radius: inherit; }
@@ -445,27 +447,27 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 /* NOS tank (ticket 0122): blue→violet, glows while burning. */
 .nos-meter { overflow: visible; margin-right: clamp(26px, 3.6vmin, 36px); }
 .nos-meter i { background: linear-gradient(90deg, #2563eb, #60a5fa, #a855f7); }
-.nos-meter b { position: absolute; right: 0; top: 50%; transform: translate(calc(100% + 4px), -50%); font: 700 clamp(7px, 1.1vmin, 10px)/1 Orbitron, sans-serif; color: #93c5fd; letter-spacing: 0.08em; }
+.nos-meter b { position: absolute; right: 0; top: 50%; transform: translate(calc(100% + 4px), -50%); font: 700 10px/1 Orbitron, sans-serif; color: #93c5fd; letter-spacing: 0.08em; }
 .hud-speed.is-nos .nos-meter i { box-shadow: 0 0 8px #a855f7, 0 0 2px #fff; }
-.spd-foot { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; font-size: clamp(9px, 1.5vmin, 15px); font-weight: 800; color: #94a3b8; }
+.spd-foot { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; font-size: clamp(10px, 1.5vmin, 15px); font-weight: 800; color: #94a3b8; }
 .hud-score { color: #e2e8f0; font-variant-numeric: tabular-nums; }
 /* Penalties outweigh the points (ticket 0199): the pill holds at 0 with a dim tag, never a minus. */
 .hud-score.is-pen { color: #fca5a5; }
 /* The tag sits under the number, so it never widens the card. It is dimmed by size and the
    label grey (≈7:1 on the card), never by opacity: it must stay legible. */
-.hud-score.is-pen::after { content: 'PENALTY'; display: block; font-size: max(.75em, 9px); color: #94a3b8; }
+.hud-score.is-pen::after { content: 'PENALTY'; display: block; font-size: max(.75em, 10px); color: #94a3b8; }
 .hud-speed.is-ready { border-color: #fde047; }
 .hud-speed.is-ready #hudFluxLabel { color: #fde047; }
 .hud-gearcol { grid-area: gear; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 /* Steering-mode pill (ticket 0130) under the gear: tap cycles, hold opens the picker. */
 .hud-steer { display: inline-flex; align-items: center; gap: 3px; min-height: 26px; padding: 2px 8px; border-radius: 9999px; white-space: nowrap;
-  font: 800 clamp(8px, 1.2vmin, 11px)/1 Orbitron, sans-serif; letter-spacing: 0.06em; color: #a5f3fc;
+  font: 800 clamp(10px, 1.2vmin, 11px)/1 Orbitron, sans-serif; letter-spacing: 0.06em; color: #a5f3fc;
   background: rgba(2, 6, 23, 0.85); border: 1.5px solid rgba(34, 211, 238, 0.45); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
 /* 0210: a 44px tap target without a bigger pill. The hit area reaches 3.5px up (inside the 4px
    gap under the gear) and 15.5px down (inset counts from inside the 1.5px border). */
 .hud-steer { position: relative; }
 .hud-steer::after { content: ''; position: absolute; inset: -5px -2px -17px; }
-.hud-steer span { font-size: 1.25em; line-height: 1; }
+.hud-steer span { font-size: clamp(10px, 1.5vmin, 14px); line-height: 1; } /* 0267: the icon keeps its size as the label grows */
 .hud-steer i { font-style: normal; font-size: 1.2em; }
 .hud-steer[data-assist="auto"] { border-color: #f472b6; color: #fbcfe8; }
 .hud-steer.is-flash { animation: steer-flash 1.6s ease-out; }
@@ -512,6 +514,14 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   .hud-card { padding-left: 6px; padding-right: 6px; }
   .hud-steer b { display: none; } /* the mode's icon stays; its name is in the button's label */
   .hud-steer::after { left: -9px; right: -9px; } /* 0210: the icon-only pill still takes a 44px tap */
+  .spd-line { gap: 2px; } /* 0267: MPH at 10px, the card no wider */
+  .hud-score { white-space: normal; } /* 0267: at 10px a 7-digit score wraps its PTS under it rather than push the gear off */
+}
+/* 0267: small phones on their side (568-699 wide) have no room for a 10px mode name beside the cards and the strip:
+   the pill keeps its icon, the name stays in the button's label (as on the narrowest portrait phones, 0202). */
+@media (max-height: 520px) and (max-width: 699px) and (orientation: landscape) {
+  .hud-steer b { display: none; }
+  .hud-steer::after { left: -9px; right: -9px; }
 }
 /* Short landscape screens (phones on their side): one slim row. */
 @media (max-height: 520px) and (orientation: landscape) {

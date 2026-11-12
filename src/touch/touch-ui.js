@@ -204,7 +204,7 @@ export function createTouchControls({ doc = document, win = window, settings: S,
     set('--tc-chip-l', `${Math.round(left)}px`);
     set('--tc-chip-t', `${Math.round(top)}px`);
     set('--tc-chip-w', `${Math.round(Math.max(0, right - left))}px`);
-    set('--tc-chip-h', `${Math.round(Math.max(28, header.getBoundingClientRect().bottom - top))}px`);
+    set('--tc-chip-h', `${Math.max(28, Math.floor(header.getBoundingClientRect().bottom - top))}px`); // floor: never past the header's edge
   }
 
   function relayout() {
