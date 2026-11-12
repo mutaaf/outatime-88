@@ -81,7 +81,7 @@
 @media (max-width: 767px) {
   .garage-actions { gap: 6px; }
   .garage-actions > button { flex: 1 1 0; min-width: 0; padding: 4px 4px; font-size: 10px; line-height: 1.2; text-align: center; }
-  .garage-actions > #btnResumeFromGarage { flex-grow: 1.35; font-size: 10px; }
+  .garage-actions > #btnResumeFromGarage { flex-grow: 1.35; }
 }
 /* The first-race thumb guide (touch kit, pointer-events: none) must not draw its rings over the pause actions. */
 body:has(#garageModal:not(.hidden)) .tc-guide { visibility: hidden; }

@@ -92,6 +92,8 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
   test(`title and garage text is 10px or more at ${vp.width}x${vp.height}`, async ({ page }) => {
     const problems = watchPage(page);
     await page.setViewportSize(vp);
+    // No entrance animations: measure the settled layout, not a card mid-slide.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.addInitScript(([k, s]) => localStorage.setItem(k, s), [KEY, SAVE]);
     await page.goto(`${APP}?debug`);
     await page.waitForFunction(() => window.__OT && window.__OT.home());
@@ -106,7 +108,7 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
     });
     // Let the hook cards finish their entrance and the fonts load before measuring.
     await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(200);
 
     const title = await page.evaluate(texts, '#titleScreen');
     const seen = title.map((t) => t.where).join('\n');
@@ -121,8 +123,12 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
         const r = b.getBoundingClientRect(); return r.width > 0 && getComputedStyle(b).visibility !== 'hidden' && b.closest('.hidden') === null
           && b.id !== 'offlinePill'; // a 24 px status pill since 0158, not a menu button
       }).map((b) => ({ id: b.id || b.className, h: b.getBoundingClientRect().height, w: b.getBoundingClientRect().width }));
-      const se = document.scrollingElement;
-      return { btns, scrollH: se.scrollHeight, h: innerHeight, scrollW: se.scrollWidth, w: innerWidth };
+      // The title is position: fixed, so it is the box that would scroll, not the document.
+      const ts = document.getElementById('titleScreen');
+      // Hook titles clamp at two lines: none may lose words (or the NEW tag) to the clamp.
+      const cut = [...document.querySelectorAll('#homeHooks .hook-text b')].filter((b) => b.getClientRects().length && b.scrollHeight > b.clientHeight + 1).map((b) => b.textContent);
+      return { btns, scrollH: ts.scrollHeight, h: ts.clientHeight, scrollW: ts.scrollWidth, w: ts.clientWidth, cut,
+        doc: document.scrollingElement.scrollHeight <= innerHeight && document.scrollingElement.scrollWidth <= innerWidth };
     });
     for (const b of chrome.btns) {
       expect(b.h, `${b.id} height`).toBeGreaterThanOrEqual(44 - 0.5);
@@ -130,6 +136,8 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
     }
     expect(chrome.scrollH, 'title gains no page scroll').toBeLessThanOrEqual(chrome.h);
     expect(chrome.scrollW, 'title gains no sideways scroll').toBeLessThanOrEqual(chrome.w);
+    expect(chrome.doc, 'page does not scroll').toBe(true);
+    expect(chrome.cut, 'hook titles cut by the two-line clamp').toEqual([]);
     await page.screenshot({ path: test.info().outputPath(`title-type-${vp.width}x${vp.height}.png`) });
 
     // The garage, viewing a locked car so the spec rows carry deltas.
@@ -138,7 +146,7 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
     await page.locator('#garageThumbs .garage-thumb.is-locked').first().click();
     await expect(page.locator('#garageSpecs .spec-delta').first()).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(200);
     // A short screen scrolls the sheet to the strip: measure there and with the header in view too.
     const garage = await page.evaluate(texts, '#garageModal');
     await page.evaluate(() => { document.getElementById('garageModal').scrollTop = 0; });
