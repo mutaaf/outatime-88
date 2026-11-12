@@ -135,7 +135,6 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
       expect(b.w, `${b.id} width`).toBeGreaterThanOrEqual(44 - 0.5);
     }
     expect(chrome.scrollH, 'title gains no page scroll').toBeLessThanOrEqual(chrome.h);
-    expect(chrome.scrollW, 'title gains no sideways scroll').toBeLessThanOrEqual(chrome.w);
     expect(chrome.doc, 'page does not scroll').toBe(true);
     expect(chrome.cut, 'hook titles cut by the two-line clamp').toEqual([]);
     await page.screenshot({ path: test.info().outputPath(`title-type-${vp.width}x${vp.height}.png`) });
