@@ -197,3 +197,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-11 · 0266 · Screen readers now hear what every touch button does in plain words ("Nos nitro boost", "Reset to the road", "Change camera") instead of spelled-out caps; the buttons look the same
 2026-11-12 · 0267 · Every label on the race HUD is now at least 10px (the YOU marker and the tip's GOT IT 11px): MPH, FLUX, points, NOS, rival letters, the steering pill and the touch button names are easier to read at speed
 2026-11-12 · 0268 · The title screen, home cards, offline pill and garage never print below 10px: icon captions, hook card titles and details, the NEW tag, the garage class chip, spec labels and buttons are easier to read on a phone; long hook titles wrap instead of being cut off
+2026-11-13 · 0269 · On the smallest phones (320 px) the title's EVENTS, RANKS, GARAGE, SOUND and SETTINGS icons now fit side by side, whole and readable
