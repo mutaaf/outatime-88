@@ -68,7 +68,7 @@ export function renderRosterGrid({ GameState, SaveStore, roster, locked, pick })
     btn.type = 'button';
     btn.dataset.carId = c.id;
     btn.dataset.locked = owned ? '0' : '1';
-    btn.className = `text-left p-2 rounded-xl border transition flex flex-col justify-between ${
+    btn.className = `min-h-[44px] text-left p-2 rounded-xl border transition flex flex-col justify-between ${
       !owned
         ? 'bg-slate-950/80 border border-slate-800 text-slate-400'
         : isSel

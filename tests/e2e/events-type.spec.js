@@ -22,7 +22,8 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
     await expect(page.locator('#howToPlay')).toHaveAttribute('open', '');
     // Measure in the real face: the narrower fallback font would hide wraps and overflow.
     await page.evaluate(() => document.fonts.ready);
-    expect(await page.evaluate(() => document.fonts.check("700 10px 'Orbitron'"))).toBeTruthy();
+    // (fonts.check() is true for any face the set doesn't know, so ask for a loaded Orbitron face.)
+    expect(await page.evaluate(() => [...document.fonts].some((f) => f.family.includes('Orbitron') && f.status === 'loaded'))).toBeTruthy();
 
     const m = await page.evaluate(() => {
       const sheet = document.getElementById('startModal');
@@ -72,7 +73,8 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { wi
           }
         }
         // Text boxes in the same card must not sit on top of each other (the boss name and reward did).
-        const boxes = [...card.querySelectorAll('span, div')].filter((e) => !e.children.length && e.textContent.trim()).map((e) => [e, e.getBoundingClientRect()]);
+        // A box counts if it holds its own text; <wbr> break hints inside the boss name don't make it a parent.
+        const boxes = [...card.querySelectorAll('span, div')].filter((e) => [...e.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim()) && !e.querySelector(':scope > :not(wbr)')).map((e) => [e, e.getBoundingClientRect()]);
         for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
           const [ea, a] = boxes[i], [eb, b] = boxes[j];
           if (ea.contains(eb) || eb.contains(ea)) continue;
