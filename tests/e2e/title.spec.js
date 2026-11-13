@@ -251,3 +251,72 @@ test.describe('portrait title chips at 320x568', () => {
     expect(problems).toEqual([]);
   });
 });
+
+// Ticket 0269: the title's bottom icon row (EVENTS, RANKS, GARAGE, SOUND, SETTINGS) fits a
+// 320 px phone: every icon and caption whole on screen, thumb-sized, apart, and readable.
+const TITLE_ICONS = ['#btnOpenEvents', '#btnOpenLeaderboard', '#btnOpenGarageFromTitle', '#btnMuteStartModal', '#btnOpenSettings'];
+for (const vp of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { width: 390, height: 844 }]) {
+  test.describe(`title icon row at ${vp.width}x${vp.height}`, () => {
+    test.use({ viewport: vp, hasTouch: true, isMobile: true });
+    test('every icon and caption is whole on screen, >= 44 px, apart and >= 10 px', async ({ page }) => {
+      const problems = watchPage(page);
+      await page.goto(`${APP}?debug`);
+      await page.waitForFunction(() => window.__OT && window.__OT.home());
+      await expect(page.locator('#btnOpenSettings')).toBeVisible();
+      // The READY FOR OFFLINE pill sits right above the row on a real phone; tests block the service
+      // worker that fills it, so show it as production does (src/main.js startOffline).
+      await page.evaluate(() => {
+        const pill = document.getElementById('offlinePill');
+        pill.textContent = '✈️ READY FOR OFFLINE';
+        pill.classList.remove('hidden');
+        pill.classList.add('is-ready');
+      });
+      await page.evaluate(() => document.fonts.ready);
+      await nextFrames(page);
+      const m = await page.evaluate((ids) => ({
+        pill: (() => { const r = document.getElementById('offlinePill').getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; })(),
+        vw: innerWidth, vh: innerHeight, sw: document.documentElement.scrollWidth,
+        icons: ids.map((id) => {
+          const b = document.querySelector(id);
+          const cap = b.querySelector('small');
+          const disc = b.querySelector('span');
+          const r = b.getBoundingClientRect(), c = cap.getBoundingClientRect(), d = disc.getBoundingClientRect();
+          // Measure the caption's text alone (a range), so an overflowing word counts even if its box doesn't.
+          const range = document.createRange(); range.selectNodeContents(cap);
+          const t = range.getBoundingClientRect();
+          return { id, r: { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height },
+            d: { l: d.left, r: d.right, t: d.top, b: d.bottom },
+            c: { l: Math.min(c.left, t.left), r: Math.max(c.right, t.right), t: Math.min(c.top, t.top), b: Math.max(c.bottom, t.bottom) },
+            capW: t.width, capBoxW: c.width,
+            font: parseFloat(getComputedStyle(cap).fontSize), visible: getComputedStyle(cap).display !== 'none' };
+        }),
+      }), TITLE_ICONS);
+      expect(m.sw, 'no sideways page scroll').toBeLessThanOrEqual(m.vw);
+      for (const i of m.icons) {
+        for (const [name, box] of [['button', i.r], ['disc', i.d], ['caption', i.c]]) {
+          expect(box.l, `${i.id} ${name} left`).toBeGreaterThanOrEqual(0);
+          expect(box.r, `${i.id} ${name} right`).toBeLessThanOrEqual(m.vw);
+          expect(box.t, `${i.id} ${name} top`).toBeGreaterThanOrEqual(0);
+          expect(box.b, `${i.id} ${name} bottom`).toBeLessThanOrEqual(m.vh);
+        }
+        expect(i.r.w, `${i.id} width`).toBeGreaterThanOrEqual(44);
+        expect(i.r.h, `${i.id} height`).toBeGreaterThanOrEqual(44);
+        expect(i.visible, `${i.id} caption shown`).toBe(true);
+        expect(i.font, `${i.id} caption size`).toBeGreaterThanOrEqual(10);
+        expect(i.capW, `${i.id} caption fits its button`).toBeLessThanOrEqual(i.r.w + 0.5);
+      }
+      // Buttons and their visible parts (disc, caption) keep at least 2 px from a neighbour's
+      // (touching targets count as a fail), and from the offline pill above the row.
+      const GAP = 2;
+      const apart = (x, y) => x.r + GAP <= y.l || y.r + GAP <= x.l || x.b + GAP <= y.t || y.b + GAP <= x.t;
+      for (let a = 0; a < m.icons.length; a++) {
+        for (let b = a + 1; b < m.icons.length; b++) {
+          const A = m.icons[a], B = m.icons[b];
+          for (const [x, y] of [[A.r, B.r], [A.c, B.c], [A.d, B.d]]) expect(apart(x, y), `${A.id} vs ${B.id}`).toBe(true);
+        }
+        expect(apart(m.icons[a].r, m.pill), `${m.icons[a].id} vs offline pill`).toBe(true);
+      }
+      expect(problems).toEqual([]);
+    });
+  });
+}

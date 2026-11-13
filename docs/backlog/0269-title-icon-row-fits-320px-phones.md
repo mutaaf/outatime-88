@@ -1,12 +1,12 @@
 ---
 id: 0269
 title: Title icon row fits a 320 px phone (SETTINGS no longer runs off the edge)
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-13
-pr:
+pr: 262
 ---
 
 ## Why
