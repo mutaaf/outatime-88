@@ -263,8 +263,18 @@ for (const vp of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { wi
       await page.goto(`${APP}?debug`);
       await page.waitForFunction(() => window.__OT && window.__OT.home());
       await expect(page.locator('#btnOpenSettings')).toBeVisible();
+      // The READY FOR OFFLINE pill sits right above the row on a real phone; tests block the service
+      // worker that fills it, so show it as production does (src/main.js startOffline).
+      await page.evaluate(() => {
+        const pill = document.getElementById('offlinePill');
+        pill.textContent = '✈️ READY FOR OFFLINE';
+        pill.classList.remove('hidden');
+        pill.classList.add('is-ready');
+      });
       await page.evaluate(() => document.fonts.ready);
+      await nextFrames(page);
       const m = await page.evaluate((ids) => ({
+        pill: (() => { const r = document.getElementById('offlinePill').getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; })(),
         vw: innerWidth, vh: innerHeight, sw: document.documentElement.scrollWidth,
         icons: ids.map((id) => {
           const b = document.querySelector(id);
@@ -295,15 +305,16 @@ for (const vp of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { wi
         expect(i.font, `${i.id} caption size`).toBeGreaterThanOrEqual(10);
         expect(i.capW, `${i.id} caption fits its button`).toBeLessThanOrEqual(i.r.w + 0.5);
       }
+      // Buttons and their visible parts (disc, caption) keep at least 2 px from a neighbour's
+      // (touching targets count as a fail), and from the offline pill above the row.
+      const GAP = 2;
+      const apart = (x, y) => x.r + GAP <= y.l || y.r + GAP <= x.l || x.b + GAP <= y.t || y.b + GAP <= x.t;
       for (let a = 0; a < m.icons.length; a++) {
         for (let b = a + 1; b < m.icons.length; b++) {
           const A = m.icons[a], B = m.icons[b];
-          // Buttons and their visible parts (disc, caption) never touch a neighbour's.
-          for (const [x, y] of [[A.r, B.r], [A.c, B.c], [A.d, B.d]]) {
-            const overlap = x.l < y.r && y.l < x.r && x.t < y.b && y.t < x.b;
-            expect(overlap, `${A.id} vs ${B.id}`).toBe(false);
-          }
+          for (const [x, y] of [[A.r, B.r], [A.c, B.c], [A.d, B.d]]) expect(apart(x, y), `${A.id} vs ${B.id}`).toBe(true);
         }
+        expect(apart(m.icons[a].r, m.pill), `${m.icons[a].id} vs offline pill`).toBe(true);
       }
       expect(problems).toEqual([]);
     });
