@@ -26,18 +26,18 @@ export function renderLevelGrid({ GameState, SaveStore, levels, shortScore, pick
     }`;
     card.innerHTML = `
       <div>
-        <div class="flex items-center justify-between gap-1">
+        <div class="flex flex-wrap items-center justify-between gap-1">
           <span class="font-arcade text-[10px] font-black text-white">${lvl.name}</span>
-          <span class="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 font-arcade text-[8px] font-bold">🔥H${lvl.startingHeat}</span>
+          <span class="shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 font-arcade text-[10px] font-bold">🔥H${lvl.startingHeat}</span>
         </div>
         <div class="text-[10px] text-cyan-300 font-semibold mt-0.5">${lvl.subtitle}</div>
-        <div class="text-[9px] text-slate-400 mt-1">🎯 ${lvl.goalDesc}</div>
+        <div class="text-[10px] text-slate-400 mt-1">🎯 ${lvl.goalDesc}</div>
       </div>
-      <div class="mt-2 flex items-center justify-between text-[9px] font-arcade">
-        <span class="text-amber-300">BOSS: ${lvl.bossName}</span>
-        <span class="text-emerald-300 font-bold">+${lvl.bonusReward} ⚡</span>
+      <div class="mt-2 flex flex-wrap items-center justify-between gap-x-2 text-[10px] font-arcade">
+        <span class="min-w-0 text-amber-300 [overflow-wrap:anywhere]">BOSS: ${lvl.bossName.replace(/_/g, '_<wbr>')}</span>
+        <span class="shrink-0 whitespace-nowrap text-emerald-300 font-bold">+${lvl.bonusReward} ⚡</span>
       </div>
-      <div class="level-ladder mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[9px] font-arcade">
+      <div class="level-ladder mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] font-arcade">
         ${locked
           ? `<span class="text-slate-400">🔒 Earn ${MEDAL_ICON.bronze} on the level before</span>`
           : `<span class="text-white font-bold">${prog.medal ? MEDAL_ICON[prog.medal] : '▫️'} BEST <span class="level-best">${prog.best.toLocaleString()}</span></span>
@@ -68,7 +68,7 @@ export function renderRosterGrid({ GameState, SaveStore, roster, locked, pick })
     btn.type = 'button';
     btn.dataset.carId = c.id;
     btn.dataset.locked = owned ? '0' : '1';
-    btn.className = `text-left p-2 rounded-xl border transition flex flex-col justify-between ${
+    btn.className = `min-h-[44px] text-left p-2 rounded-xl border transition flex flex-col justify-between ${
       !owned
         ? 'bg-slate-950/80 border border-slate-800 text-slate-400'
         : isSel
@@ -76,15 +76,15 @@ export function renderRosterGrid({ GameState, SaveStore, roster, locked, pick })
         : 'bg-slate-900/90 border border-slate-800 text-slate-300 hover:border-slate-600'
     }`;
     btn.innerHTML = owned ? `
-      <div class="font-arcade text-[9px] font-black text-white truncate">${c.car}</div>
-      <div class="text-[9px] text-cyan-300 truncate">${c.driver}</div>
-      <div class="flex items-center justify-between text-[8px] font-arcade text-slate-400 mt-1">
+      <div class="font-arcade text-[10px] font-black text-white leading-tight break-words">${c.car}</div>
+      <div class="text-[10px] text-cyan-300 leading-tight mt-0.5">${c.driver}</div>
+      <div class="flex items-center justify-between text-[10px] font-arcade text-slate-400 mt-1">
         <span class="text-emerald-300">💚${c.maxHp}HP</span>
         <span>${c.massKg}kg</span>
       </div>
     ` : `
-      <div class="font-arcade text-[9px] font-black text-slate-300 truncate">🔒 ${c.car}</div>
-      <div class="text-[9px] text-amber-300/90 leading-tight">${unlockProgress(SaveStore.data, c.id).text}</div>
+      <div class="font-arcade text-[10px] font-black text-slate-200 leading-tight break-words">🔒 ${c.car}</div>
+      <div class="text-[10px] text-amber-300 leading-tight mt-0.5">${unlockProgress(SaveStore.data, c.id).text}</div>
     `;
     btn.addEventListener('click', () => {
       if (!owned) { locked(c.id); return; }
