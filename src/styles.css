@@ -1016,6 +1016,20 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
   .title-icon > small { display: none; }
   .title-icon > span { width: 46px; height: 46px; font-size: 20px; }
 }
+/* 320-359 px phones (ticket 0269): the five title icons need ~348 px as two corner groups, so
+   here they become one evenly shared row (the groups dissolve into the nav), with a slimmer
+   gutter and caption tracking; each keeps a >= 44 px target and a 10 px caption. A 568 px tall
+   screen has no spare height either, so the disc and the bottom padding come in a little. */
+@media (max-width: 359.98px) {
+  .title-icons { gap: 4px; padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+  .title-icons > div { display: contents; }
+  .title-icon { flex: 1 1 auto; min-width: 44px; gap: 2px; }
+  .title-icon > small { letter-spacing: 0.04em; }
+  .title-icon > span { width: 44px; height: 44px; font-size: 19px; }
+}
+@media (max-width: 359.98px) and (max-height: 640px) and (orientation: portrait) {
+  .title-screen { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}
 
 /* LEVEL UP (ticket 0150): big bouncy word art over the road, gone in ~1.6 s; calm mode fades only. */
 .levelup { position: absolute; left: 50%; top: 30%; z-index: 21; transform: translate(-50%, -50%); text-align: center; opacity: 0; }
