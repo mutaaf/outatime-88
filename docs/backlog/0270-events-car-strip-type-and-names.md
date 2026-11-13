@@ -1,12 +1,12 @@
 ---
 id: 0270
 title: EVENTS sheet car strip — 10 px floor and car names that read whole
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-13
-pr:
+pr: 263
 ---
 
 ## Why
@@ -26,10 +26,10 @@ car-name line wrap to two lines (as 0262 did for the garage strip) instead of tr
 locked cars' captions bright. Touches index.html classes and the CSS that styles that strip.
 
 ## Acceptance criteria
-- [ ] At 360x640, 390x844, 844x390 and 1280x720 every visible text node inside the EVENTS sheet has computed font-size >= 10 px
-- [ ] No car name in the strip is ellipsised or clipped (compare against the parent's content box, after `document.fonts.ready`)
-- [ ] START RACE stays reachable (scrolls into view) and the sheet gains no horizontal scroll
-- [ ] Garage sheet and title unchanged
+- [x] At 360x640, 390x844, 844x390 and 1280x720 every visible text node inside the EVENTS sheet has computed font-size >= 10 px
+- [x] No car name in the strip is ellipsised or clipped (compare against the parent's content box, after `document.fonts.ready`)
+- [x] START RACE stays reachable (scrolls into view) and the sheet gains no horizontal scroll
+- [x] Garage sheet and title unchanged
 
 ## Test plan
 New or extended e2e (events/level-select spec): open EVENTS at each viewport, walk visible text
