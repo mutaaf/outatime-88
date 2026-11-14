@@ -11,7 +11,8 @@ import { HOME_IDLE_MS, PITCH, homeHooks, isFirstVisit, noteNewsSeen } from './ho
 import { POP_CULTURE_ROSTER, ROAD_CFG } from './data.js';
 import { frameTitle } from './title-frame.js';
 import { InputState, setLastInput } from './input.js';
-import { scopeFocus, menuOpen, inTopMenu, tabNavigating } from './focus-scope.js';
+import { scopeFocus, menuOpen, inTopMenu, tabNavigating, topMenu, tabbables, nextTab, visible } from './focus-scope.js';
+import { createNav, resetNav, readNav, padMenuStep } from './pad-nav.js';
 
 /**
  * h: { state (GameState), save (SaveStore), goHome(), play(), daily(), garage(carId), ranks(),
@@ -199,8 +200,9 @@ export function createHome(h) {
   // Gamepad on menus: A / START = play (again), B = home. Only fresh presses count, so the gas
   // held across the finish line never skips the results.
   let padPrev = null;
-  function pollPad() {
+  function pollPad(ts) {
     requestAnimationFrame(pollPad);
+    if (padNav(ts)) { padPrev = null; return; }
     const onResults = shown('gameOverModal') && S.status === 'GAMEOVER';
     const onTitle = S.status === 'TITLE' && !title.classList.contains('hidden');
     if ((!onResults && !onTitle) || blocking() || !navigator.getGamepads) { padPrev = null; return; }
@@ -217,6 +219,42 @@ export function createHome(h) {
       else if (b && !padPrev.b && onResults) goHome();
     }
     padPrev = { a, b };
+  }
+
+  // Gamepad in menus (0273): while a scoped menu is open and no race is driving, D-pad / stick
+  // move focus like Tab, A presses the focused control and B is the menu's own close button.
+  // While PAUSED, A belongs to the race-late pad pause (src/pad-pause.js): it presses a control
+  // marked data-pad-focus (one the pad moved to), else it resumes as before (0271).
+  const CLOSE = { settingsModal: 'btnSettingsDone', garageModal: 'btnCloseGarage', startModal: 'btnCloseEvents',
+    leaderboardModal: 'btnCloseLeaderboard', shareSheet: 'btnShareClose', carRevealOverlay: 'btnRevealLater' };
+  const nav = createNav();
+  let navAt = 0, marked = null;
+  const mark = (el) => {
+    if (marked && marked !== el) marked.removeAttribute('data-pad-focus');
+    marked = el;
+    if (el) el.setAttribute('data-pad-focus', '');
+  };
+  /** One frame; true when a menu is open and the pad belongs to it. Allocation-free while racing. */
+  function padNav(ts) {
+    const dt = Math.min(100, Math.max(0, ts - navAt));
+    navAt = ts;
+    const menu = S.status !== 'PLAYING' && navigator.getGamepads ? topMenu() : null;
+    if (!menu) { resetNav(nav); if (marked) mark(null); return false; }
+    let pads = null;
+    try { pads = navigator.getGamepads(); } catch { /* blocked */ }
+    const act = padMenuStep(readNav(pads), dt, nav);
+    if (!act) return true;
+    const a = document.activeElement;
+    const inside = !!a && a !== menu && menu.contains(a);
+    // Another panel over the menu (the racer panel over Settings) has focus: leave the pad to it.
+    const d = !inside && a && a.closest && a.closest('[role="dialog"]');
+    if (d && d !== menu && d.id !== 'titleScreen' && visible(d)) return true;
+    setLastInput('pad');
+    if (act === 'back') { const c = $(CLOSE[menu.id]); if (c && visible(c)) c.click(); return true; }
+    if (act === 'select' && inside) { if (S.status !== 'PAUSED') a.click(); return true; }
+    const to = nextTab(tabbables(menu), inside ? a : null, act === 'prev');
+    if (to) { to.focus({ focusVisible: true }); mark(to); }
+    return true;
   }
   requestAnimationFrame(pollPad);
 
