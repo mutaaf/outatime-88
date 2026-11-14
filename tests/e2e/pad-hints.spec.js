@@ -38,6 +38,11 @@ test('a connected pad: steer prompt and flux hint name the pad, a disconnect res
 
   await page.evaluate(() => { window.__padIn = false; window.dispatchEvent(new Event('gamepaddisconnected')); });
   expect(await shownSteer(page)).toBe('◀ A / D TO STEER ▶');
+  // Mid-race the drop also pauses (0272). Resume without a key or click, which would name the keys
+  // themselves: the words below must come from the disconnect alone.
+  await expect(page.locator('#garageModal')).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => { document.getElementById('garageModal').classList.add('hidden'); window.__OT.GameState.status = 'PLAYING'; });
+  expect(await page.evaluate(() => window.__OT.InputState.lastInput)).toBe('');
   await expect.poll(() => fluxHint(page)).toBe('⚡ FLUX READY! HIT 88 MPH OR SPACE!');
   expect(problems).toEqual([]);
 });

@@ -30,7 +30,40 @@ export function say(text) {
 window.addEventListener('keydown', () => setLastInput('keys'), true);
 window.addEventListener('pointerdown', (e) => setLastInput(e.pointerType === 'mouse' ? 'keys' : 'touch'), true);
 window.addEventListener('gamepadconnected', () => setLastInput('pad'));
-window.addEventListener('gamepaddisconnected', padGone); // back to the keyboard/touch words (0007)
+// A pad that drops out mid-race (0272): back to the keyboard/touch words (0007) and, if it was the
+// input in hand, a solo race past the lights pauses through the keyboard's own path (Escape → the pause
+// sheet) with a line saying why. Not for the TV's phone pad (lastInput 'phone', its own link UI), a live
+// race (it can't pause), the lineup/lights, or a sheet already up. The line belongs to that one pause:
+// `drop.at` is the race clock it paused on (frozen while paused), so once the race moves on (a resume
+// while the sheet was still loading, a race end) it never shows again. It is written once the sheet is
+// visible, so the status region announces it.
+const DROP_TXT = '🎮 CONTROLLER DISCONNECTED. PRESS ANY BUTTON ON IT, OR USE KEYS / TAP TO CONTINUE';
+const BACK_TXT = '🎮 CONTROLLER BACK. PRESS START OR A TO DRIVE';
+const drop = { at: -1, text: '', seen: false };
+const padLine = (t) => { const el = $('padDrop'); if (el && el.textContent !== t) el.textContent = t; };
+const shown = (id) => !$(id).classList.contains('hidden');
+const dropLive = () => drop.at >= 0 && GameState.status === 'PAUSED' && GameState.raceTime === drop.at;
+const showDrop = () => {
+  const up = shown('garageModal');
+  if (up && dropLive()) { drop.seen = true; padLine(drop.text); return; }
+  if (!up && drop.seen) drop.at = -1; // the sheet it showed on closed: that pause is over
+  padLine('');
+};
+window.addEventListener('gamepaddisconnected', () => {
+  const wasPad = InputState.lastInput === 'pad';
+  padGone();
+  if (!wasPad || GameState.status !== 'PLAYING' || GameState.mode === 'LIVE' || GameState.racePhase !== 'RACING') return;
+  if (shown('garageModal') || shown('settingsModal')) return;
+  const left = InputState.lastInput; // the synthetic key would name the keyboard (above): keep padGone's choice
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+  setLastInput(left);
+  if (GameState.status !== 'PAUSED') return;
+  drop.at = GameState.raceTime; drop.text = DROP_TXT; drop.seen = false;
+  showDrop();
+});
+// The pad is back during that pause: say so (it never resumes on its own).
+window.addEventListener('gamepadconnected', () => { if (dropLive()) { drop.text = BACK_TXT; showDrop(); } });
+new MutationObserver(showDrop).observe($('garageModal'), { attributes: true, attributeFilter: ['class'] });
 const hint = () => startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
 
 const beep = (hz, len = 0.16, vol = 0.16, type = 'square') => { try { SoundEngine.playTone(hz, type, len, vol); } catch (e) {} };
