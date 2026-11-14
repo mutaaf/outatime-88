@@ -1486,6 +1486,7 @@ function mainLoop(timestamp) {
   lastFrameTime = timestamp;
 
   if (touch) touch.sample(dt);
+  if (raceStep) raceStep.padPause(); // pad START pauses/resumes (0271)
   const playing = GameState.status === 'PLAYING' && !!raceStep;
   // A solo race back from PAUSED holds for a 3-2-1 beat (0231) while the road keeps drawing.
   const held = (playing || raceOn) && raceStep.resumeHold(frameSeconds, lastStatus === 'PAUSED' && GameState.mode !== 'LIVE' && !TV_MODE && GameState.raceTime > 0, playing);

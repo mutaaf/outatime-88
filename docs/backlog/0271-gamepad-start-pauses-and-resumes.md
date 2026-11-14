@@ -1,12 +1,12 @@
 ---
 id: 0271
 title: Gamepad START pauses the race and resumes it (and A resumes from the pause sheet)
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
 created: 2026-11-14
-pr:
+pr: 265
 ---
 
 ## Why

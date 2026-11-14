@@ -1448,6 +1448,10 @@ export function showForkCue(state) {
   document.getElementById('forkRightCard')?.classList.toggle('fork-lean', state === 'RIGHT');
 }
 
+// Gamepad START pauses and resumes, A resumes (0271): src/pad-pause.js, in the race-late chunk.
+// main's loop calls this once a frame, paused or not; a no-op until that chunk lands.
+export function padPause() { if (late) late.padFrame(GameState, InputState); }
+
 // Resume beat (0231, src/resume-beat.js): main's loop calls this once per frame while a race is
 // PLAYING (and once with playing false when it stops); true = hold the sim this frame. `resumed` is
 // main's "a solo race just left PAUSED". The 3, 2, 1 owns the one announcement channel while it runs.

@@ -1,6 +1,6 @@
 // Ticket 0204: the pause shows one screen of controls for the input in hand.
 import { describe, it, expect } from 'vitest';
-import { aidsNote, controlsKind, controlRows } from '../../src/controls-ref.js';
+import { aidsNote, controlsKind, controlRows, pauseNote } from '../../src/controls-ref.js';
 
 const rows = (kind, opts) => Object.fromEntries(controlRows(kind, opts).rows.map((r) => [r.label, r.value]));
 const LABELS = ['STEER', 'GAS', 'BRAKE', 'WARP', 'NOS', 'JUMP'];
@@ -16,7 +16,7 @@ describe('controlsKind', () => {
     expect(controlsKind(undefined, false)).toBe('keys');
   });
 
-  it('a connected pad wins over the key or click that opened the pause (no pad button pauses)', () => {
+  it('a connected pad wins over the key or click that opened the pause', () => {
     expect(controlsKind('keys', false, true)).toBe('pad');
     expect(controlsKind('touch', true, true)).toBe('pad');
     expect(controlsKind('keys', false, false)).toBe('keys');
@@ -67,5 +67,20 @@ describe('aidsNote (0219)', () => {
     expect(aidsNote({ laneGuide: false })).toBe('');
     expect(aidsNote({})).toBe('');
     expect(aidsNote(null)).toBe('');
+  });
+});
+
+describe('pauseNote (0271)', () => {
+  it('names START as the pad pause, and A or START to resume, on the pad card only', () => {
+    expect(pauseNote('pad')).toMatch(/START · PAUSE/);
+    expect(pauseNote('pad')).toMatch(/A or START to resume/);
+    expect(pauseNote('keys')).toBe('');
+    expect(pauseNote('touch')).toBe('');
+  });
+
+  it('a live race never pauses: START is the menu and A stays the gas', () => {
+    expect(pauseNote('pad', true)).toBe('START · MENU · START to close');
+    expect(pauseNote('pad', true)).not.toMatch(/A or/);
+    expect(pauseNote('keys', true)).toBe('');
   });
 });
