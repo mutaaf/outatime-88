@@ -12,9 +12,9 @@ const LABELS = ['STEER', 'GAS', 'BRAKE', 'WARP', 'NOS', 'JUMP'];
 const PAD = ['L-STICK · D-PAD', 'A · RT', 'B · LT', 'X · RB', 'LB', 'Y'];
 
 /**
- * Which controls to show. No pad button pauses, so the key or click that opened the pause has
- * just set lastInput: a connected pad wins (browsers only reveal a pad once it was pressed on
- * this page). Then the input in hand; before any input, a guess from the pointer.
+ * Which controls to show. A connected pad wins (browsers only reveal a pad once it was pressed on
+ * this page): its START pauses (0271), but a pad player may still have paused with the key or
+ * click that just set lastInput. Then the input in hand; before any input, a guess from the pointer.
  */
 export function controlsKind(lastInput, coarse, padConnected = false) {
   if (padConnected) return 'pad';
@@ -51,6 +51,11 @@ export function nosNote(settings) {
   return settings && settings.nos === 'toggle' ? 'NOS TAP ON/OFF · tap NOS to burn, tap again to stop' : '';
 }
 
+/** The pad card's pause line (0271): START pauses, START or A resumes; '' for other inputs. */
+export function pauseNote(kind) {
+  return kind === 'pad' ? 'START · PAUSE · A or START to resume' : '';
+}
+
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 function padConnected() {
@@ -80,6 +85,8 @@ export function renderControlsRef(el) {
   el.innerHTML = `<h3><span aria-hidden="true">🎮 </span>CONTROLS <small>${title}</small></h3><dl class="ctl-grid">`
     + rows.map((r) => `<div><dt>${r.label}</dt><dd data-ctl="${r.label}" aria-label="${esc(r.value.replace(/ · /g, ' or '))}">${esc(r.value)}</dd></div>`).join('')
     + '</dl>';
+  const pause = pauseNote(kind);
+  if (pause) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="pause"><span aria-hidden="true">⏸ </span>${esc(pause)}</p>`);
   const note = aidsNote(SaveStore.data.settings);
   if (note) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="laneGuide"><span aria-hidden="true">🔊 </span>${esc(note)}</p>`);
   const nos = nosNote(SaveStore.data.settings);
