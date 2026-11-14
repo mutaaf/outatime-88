@@ -1,12 +1,12 @@
 ---
 id: 0273
 title: Gamepad D-pad moves focus in the pause, settings and garage menus (A selects, B closes)
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: accessibility
 created: 2026-11-14
-pr:
+pr: 267
 ---
 
 ## Why

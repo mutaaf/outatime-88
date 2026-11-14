@@ -290,6 +290,9 @@ src/slipstream.js   Slipstream charge cue (0197), lazy (race flow + tuner): draf
                       lines, an eased edge tint and a 2 Hz READY pulse; main only calls RS.wake from drawSpeedLines
 src/focus-scope.js  Menu focus scope (0207), lazy via home.js: a shown menu takes focus, Tab/Shift+Tab loop inside, focus goes back to
                       its opener on close (never while racing); Ranks/share close on Escape. Watches each menu's `hidden` class
+src/pad-nav.js      Pad menu navigation (0273), pure, home chunk: padMenuStep → next/prev (D-pad / stick, 350 ms then 120 ms repeat)
+                      / select (A) / back (B). home.js padNav drives the top scoped menu when not PLAYING; B = the menu's close
+                      button; a control the pad moved to gets data-pad-focus, and while PAUSED pad-pause.js presses it on A
 src/ads.js          Marquee ad glue (2026-10-30), lazy: onResults (2× COINS rewarded offer, opt-in, only with fill),
                       onMenuReturn (postrace interstitial from the session's 2nd race on; never live/TV), beforeAd/afterAd hold
                       the frame loop (main's adHeld, which also refuses race starts) and silence the mix. Main only has adCue()

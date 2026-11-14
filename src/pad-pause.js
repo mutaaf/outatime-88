@@ -65,7 +65,8 @@ const shownEl = (id) => { const e = document.getElementById(id); return Boolean(
 function padAct(start, GameState, InputState) {
   const a = document.activeElement || document.body;
   const d = a.closest && a.closest('[role="dialog"]');
-  if (shownEl('carRevealOverlay')) {
+  if (!start && a.hasAttribute && a.hasAttribute('data-pad-focus')) a.click(); // moved there with the D-pad (0273, src/home.js)
+  else if (shownEl('carRevealOverlay')) {
     if (start) pressEscape(a);
     else document.getElementById('btnRevealDrive').click();
   } else if (d && d.getClientRects().length && d.id !== 'garageModal' && d.id !== 'settingsModal' && d.id !== 'titleScreen') return;

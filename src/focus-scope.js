@@ -72,6 +72,8 @@ function onKey(e) {
 /** Is a menu open, and is `el` inside the top one? */
 export const menuOpen = () => open.length > 0;
 export const inTopMenu = (el) => open.length > 0 && open[open.length - 1].el.contains(el);
+/** The top open menu's element, or null (the gamepad's menu navigation, 0273). */
+export const topMenu = () => (open.length ? open[open.length - 1].el : null);
 
 /**
  * Scope keyboard focus to `el` while it is shown (no `hidden` class).

@@ -115,3 +115,6 @@
   .end-btn-home.is-idle::after { animation: none; }
 }
 [data-motion="reduce"] .home-hook, [data-motion="reduce"] .home-pitch li, [data-motion="reduce"] .end-btn-home.is-idle::after { animation: none !important; }
+
+/* Gamepad menu focus (0273): the control the D-pad moved to always shows a ring, whatever the browser's focus-visible guess. */
+[data-pad-focus]:focus { outline: 3px solid #00f0ff; outline-offset: 2px; }
