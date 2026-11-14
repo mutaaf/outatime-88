@@ -77,4 +77,10 @@ describe('pauseNote (0271)', () => {
     expect(pauseNote('keys')).toBe('');
     expect(pauseNote('touch')).toBe('');
   });
+
+  it('a live race never pauses: START is the menu and A stays the gas', () => {
+    expect(pauseNote('pad', true)).toBe('START · MENU · START to close');
+    expect(pauseNote('pad', true)).not.toMatch(/A or/);
+    expect(pauseNote('keys', true)).toBe('');
+  });
 });

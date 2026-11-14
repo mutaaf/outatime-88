@@ -33,7 +33,6 @@ import { createProximityCue } from './proximity-cue.js';
 import { nosToggle, nosSettle } from './nos-toggle.js';
 import { eraBody, eraHazard, eraHazardKind, eraSpill } from './era-hazards.js';
 import { createResumeBeat } from './resume-beat.js';
-import { createPadMenu, padPauseStep, readPad } from './pad-pause.js';
 import { allowFlash, flashLog, resetFlashBudget } from './flash-budget.js';
 import { POWER, createPower, resetPower, activatePower, stepPower, powerOn, useShield, cashMult, ensurePower } from './powerups.js';
 import {
@@ -1449,17 +1448,9 @@ export function showForkCue(state) {
   document.getElementById('forkRightCard')?.classList.toggle('fork-lean', state === 'RIGHT');
 }
 
-// Gamepad START pauses and resumes, A resumes (0271, src/pad-pause.js). main's loop calls this
-// once a frame, paused or not; a press is a real Escape keydown on the focused element, so it
-// takes exactly the keyboard's path (pause sheet, Settings, a live race's sheet, the lineup skip).
-const padMenu = createPadMenu();
-const padEscape = () => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
-const padRead = () => {
-  let pads = null;
-  try { pads = navigator.getGamepads ? navigator.getGamepads() : null; } catch (e) {}
-  return readPad(pads, pollGamepad().on === true); // the paired TV phone (PhonePad) has its own PAUSE
-};
-export function padPause() { padPauseStep(GameState.status, padRead, padMenu, padEscape); }
+// Gamepad START pauses and resumes, A resumes (0271): src/pad-pause.js, in the race-late chunk.
+// main's loop calls this once a frame, paused or not; a no-op until that chunk lands.
+export function padPause() { if (late) late.padFrame(GameState, InputState); }
 
 // Resume beat (0231, src/resume-beat.js): main's loop calls this once per frame while a race is
 // PLAYING (and once with playing false when it stops); true = hold the sim this frame. `resumed` is

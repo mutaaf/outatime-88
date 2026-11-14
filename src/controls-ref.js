@@ -51,9 +51,13 @@ export function nosNote(settings) {
   return settings && settings.nos === 'toggle' ? 'NOS TAP ON/OFF · tap NOS to burn, tap again to stop' : '';
 }
 
-/** The pad card's pause line (0271): START pauses, START or A resumes; '' for other inputs. */
-export function pauseNote(kind) {
-  return kind === 'pad' ? 'START · PAUSE · A or START to resume' : '';
+/**
+ * The pad card's pause line (0271): START pauses, START or A resumes; '' for other inputs. A live
+ * race never pauses (START only opens and closes this sheet, and A stays the gas).
+ */
+export function pauseNote(kind, live = false) {
+  if (kind !== 'pad') return '';
+  return live ? 'START · MENU · START to close' : 'START · PAUSE · A or START to resume';
 }
 
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -85,7 +89,7 @@ export function renderControlsRef(el) {
   el.innerHTML = `<h3><span aria-hidden="true">🎮 </span>CONTROLS <small>${title}</small></h3><dl class="ctl-grid">`
     + rows.map((r) => `<div><dt>${r.label}</dt><dd data-ctl="${r.label}" aria-label="${esc(r.value.replace(/ · /g, ' or '))}">${esc(r.value)}</dd></div>`).join('')
     + '</dl>';
-  const pause = pauseNote(kind);
+  const pause = pauseNote(kind, GameState.mode === 'LIVE');
   if (pause) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="pause"><span aria-hidden="true">⏸ </span>${esc(pause)}</p>`);
   const note = aidsNote(SaveStore.data.settings);
   if (note) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="laneGuide"><span aria-hidden="true">🔊 </span>${esc(note)}</p>`);

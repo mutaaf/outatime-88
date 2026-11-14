@@ -5,7 +5,7 @@ import { createPadMenu, padEdges, padPauseStep, readPad } from '../../src/pad-pa
 /** Runs frames of [status, { start, a }] and returns the frames (0-based) that pressed Escape. */
 function run(frames, mem = createPadMenu()) {
   const hits = [];
-  frames.forEach(([status, gp], i) => { padPauseStep(status, () => gp, mem, () => hits.push(i)); });
+  frames.forEach(([status, gp], i) => { padPauseStep(status, () => gp, mem, (start) => hits.push(start ? i : `A${i}`)); });
   return hits;
 }
 const up = { start: false, a: false }, S = { start: true, a: false }, A = { start: false, a: true }, SA = { start: true, a: true };
@@ -28,11 +28,12 @@ const btn = (pressed) => ({ pressed, value: pressed ? 1 : 0 });
 const pad = (pressed, connected = true) => ({ connected, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => btn(pressed.includes(i))) });
 
 describe('readPad', () => {
-  it('reads START (9) and A (0) off the first connected pad; RT alone is not A', () => {
+  it('reads START (9) and A (0) off any connected pad; RT alone is not A', () => {
     expect({ ...readPad([pad([9])]) }).toEqual({ start: true, a: false });
     expect({ ...readPad([pad([0])]) }).toEqual({ start: false, a: true });
     expect({ ...readPad([pad([7])]) }).toEqual({ start: false, a: false });
     expect({ ...readPad([null, pad([9], false), pad([0])]) }).toEqual({ start: false, a: true });
+    expect({ ...readPad([pad([]), pad([9])]) }).toEqual({ start: true, a: false }); // a second pad's START counts (as on the title)
   });
 
   it('nothing held with no pads, no API, or the paired TV phone driving', () => {
@@ -58,7 +59,7 @@ describe('padPauseStep', () => {
 
   it('A only resumes a paused race, and the gas held into the pause is not a press', () => {
     expect(run([['PLAYING', up], ['PLAYING', A], ['PLAYING', up], ['PLAYING', A]])).toEqual([]); // A racing = gas
-    expect(run([['PLAYING', up], ['PLAYING', A], ['PLAYING', SA], ['PAUSED', A], ['PAUSED', A], ['PAUSED', up], ['PAUSED', A]])).toEqual([2, 6]);
+    expect(run([['PLAYING', up], ['PLAYING', A], ['PLAYING', SA], ['PAUSED', A], ['PAUSED', A], ['PAUSED', up], ['PAUSED', A]])).toEqual([2, 'A6']);
   });
 
   it('never reads the pad outside a race, and forgets presses there', () => {

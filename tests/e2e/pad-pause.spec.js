@@ -13,6 +13,10 @@ const fakePad = (page) => page.addInitScript((key) => {
   const pad = { connected: true, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, btn) };
   navigator.getGamepads = () => [pad];
   window.__btn = (i, down) => { pad.buttons[i] = { pressed: down, value: down ? 1 : 0 }; };
+  // The resume beat lasts ~0.9 s: record its peak every frame so a slow poll can't miss it.
+  window.__beatMax = 0;
+  const tick = () => { const g = window.__OT && window.__OT.GameState; if (g) window.__beatMax = Math.max(window.__beatMax, g.resumeBeat || 0); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
 }, SAVE_KEY);
 
 const START = 9, A = 0;
@@ -27,12 +31,21 @@ async function press(page, i) {
   await nextFrames(page, 4);
 }
 
+/** Call before the resuming press. */
+const armBeat = (page) => page.evaluate(() => { window.__beatMax = 0; });
 async function expectResumed(page) {
   await expect.poll(() => status(page), { timeout: 10_000 }).toBe('PLAYING');
   await expect(page.locator('#garageModal')).toBeHidden();
-  // The 3-2-1 resume beat (0231) runs, then the race drives on.
-  await page.waitForFunction(() => window.__OT.GameState.resumeBeat > 0, null, { timeout: 10_000 });
-  await page.waitForFunction(() => window.__OT.GameState.resumeBeat === 0, null, { timeout: 10_000 });
+  // The 3-2-1 resume beat (0231) ran, and is over: the race drives on.
+  await page.waitForFunction(() => window.__beatMax > 0 && window.__OT.GameState.resumeBeat === 0, null, { timeout: 10_000 });
+  // The pad is the input in hand, not the keyboard (the press is a synthetic Escape).
+  expect(await page.evaluate(() => window.__OT.InputState.lastInput)).toBe('pad');
+}
+
+/** The pad pause lives in the race-late chunk (src/race-late.js), fetched once the race step runs. */
+async function lateReady(page) {
+  await page.waitForFunction(() => performance.getEntriesByType('resource').some((e) => /race-late-[^/]*\.js/.test(e.name) && e.responseEnd > 0), null, { timeout: 20_000 });
+  await nextFrames(page, 4);
 }
 
 async function startRace(page) {
@@ -40,6 +53,7 @@ async function startRace(page) {
   await page.evaluate(() => window.__OT.ready());
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await racing(page);
+  await lateReady(page);
 }
 
 for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
@@ -65,6 +79,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       await nextFrames(page, 4);
       expect(await status(page)).toBe('PAUSED');
 
+      await armBeat(page);
       await hold(page, START);
       await expectResumed(page);
       await nextFrames(page, 20); // still held: no second pause
@@ -87,6 +102,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       await release(page, A);
       await nextFrames(page, 4);
       expect(await status(page)).toBe('PAUSED');
+      await armBeat(page);
       await hold(page, A);
       await expectResumed(page);
       await release(page, A);
@@ -104,13 +120,16 @@ test.describe('1280x720 regressions', () => {
     await page.goto(`${APP}?debug`);
     await page.evaluate(() => window.__OT.ready());
     await expect(page.locator('#titleScreen')).toBeVisible();
+    // src/home.js counts only a fresh press: it must first see START up on a visible title.
+    await page.waitForFunction(() => window.__OT.GameState.status === 'TITLE' && !document.getElementById('titleScreen').classList.contains('hidden'));
+    await nextFrames(page, 10);
     await hold(page, START);
     await racing(page);
     await nextFrames(page, 20);
     expect(await status(page)).toBe('PLAYING');
     await release(page, START);
     // Let go and pressed again: now it pauses.
-    await nextFrames(page, 4);
+    await lateReady(page);
     await hold(page, START);
     await expect.poll(() => status(page)).toBe('PAUSED');
     await release(page, START);
@@ -124,8 +143,26 @@ test.describe('1280x720 regressions', () => {
     await page.keyboard.press('Escape');
     await expect.poll(() => status(page)).toBe('PAUSED');
     await expect(page.locator('#garageModal')).toBeVisible({ timeout: 15_000 });
+    await armBeat(page);
     await page.keyboard.press('Escape');
-    await expectResumed(page);
+    await expect.poll(() => status(page), { timeout: 10_000 }).toBe('PLAYING');
+    await page.waitForFunction(() => window.__beatMax > 0 && window.__OT.GameState.resumeBeat === 0, null, { timeout: 10_000 });
+    expect(problems).toEqual([]);
+  });
+
+  test('paused from the HUD gear (Settings), START and A resume; the pad words stay', async ({ page }) => {
+    const problems = watchPage(page);
+    await fakePad(page);
+    await startRace(page);
+    for (const button of [START, A]) {
+      await page.locator('#btnHudSettings').click();
+      await expect(page.locator('#settingsModal')).toBeVisible({ timeout: 15_000 });
+      expect(await status(page)).toBe('PAUSED');
+      await armBeat(page);
+      await press(page, button);
+      await expect(page.locator('#settingsModal')).toBeHidden();
+      await expectResumed(page);
+    }
     expect(problems).toEqual([]);
   });
 });
