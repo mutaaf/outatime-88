@@ -199,4 +199,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-12 · 0268 · The title screen, home cards, offline pill and garage never print below 10px: icon captions, hook card titles and details, the NEW tag, the garage class chip, spec labels and buttons are easier to read on a phone; long hook titles wrap instead of being cut off
 2026-11-13 · 0269 · On the smallest phones (320 px) the title's EVENTS, RANKS, GARAGE, SOUND and SETTINGS icons now fit side by side, whole and readable
 2026-11-13 · 0270 · The EVENTS sheet never prints below 10px: car cards, track cards, the ruleset and controls are easier to read on a phone, and car names wrap onto two lines instead of being cut off
-2026-11-14 · #0271 · A gamepad's START button pauses the race and resumes it, and A resumes from the pause screen; the controls card shows it
+2026-11-14 · 0271 · A gamepad's START button pauses the race and resumes it, and A resumes from the pause screen; the controls card shows it
