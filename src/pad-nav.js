@@ -63,7 +63,7 @@ export function padMenuStep(pad, dtMs, st) {
   } else if (pad.dir) {
     st.t += dtMs;
     const wait = st.rep ? NAV.repeat : NAV.first;
-    if (st.t >= wait) { st.t -= wait; st.rep = true; move = pad.dir > 0 ? 'next' : 'prev'; }
+    if (st.t >= wait) { st.t = 0; st.rep = true; move = pad.dir > 0 ? 'next' : 'prev'; }
   }
   if (aEdge) return 'select';
   if (bEdge) return 'back';

@@ -15,6 +15,16 @@ const fakePad = (page) => page.addInitScript((key) => {
   const pad = { connected: true, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, btn) };
   navigator.getGamepads = () => [pad];
   window.__btn = (i, down) => { pad.buttons[i] = { pressed: down, value: down ? 1 : 0 }; };
+  // A tap held for exactly two game frames (this loop runs before the game's each frame), so a
+  // starved runner can never hold it into the 350 ms repeat.
+  window.__taps = 0;
+  const left = {};
+  window.__tap = (i) => { window.__btn(i, true); left[i] = 3; window.__taps++; };
+  const loop = () => {
+    for (const k in left) if (--left[k] <= 0) { window.__btn(Number(k), false); delete left[k]; window.__taps--; }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
   // Count focus moves, so a held D-pad's repeat rate can be measured on the page clock.
   window.__moves = [];
   document.addEventListener('focusin', () => window.__moves.push(performance.now()), true);
@@ -28,6 +38,23 @@ async function press(page, i) {
   await release(page, i);
   await nextFrames(page, 3);
 }
+/** One D-pad step = one focus move: a two-frame tap, done once the game has moved focus. */
+async function step(page, i) {
+  const n = await page.evaluate(() => window.__moves.length);
+  await page.evaluate((b) => window.__tap(b), i);
+  await page.waitForFunction((k) => window.__moves.length > k && window.__taps === 0, n, { timeout: 10_000 });
+  await nextFrames(page, 2);
+}
+/** Wait until focus stops moving (Settings focuses its DONE once its chunk lands). */
+async function settle(page) {
+  let last = null;
+  for (let i = 0; i < 20; i++) {
+    const now = await page.evaluate(() => { const a = document.activeElement; return a ? a.id + a.outerHTML.slice(0, 80) : ''; });
+    if (now === last) return;
+    last = now;
+    await nextFrames(page, 5);
+  }
+}
 const status = (page) => page.evaluate(() => window.__OT.GameState.status);
 const activeId = (page) => page.evaluate(() => (document.activeElement && document.activeElement.id) || '');
 
@@ -40,10 +67,13 @@ const tabAfter = (page, modal) => page.evaluateHandle((m) => {
   return list[(i + 1) % list.length];
 }, modal);
 
-/** D-pad down until `id` has focus (at most `max` presses). */
-async function downTo(page, id, max = 80) {
-  for (let i = 0; i < max && (await activeId(page)) !== id; i++) await press(page, DOWN);
-  expect(await activeId(page)).toBe(id);
+/** D-pad down until the control matching `sel` has focus (at most `max` steps). */
+const focusIs = (page, sel) => page.evaluate((s) => document.activeElement === document.querySelector(s), sel);
+async function downTo(page, sel, max = 80) {
+  await settle(page);
+  if (!sel.startsWith('#') && !sel.startsWith('[')) sel = `#${sel}`;
+  for (let i = 0; i < max && !(await focusIs(page, sel)); i++) await step(page, DOWN);
+  expect(await focusIs(page, sel), `D-pad reaches ${sel}`).toBe(true);
 }
 
 const homeReady = (page) => page.waitForFunction(() => document.querySelector('#homeHooks')?.childElementCount > 0);
@@ -70,15 +100,16 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
         await page.locator(m.opener).click();
         await expect(page.locator(m.modal), `${m.name} opens`).toBeVisible();
         await expect.poll(() => page.evaluate((s) => document.querySelector(s).contains(document.activeElement), m.modal)).toBe(true);
+        await settle(page);
         for (let i = 0; i < 3; i++) {
           const want = await tabAfter(page, m.modal);
-          await press(page, DOWN);
+          await step(page, DOWN);
           expect(await page.evaluate((w) => document.activeElement === w, want), `${m.name}: D-pad down ${i + 1} = Tab`).toBe(true);
           expect(await page.evaluate(() => document.activeElement.hasAttribute('data-pad-focus'))).toBe(true);
         }
         const before = await activeId(page) || await page.evaluate(() => document.activeElement.outerHTML.slice(0, 60));
-        await press(page, UP);
-        await press(page, DOWN);
+        await step(page, UP);
+        await step(page, DOWN);
         expect(await activeId(page) || await page.evaluate(() => document.activeElement.outerHTML.slice(0, 60))).toBe(before);
         await press(page, B);
         await expect(page.locator(m.modal), `${m.name}: B closes`).toBeHidden();
@@ -150,6 +181,47 @@ test.describe('1280x720 pad in a race', () => {
     await expect.poll(() => status(page), { timeout: 10_000 }).toBe('PLAYING');
     await expect(page.locator('#garageModal')).toBeHidden();
     expect(await page.evaluate(() => document.querySelectorAll('[data-pad-focus]').length)).toBe(0);
+    expect(problems).toEqual([]);
+  });
+
+  test('pause → SETTINGS → STEERING & BUTTONS: the pad drives the controls panel and B closes it', async ({ page }) => {
+    const problems = watchPage(page);
+    await fakePad(page);
+    await startRace(page);
+    await press(page, START);
+    await expect(page.locator('#garageModal')).toBeVisible({ timeout: 15_000 });
+    await downTo(page, 'btnSettingsFromGarage');
+    await press(page, A);
+    await expect(page.locator('#settingsModal')).toBeVisible({ timeout: 15_000 });
+    await downTo(page, 'btnOpenControls');
+    await press(page, A);
+    await expect(page.locator('#tcPanel')).toBeVisible({ timeout: 15_000 });
+    await step(page, DOWN);
+    expect(await page.evaluate(() => document.getElementById('tcPanel').contains(document.activeElement))).toBe(true);
+    await press(page, B);
+    await expect(page.locator('#tcPanel')).toHaveCount(0);
+    expect(await status(page)).toBe('PAUSED');
+    expect(problems).toEqual([]);
+  });
+
+  test('title → Settings → OPEN RACER: the pad moves inside the racer panel, B closes only it', async ({ page }) => {
+    const problems = watchPage(page);
+    await fakePad(page);
+    await page.goto(`${APP}?debug`);
+    await page.evaluate(() => window.__OT.ready());
+    await homeReady(page);
+    await page.locator('#btnOpenSettings').click();
+    await expect(page.locator('#settingsModal')).toBeVisible();
+    await downTo(page, '[data-open-racer]');
+    await press(page, A);
+    await expect(page.locator('#racerModal')).toBeVisible({ timeout: 15_000 });
+    await step(page, DOWN);
+    expect(await page.evaluate(() => document.getElementById('racerModal').contains(document.activeElement))).toBe(true);
+    await press(page, B);
+    await expect(page.locator('#racerModal')).toBeHidden();
+    await expect(page.locator('#settingsModal')).toBeVisible();
+    await press(page, A); // A no longer belongs to a hidden panel, and never starts a race under Settings
+    expect(await status(page)).toBe('TITLE');
     expect(problems).toEqual([]);
   });
 

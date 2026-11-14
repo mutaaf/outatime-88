@@ -28,6 +28,19 @@ describe('padMenuStep', () => {
     expect(fired.length).toBe(7);
   });
 
+  it('on uneven frames a repeat waits a full delay from the last move (no catch-up bursts)', () => {
+    const st = live();
+    let t = 0, last = null;
+    const gaps = [];
+    for (const dt of [16, 100, 100, 100, 100, 16, 100, 100, 16, 16, 100, 100, 100, 16, 100]) {
+      t += dt;
+      if (padMenuStep(pad(1), dt, st)) { if (last !== null) gaps.push(t - last); last = t; }
+    }
+    expect(gaps[0]).toBeGreaterThanOrEqual(NAV.first);
+    for (const g of gaps.slice(1)) expect(g).toBeGreaterThanOrEqual(NAV.repeat);
+    expect(gaps.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('a held A fires once; a held B fires once', () => {
     const st = live();
     const a = [];

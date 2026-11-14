@@ -234,11 +234,17 @@ export function createHome(h) {
     marked = el;
     if (el) el.setAttribute('data-pad-focus', '');
   };
-  /** One frame; true when a menu is open and the pad belongs to it. Allocation-free while racing. */
+  // Panels that open over a menu without a scope (Settings → STEERING & BUTTONS, OPEN RACER): the pad
+  // drives them instead; B is their close button. Not marked, so the pause's A never presses there.
+  const OVER = ['tcPanel', 'racerModal'];
+  const overPanel = () => { for (const id of OVER) { const d = $(id); if (d && visible(d)) return d; } return null; };
+  /** One frame; true when a menu is open and the pad belongs to it. Allocation-free while racing.
+   *  A live race's sheet opens over PLAYING, where the D-pad still steers: no menu there. */
   function padNav(ts) {
     const dt = Math.min(100, Math.max(0, ts - navAt));
     navAt = ts;
-    const menu = S.status !== 'PLAYING' && navigator.getGamepads ? topMenu() : null;
+    const over = S.status !== 'PLAYING' && navigator.getGamepads ? overPanel() : null;
+    const menu = over || (S.status !== 'PLAYING' && navigator.getGamepads ? topMenu() : null);
     if (!menu) { resetNav(nav); if (marked) mark(null); return false; }
     let pads = null;
     try { pads = navigator.getGamepads(); } catch { /* blocked */ }
@@ -246,14 +252,19 @@ export function createHome(h) {
     if (!act) return true;
     const a = document.activeElement;
     const inside = !!a && a !== menu && menu.contains(a);
-    // Another panel over the menu (the racer panel over Settings) has focus: leave the pad to it.
-    const d = !inside && a && a.closest && a.closest('[role="dialog"]');
+    // Another dialog over the menu (a steering-mode picker) has focus: leave the pad to it.
+    const d = !over && !inside && a && a.closest && a.closest('[role="dialog"]');
     if (d && d !== menu && d.id !== 'titleScreen' && visible(d)) return true;
     setLastInput('pad');
-    if (act === 'back') { const c = $(CLOSE[menu.id]); if (c && visible(c)) c.click(); return true; }
-    if (act === 'select' && inside) { if (S.status !== 'PAUSED') a.click(); return true; }
+    if (act === 'select') { if (inside && (over || S.status !== 'PAUSED')) a.click(); return true; }
+    if (act === 'back') {
+      // Each panel's own close (Escape there would reach Settings' window listener first).
+      const c = over ? over.querySelector('[data-racer-close], [data-act="done"]') : $(CLOSE[menu.id]);
+      if (c && visible(c)) c.click();
+      return true;
+    }
     const to = nextTab(tabbables(menu), inside ? a : null, act === 'prev');
-    if (to) { to.focus({ focusVisible: true }); mark(to); }
+    if (to) { to.focus({ focusVisible: true }); mark(over ? null : to); }
     return true;
   }
   requestAnimationFrame(pollPad);
