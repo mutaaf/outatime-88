@@ -85,3 +85,6 @@
 }
 /* The first-race thumb guide (touch kit, pointer-events: none) must not draw its rings over the pause actions. */
 body:has(#garageModal:not(.hidden)) .tc-guide { visibility: hidden; }
+.pad-drop { margin-top: 8px; padding: 8px 12px; border-radius: 12px; border: 2px solid #fb923c; background: rgba(2, 6, 23, 0.9);
+  color: #fed7aa; font-size: 12px; font-weight: 800; line-height: 1.35; letter-spacing: 0.04em; text-align: center; overflow-wrap: break-word; }
+.pad-drop:empty { display: none; }

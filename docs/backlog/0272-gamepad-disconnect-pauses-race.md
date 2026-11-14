@@ -1,7 +1,7 @@
 ---
 id: 0272
 title: A gamepad that drops out mid-race pauses the game with a clear message
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel

@@ -30,7 +30,24 @@ export function say(text) {
 window.addEventListener('keydown', () => setLastInput('keys'), true);
 window.addEventListener('pointerdown', (e) => setLastInput(e.pointerType === 'mouse' ? 'keys' : 'touch'), true);
 window.addEventListener('gamepadconnected', () => setLastInput('pad'));
-window.addEventListener('gamepaddisconnected', padGone); // back to the keyboard/touch words (0007)
+// A pad that drops out mid-race (0272): back to the keyboard/touch words (0007) and, if it was the
+// input in hand, the race pauses through the keyboard's own path (Escape → the pause sheet) with a line
+// saying why. Not for the TV's phone pad (lastInput 'phone', its own link UI) or a sheet already up.
+const padLine = (t) => { const el = $('padDrop'); if (el) el.textContent = t; };
+const sheetUp = () => !$('garageModal').classList.contains('hidden') || !$('settingsModal').classList.contains('hidden');
+window.addEventListener('gamepaddisconnected', () => {
+  const wasPad = InputState.lastInput === 'pad';
+  padGone();
+  if (!wasPad || GameState.status !== 'PLAYING' || sheetUp()) return;
+  padLine('🎮 CONTROLLER DISCONNECTED. PRESS ANY BUTTON ON IT, OR USE KEYS / TAP TO CONTINUE');
+  const left = InputState.lastInput; // the synthetic key would name the keyboard (above): keep padGone's choice
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+  setLastInput(left);
+});
+// The pad is back while the line shows: say so (it never resumes on its own); the line goes with the sheet.
+window.addEventListener('gamepadconnected', () => { if ($('padDrop').textContent) padLine('🎮 CONTROLLER BACK. PRESS START OR A TO DRIVE'); });
+new MutationObserver(() => { if ($('garageModal').classList.contains('hidden')) padLine(''); })
+  .observe($('garageModal'), { attributes: true, attributeFilter: ['class'] });
 const hint = () => startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
 
 const beep = (hz, len = 0.16, vol = 0.16, type = 'square') => { try { SoundEngine.playTone(hz, type, len, vol); } catch (e) {} };
