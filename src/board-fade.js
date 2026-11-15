@@ -124,3 +124,53 @@ export function stripFade(box, l, t, r, b, vw, vh, crop = 1) {
   }
   return f;
 }
+
+// Ticket 0274: on the desktop title the attract road drives boards under the PLAY row, so the
+// 88 MPH sign sat half-hidden behind RACE FRIENDS and VIEW. A board face reaching under one of
+// those controls draws nearly gone, so the row reads clean and no sign shows half its text
+// behind a pill. Each control's box is grown by `ramp` of the view height and the fade eases in
+// across that margin, so a board sliding toward a control dims before it touches it (no pop) and
+// is at `alpha` by the time it reaches the control itself. Phones (narrower than `minW`) keep
+// their title as it is.
+export const TITLE = {
+  alpha: 0.12,  // under a title control: well below the 0.2 a sign can be read at
+  ramp: 0.03,   // share of the view height around each control over which it eases to that
+  minW: 900,    // CSS px: narrower windows (phones, landscape phones) are left as they are
+};
+
+/** Fill `box` ({ n, r }) with DOM rects as view shares, each grown by TITLE.ramp of the view height. */
+export function titleBox(box, rects, view) {
+  box.n = 0;
+  if (!(view.width > 0) || !(view.height > 0)) return box;
+  const p = TITLE.ramp * view.height;
+  for (let i = 0; i < rects.length && box.n * 4 < box.r.length; i++) {
+    const q = rects[i];
+    if (!q || !(q.right > q.left) || !(q.bottom > q.top)) continue; // hidden controls measure 0
+    const k = box.n * 4;
+    box.r[k] = (q.left - p - view.left) / view.width; box.r[k + 1] = (q.top - p - view.top) / view.height;
+    box.r[k + 2] = (q.right + p - view.left) / view.width; box.r[k + 3] = (q.bottom + p - view.top) / view.height;
+    box.n++;
+  }
+  return box;
+}
+
+/**
+ * Opacity for a board face [l, r] × [t, b] on a road buffer `vw` × `vh` against the title box
+ * (view shares, mapped as stripFade maps them): 1 clear of every grown control, TITLE.alpha once
+ * it reaches a control itself. How far it reaches in counts against the ramp, or against the face's
+ * own size when the face is smaller than the ramp (a far board), so any face touching a control is
+ * at TITLE.alpha.
+ */
+export function titleFade(box, l, t, r, b, vw, vh, crop = 1) {
+  if (!box || !box.n) return 1;
+  const sw = vw / crop, sh = vh / crop, cx = (vw - sw) * 0.5, cy = (vh - sh) * 0.46, a = box.r, ramp = TITLE.ramp * sh;
+  const rx = Math.min(ramp, r - l), ry = Math.min(ramp, b - t);
+  if (!(rx > 0) || !(ry > 0)) return 1;
+  let f = 1;
+  for (let i = 0, k = 0; i < box.n; i++, k += 4) {
+    const ox = Math.min(cx + a[k + 2] * sw, r) - Math.max(cx + a[k] * sw, l);
+    const d = Math.min(cy + a[k + 3] * sh, b) - Math.max(cy + a[k + 1] * sh, t);
+    if (ox > 0 && d > 0) f = Math.min(f, 1 - (1 - TITLE.alpha) * Math.min(1, d / ry) * Math.min(1, ox / rx));
+  }
+  return f;
+}
