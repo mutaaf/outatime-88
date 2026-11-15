@@ -22,10 +22,10 @@ shared baseline band above the bottom icon row (left group, right group at equal
 min gap to the hero car's screen rect. Keep text contrast >= 4.5:1 and the 10px floor (0268).
 
 ## Acceptance criteria
-- [ ] At 1280x720 and 1920x1080 the left and right tagline groups share the same baseline y (within 2px)
-- [ ] No tagline rect intersects the hero car or the orb badge rect
-- [ ] Phone portrait and landscape titles unchanged (existing touch-layout specs green)
-- [ ] Contrast and font-size floors still pass
+- [x] At 1280x720 and 1920x1080 the left and right tagline groups share the same baseline y (within 2px)
+- [x] No tagline rect intersects the hero car or the orb badge rect
+- [x] Phone portrait and landscape titles unchanged (existing touch-layout specs green)
+- [x] Contrast and font-size floors still pass
 
 ## Test plan
 Extend the title layout e2e (rect comparisons, as in 0208/0230) and attach before/after
