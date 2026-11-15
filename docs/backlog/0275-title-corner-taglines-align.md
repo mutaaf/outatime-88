@@ -1,7 +1,7 @@
 ---
 id: 0275
 title: Desktop title - the three corner taglines line up on one baseline row and stay off the hero car
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
