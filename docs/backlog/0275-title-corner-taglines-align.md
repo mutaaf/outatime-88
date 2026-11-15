@@ -23,7 +23,7 @@ min gap to the hero car's screen rect. Keep text contrast >= 4.5:1 and the 10px 
 
 ## Acceptance criteria
 - [x] At 1280x720 and 1920x1080 the left and right tagline groups share the same baseline y (within 2px)
-- [x] No tagline rect intersects the hero car or the orb badge rect
+- [x] No tagline rect intersects the hero car (e2e: ≥ 12 px from carBox). The "orb badge" is a road pickup drawn on the canvas, not a title element; it sits beside the car, above the tagline band, at every desktop size checked (screenshots), so it has no DOM rect to test
 - [x] Phone portrait and landscape titles unchanged (existing touch-layout specs green)
 - [x] Contrast and font-size floors still pass
 
