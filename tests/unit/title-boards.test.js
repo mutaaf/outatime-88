@@ -2,9 +2,9 @@
 // VIEW, so the first screen showed half-read signs beside PLAY. A board face reaching under one of
 // the PLAY row's controls now draws nearly gone (TITLE.alpha), easing in over a margin around each.
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { TITLE, titleBox, titleFade } from '../../src/board-fade.js';
+import { TITLE, titleBox, titleFade, stats } from '../../src/title-row.js';
 import { seen } from '../../src/billboards.js';
-import { draw2D, debug } from '../../src/billboard-art.js';
+import { draw2D } from '../../src/billboard-art.js';
 import { GameState } from '../../src/state.js';
 
 // The 1280x720 title row as measured on the live build: RACE FRIENDS, PLAY, VIEW.
@@ -62,8 +62,8 @@ describe('draw2D on the title (0274)', () => {
   const noop = () => {};
   const paint = new Proxy({}, { get: (_, k) => (k === 'measureText' ? () => ({ width: 10 }) : k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop: noop }) : noop), set: () => true });
   const rects = { btnStartRace: ROW[1], btnOpenLive: ROW[0], btnViewMode: ROW[2], canvasContainer: { ...view, right: 1280, bottom: 720 } };
-  let onTitle = true;
-  beforeAll(() => {
+  let onTitle = true, desk = true;
+  beforeAll(async () => {
     globalThis.OffscreenCanvas = class { constructor(w, h) { this.width = w; this.height = h; } getContext() { return paint; } };
     globalThis.document = {
       body: { classList: { contains: (c) => c === 'on-title' && onTitle } },
@@ -71,8 +71,8 @@ describe('draw2D on the title (0274)', () => {
       createElement: () => { const c = new globalThis.OffscreenCanvas(1, 1); return c; },
     };
   });
-  afterAll(() => { delete globalThis.OffscreenCanvas; delete globalThis.document; delete globalThis.innerWidth; GameState.status = undefined; });
-  beforeEach(() => { seen.n = 0; onTitle = true; GameState.status = 'TITLE'; globalThis.innerWidth = 1280; });
+  afterAll(() => { delete globalThis.OffscreenCanvas; delete globalThis.document; delete globalThis.matchMedia; GameState.status = undefined; });
+  beforeEach(() => { seen.n = 0; onTitle = true; GameState.status = 'TITLE'; desk = true; globalThis.matchMedia = (q) => ({ matches: q === TITLE.media && desk }); });
 
   function fakeCtx() {
     const ops = [];
@@ -86,21 +86,24 @@ describe('draw2D on the title (0274)', () => {
     return ops;
   };
 
-  it('draws a board under the PLAY row nearly gone and reports it', () => {
-    const h0 = debug().title.hits;
+  it('draws a board under the PLAY row nearly gone and reports it', async () => {
+    // The first title board asks for the lazy title-row chunk and draws as before until it is in.
+    for (const a of under(5e5)) expect(a).toBe(1);
+    await new Promise((r) => setTimeout(r, 0));
+    const h0 = stats.hits;
     const ops = under(1e6);
     expect(ops.length).toBeGreaterThan(2);
     for (const a of ops) expect(a).toBeLessThan(0.2);
-    expect(debug().title.hits).toBe(h0 + 1);
-    expect(debug().title.alpha).toBeLessThan(0.2);
+    expect(stats.hits).toBe(h0 + 1);
+    expect(stats.alpha).toBeLessThan(0.2);
   });
 
-  it('leaves it solid in a race, on a phone-width window, and off the title', () => {
+  it('leaves it solid in a race, on a phone or tablet layout, and off the title', () => {
     GameState.status = 'PLAYING';
     for (const a of under(2e6)) expect(a).toBe(1);
-    GameState.status = 'TITLE'; globalThis.innerWidth = 390;
+    GameState.status = 'TITLE'; desk = false;
     for (const a of under(3e6)) expect(a).toBe(1);
-    globalThis.innerWidth = 1280; onTitle = false;
+    desk = true; onTitle = false;
     for (const a of under(4e6)) expect(a).toBe(1);
   });
 });

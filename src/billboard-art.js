@@ -14,7 +14,7 @@
 import { GameState } from './state.js';
 import { track } from './track.js';
 import { drawRoadsideAd } from './backdrop.js';
-import { covers, cueCovers, forkCueBox, stripBox, stripFade, titleBox, titleFade, boardAlpha, edgeFade, EDGE, TITLE } from './board-fade.js';
+import { covers, cueCovers, forkCueBox, stripBox, stripFade, boardAlpha, edgeFade, EDGE } from './board-fade.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -163,10 +163,6 @@ const edge = { clipped: 0, maxW: 0 };
 const cue = { hits: 0, maxAlpha: 0, last: [0, 0, 0, 0], vw: 0, vh: 0 };
 // Boards drawn reaching into the HUD strip (0244): how many, and the most opaque one.
 const strip = { hits: 0, maxAlpha: 0 };
-// Boards drawn under the desktop title's PLAY row (0274): how many, the most opaque one, and the
-// last one's face (road buffer px, with that buffer's size) and opacity, for ?debug. An e2e sets
-// `log` to an array to get every board face drawn on the desktop title: [l, t, r, b, alpha, vw, vh].
-const title = { hits: 0, maxAlpha: 0, last: [0, 0, 0, 0], vw: 0, vh: 0, alpha: 1, log: null };
 let lastBucket = 0, lastPx = 0;
 
 function clearFaces() { faces.clear(); faceGen++; }
@@ -448,7 +444,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function debug() {
-  return { ...stats, lastFade, edge, cue, strip, title, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
+  return { ...stats, lastFade, edge, cue, strip, lastBucket, lastPx, faces: faces.size, campaigns: store.campaigns.length, report: store.report, mv: store.mv, pending };
 }
 
 /** The FOV push-in the blit will crop the road buffer by this frame (src/render/scene.js:
@@ -514,24 +510,12 @@ function hudStrip() {
   return GameState.hudStrip;
 }
 
-/** The desktop title's PLAY row (#btnStartRace, #btnOpenLive, #btnViewMode) as view shares (0274),
- *  grown by TITLE.ramp. Only on the title, at least TITLE.minW wide. The row moves with the window,
- *  a challenge banner and the home hooks filling in, so it is re-measured at most every 500 ms
- *  (three rect reads; the title has no race to protect). Anywhere else, no box. */
-let titleAt = -1e9;
-const titleRects = { n: 0, r: new Float32Array(12) };
-const TITLE_IDS = ['btnStartRace', 'btnOpenLive', 'btnViewMode'];
-function titleRow(now) {
-  if (GameState.status !== 'TITLE' || typeof document === 'undefined' || !document.body.classList.contains('on-title')
-    || innerWidth < TITLE.minW) { titleAt = -1e9; return null; }
-  if (now - titleAt > 500 || now < titleAt) {
-    titleAt = now;
-    const view = document.getElementById('canvasContainer');
-    titleRects.n = 0;
-    if (view) titleBox(titleRects, TITLE_IDS.map((id) => { const el = document.getElementById(id); return el && el.getBoundingClientRect(); }), view.getBoundingClientRect());
-  }
-  return titleRects;
-}
+/** The desktop title's PLAY row (0274) lives in its own lazy chunk (src/title-row.js): this chunk
+ *  rides along with the 3D view, whose budget has no room for it. The first title frame asks for it;
+ *  until it lands (a frame or two) boards draw as before. Its ?debug stats: window.__OT.titleBoards. */
+// TR: null, then the chunk's import promise, then the module. Offline with the chunk uncached the
+// promise settles quietly (no console error) and the title just keeps its boards as before.
+let TR = null;
 
 // ── 2D ─────────────────────────────────────────────────────────────────────────────────
 /**
@@ -570,18 +554,12 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now 
   if (hit >= 0 || underCue) item.bh = now;
   // Reaching into the HUD strip (0244) it eases see-through too: the timer and gaps read on dim art.
   const sf = stripFade(hudStrip(), left - b, top - b, left + w + b, bottom + b, rw, rh, crop);
-  // Under the desktop title's PLAY row (0274) it all but vanishes: the buttons read on a clean sky.
-  const row = titleRow(now);
-  const tf = titleFade(row, left - b, top - b, left + w + b, bottom + b, rw, rh, crop);
   const cover = boardAlpha(item.bh ? (now - item.bh) / 1000 : Infinity);
-  const alpha = Math.min(cover, sf, tf) * ef;
+  // Under the desktop title's PLAY row (0274) it all but vanishes: the buttons read on a clean sky.
+  const alpha = GameState.status === 'TITLE' && (TR ||= import('./title-row.js').then((m) => { TR = m; }, () => {})).fade
+    ? TR.fade(left - b, top - b, left + w + b, bottom + b, rw, rh, crop, now, Math.min(cover, sf), ef)
+    : Math.min(cover, sf) * ef;
   if (sf < 1) { strip.hits++; if (alpha > strip.maxAlpha) strip.maxAlpha = alpha; }
-  if (tf <= TITLE.alpha + 1e-6) {
-    title.hits++; if (alpha > title.maxAlpha) title.maxAlpha = alpha;
-    title.last[0] = left - b; title.last[1] = top - b; title.last[2] = left + w + b; title.last[3] = bottom + b;
-    title.vw = rw; title.vh = rh; title.alpha = alpha;
-  }
-  if (row && title.log && title.log.length < 4000) title.log.push([left - b, top - b, left + w + b, bottom + b, alpha, rw, rh]);
   if (underCue) {
     cue.hits++; if (alpha > cue.maxAlpha) cue.maxAlpha = alpha;
     cue.last[0] = left - b; cue.last[1] = top - b; cue.last[2] = left + w + b; cue.last[3] = bottom + b; cue.vw = rw; cue.vh = rh;
@@ -631,7 +609,7 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now 
     ctx.imageSmoothingEnabled = smooth;
     // A see-through face (0203, 0244) or one mostly faded at the edge (0221) isn't a viewed ad; one
     // that only grazes the HUD strip (still near solid) is.
-    if (cover === 1 && sf >= 0.9 && tf >= 0.9 && ef >= 0.5) noteView(item, cid, left, top, w, h, rw, rh, now);
+    if (cover === 1 && sf >= 0.9 && ef >= 0.5) noteView(item, cid, left, top, w, h, rw, rh, now);
   }
   if (night && w > 20) {
     // Two lamp heads on the top bezel washing the face with warm light.
