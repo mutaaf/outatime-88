@@ -1,12 +1,12 @@
 ---
 id: 0274
 title: Desktop title - the backdrop's "88 MPH" billboard and cinema sign are not cut by the RACE FRIENDS and VIEW pills
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-11-15
-pr:
+pr: 270
 ---
 
 ## Why
