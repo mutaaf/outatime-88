@@ -202,3 +202,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-14 · 0271 · A gamepad's START button pauses the race and resumes it, and A resumes from the pause screen; the controls card shows it
 2026-11-14 · 0272 · If your gamepad switches off or loses its link mid-race, the race pauses and the pause screen says the controller disconnected (and when it is back)
 2026-11-14 · 0273 · On a gamepad the D-pad or left stick moves between buttons in the pause, settings, garage, events and leaderboard menus; A presses, B closes
+2026-11-15 · 0274 · On the desktop title, a roadside board passing behind PLAY, RACE FRIENDS or VIEW fades almost away, so the buttons read clean and no sign shows half its text behind a pill

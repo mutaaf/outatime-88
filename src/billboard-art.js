@@ -510,6 +510,13 @@ function hudStrip() {
   return GameState.hudStrip;
 }
 
+/** The desktop title's PLAY row (0274) lives in its own lazy chunk (src/title-row.js): this chunk
+ *  rides along with the 3D view, whose budget has no room for it. The first title frame asks for it;
+ *  until it lands (a frame or two) boards draw as before. Its ?debug stats: window.__OT.titleBoards. */
+// TR: null, then the chunk's import promise, then the module. Offline with the chunk uncached the
+// promise settles quietly (no console error) and the title just keeps its boards as before.
+let TR = null;
+
 // ── 2D ─────────────────────────────────────────────────────────────────────────────────
 /**
  * Draw board `item` (a BILLBOARD, or the clock tower's ERA board) standing on the road row
@@ -548,7 +555,10 @@ export function draw2D(ctx, item, n, x, roadY, roadW, rw, rh, eraId, drawn, now 
   // Reaching into the HUD strip (0244) it eases see-through too: the timer and gaps read on dim art.
   const sf = stripFade(hudStrip(), left - b, top - b, left + w + b, bottom + b, rw, rh, crop);
   const cover = boardAlpha(item.bh ? (now - item.bh) / 1000 : Infinity);
-  const alpha = Math.min(cover, sf) * ef;
+  // Under the desktop title's PLAY row (0274) it all but vanishes: the buttons read on a clean sky.
+  const alpha = GameState.status === 'TITLE' && (TR ||= import('./title-row.js').then((m) => { TR = m; }, () => {})).fade
+    ? TR.fade(left - b, top - b, left + w + b, bottom + b, rw, rh, crop, now, Math.min(cover, sf), ef)
+    : Math.min(cover, sf) * ef;
   if (sf < 1) { strip.hits++; if (alpha > strip.maxAlpha) strip.maxAlpha = alpha; }
   if (underCue) {
     cue.hits++; if (alpha > cue.maxAlpha) cue.maxAlpha = alpha;
