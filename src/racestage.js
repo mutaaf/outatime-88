@@ -4,7 +4,7 @@ import { SoundEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState, setLastInput, padGone } from './input.js';
-import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS, gridBeat } from './racecall.js';
+import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS, gridBeat, finishMargin, marginText } from './racecall.js';
 import { carPortrait } from './car-sprite.js';
 
 const $ = (id) => document.getElementById(id);
@@ -249,6 +249,14 @@ export function renderResults({ badgeText, lvl, next, racers, speedToWorld, play
   headLine.classList.toggle('hidden', !head.line);
   headLine.classList.toggle('is-win', Boolean(er && er.isBest));
   $('endPodiumBox').classList.toggle('hidden', infinite);
+  // Photo finish (ticket 0276): rivals within 1 s of you have crossed during the roll-out.
+  const margin = infinite || outcome !== 'finished' ? null : finishMargin(field.map((f) => f.finishTime), field.length - 1);
+  const marginEl = $('endMargin');
+  if (marginEl) {
+    marginEl.textContent = marginText(margin);
+    marginEl.classList.toggle('hidden', !margin);
+    marginEl.classList.toggle('is-win', Boolean(margin && margin.kind === 'won'));
+  }
   stage.podium(rows);
   $('gameOverModal').dataset.place = infinite ? '' : String(place);
   // Next: the following level when it's open (daily runs have no "next").

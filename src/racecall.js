@@ -198,3 +198,36 @@ export function resultHeadline(place, total, { startPos = total, beatBy = null, 
   if (place === total) return { title: `${ordinal(place)} PLACE`, line: 'Somebody has to make the others look good. Again?' };
   return { title: `${ordinal(place)} PLACE`, line: 'Draft, drift and boost to climb the grid.' };
 }
+
+/** Under this many seconds a finish counts as a photo finish (ticket 0276). */
+export const PHOTO_FINISH_S = 1;
+
+/**
+ * Photo-finish margin (ticket 0276): the gap from your finish time to the nearest other
+ * finisher, ahead or behind (equal gaps count the car ahead). `times` are finish times in
+ * seconds, null for anyone still on track; `playerIndex` is yours. Null when you didn't finish,
+ * nobody else did, or the gap is PHOTO_FINISH_S or more.
+ * @returns {{ kind: 'won'|'lost'|'tie', gap: number } | null}
+ */
+export function finishMargin(times, playerIndex) {
+  const mine = times[playerIndex];
+  if (!Number.isFinite(mine)) return null;
+  let ahead = Infinity, behind = Infinity;
+  for (let i = 0; i < times.length; i++) {
+    const t = times[i];
+    if (i === playerIndex || !Number.isFinite(t)) continue;
+    if (t <= mine) ahead = Math.min(ahead, mine - t);
+    else behind = Math.min(behind, t - mine);
+  }
+  const gap = Math.min(ahead, behind);
+  if (!(gap < PHOTO_FINISH_S)) return null;
+  if (gap === 0) return { kind: 'tie', gap: 0 };
+  return { kind: ahead <= behind ? 'lost' : 'won', gap };
+}
+
+/** The results card's one photo-finish line, or '' (no margin). Never "BY 0.00s" for a real gap. */
+export function marginText(m) {
+  if (!m) return '';
+  if (m.kind === 'tie') return 'PHOTO FINISH · DEAD HEAT';
+  return `PHOTO FINISH · ${m.kind === 'won' ? 'WON' : 'LOST'} BY ${Math.max(0.01, m.gap).toFixed(2)}s`;
+}
