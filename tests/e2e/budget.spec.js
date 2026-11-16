@@ -68,6 +68,20 @@ test('the lane guide and arrival stretch are their own small lazy chunk (0233)',
   expect(readFileSync(`${DIR}/${step[0]}`, 'utf8')).not.toContain('lo:330,hi:880'); // …and not in the step chunk
 });
 
+test('the rival radio is its own small lazy chunk, fetched by race-late (0277)', () => {
+  const files = readdirSync(DIR);
+  const radio = files.filter((f) => /^radio-run-.*\.js$/.test(f));
+  expect(radio.length).toBe(1);
+  console.log(`[budget] radio ${gz(radio[0]).toFixed(2)} kB gzipped (limit 2.5)`);
+  expect(gz(radio[0])).toBeLessThan(2.5); // today ~1.7 kB: every crew's lines + the timing rules
+  expect(startup()).not.toContain(radio[0]);
+  const late = files.find((f) => /^race-late-.*\.js$/.test(f));
+  expect(readFileSync(`${DIR}/${late}`, 'utf8')).toContain(radio[0]); // race-late fetches it
+  for (const f of files.filter((x) => /^(race-step|race-flow|race-late)-.*\.js$/.test(x))) {
+    expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('CATCH US LAST WEEK'); // the lines live only there
+  }
+});
+
 test('the rigid-body world is its own small lazy chunk (0176)', () => {
   const files = readdirSync(DIR);
   const rigid = files.filter((f) => /^rigid-.*\.js$/.test(f));

@@ -197,6 +197,9 @@ src/fair-field.js   "Fair field" (0211), pure, race-flow chunk only: Settings â†
 src/arrival.js      Arrival stretch (0218), pure, race-late chunk only: the run's first warp queues an authored stretch for the
                       era it lands in (1985 today) on track.run; the race step builds it in place of the next biome, one ARRIVAL
                       feature (set-piece rules keep it clear), then the generator resumes unchanged. Solo races only
+src/radio.js        Rival radio (0277), pure: each crew's own lines (by / lost / down), seeded pick (track seed hash, race RNG
+                      untouched), pass + takedown edges, timing (6 s gap, 4 s start hold, stale drop). Glue src/radio-run.js is its own
+                      lazy chunk fetched by race-late (frame() there runs once a frame): lowest priority, only on a free channel
 src/race-late.js    Race-late chunk (0233): what the race step first needs well after the lights, the opt-in lane guide
                       (src/lane-guide.js, 0219) and the arrival stretch (src/arrival.js). race-step.js import()s it as soon as it runs
                       and null-checks both until it lands; put cold, after-GO race code here, not in race-step
