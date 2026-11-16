@@ -1450,7 +1450,7 @@ export function showForkCue(state) {
 
 // Gamepad START pauses and resumes, A resumes (0271): src/pad-pause.js, in the race-late chunk.
 // main's loop calls this once a frame, paused or not; a no-op until that chunk lands.
-export function padPause() { if (late) late.padFrame(GameState, InputState); }
+export function padPause() { if (late) late.frame(GameState, InputState); } // + the rival radio (0277)
 
 // Resume beat (0231, src/resume-beat.js): main's loop calls this once per frame while a race is
 // PLAYING (and once with playing false when it stops); true = hold the sim this frame. `resumed` is
