@@ -203,26 +203,27 @@ export function resultHeadline(place, total, { startPos = total, beatBy = null, 
 export const PHOTO_FINISH_S = 1;
 
 /**
- * Photo-finish margin (ticket 0276): the gap from your finish time to the nearest other
- * finisher, ahead or behind (equal gaps count the car ahead). `times` are finish times in
+ * Photo-finish margin (ticket 0276), about the place you got: with a finisher ahead of you it is
+ * the gap to the nearest one ('lost'); in front it is the gap to the nearest one behind ('won');
+ * dead level with another car and nobody ahead it is a 'tie'. `times` are finish times in
  * seconds, null for anyone still on track; `playerIndex` is yours. Null when you didn't finish,
- * nobody else did, or the gap is PHOTO_FINISH_S or more.
+ * nobody else did, or that gap is PHOTO_FINISH_S or more (never a "WON BY" under a 2nd place).
  * @returns {{ kind: 'won'|'lost'|'tie', gap: number } | null}
  */
 export function finishMargin(times, playerIndex) {
   const mine = times[playerIndex];
   if (!Number.isFinite(mine)) return null;
-  let ahead = Infinity, behind = Infinity;
+  let ahead = Infinity, behind = Infinity, level = false;
   for (let i = 0; i < times.length; i++) {
     const t = times[i];
     if (i === playerIndex || !Number.isFinite(t)) continue;
-    if (t <= mine) ahead = Math.min(ahead, mine - t);
-    else behind = Math.min(behind, t - mine);
+    if (t < mine) ahead = Math.min(ahead, mine - t);
+    else if (t > mine) behind = Math.min(behind, t - mine);
+    else level = true;
   }
-  const gap = Math.min(ahead, behind);
-  if (!(gap < PHOTO_FINISH_S)) return null;
-  if (gap === 0) return { kind: 'tie', gap: 0 };
-  return { kind: ahead <= behind ? 'lost' : 'won', gap };
+  if (ahead < Infinity) return ahead < PHOTO_FINISH_S ? { kind: 'lost', gap: ahead } : null;
+  if (level) return { kind: 'tie', gap: 0 };
+  return behind < PHOTO_FINISH_S ? { kind: 'won', gap: behind } : null;
 }
 
 /** The results card's one photo-finish line, or '' (no margin). Never "BY 0.00s" for a real gap. */

@@ -38,6 +38,7 @@ test('lost by a whisker: one LOST BY line, clear of the card at 1280x720', async
   await expect(line).toBeVisible();
   await expect(line).toHaveText('PHOTO FINISH · LOST BY 0.21s');
   await expect(page.locator('#gameOverModal').getByText(/PHOTO FINISH/)).toHaveCount(1);
+  await expect(page.locator('#endHeadline')).not.toContainText(/\d\.\ds/); // the gap is said once, by the margin line
   expect(await overlaps(page)).toEqual([]);
   expect(problems).toEqual([]);
 });
@@ -59,5 +60,19 @@ test('won by a whisker on a phone: one WON BY line, clear of the card at 390x844
 test('a gap of a second or more shows no photo-finish line', async ({ page }) => {
   await finishWithRival(page, 1.5);
   await expect(page.locator('#endModalTitle')).toBeVisible();
+  await expect(page.locator('#endMargin')).toHaveCount(1);
   await expect(page.locator('#endMargin')).toBeHidden();
+  await expect(page.locator('#endMargin')).toHaveText('');
 });
+
+// The extra line must not push RACE AGAIN off a small or short phone (layout.spec checks the
+// card without a finish, so it never sees this line).
+for (const vp of [{ width: 360, height: 640 }, { width: 844, height: 390 }]) {
+  test(`with the line, RACE AGAIN stays on screen at ${vp.width}x${vp.height}`, async ({ page }) => {
+    await page.setViewportSize(vp);
+    await finishWithRival(page, -0.4);
+    await expect(page.locator('#endMargin')).toBeVisible();
+    await expect(page.locator('#btnPlayAgain')).toBeInViewport({ ratio: 1 });
+    expect(await overlaps(page)).toEqual([]);
+  });
+}

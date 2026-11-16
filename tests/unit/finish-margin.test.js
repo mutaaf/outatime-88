@@ -9,13 +9,17 @@ describe('finishMargin', () => {
   it('lost: nearest finisher is ahead', () => {
     expect(finishMargin([59.79, 60.0, 64], 1)).toEqual({ kind: 'lost', gap: expect.closeTo(0.21, 6) });
   });
-  it('picks the nearest of ahead and behind; equal gaps count as lost', () => {
-    expect(finishMargin([59.5, 60, 60.1], 1)).toMatchObject({ kind: 'won' });
+  it('not in front: always the car ahead, never WON BY under a 2nd place', () => {
+    expect(finishMargin([59.2, 60, 60.1], 1)).toEqual({ kind: 'lost', gap: expect.closeTo(0.8, 6) });
     expect(finishMargin([59.9, 60, 60.3], 1)).toMatchObject({ kind: 'lost' });
-    expect(finishMargin([59.8, 60, 60.2], 1)).toMatchObject({ kind: 'lost' });
+    expect(finishMargin([58.5, 60, 60.1], 1)).toBeNull(); // 1.5 s off 1st, 0.1 s on 3rd: no line
   });
-  it('tie: identical times are a dead heat', () => {
+  it('in front: the nearest car behind', () => {
+    expect(finishMargin([60, 60.6, 60.3], 0)).toEqual({ kind: 'won', gap: expect.closeTo(0.3, 6) });
+  });
+  it('tie: level with another car and nobody ahead is a dead heat', () => {
     expect(finishMargin([60, 60, 70], 0)).toEqual({ kind: 'tie', gap: 0 });
+    expect(finishMargin([59.7, 60, 60], 1)).toMatchObject({ kind: 'lost' });
   });
   it('null when the player did not finish (DNF)', () => {
     expect(finishMargin([60, null, 60.5], 1)).toBeNull();
