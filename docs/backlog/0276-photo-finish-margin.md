@@ -25,7 +25,7 @@ rendering in the existing results code. No new storage, no network.
 
 ## Acceptance criteria
 - [x] `finishMargin` returns null when the gap is >= 1.0 s or the player did not finish
-- [x] Gap < 1.0 s shows exactly one line, worded won/lost, 2 decimals, on the results card (an exact tie reads DEAD HEAT; equal gaps ahead and behind count the car ahead)
+- [x] Gap < 1.0 s shows exactly one line, worded won/lost, 2 decimals, on the results card (the margin is about your place: the car ahead when there is one, else the car behind; level with a car and nobody ahead reads DEAD HEAT; the headline then drops its own 0.Xs gap)
 - [x] The line never overlaps other results text at 390x844 and 1280x720
 - [x] Reduced-motion: no animation required for the line to read
 
