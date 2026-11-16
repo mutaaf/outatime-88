@@ -12,7 +12,7 @@ export function radioFrame() {
   const { GameState: G, SaveStore, track } = RACE_DEPS;
   const racers = LiveTraffic.racers;
   if (!racers || G.mode === 'LIVE' || G.status !== 'PLAYING' || G.racePhase !== 'RACING') return;
-  radioEvents(radio, racers, G.distance, G.raceTime);
+  radioEvents(radio, racers, G.distance, G.raceTime, G.warpActiveTimer > 0);
   const busy = announcer.isVisible() || G.warpActiveTimer > 0 || G.sinceWarp < 2 || G.invulnTimer > 0 || G.resumeBeat > 0;
   const r = radioReady(radio, G.raceTime, busy);
   if (!r || SaveStore.data.settings.coach === false) return;

@@ -57,6 +57,19 @@ describe('rival radio timing (0277)', () => {
     expect(s.pending).toBeNull();
   });
 
+  it('a side-by-side duel inside a car length is not a pass; a warp notes nothing', () => {
+    const r = racer('Chrono Crew', 98);
+    const s = start([r]);
+    for (const p of [101, 99, 103, 97, 104]) { r.progress = p; radioEvents(s, s.racers, 100, 10); }
+    expect(s.pending).toBeNull();
+    r.progress = 100 + RADIO_T.margin + 1; radioEvents(s, s.racers, 100, 10, true);
+    expect(s.pending).toBeNull(); // passed in a warp: quiet…
+    r.progress = 99; radioEvents(s, s.racers, 100, 12);
+    expect(s.pending).toBeNull(); // …and the side was still tracked, so wobbling back is no pass
+    r.progress = 100 - RADIO_T.margin - 1; radioEvents(s, s.racers, 100, 13);
+    expect(s.kind).toBe('lost');
+  });
+
   it('nothing counts in the start sequence or after a rival finishes', () => {
     const r = racer('Chrono Crew', 90);
     const s = start([r]);

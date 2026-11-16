@@ -20,8 +20,10 @@ export const RADIO = {
 
 /** Timing (seconds of race clock): `gap` between lines, `delay` after the event (the position
  *  callout settles at 0.6 s and speaks first), `stale` = dropped if the channel stays busy, and no
- *  event counts in the first `start` seconds after GO (the grid roll-out and the GO hold). */
-export const RADIO_T = { gap: 6, delay: 0.9, stale: 5, start: 4 };
+ *  event counts in the first `start` seconds after GO (the grid roll-out and the GO hold). A side
+ *  change needs `margin` metres (about a car length) past you, so a side-by-side duel isn't a pass
+ *  every few frames. */
+export const RADIO_T = { gap: 6, delay: 0.9, stale: 5, start: 4, margin: 6 };
 
 /** The line for this crew and event: the `n`th line of the race, picked by a hash of the race seed
  *  (deterministic, and the race RNG is never touched). Null for a crew with no lines. */
@@ -42,10 +44,11 @@ const note = (s, r, kind, t) => { s.pending = r; s.kind = kind; s.at = t; };
 
 /**
  * One frame of events. `racers` are the rival bodies (progress, takenDown, finishTime, crew);
- * `dist` is your distance on the same scale; `t` the race clock. A new racers array (a new race)
+ * `dist` is your distance on the same scale; `t` the race clock; `quiet` (a warp: you fly past the
+ * whole field) keeps the sides up to date without noting anything. A new racers array (a new race)
  * resets the memory without speaking. Allocation-free after the first frame of a race.
  */
-export function radioEvents(s, racers, dist, t) {
+export function radioEvents(s, racers, dist, t, quiet = false) {
   if (s.racers !== racers) {
     s.racers = racers; s.pending = null; s.last = -1e9; s.n = 0;
     s.ahead.length = s.down.length = 0;
@@ -54,8 +57,8 @@ export function radioEvents(s, racers, dist, t) {
   }
   for (let i = 0; i < racers.length; i++) {
     const r = racers[i];
-    const ahead = r.progress > dist, down = !!r.takenDown;
-    const live = t >= RADIO_T.start && r.finishTime == null;
+    const ahead = r.progress > dist + (s.ahead[i] ? -RADIO_T.margin : RADIO_T.margin), down = !!r.takenDown;
+    const live = !quiet && t >= RADIO_T.start && r.finishTime == null;
     if (down && !s.down[i]) { if (live) note(s, r, 'down', t); }
     else if (!down && !s.down[i] && ahead !== s.ahead[i] && live) note(s, r, ahead ? 'by' : 'lost', t);
     s.ahead[i] = ahead; s.down[i] = down;

@@ -1,5 +1,5 @@
 // Rival radio (ticket 0277): a pass or a takedown gets one short line from that crew, through the
-// one announcement channel (a polite live region), never in the start sequence, at most one per
+// one announcement channel (a polite live region), never in the start sequence (unit-tested), at most one per
 // 6 s, and none with Coach tips off. A recorder samples the announcer every frame from the title
 // on; a rival is moved past you (or behind you) to force a pass. The pack keeps racing, so a
 // natural pass in the same moment may speak instead (the newest event wins): the line is checked
@@ -9,6 +9,7 @@ import { APP, watchPage, racing } from './helpers.js';
 import { RADIO } from '../../src/radio.js';
 
 const SAVE = 'outatime_cruisn_88_save_v2';
+const nextFramesSafe = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 
 /** Every frame: the race clock and the announcer's text while it shows (an edge list, not every frame). */
 const record = (page, settings) => page.addInitScript(([k, s]) => {
@@ -55,13 +56,20 @@ const clearMoment = async (page) => {
 
 const diag = (page) => page.evaluate(() => { const g = window.__OT.GameState; return JSON.stringify({ st: g.status, ph: g.racePhase, t: g.raceTime, inv: g.invulnTimer, w: g.warpActiveTimer, sw: g.sinceWarp, op: document.getElementById('announcerMain').style.opacity, txt: document.getElementById('announcerText').textContent, nem: window.__OT.traffic().aiWorld?.nemesisCalled, hidden: document.hidden, log: window.__radio.map((x) => x.text + '@' + x.t.toFixed(1)) }); });
 
-/** Force passes until a radio line shows (a busy channel can let one go stale, by design). */
+/** How many lines the radio has let through this race (src/radio-run.js `radio.n`; the same module
+ *  instance the game runs, imported by its chunk URL). Counted with Coach tips off too. */
+const spoken = (page) => page.evaluate(async () => {
+  const url = performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\/radio-run-[\w-]+\.js$/.test(n));
+  return url ? (await import(url)).radio.n : -1;
+});
+
+/** Force passes until the radio lets a line through (a busy channel can let one go stale, by design). */
 async function passUntilRadio(page) {
   for (let i = 0; i < 6; i++) {
     await clearMoment(page);
     const pass = await forcePass(page);
     const ok = await page.waitForFunction(() => window.__radio.some((x) => x.text.startsWith('📻')), null, { timeout: 7_000 }).then(() => true, () => false);
-    if (ok) return pass;
+    if (ok || await spoken(page) > 0) return pass;
   }
   throw new Error(`no radio line: ${JSON.stringify(await page.evaluate(() => window.__radio))}`);
 }
@@ -95,7 +103,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       .catch(async (e) => { console.log('DIAG', await diag(page)); throw e; });
     const radio = await page.evaluate(() => window.__radio.filter((x) => x.text.startsWith('📻')));
     expect(radio.length).toBe(1);
-    expect(radio[0].t).toBeGreaterThanOrEqual(4); // never in the start sequence
+    expect(await spoken(page)).toBe(1);
     expect(problems).toEqual([]);
     await ctx.close();
   });
@@ -106,10 +114,9 @@ test('with Coach tips off the rivals keep quiet', async ({ page }) => {
   const problems = watchPage(page);
   await record(page, { coach: false });
   await startArcade(page);
-  await clearMoment(page);
-  const pass = await forcePass(page);
-  await page.waitForFunction((t) => window.__OT.GameState.raceTime > t + 5, pass.t, { timeout: 30_000 });
-  expect(await page.evaluate(() => window.__OT.GameState.racePhase)).toBe('RACING'); // the whole window was a race
-  expect(await page.evaluate(() => window.__radio.filter((x) => x.text.startsWith('📻')))).toEqual([]);
+  await passUntilRadio(page);
+  expect(await spoken(page)).toBeGreaterThan(0); // the radio had its moment to speak…
+  await nextFramesSafe(page);
+  expect(await page.evaluate(() => window.__radio.filter((x) => x.text.startsWith('📻')))).toEqual([]); // …and kept quiet
   expect(problems).toEqual([]);
 });
