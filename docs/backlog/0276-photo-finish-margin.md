@@ -1,12 +1,12 @@
 ---
 id: 0276
 title: Close finishes show a photo-finish margin line on the results card
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-16
-pr:
+pr: 273
 ---
 
 ## Why
@@ -24,10 +24,10 @@ Pure helper `finishMargin(times, playerIndex)` in `src/racecall.js` (or a siblin
 rendering in the existing results code. No new storage, no network.
 
 ## Acceptance criteria
-- [ ] `finishMargin` returns null when the gap is >= 1.0 s or the player did not finish
-- [ ] Gap < 1.0 s shows exactly one line, worded won/lost, 2 decimals, on the results card
-- [ ] The line never overlaps other results text at 390x844 and 1280x720
-- [ ] Reduced-motion: no animation required for the line to read
+- [x] `finishMargin` returns null when the gap is >= 1.0 s or the player did not finish
+- [x] Gap < 1.0 s shows exactly one line, worded won/lost, 2 decimals, on the results card (the margin is about your place: the car ahead when there is one, else the car behind; level with a car and nobody ahead reads DEAD HEAT; the headline then drops its own 0.Xs gap)
+- [x] The line never overlaps other results text at 390x844 and 1280x720
+- [x] Reduced-motion: no animation required for the line to read
 
 ## Test plan
 Unit tests for `finishMargin` (won, lost, tie, DNF, gap exactly 1.0). One e2e in its own

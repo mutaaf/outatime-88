@@ -4,7 +4,7 @@ import { SoundEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState, setLastInput, padGone } from './input.js';
-import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS, gridBeat } from './racecall.js';
+import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS, gridBeat, finishMargin, marginText } from './racecall.js';
 import { carPortrait } from './car-sprite.js';
 
 const $ = (id) => document.getElementById(id);
@@ -238,17 +238,25 @@ export function renderResults({ badgeText, lvl, next, racers, speedToWorld, play
   const aheadRow = rows[place - 2];
   const aheadField = aheadRow && field.find((f) => f.id === aheadRow.id);
   const beatBy = aheadRow && aheadRow.finished && GameState.finishTime != null ? Math.max(0, GameState.finishTime - (aheadField.finishTime || 0)) : null;
+  // Photo finish (ticket 0276): rivals within 1 s of you have crossed during the roll-out.
+  const margin = infinite || outcome !== 'finished' ? null : finishMargin(field.map((f) => f.finishTime), field.length - 1);
   const er = infinite ? GameState.endlessResult : null;
   const head = er
     ? { title: er.isBest ? '🏆 NEW BEST RUN!' : `♾️ TIER ${er.tier} REACHED`,
       line: `${er.distance.toLocaleString()} m · TIER ${er.tier} · BEST ${er.best.toLocaleString()} m${er.isBest ? '' : ` (${Math.max(0, er.best - er.distance).toLocaleString()} m to go)`}` }
-    : infinite ? { title: 'STREET RUN SUMMARY', line: '' } : resultHeadline(place, rows.length, { startPos: fieldSize, beatBy, outcome });
+    : infinite ? { title: 'STREET RUN SUMMARY', line: '' } : resultHeadline(place, rows.length, { startPos: fieldSize, beatBy: margin ? null : beatBy, outcome }); // the margin line says the gap once
   $('endModalTitle').textContent = head.title;
   const headLine = $('endHeadline');
   headLine.textContent = head.line;
   headLine.classList.toggle('hidden', !head.line);
   headLine.classList.toggle('is-win', Boolean(er && er.isBest));
   $('endPodiumBox').classList.toggle('hidden', infinite);
+  const marginEl = $('endMargin');
+  if (marginEl) {
+    marginEl.textContent = marginText(margin);
+    marginEl.classList.toggle('hidden', !margin);
+    marginEl.classList.toggle('is-win', Boolean(margin && margin.kind === 'won'));
+  }
   stage.podium(rows);
   $('gameOverModal').dataset.place = infinite ? '' : String(place);
   // Next: the following level when it's open (daily runs have no "next").

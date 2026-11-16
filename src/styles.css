@@ -877,6 +877,12 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
 #gameOverModal[data-place="2"] .end-title { color: #e2e8f0; }
 #gameOverModal[data-place="3"] .end-title { color: #fdba74; }
 .end-headline { margin-top: 4px; font-size: 14px; font-weight: 700; color: #cbd5e1; }
+/* Photo finish (ticket 0276): one static line, no animation (reads the same with reduced motion). */
+.end-margin { margin-top: 2px; font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 900; letter-spacing: 0.04em; color: #fcd34d; }
+.end-margin.is-win { color: #86efac; }
+@media (max-height: 700px) and (orientation: portrait), (max-height: 520px) and (orientation: landscape) {
+  .end-margin { margin-top: 0; font-size: 11px; line-height: 14px; } /* short phones: RACE AGAIN stays on screen */
+}
 .end-podium-box { margin-top: 8px; }
 .end-podium-box.hidden { display: none; }
 .end-podium { display: flex; flex-direction: column; gap: 3px; text-align: left; }

@@ -204,3 +204,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-14 · 0273 · On a gamepad the D-pad or left stick moves between buttons in the pause, settings, garage, events and leaderboard menus; A presses, B closes
 2026-11-15 · 0274 · On the desktop title, a roadside board passing behind PLAY, RACE FRIENDS or VIEW fades almost away, so the buttons read clean and no sign shows half its text behind a pill
 2026-11-15 · 0275 · On the desktop title, the three tagline beats line up as one lock-up: two stacked on the left, LEVEL UP FOREVER. on the same baseline on the right, all clear of the hero car
+2026-11-16 · 0276 · A finish under a second from another car shows one PHOTO FINISH line on the results card: WON BY or LOST BY, to the hundredth
