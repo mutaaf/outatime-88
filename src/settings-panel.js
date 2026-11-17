@@ -172,11 +172,31 @@ export function createPanel(ctx) {
   if (keysReset) keysReset.addEventListener('click', () => { setKeys(null); capturing = ''; note('Default keys back.'); renderKeys(); });
 
 
+  // Career stats (0278): five read-only counters from the save, drawn fresh on every open.
+  // Its own import-free chunk, shared with race-flow (a static import would grow main's preload map).
+  function renderStats() {
+    import('./career-stats.js').then(({ statRows }) => fillStats(statRows(SaveStore.data))).catch(() => {});
+  }
+  function fillStats(rows) {
+    const dl = $('statsList');
+    if (!dl) return;
+    dl.replaceChildren(...rows.map(([label, value]) => {
+      const cell = document.createElement('div');
+      const dt = document.createElement('dt');
+      const dd = document.createElement('dd');
+      dt.textContent = label;
+      dd.textContent = value;
+      cell.append(dt, dd);
+      return cell;
+    }));
+  }
+
   return {
     sync: syncPanel,
     tiltText: tiltStatusText,
     open() {
       syncPanel();
+      renderStats();
       capturing = '';
       note('');
       renderKeys();

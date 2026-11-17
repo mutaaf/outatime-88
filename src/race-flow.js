@@ -32,6 +32,9 @@ const {
   resetBackdrop, utcDay
 } = RACE_DEPS;
 
+const careerStats = () => import('./career-stats.js'); // 0278, see endRaceRun
+careerStats().catch(() => {}); // fetched now, long landed by the first finish
+
 /** The control prompts for the input in hand right now (ticket 0007). */
 export const hintNow = () => playHint(InputState.lastInput, InputState.boostKey, InputState.downKey);
 
@@ -358,6 +361,7 @@ export function startNewRace(opts) {
   RS.fair = createFair(); // jump/trick/juke rules and the run's fair-play counters (0180)
   GameState.runCoins = 0;
   GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0;
+  GameState.bestStreak = 0; // the race's best near-miss chain (career stats, 0278)
   GameState.timeWarps = 0;
   GameState.takedowns = 0;
   GameState.heatLevel = lvl.startingHeat;
@@ -673,6 +677,10 @@ export function endRaceRun(customBadgeText = null) {
     daily: Boolean(GameState.daily),
     day: utcDay(Date.now()),
   });
+  // Career stats (0278): the best near-miss chain and the miles, in the same save. A dynamic
+  // import of a chunk with no imports, so main's preload map doesn't grow (lesson 0274).
+  const stats = { chain: GameState.bestStreak, distance: GameState.distance };
+  careerStats().then((m) => { m.recordStats(SaveStore.data, stats); SaveStore.save(); }).catch(() => {});
   recordMissions(SaveStore.data, utcDay(Date.now()), missionsDone(GameState.missions));
   SaveStore.save();
   const newCarNames = carNamesFor(newCars);
