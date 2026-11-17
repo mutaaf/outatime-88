@@ -1,12 +1,12 @@
 ---
 id: 0280
 title: HUD speed and FLUX bars are told apart by more than colour
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-11-17
-pr:
+pr: 280
 ---
 
 ## Why
