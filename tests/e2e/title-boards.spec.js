@@ -1,7 +1,7 @@
 // Ticket 0274: the desktop title's attract road drove the 88 MPH sign (and other boards) under the
 // PLAY row, so RACE FRIENDS and VIEW cut it in half. Every board face drawn on the title is
 // projected to the screen here and compared with the controls' DOM rects: a face that overlaps one
-// must be drawn below 0.2 alpha. Phones keep their title as it was. Its own spec (LESSONS 2026-10-31).
+// must be drawn below 0.2 alpha. Landscape phones keep their title as it was. Its own spec (LESSONS 2026-10-31).
 import { test, expect } from '@playwright/test';
 import { APP, watchPage, nextFrames } from './helpers.js';
 
@@ -52,9 +52,10 @@ for (const [w, h, need] of [[1280, 720, true], [1920, 1080, false], [1024, 768, 
   });
 }
 
-// Phones and landscape phones (a 932 px wide iPhone on its side too) keep their title as it was.
-for (const [w, h] of [[390, 844], [932, 430]]) {
-  test(`the phone title is unchanged: no board is faded for the PLAY row (${w}x${h}, 0274)`, async ({ page }) => {
+// Landscape phones (a 932 px wide iPhone on its side too) keep their title as it was; portrait
+// phones fade too since 0279 (tests/e2e/title-phone-boards.spec.js).
+for (const [w, h] of [[932, 430]]) {
+  test(`the landscape phone title is unchanged: no board is faded for the PLAY row (${w}x${h}, 0274)`, async ({ page }) => {
     const problems = watchPage(page);
     await page.setViewportSize({ width: w, height: h });
     await page.goto(`${APP}?debug&view=2d`);

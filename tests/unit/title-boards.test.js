@@ -62,7 +62,7 @@ describe('draw2D on the title (0274)', () => {
   const noop = () => {};
   const paint = new Proxy({}, { get: (_, k) => (k === 'measureText' ? () => ({ width: 10 }) : k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop: noop }) : noop), set: () => true });
   const rects = { btnStartRace: ROW[1], btnOpenLive: ROW[0], btnViewMode: ROW[2], canvasContainer: { ...view, right: 1280, bottom: 720 } };
-  let onTitle = true, desk = true;
+  let onTitle = true, desk = true, phone = false;
   beforeAll(async () => {
     globalThis.OffscreenCanvas = class { constructor(w, h) { this.width = w; this.height = h; } getContext() { return paint; } };
     globalThis.document = {
@@ -72,7 +72,7 @@ describe('draw2D on the title (0274)', () => {
     };
   });
   afterAll(() => { delete globalThis.OffscreenCanvas; delete globalThis.document; delete globalThis.matchMedia; GameState.status = undefined; });
-  beforeEach(() => { seen.n = 0; onTitle = true; GameState.status = 'TITLE'; desk = true; globalThis.matchMedia = (q) => ({ matches: q === TITLE.media && desk }); });
+  beforeEach(() => { seen.n = 0; onTitle = true; GameState.status = 'TITLE'; desk = true; globalThis.matchMedia = (q) => ({ get matches() { return (q === TITLE.media && desk) || (q === TITLE.phone && phone); } }); phone = false; });
 
   function fakeCtx() {
     const ops = [];
@@ -105,5 +105,38 @@ describe('draw2D on the title (0274)', () => {
     for (const a of under(3e6)) expect(a).toBe(1);
     desk = true; onTitle = false;
     for (const a of under(4e6)) expect(a).toBe(1);
+  });
+
+  it('fades it on the portrait phone title too (0279), not on a landscape phone or tablet', () => {
+    desk = false; phone = true;
+    for (const a of under(5e6)) expect(a).toBeLessThan(0.2);
+    phone = false;
+    for (const a of under(6e6)) expect(a).toBe(1);
+  });
+});
+
+describe('portrait phone title (0279)', () => {
+  it('uses the query styles.css lays the portrait phone title out with', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync(new URL('../../src/styles.css', import.meta.url), 'utf8');
+    expect(css).toContain(`@media ${TITLE.phone}`);
+    expect(TITLE.phone).toBe('(max-width: 480px) and (orientation: portrait)'); // landscape phones and tablets keep their title
+  });
+
+  it('fades a board under RACE FRIENDS, TILT or VIEW on the 390x844 stack, not in the gaps', () => {
+    const v = { left: 0, top: 0, width: 390, height: 844 };
+    const stack = [
+      { left: 43, top: 333, right: 347, bottom: 417 }, // PLAY
+      { left: 90, top: 429, right: 300, bottom: 477 }, // RACE FRIENDS
+      { left: 21, top: 489, right: 212, bottom: 533 }, // TILT STEERING
+      { left: 218, top: 489, right: 369, bottom: 533 }, // VIEW
+    ];
+    const box = titleBox({ n: 0, r: new Float32Array(16) }, stack, v);
+    expect(box.n).toBe(4);
+    expect(titleFade(box, 300, 395, 390, 440, 390, 844)).toBeCloseTo(TITLE.alpha, 5); // right of PLAY, into RACE FRIENDS
+    expect(titleFade(box, 10, 500, 60, 520, 390, 844)).toBeCloseTo(TITLE.alpha, 5);   // behind TILT
+    expect(titleFade(box, 330, 500, 380, 530, 390, 844)).toBeCloseTo(TITLE.alpha, 5); // behind VIEW
+    expect(titleFade(box, 10, 600, 120, 700, 390, 844)).toBe(1);                     // below the stack
+    expect(titleFade(box, 10, 120, 120, 280, 390, 844)).toBe(1);                     // above PLAY
   });
 });

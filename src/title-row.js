@@ -1,4 +1,4 @@
-// Desktop title PLAY row vs road boards (ticket 0274). A lazy chunk of its own, loaded by
+// Title PLAY row vs road boards (ticket 0274 desktop, 0279 portrait phones). A lazy chunk of its own, loaded by
 // src/billboard-art.js on the first title frame: the board-art chunk rides along with the 3D view,
 // whose budget has no room for this. It imports nothing, so loading it fetches one small file.
 
@@ -13,6 +13,9 @@ export const TITLE = {
   alpha: 0.12,  // under a title control: well below the 0.2 a sign can be read at
   ramp: 0.03,   // share of the view height around each control over which it eases to that
   media: '(min-width: 900px) and (min-height: 600px) and (min-aspect-ratio: 5/4)', // = styles.css desktop title row
+  // Ticket 0279: the portrait phone title (styles.css 0230 block, the same query)
+  // stacks PLAY, RACE FRIENDS and the TILT / VIEW chips over the attract road, so boards there fade too.
+  phone: '(max-width: 480px) and (orientation: portrait)',
 };
 
 /** Fill `box` ({ n, r }) with DOM rects as view shares, each grown by TITLE.ramp of the view height. */
@@ -52,27 +55,30 @@ export function titleFade(box, l, t, r, b, vw, vh, crop = 1) {
   return f;
 }
 
-/** The PLAY row (#btnStartRace, #btnOpenLive, #btnViewMode) as view shares (0274),
- *  grown by TITLE.ramp. Called only on the title (status TITLE; the caller checks), and only where the row is laid out as one desktop row
- *  (TITLE.media, the same query as styles.css): phones, landscape phones and portrait tablets keep
- *  their title. Re-measured at most every 500 ms, and at once when the window or the title stack
- *  (a challenge banner above PLAY) changes size. Legs and lamp heads aren't tested: no text on them.
+/** The PLAY row (#btnStartRace, #btnOpenLive, #btnTitleTilt, #btnViewMode) as view shares (0274),
+ *  grown by TITLE.ramp. Called only on the title (status TITLE; the caller checks), and only where the
+ *  row is laid out as one desktop row (TITLE.media) or as the portrait phone stack (TITLE.phone, 0279),
+ *  the same queries as styles.css: landscape phones and tablets keep their title. Re-measured at most every 500 ms, and at once when the window, the title stack
+ *  (a challenge banner above PLAY) or one of the controls (TILT appearing) changes size. Legs and lamp heads aren't tested: no text on them.
  *  Anywhere else, no box. 3D view: not covered (its boards draw in src/render3d, as with 0242/0244). */
-let titleAt = -1e9, titleOn = false, titleWatch = null;
-const titleRects = { n: 0, r: new Float32Array(12) };
-const TITLE_IDS = ['btnStartRace', 'btnOpenLive', 'btnViewMode'];
+let titleAt = -1e9, titleOn = false, titleWatch = null, titleMq = null;
+const titleRects = { n: 0, r: new Float32Array(16) };
+const TITLE_IDS = ['btnStartRace', 'btnOpenLive', 'btnTitleTilt', 'btnViewMode']; // TILT is hidden (0 × 0, skipped) off touch
 const remeasureTitle = () => { titleAt = -1e9; };
 export function titleRow(now) {
   if (typeof document === 'undefined' || !document.body.classList.contains('on-title')) { titleAt = -1e9; return null; }
   if (now - titleAt > 500 || now < titleAt) {
     titleAt = now;
-    titleOn = typeof matchMedia === 'function' && matchMedia(TITLE.media).matches;
+    if (!titleMq && typeof matchMedia === 'function') titleMq = [matchMedia(TITLE.media), matchMedia(TITLE.phone)];
+    titleOn = !!titleMq && (titleMq[0].matches || titleMq[1].matches);
     titleRects.n = 0;
     const play = document.getElementById('btnStartRace'), view = document.getElementById('canvasContainer');
     if (titleOn && view) {
       if (!titleWatch && typeof ResizeObserver !== 'undefined' && play && play.parentElement) {
         titleWatch = new ResizeObserver(remeasureTitle);
         titleWatch.observe(play.parentElement);
+        // A chip that appears or changes width (TILT unhides on touch, 0279) re-measures at once.
+        for (const id of TITLE_IDS) { const el = document.getElementById(id); if (el) titleWatch.observe(el); }
         addEventListener('resize', remeasureTitle);
       }
       titleBox(titleRects, TITLE_IDS.map((id) => { const el = document.getElementById(id); return el && el.getBoundingClientRect(); }), view.getBoundingClientRect());

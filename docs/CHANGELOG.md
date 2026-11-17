@@ -207,3 +207,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-16 · 0276 · A finish under a second from another car shows one PHOTO FINISH line on the results card: WON BY or LOST BY, to the hundredth
 2026-11-16 · 0277 · Rival crews talk back: a pass either way or a takedown gets one short line from that crew on the announcer (at most one every 6 s, never at the start, in a warp or after a crash; off with Coach tips)
 2026-11-17 · 0278 · Settings (from the title or garage) shows your CAREER STATS: races, wins, warps, best near-miss chain and total miles, all kept on this device
+2026-11-17 · 0279 · On a phone's title screen, roadside boards fade away behind PLAY, RACE FRIENDS, TILT and VIEW instead of showing half their text beside the buttons.
