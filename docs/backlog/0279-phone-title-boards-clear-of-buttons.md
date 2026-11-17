@@ -1,7 +1,7 @@
 ---
 id: 0279
 title: Phone title - backdrop signs fade where they pass behind RACE FRIENDS, TILT and VIEW
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
@@ -24,10 +24,10 @@ Use the media query the phone title layout really uses in styles.css. Keep main'
 (58 kB) and the 3D closure in mind: work stays in the lazy `title-row` chunk (lesson 2026-11-15).
 
 ## Acceptance criteria
-- [ ] At 390x844 and 360x640 no title board with more than 0.2 alpha overlaps the PLAY, RACE FRIENDS, TILT or VIEW rects
-- [ ] Desktop behaviour from 0274 unchanged (its spec still passes)
-- [ ] Boards still show in the open gaps (not all hidden)
-- [ ] No frame-time regression; budget.spec.js green
+- [x] At 390x844 and 360x640 no title board with more than 0.2 alpha overlaps the PLAY, RACE FRIENDS, TILT or VIEW rects
+- [x] Desktop behaviour from 0274 unchanged (its spec still passes)
+- [x] Boards still show in the open gaps (not all hidden)
+- [x] No frame-time regression; budget.spec.js green
 
 ## Test plan
 New spec `tests/e2e/title-phone-boards.spec.js` (own file, lesson 2026-11-15): wait for a real
