@@ -854,8 +854,17 @@ body.labels-up #steerHint { visibility: hidden !important; transition: none !imp
   .rc-lights[data-state="go"] .rc-bulbs i { box-shadow: 0 0 18px #22ff66; }
   .rc-lights .rc-count { min-width: 2.1em; font-size: 40px; text-align: center; text-shadow: 0 0 16px rgba(255, 31, 31, 0.8), 0 3px 0 #7f0000; }
   .rc-lights[data-state="go"] .rc-count { text-shadow: 0 0 18px rgba(34, 255, 102, 0.9), 0 3px 0 #046b2a; }
-  .rc-lights .rc-hint { grid-column: 1 / -1; font-size: min(10px, 2.7vw); letter-spacing: 0.02em; text-wrap: balance; } /* one line from 360 px up; a long rebound key wraps, never clips */
+  .rc-lights .rc-hint { grid-column: 1 / -1; font-size: 10px; letter-spacing: 0.02em; text-wrap: balance; } /* 0281: never under 10px; one line from 390 px up, two balanced lines on narrower phones */
   .race-stage .rc-lights[data-state="go"] { animation: rc-go-out 0.4s ease-in forwards; }
+}
+/* 0281: under 360 px wide (iPhone SE) the banner lane leaves the card no room above the pads' top row,
+   so it sits between the two pad columns instead (74 px each side: the columns at the largest button size, 1.3): smaller lamps and count, and the
+   10px prompt wraps onto two or three balanced lines. */
+@media (max-width: 359px) and (min-height: 561px) {
+  .race-stage .rc-lights { max-width: calc(100% - 148px); column-gap: 8px; row-gap: 2px; padding: 4px 8px 5px; }
+  .rc-lights .rc-bulbs { gap: 6px; }
+  .rc-lights .rc-bulbs i { width: 22px; height: 22px; }
+  .rc-lights .rc-count { font-size: 28px; }
 }
 @keyframes rc-go-out { from { opacity: 1; } to { opacity: 0; } }
 /* Phones (ticket 0215): the grid's chips, then your car's stats, never together; the first-race
