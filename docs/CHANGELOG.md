@@ -209,3 +209,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-17 · 0278 · Settings (from the title or garage) shows your CAREER STATS: races, wins, warps, best near-miss chain and total miles, all kept on this device
 2026-11-17 · 0279 · On a phone's title screen, roadside boards fade away behind PLAY, RACE FRIENDS, TILT and VIEW instead of showing half their text beside the buttons.
 2026-11-17 · 0281 · On the smallest phones (320 px wide) the rocket-start tip under the start lights stays at full 10px size and wraps instead of shrinking, and the lights card sits between the touch buttons instead of covering one (up to the largest button size).
+2026-11-17 · 0280 · The race HUD's three bars are labelled SPD, FLUX and NOS at their ends, so you can tell them apart without relying on colour, and screen readers announce each one as a meter with its value.

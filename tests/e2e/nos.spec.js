@@ -45,7 +45,7 @@ for (const [w, h] of [[1440, 900], [390, 844], [844, 390]]) {
     await page.evaluate(() => window.__OT.startRace());
     const inside = await page.evaluate(() => {
       const c = document.getElementById('hudSpeedCard').getBoundingClientRect();
-      const l = document.querySelector('.nos-meter b').getBoundingClientRect();
+      const l = document.querySelector('.nos-meter .cap').getBoundingClientRect();
       return l.right <= c.right + 0.5 && l.left >= c.left;
     });
     expect(inside).toBe(true);

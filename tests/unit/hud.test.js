@@ -12,7 +12,11 @@ function fakeDoc() {
     let text = '';
     const cls = new Set();
     const style = new Proxy({ setProperty() {} }, { set(t, k, v) { writes.n++; t[k] = v; return true; } });
+    // 0280: a bar's parent is its role="meter" box; attribute writes count too.
+    const attrs = {};
+    const parentNode = { attrs, setAttribute(k, v) { writes.n++; attrs[k] = String(v); } };
     return {
+      parentNode,
       id, dataset: new Proxy({}, { set(t, k, v) { writes.n++; t[k] = v; return true; } }), style, children: [], title: '', className: '',
       get textContent() { return text; },
       set textContent(v) { writes.n++; text = v; if (v === '') this.children.length = 0; },
@@ -82,6 +86,27 @@ describe('race HUD (ticket 0051)', () => {
     expect(doc.writes.n).toBe(after);
     hud.update(view({ mph: 101 }));
     expect(doc.writes.n).toBeGreaterThan(after);
+  });
+});
+
+describe('HUD meters (ticket 0280)', () => {
+  it('writes each bar\'s fill to its meter box as aria-valuenow, only when it changes', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    hud.update(view({ mph: 80, flux: 40, nos: 0.25, hpFrac: 0.8 }));
+    const now = (id) => doc.getElementById(id).parentNode.attrs['aria-valuenow'];
+    const width = (id) => doc.getElementById(id).style.width;
+    expect(now('hudSpeedBar')).toBe('50'); // 80 of 160 mph
+    expect(width('hudSpeedBar')).toBe('50%');
+    expect(now('hudFlux')).toBe('40');
+    expect(now('hudNos')).toBe('25');
+    expect(now('hudHp')).toBe('80');
+    const after = doc.writes.n;
+    hud.update(view({ mph: 80, flux: 40, nos: 0.25, hpFrac: 0.8 }));
+    expect(doc.writes.n).toBe(after);
+    hud.update(view({ mph: 96, flux: 40, nos: 0.25, hpFrac: 0.8 }));
+    expect(now('hudSpeedBar')).toBe('60');
+    expect(now('hudFlux')).toBe('40');
   });
 });
 

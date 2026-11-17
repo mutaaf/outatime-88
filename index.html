@@ -56,7 +56,7 @@
       <div id="hudPosCard" class="hud-card hud-pos" data-hud-rect data-place="p" role="group" aria-label="Race position">
         <div class="pos-line"><span id="hudPos" class="pos-num">6TH</span><span id="hudPosOf" class="pos-of">/6</span></div>
         <div id="hudLap" class="hud-lap">LAP 1/3</div>
-        <div id="hudHpBox" class="hud-hp" title="Car health"><i id="hudHp"></i></div>
+        <div id="hudHpBox" class="hud-hp" title="Car health" role="meter" aria-label="Car health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="hudHp"></i></div>
         <b id="hudHpPop" class="hud-hp-pop" aria-hidden="true"></b>
       </div>
       <div id="hudTrack" class="hud-track" data-hud-rect aria-hidden="true">
@@ -71,9 +71,10 @@
       </div>
       <div id="hudSpeedCard" class="hud-card hud-speed" data-hud-rect>
         <div class="spd-line"><span id="hudSpeed" class="spd-num">0</span><small>MPH</small></div>
-        <div class="hud-meter speed-meter"><i id="hudSpeedBar"></i><b class="m88" title="88 mph"></b></div>
-        <div class="hud-meter flux-meter"><i id="hudFlux"></i></div>
-        <div class="hud-meter nos-meter" title="NOS (Shift)"><i id="hudNos"></i><b>NOS</b></div>
+        <!-- 0280: each bar is named by a caption, not only its colour; src/hud.js writes aria-valuenow (% full). -->
+        <div class="hud-meter speed-meter" role="meter" aria-label="Speed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="hudSpeedBar"></i><b class="m88" title="88 mph"></b><b class="cap" aria-hidden="true">SPD</b></div>
+        <div class="hud-meter flux-meter" role="meter" aria-label="Flux" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="hudFlux"></i><b class="cap" aria-hidden="true">FLUX</b></div>
+        <div class="hud-meter nos-meter" title="NOS (Shift)" role="meter" aria-label="NOS" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="hudNos"></i><b class="cap" aria-hidden="true">NOS</b></div>
         <div class="spd-foot"><span id="hudFluxLabel">FLUX</span><span id="hudScore" class="hud-score">0</span></div>
         <span id="hudPenalty" class="hud-penalty" aria-live="polite"></span>
       </div>
