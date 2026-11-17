@@ -445,9 +445,13 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .speed-meter .m88 { position: absolute; top: 0; bottom: 0; left: 55%; width: 2px; background: #fff; }
 .flux-meter i { background: linear-gradient(90deg, #0284c7, #00f0ff, #fde047); }
 /* NOS tank (ticket 0122): blue→violet, glows while burning. */
-.nos-meter { overflow: visible; margin-right: clamp(26px, 3.6vmin, 36px); }
 .nos-meter i { background: linear-gradient(90deg, #2563eb, #60a5fa, #a855f7); }
-.nos-meter b { position: absolute; right: 0; top: 50%; transform: translate(calc(100% + 4px), -50%); font: 700 10px/1 Orbitron, sans-serif; color: #93c5fd; letter-spacing: 0.08em; }
+/* 0280: every bar is named by text at its end (SPD / FLUX / NOS), not by its colour alone. The
+   captions share one column after the bars; the margin fits the widest, so the card doesn't grow. */
+.hud-meter { overflow: visible; margin-right: 38px; }
+.hud-meter .cap { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%); font: 700 10px/1 Orbitron, sans-serif; letter-spacing: 0.06em; color: #cbd5e1; white-space: nowrap; }
+.flux-meter .cap { color: #fde68a; }
+.nos-meter .cap { color: #93c5fd; }
 .hud-speed.is-nos .nos-meter i { box-shadow: 0 0 8px #a855f7, 0 0 2px #fff; }
 .spd-foot { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; font-size: clamp(10px, 1.5vmin, 15px); font-weight: 800; color: #94a3b8; }
 .hud-score { color: #e2e8f0; font-variant-numeric: tabular-nums; }

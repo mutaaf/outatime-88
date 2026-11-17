@@ -25,10 +25,10 @@ with `aria-valuenow` written change-only by `src/hud.js`. Do not grow the card o
 (check hud.spec, hud-size.spec, touch-layouts.spec; lesson 2026-11-12).
 
 ## Acceptance criteria
-- [ ] Each bar has a visible text or shape marker readable with colours removed (e2e screenshot under `filter: grayscale(1)` still names all three, asserted via DOM text)
-- [ ] Captions >= 10 px, 4.5:1 contrast, no overlap at 1280x720, 390x844, 844x390, 320x568, LARGE HUD
-- [ ] Meters expose role + value to assistive tech
-- [ ] hud, hud-size, landscape-tips, touch-layouts specs green; main <= 58 kB
+- [x] Each bar has a visible text or shape marker readable with colours removed (e2e screenshot under `filter: grayscale(1)` still names all three, asserted via DOM text)
+- [x] Captions >= 10 px, 4.5:1 contrast, no overlap at 1280x720, 390x844, 844x390, 320x568, LARGE HUD
+- [x] Meters expose role + value to assistive tech
+- [x] hud, hud-size, landscape-tips, touch-layouts specs green; main <= 58 kB
 
 ## Test plan
 New `tests/e2e/hud-meters.spec.js`: captions present and visible per bar at the sizes above;

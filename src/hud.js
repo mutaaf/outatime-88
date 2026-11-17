@@ -56,7 +56,8 @@ export function createHud(doc = document, marks = () => [], place = placeExact) 
     apply(value);
   }
   const text = (node, key, value) => node && put(key, value, (v) => { node.textContent = v; });
-  const width = (node, key, pct) => node && put(key, Math.round(pct * 10) / 10, (v) => { node.style.width = `${v}%`; });
+  // 0280: every bar sits in a role="meter" box (index.html), which gets the same number as aria-valuenow.
+  const width = (node, key, pct) => node && put(key, Math.round(pct * 10) / 10, (v) => { node.style.width = `${v}%`; node.parentNode.setAttribute('aria-valuenow', v); });
   const flag = (node, key, cls, on) => node && put(key, on, (v) => { node.classList.toggle(cls, v); });
 
   function syncDots(field) {
