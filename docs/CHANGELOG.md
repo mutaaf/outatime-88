@@ -206,3 +206,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-15 · 0275 · On the desktop title, the three tagline beats line up as one lock-up: two stacked on the left, LEVEL UP FOREVER. on the same baseline on the right, all clear of the hero car
 2026-11-16 · 0276 · A finish under a second from another car shows one PHOTO FINISH line on the results card: WON BY or LOST BY, to the hundredth
 2026-11-16 · 0277 · Rival crews talk back: a pass either way or a takedown gets one short line from that crew on the announcer (at most one every 6 s, never at the start, in a warp or after a crash; off with Coach tips)
+2026-11-17 · 0278 · Settings (from the title or garage) shows your CAREER STATS: races, wins, warps, best near-miss chain and total miles, all kept on this device

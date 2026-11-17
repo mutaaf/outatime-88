@@ -32,6 +32,13 @@ const {
   resetBackdrop, utcDay
 } = RACE_DEPS;
 
+// Career stats (0278): an import-free chunk, fetched as this one loads and kept, so endRaceRun
+// records into the save before its one SaveStore.save(). A dynamic import keeps it out of
+// main's preload map (a static one from two lazy chunks made a shared chunk listed there).
+const loadStats = () => import('./career-stats.js').then((m) => { careerStats = m; return m; });
+let careerStats = null;
+loadStats().catch(() => {});
+
 /** The control prompts for the input in hand right now (ticket 0007). */
 export const hintNow = () => playHint(InputState.lastInput, InputState.boostKey, InputState.downKey);
 
@@ -358,6 +365,7 @@ export function startNewRace(opts) {
   RS.fair = createFair(); // jump/trick/juke rules and the run's fair-play counters (0180)
   GameState.runCoins = 0;
   GameState.combo = 1; GameState.dodgeStreak = 0; GameState.magnetTimer = 0; GameState.airTrickCount = 0; GameState.airLandingBoostMph = 0;
+  GameState.bestStreak = 0; // the race's best near-miss chain (career stats, 0278)
   GameState.timeWarps = 0;
   GameState.takedowns = 0;
   GameState.heatLevel = lvl.startingHeat;
@@ -673,6 +681,10 @@ export function endRaceRun(customBadgeText = null) {
     daily: Boolean(GameState.daily),
     day: utcDay(Date.now()),
   });
+  // Career stats (0278): the race's best near-miss chain and its distance, in the same save.
+  const stats = { chain: GameState.bestStreak, distance: GameState.distance };
+  if (careerStats) careerStats.recordStats(SaveStore.data, stats);
+  else loadStats().then((m) => { m.recordStats(SaveStore.data, stats); SaveStore.save(); }).catch(() => {});
   recordMissions(SaveStore.data, utcDay(Date.now()), missionsDone(GameState.missions));
   SaveStore.save();
   const newCarNames = carNamesFor(newCars);
