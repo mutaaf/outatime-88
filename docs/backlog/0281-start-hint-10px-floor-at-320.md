@@ -1,12 +1,12 @@
 ---
 id: 0281
 title: The start-lights hint holds 10px at 320 px wide (it shrinks to 8.6px today)
-status: ready        # proposed | ready | in-progress | shipped | dropped
+status: shipped
 priority: P1         # P0 (broken/urgent) | P1 (next) | P2 (later)
 size: S              # S (<1h) | M (one sitting) | L (split it if it touches >3 systems)
 lens: accessibility  # player-feel | content | authenticity | performance | accessibility | tech-health
 created: 2026-11-17
-pr:
+pr: 279
 ---
 
 ## Why
