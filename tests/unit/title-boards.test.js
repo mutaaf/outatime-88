@@ -72,7 +72,7 @@ describe('draw2D on the title (0274)', () => {
     };
   });
   afterAll(() => { delete globalThis.OffscreenCanvas; delete globalThis.document; delete globalThis.matchMedia; GameState.status = undefined; });
-  beforeEach(() => { seen.n = 0; onTitle = true; GameState.status = 'TITLE'; desk = true; globalThis.matchMedia = (q) => ({ matches: (q === TITLE.media && desk) || (q === TITLE.phone && phone) }); phone = false; });
+  beforeEach(() => { seen.n = 0; onTitle = true; GameState.status = 'TITLE'; desk = true; globalThis.matchMedia = (q) => ({ get matches() { return (q === TITLE.media && desk) || (q === TITLE.phone && phone); } }); phone = false; });
 
   function fakeCtx() {
     const ops = [];
@@ -120,7 +120,7 @@ describe('portrait phone title (0279)', () => {
     const { readFileSync } = await import('node:fs');
     const css = readFileSync(new URL('../../src/styles.css', import.meta.url), 'utf8');
     expect(css).toContain(`@media ${TITLE.phone}`);
-    expect(TITLE.phone).toContain('portrait');
+    expect(TITLE.phone).toBe('(max-width: 480px) and (orientation: portrait)'); // landscape phones and tablets keep their title
   });
 
   it('fades a board under RACE FRIENDS, TILT or VIEW on the 390x844 stack, not in the gaps', () => {

@@ -61,7 +61,7 @@ export function titleFade(box, l, t, r, b, vw, vh, crop = 1) {
  *  the same queries as styles.css: landscape phones and tablets keep their title. Re-measured at most every 500 ms, and at once when the window, the title stack
  *  (a challenge banner above PLAY) or one of the controls (TILT appearing) changes size. Legs and lamp heads aren't tested: no text on them.
  *  Anywhere else, no box. 3D view: not covered (its boards draw in src/render3d, as with 0242/0244). */
-let titleAt = -1e9, titleOn = false, titleWatch = null;
+let titleAt = -1e9, titleOn = false, titleWatch = null, titleMq = null;
 const titleRects = { n: 0, r: new Float32Array(16) };
 const TITLE_IDS = ['btnStartRace', 'btnOpenLive', 'btnTitleTilt', 'btnViewMode']; // TILT is hidden (0 × 0, skipped) off touch
 const remeasureTitle = () => { titleAt = -1e9; };
@@ -69,7 +69,8 @@ export function titleRow(now) {
   if (typeof document === 'undefined' || !document.body.classList.contains('on-title')) { titleAt = -1e9; return null; }
   if (now - titleAt > 500 || now < titleAt) {
     titleAt = now;
-    titleOn = typeof matchMedia === 'function' && (matchMedia(TITLE.media).matches || matchMedia(TITLE.phone).matches);
+    if (!titleMq && typeof matchMedia === 'function') titleMq = [matchMedia(TITLE.media), matchMedia(TITLE.phone)];
+    titleOn = !!titleMq && (titleMq[0].matches || titleMq[1].matches);
     titleRects.n = 0;
     const play = document.getElementById('btnStartRace'), view = document.getElementById('canvasContainer');
     if (titleOn && view) {

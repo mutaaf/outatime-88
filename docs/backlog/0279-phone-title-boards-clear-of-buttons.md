@@ -35,4 +35,5 @@ overlap at 390x844 (as 0274's test does), then assert the overlapping board's al
 for any new pure rect rule.
 
 ## Out of scope
+The "...OOK OF" text near the right edge at 390x844 is a sign baked into the era backdrop (src/scenes), not a road board, so this fade can't reach it; it needs its own ticket (LESSONS 2026-11-17).
 Renaming signs (0189), desktop sizes, the race view.
