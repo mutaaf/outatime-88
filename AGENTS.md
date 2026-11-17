@@ -200,7 +200,7 @@ src/arrival.js      Arrival stretch (0218), pure, race-late chunk only: the run'
 src/radio.js        Rival radio (0277), pure: each crew's own lines (by / lost / down), seeded pick (track seed hash, race RNG
                       untouched), pass + takedown edges, timing (6 s gap, 4 s start hold, stale drop). Glue src/radio-run.js is its own
                       lazy chunk fetched by race-late (frame() there runs once a frame): lowest priority, only on a free channel
-src/career-stats.js Career stats (0278), pure, its own import-free chunk: bestChain + distanceM folded into the save's `career`
+src/career-stats.js Career stats (0278), pure, its own import-free chunk: bestChain + distance (MPH·s; /3600 = miles) folded into the save's `career`
                       at race end (race-flow), five sanitised rows for the CAREER STATS section (settings-panel). Both import()
                       it: a static import from two lazy chunks makes a shared chunk that lands in main's preload map
 src/race-late.js    Race-late chunk (0233): what the race step first needs well after the lights, the opt-in lane guide

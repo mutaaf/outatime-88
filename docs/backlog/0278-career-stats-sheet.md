@@ -36,9 +36,12 @@ Server sync, achievements, sharing.
 
 ## Notes (Builder)
 The groomed version (keep the counters in the one save key, invariant 6) is what shipped: races,
-wins and warps were already in `career`; `bestChain` and `distanceM` are added by
+wins and warps were already in `career`; `bestChain` and `distance` are added by
 `src/career-stats.js` (reads sanitise every field, so an old or corrupt save shows zeros), not
 by `careerDefaults()`: that lives in main, which has ~0.02 kB of budget left. The
 sheet is a read-only CAREER STATS section in Settings, below RACER, shown when Settings opens from
 the title or garage (a paused race leads with its goals and shop, 0264). It is focusable, so Tab
 and the D-pad land on it; DONE / Escape / B close Settings and focus returns to the gear (0207).
+Distance is stored in `GameState.distance` units (speedometer MPH × seconds) and shown as
+miles = distance / 3600, so it agrees with the speedometer (the Endless card's "m" label for the
+same number predates this). Big counts shorten to K / M so a number never wraps in its cell.

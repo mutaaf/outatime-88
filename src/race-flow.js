@@ -32,8 +32,12 @@ const {
   resetBackdrop, utcDay
 } = RACE_DEPS;
 
-const careerStats = () => import('./career-stats.js'); // 0278, see endRaceRun
-careerStats().catch(() => {}); // fetched now, long landed by the first finish
+// Career stats (0278): an import-free chunk, fetched as this one loads and kept, so endRaceRun
+// records into the save before its one SaveStore.save(). A dynamic import keeps it out of
+// main's preload map (a static one from two lazy chunks made a shared chunk listed there).
+const loadStats = () => import('./career-stats.js').then((m) => { careerStats = m; return m; });
+let careerStats = null;
+loadStats().catch(() => {});
 
 /** The control prompts for the input in hand right now (ticket 0007). */
 export const hintNow = () => playHint(InputState.lastInput, InputState.boostKey, InputState.downKey);
@@ -677,10 +681,10 @@ export function endRaceRun(customBadgeText = null) {
     daily: Boolean(GameState.daily),
     day: utcDay(Date.now()),
   });
-  // Career stats (0278): the best near-miss chain and the miles, in the same save. A dynamic
-  // import of a chunk with no imports, so main's preload map doesn't grow (lesson 0274).
+  // Career stats (0278): the race's best near-miss chain and its distance, in the same save.
   const stats = { chain: GameState.bestStreak, distance: GameState.distance };
-  careerStats().then((m) => { m.recordStats(SaveStore.data, stats); SaveStore.save(); }).catch(() => {});
+  if (careerStats) careerStats.recordStats(SaveStore.data, stats);
+  else loadStats().then((m) => { m.recordStats(SaveStore.data, stats); SaveStore.save(); }).catch(() => {});
   recordMissions(SaveStore.data, utcDay(Date.now()), missionsDone(GameState.missions));
   SaveStore.save();
   const newCarNames = carNamesFor(newCars);

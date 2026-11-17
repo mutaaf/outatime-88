@@ -175,7 +175,9 @@ export function createPanel(ctx) {
   // Career stats (0278): five read-only counters from the save, drawn fresh on every open.
   // Its own import-free chunk, shared with race-flow (a static import would grow main's preload map).
   function renderStats() {
-    import('./career-stats.js').then(({ statRows }) => fillStats(statRows(SaveStore.data))).catch(() => {});
+    const sec = $('setStats');
+    import('./career-stats.js').then(({ statRows }) => { if (sec) sec.hidden = false; fillStats(statRows(SaveStore.data)); })
+      .catch(() => { if (sec) sec.hidden = true; }); // never an empty heading
   }
   function fillStats(rows) {
     const dl = $('statsList');

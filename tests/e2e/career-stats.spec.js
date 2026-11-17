@@ -102,7 +102,7 @@ test('keyboard: Tab reaches the stats, Escape closes, focus goes back to the gea
 for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 1280, height: 720 }]) {
   test(`fits ${vp.width}x${vp.height} with big numbers, type never under 10px`, async ({ page }) => {
     await page.setViewportSize(vp);
-    await seeded(page, JSON.stringify({ onboarded: true, career: { races: 123456, wins: 98765, warps: 4321098, bestChain: 9999, distanceM: 987654321 } }));
+    await seeded(page, JSON.stringify({ onboarded: true, career: { races: 123456, wins: 98765, warps: 4321098, bestChain: 9999, distance: 987654321 } }));
     const sec = await openStats(page);
     await sec.scrollIntoViewIfNeeded();
     await page.evaluate(() => document.fonts.ready);
@@ -117,7 +117,9 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
         const c = cell.getBoundingClientRect();
         const range = document.createRange();
         range.selectNodeContents(el);
-        for (const r of range.getClientRects()) {
+        const lines = range.getClientRects();
+        if (el.tagName === 'DD' && lines.length !== 1) out.push(`${el.textContent} wraps`); // a number never splits
+        for (const r of lines) {
           if (r.left < c.left - 0.5 || r.right > c.right + 0.5 || r.left < box.left || r.right > box.right) out.push(`${el.textContent} overflows`);
         }
       }
