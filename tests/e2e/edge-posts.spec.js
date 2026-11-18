@@ -11,12 +11,17 @@ async function startRace(page) {
   await page.goto(`${APP}?debug&view=2d`);
   await page.locator('#btnStartRace').click();
   await racing(page);
+  // The posts are drawn by the lazy set-piece art chunk: wait until a frame has drawn one.
+  await page.evaluate((cap) => new Promise((done) => {
+    const P = CanvasRenderingContext2D.prototype, orig = P.fillRect;
+    P.fillRect = function (...a) { if (this.fillStyle === cap) { P.fillRect = orig; done(); } return orig.apply(this, a); };
+  }), CAP_COLOR);
   await page.evaluate((cap) => {
     const P = CanvasRenderingContext2D.prototype, orig = P.fillRect;
     window.__posts = null;
     P.fillRect = function (x, y, w, h) {
       const B = window.__posts;
-      if (B && this.fillStyle === cap) { B.caps++; B.xs.push(x + w / 2); B.cw = this.canvas.width; }
+      if (B && this.fillStyle === cap) { B.caps++; B.xs.push(x + w / 2); B.cw = this.canvas.width / (this.getTransform().a || 1); } // logical px, like x
       else if (B && this.fillStyle === B.rail) B.bodies++;
       return orig.call(this, x, y, w, h);
     };

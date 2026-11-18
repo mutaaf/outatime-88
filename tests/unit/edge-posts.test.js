@@ -124,4 +124,31 @@ describe('edge reflector posts (ticket 0282)', () => {
     const caps = a.fills.filter((f) => f.style === POSTS.capColor);
     expect(caps.at(-1).alpha).toBeGreaterThan(caps[0].alpha);
   });
+
+  it('a post beyond a hill crest is hidden (its foot is below the nearer deck)', () => {
+    const era = ERAS[0];
+    const segs = segsFrom(0, 40);
+    // Segments 0-9 climb to a crest at y 600; segment 10 onward reappears lower, behind it.
+    for (let i = 0; i < 40; i++) {
+      const s = segs[i];
+      if (i < 10) { s.p1.screen.y = 700 - i * 10; s.p2.screen.y = 700 - (i + 1) * 10; }
+      else { s.p1.screen.y = 650 - (i - 10); s.p2.screen.y = 649 - (i - 10); }
+    }
+    const ctx = fakeCtx();
+    drawEdgePosts(ctx, segs, era, 1280);
+    const feet = ctx.fills.filter((f) => f.style === era.railColor).map((f) => f.y + f.h);
+    // Only the posts in front of the crest (segments 0-9: z 0, 800, 1600) are drawn.
+    expect(feet.sort((a, b) => b - a)).toEqual([700, 660, 620]);
+    // Without the crest the same road shows posts beyond it too.
+    expect(drawEdgePosts(fakeCtx(), segsFrom(0, 40), era, 1280)).toBeGreaterThan(3);
+  });
+
+  it('a thousand frames on the same road draw exactly the same posts (no state, no growth)', () => {
+    const era = ERAS[0], segs = segsFrom(0, 140);
+    const first = fakeCtx();
+    const n = drawEdgePosts(first, segs, era, 1280);
+    let ctx;
+    for (let k = 0; k < 1000; k++) { ctx = fakeCtx(); expect(drawEdgePosts(ctx, segs, era, 1280)).toBe(n); }
+    expect(ctx.fills).toEqual(first.fills);
+  });
 });

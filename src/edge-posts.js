@@ -10,10 +10,10 @@
 import { ROAD_CFG } from './data.js';
 
 export const POSTS = {
-  spacing: 1600,   // world units between posts on one side (8 segments; ~3 a second per side at 88)
-  cap: 48,         // most posts drawn in a frame (the far ones are culled first: drawn far to near)
+  spacing: 1600,   // world units between posts on one side (8 segments; ~2-3 a second per side at 88)
+  cap: 48,         // most posts drawn in a frame, farthest dropped first (a guard: drawDistance shows ~35)
   minW: 6,         // road half-width (px) below which a segment is too far for a post
-  out: 1.3,        // post x, in road half-widths from the centre (the rail lip is at 1.12)
+  out: 1.22,       // post x, in road half-widths from the centre (rail lip 1.12, booster sign pole 1.32)
   capColor: '#fff1b8', // the reflector cap (e2e counts posts by this fill)
 };
 
@@ -38,6 +38,10 @@ export function postsIn(z0, z1, spacing = POSTS.spacing) {
 /** What the last frame drew (tests/debug). */
 export const stats = { posts: 0 };
 
+// Per visible segment: the screen row nearer road has already covered (a hill crest hides what is
+// below it). Sized past ROAD_CFG.drawDistance once, reused every frame.
+const clipY = new Float64Array(512);
+
 /**
  * Draws the posts on the visible road segments, far to near. `segs` are the segments the road
  * pass just projected (near first). Returns the number drawn.
@@ -51,12 +55,17 @@ export function drawEdgePosts(ctx, segs, eraCfg, W) {
   const alpha0 = ctx.globalAlpha;
   let n = 0;
   // Count first so the cap drops the farthest posts, then draw far to near.
-  let skip = -POSTS.cap;
-  for (let i = 0; i < segs.length; i++) {
+  // The same pass, near first, notes each segment's crest clip (as src/render/road.js's maxY).
+  let skip = -POSTS.cap, maxY = Infinity;
+  const m = Math.min(segs.length, clipY.length);
+  for (let i = 0; i < m; i++) {
     const s = segs[i];
-    if (s.trackType !== 'GAP' && s.p1.screen.w >= POSTS.minW) skip += postsIn(s.p1.world.z, s.p1.world.z + L, S);
+    clipY[i] = maxY;
+    if (s.trackType === 'GAP') continue;
+    maxY = Math.min(maxY, s.p2.screen.y);
+    if (s.p1.screen.w >= POSTS.minW) skip += postsIn(s.p1.world.z, s.p1.world.z + L, S);
   }
-  for (let i = segs.length - 1; i >= 0; i--) {
+  for (let i = m - 1; i >= 0; i--) {
     const seg = segs[i];
     if (seg.trackType === 'GAP') continue;
     const a = seg.p1.screen, b = seg.p2.screen;
@@ -68,6 +77,7 @@ export function drawEdgePosts(ctx, segs, eraCfg, W) {
       const w = a.w + (b.w - a.w) * t;
       const x = a.x + (b.x - a.x) * t + postSide(z, S) * w * POSTS.out;
       const y = a.y + (b.y - a.y) * t;
+      if (y > clipY[i] + 1) continue; // behind a crest: the nearer deck hides its foot
       const h = w * 0.15, pw = Math.max(1, w * 0.026);
       ctx.globalAlpha = alpha0;
       ctx.fillStyle = body;
