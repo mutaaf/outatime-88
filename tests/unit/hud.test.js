@@ -96,7 +96,7 @@ describe('HUD meters (ticket 0280)', () => {
     hud.update(view({ mph: 80, flux: 40, nos: 0.25, hpFrac: 0.8 }));
     const now = (id) => doc.getElementById(id).parentNode.attrs['aria-valuenow'];
     const width = (id) => doc.getElementById(id).style.width;
-    expect(now('hudSpeedBar')).toBe('50'); // 80 of 160 mph
+    expect(now('hudSpeedBar')).toBe('80'); // 0284: the speed meter's value is mph (bar 80 of 160)
     expect(width('hudSpeedBar')).toBe('50%');
     expect(now('hudFlux')).toBe('40');
     expect(now('hudNos')).toBe('25');
@@ -105,8 +105,36 @@ describe('HUD meters (ticket 0280)', () => {
     hud.update(view({ mph: 80, flux: 40, nos: 0.25, hpFrac: 0.8 }));
     expect(doc.writes.n).toBe(after);
     hud.update(view({ mph: 96, flux: 40, nos: 0.25, hpFrac: 0.8 }));
-    expect(now('hudSpeedBar')).toBe('60');
+    expect(now('hudSpeedBar')).toBe('96');
     expect(now('hudFlux')).toBe('40');
+  });
+
+  it('tells the speed meter the speed in mph (0284), capped at its 160 max, still change-only', () => {
+    const doc = fakeDoc();
+    const hud = createHud(doc);
+    const now = () => doc.getElementById('hudSpeedBar').parentNode.attrs['aria-valuenow'];
+    const width = () => doc.getElementById('hudSpeedBar').style.width;
+    hud.update(view({ mph: 88.4 }));
+    expect(now()).toBe('88');
+    expect(width()).toBe('55%');
+    hud.update(view({ mph: 160 }));
+    expect([now(), width()]).toEqual(['160', '100%']);
+    hud.update(view({ mph: 190 }));
+    expect([now(), width()]).toEqual(['160', '100%']);
+    const meter = doc.getElementById('hudSpeedBar').parentNode;
+    const set = meter.setAttribute;
+    let meterWrites = 0;
+    meter.setAttribute = (k, v) => { meterWrites++; set(k, v); };
+    hud.update(view({ mph: 175 })); // past the max: the readout changes, the meter is not written
+    expect(doc.getElementById('hudSpeed').textContent).toBe('175');
+    expect(meterWrites).toBe(0);
+    hud.update(view({ mph: 0 }));
+    expect([now(), width()]).toEqual(['0', '0%']);
+    // FLUX, NOS and HP keep a percentage.
+    hud.update(view({ mph: 88, flux: 73, nos: 0.5, hpFrac: 0.4 }));
+    expect(doc.getElementById('hudFlux').parentNode.attrs['aria-valuenow']).toBe('73');
+    expect(doc.getElementById('hudNos').parentNode.attrs['aria-valuenow']).toBe('50');
+    expect(doc.getElementById('hudHp').parentNode.attrs['aria-valuenow']).toBe('40');
   });
 });
 

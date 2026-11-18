@@ -5,8 +5,6 @@
 // never reads layout, so the HUD can't thrash. CSS owns sizes (it scales with the viewport).
 import { lapOf, ordinal, formatRaceTime, formatGap, gapSeconds, RACE_LAPS } from './raceflow.js';
 
-const SPEED_FULL = 160; // mph at a full speed bar; 88 sits at 55%
-
 /** Each strip marker at its exact share of the strip (0209: the race uses src/strip-marks.js, which fans a pack out). */
 function placeExact(field, dots) {
   for (const d of dots.values()) {
@@ -57,7 +55,8 @@ export function createHud(doc = document, marks = () => [], place = placeExact) 
   }
   const text = (node, key, value) => node && put(key, value, (v) => { node.textContent = v; });
   // 0280: every bar sits in a role="meter" box (index.html), which gets the same number as aria-valuenow.
-  const width = (node, key, pct) => node && put(key, Math.round(pct * 10) / 10, (v) => { node.style.width = `${v}%`; node.parentNode.setAttribute('aria-valuenow', v); });
+  // 0284: k scales the value to the bar's %, so the speed meter's value is mph (aria-valuemax 160).
+  const width = (node, key, n, k = 1) => node && put(key, Math.round(n * 10) / 10, (v) => { node.style.width = `${v * k}%`; node.parentNode.setAttribute('aria-valuenow', v); });
   const flag = (node, key, cls, on) => node && put(key, on, (v) => { node.classList.toggle(cls, v); });
 
   function syncDots(field) {
@@ -141,7 +140,8 @@ export function createHud(doc = document, marks = () => [], place = placeExact) 
 
       const mph = Math.max(0, Math.round(s.mph));
       text(el.speed, 'speed', String(mph));
-      width(el.speedBar, 'speedBar', Math.min(100, (mph / SPEED_FULL) * 100));
+      // A full speed bar is 160 mph (index.html aria-valuemax), 88 sits at 55%; literals keep main's bytes down.
+      width(el.speedBar, 'speedBar', Math.min(160, mph), 0.625);
       flag(el.speedCard, 'at88', 'is-88', mph >= 88);
       width(el.flux, 'flux', Math.max(0, Math.min(100, s.flux)));
       if (el.nos) {
