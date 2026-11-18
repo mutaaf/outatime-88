@@ -105,7 +105,8 @@ for (const { name, vp, touch, large } of [
       expect(contrast(got.color, got.bg), `${want.cap} caption contrast`).toBeGreaterThanOrEqual(4.5);
       expect(got.role, `${want.cap} role`).toBe('meter');
       expect(got.label, `${want.cap} aria-label`).toMatch(want.label);
-      expect([got.min, got.max]).toEqual(['0', '100']);
+      // 0284: the speed meter's range is mph (0-160); FLUX and NOS stay a percentage.
+      expect([got.min, got.max]).toEqual(['0', want.cap === 'SPD' ? '160' : '100']);
       // Caption beside its own bar (vertically centred on it), inside the card and on screen.
       expect(got.text.left, `${want.cap} after its bar`).toBeGreaterThanOrEqual(got.bar.right - 0.5);
       expect(Math.abs((got.text.top + got.text.bottom) / 2 - (got.bar.top + got.bar.bottom) / 2), `${want.cap} centred on its bar`).toBeLessThan(2);
@@ -150,6 +151,11 @@ test('meter values follow the race: speed rises with throttle, values are writte
     const bar = document.getElementById(id);
     return [parseFloat(bar.style.width), Number(bar.parentElement.getAttribute('aria-valuenow'))];
   }));
-  for (const [w, v] of same) expect(v).toBeCloseTo(w, 1);
+  // 0284: the speed meter's value is the mph on the readout; its bar is that mph of 160.
+  const [[speedW, speedV], ...pct] = same;
+  const mph = await page.evaluate(() => Number(document.getElementById('hudSpeed').textContent));
+  expect(speedV).toBe(Math.min(160, mph));
+  expect(speedW).toBeCloseTo((speedV / 160) * 100, 1);
+  for (const [w, v] of pct) expect(v).toBeCloseTo(w, 1);
   expect(problems).toEqual([]);
 });
