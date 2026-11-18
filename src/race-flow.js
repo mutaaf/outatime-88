@@ -40,7 +40,14 @@ let careerStats = null;
 loadStats().catch(() => {});
 
 /** The control prompts for the input in hand right now (ticket 0007). */
-export const hintNow = () => playHint(InputState.lastInput, InputState.boostKey, InputState.downKey);
+// A pad's prompts name the pad in hand (0283): PlayStation / Switch names from an import()ed
+// import-free chunk (a static import would put a shared chunk in main's preload map).
+let glyphs = null;
+import('./pad-glyphs.js').then((m) => { glyphs = m; }).catch(() => {});
+export const hintNow = () => {
+  const h = playHint(InputState.lastInput, InputState.boostKey, InputState.downKey);
+  return glyphs && InputState.lastInput === 'pad' ? glyphs.padTable(h) : h;
+};
 
 // Slipstream cue (0197): main's speed lines call this once per frame for the wake's tint and lines.
 RS.wake = (c, W, H) => wakeFrame(c, W, H, GameState, RS.fxClock);

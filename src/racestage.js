@@ -5,9 +5,14 @@ import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState, setLastInput, padGone } from './input.js';
 import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS, gridBeat, finishMargin, marginText } from './racecall.js';
+// main reads both modules through this one chunk (RC in src/main.js): one dynamic import, not two.
+export * from './racecall.js';
 import { carPortrait } from './car-sprite.js';
 
 const $ = (id) => document.getElementById(id);
+// A pad's words name the pad in hand (0283), from an import()ed import-free chunk (not in main's preload map).
+let glyphs = null;
+const glyphsLoad = import('./pad-glyphs.js').then((m) => { glyphs = m; }).catch(() => {});
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** Short spoken call (browser speech, on-device). Off when muted or the voice setting is off. */
@@ -40,7 +45,7 @@ window.addEventListener('gamepadconnected', () => setLastInput('pad'));
 const DROP_TXT = '🎮 CONTROLLER DISCONNECTED. PRESS ANY BUTTON ON IT, OR USE KEYS / TAP TO CONTINUE';
 const BACK_TXT = '🎮 CONTROLLER BACK. PRESS START OR A TO DRIVE';
 const drop = { at: -1, text: '', seen: false };
-const padLine = (t) => { const el = $('padDrop'); if (el && el.textContent !== t) el.textContent = t; };
+const padLine = (t) => { const el = $('padDrop'); if (el && el.textContent !== t) el.innerHTML = glyphs ? glyphs.padHTML(t) : esc(t); };
 const shown = (id) => !$(id).classList.contains('hidden');
 const dropLive = () => drop.at >= 0 && GameState.status === 'PAUSED' && GameState.raceTime === drop.at;
 const showDrop = () => {
@@ -62,9 +67,26 @@ window.addEventListener('gamepaddisconnected', () => {
   showDrop();
 });
 // The pad is back during that pause: say so (it never resumes on its own).
-window.addEventListener('gamepadconnected', () => { if (dropLive()) { drop.text = BACK_TXT; showDrop(); } });
+// Named for the pad that just came back (0283): re-read it here, as this listener can run before pad-glyphs' own.
+window.addEventListener('gamepadconnected', () => { if (dropLive()) { drop.text = glyphs ? glyphs.padText(BACK_TXT, glyphs.scan()) : BACK_TXT; showDrop(); } });
 new MutationObserver(showDrop).observe($('garageModal'), { attributes: true, attributeFilter: ['class'] });
-const hint = () => startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
+const hint = () => {
+  const h = startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
+  if (h !== START_HINTS.pad) return h;
+  if (glyphs) return glyphs.padTable(h);
+  // A race that starts before the names land (a cold load): rename the line in place once they do.
+  glyphsLoad.then(() => {
+    if (!glyphs) return;
+    const p = glyphs.padTable(h);
+    for (const [id, k] of [['rcHint', 'launch'], ['rcSkip', 'skip']]) if ($(id).textContent === h[k]) setHint(id, p[k]);
+  });
+  return h;
+};
+/** Writes a prompt; a PlayStation shape gets its spoken name ("Square"), not "white square" (0283). */
+const setHint = (id, t) => {
+  if (glyphs && /[✕○□△]/.test(t)) $(id).innerHTML = glyphs.padHTML(t);
+  else $(id).textContent = t;
+};
 
 const beep = (hz, len = 0.16, vol = 0.16, type = 'square') => { try { SoundEngine.playTone(hz, type, len, vol); } catch (e) {} };
 
@@ -149,7 +171,7 @@ export const stage = {
       </span>`;
     void el.offsetWidth; // restart the pop-in animation (once per card, not per frame)
     el.classList.add('rc-pop');
-    $('rcSkip').textContent = hint().skip;
+    setHint('rcSkip', hint().skip);
     $('rcSkip').classList.remove('hidden');
   },
   /** Everyone together before the lights. */
@@ -187,7 +209,7 @@ export const stage = {
     el.dataset.state = n === 'go' ? 'go' : String(n);
     if (n === 3) {
       const h = hint(); // a rebound BOOST key is named instead of SPACE (0013)
-      $('rcHint').textContent = h === START_HINTS.keys && InputState.boostKey ? h.launch.replace('SPACE', InputState.boostKey) : h.launch;
+      setHint('rcHint', h === START_HINTS.keys && InputState.boostKey ? h.launch.replace('SPACE', InputState.boostKey) : h.launch);
     }
     $('rcCount').textContent = n === 'go' ? 'GO!' : String(n);
   },

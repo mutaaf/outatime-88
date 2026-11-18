@@ -25,11 +25,11 @@ export function controlsKind(lastInput, coarse, padConnected = false) {
 /**
  * `{ title, rows: [{ label, value }] }` for `kind`. Options: `keys` (SaveStore settings.keys),
  * `movement` (the touch kit's steering in effect: stick modes, 'dpad' or 'tilt'), `autoAccel`
- * (touch: the car drives itself).
+ * (touch: the car drives itself), `words` (pad: Xbox names → the pad in hand's, 0283).
  */
-export function controlRows(kind, { keys = null, movement = '', autoAccel = true } = {}) {
+export function controlRows(kind, { keys = null, movement = '', autoAccel = true, words = null } = {}) {
   let values;
-  if (kind === 'pad') values = PAD;
+  if (kind === 'pad') values = words ? PAD.map(words) : PAD;
   else if (kind === 'touch') {
     values = [movement === 'tilt' ? 'TILT' : movement === 'dpad' ? 'D-PAD' : 'STICK', autoAccel ? 'AUTO' : 'GAS', 'DRIFT', 'WARP', 'NOS', 'JUMP'];
   } else {
@@ -53,12 +53,18 @@ export function nosNote(settings) {
 
 /**
  * The pad card's pause line (0271): START pauses, START or A resumes; '' for other inputs. A live
- * race never pauses (START only opens and closes this sheet, and A stays the gas).
+ * race never pauses (START only opens and closes this sheet, and A stays the gas). `words` as in
+ * controlRows.
  */
-export function pauseNote(kind, live = false) {
+export function pauseNote(kind, live = false, words = null) {
   if (kind !== 'pad') return '';
-  return live ? 'START · MENU · START to close' : 'START · PAUSE · A or START to resume';
+  const t = live ? 'START · MENU · START to close' : 'START · PAUSE · A or START to resume';
+  return words ? words(t) : t;
 }
+
+// The pad in hand's button names (0283): an import()ed import-free chunk, so main never lists it.
+let glyphs = null;
+const glyphsLoad = import('./pad-glyphs.js').then((m) => { glyphs = m; }).catch(() => {});
 
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -79,18 +85,24 @@ export function renderControlsRef(el) {
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const kind = controlsKind(InputState.lastInput, coarse, padConnected());
   const c = SaveStore.data.controls || {};
+  // A pad card drawn before the names land is drawn again once they do.
+  if (kind === 'pad' && !glyphs) glyphsLoad.then(() => { if (glyphs) renderControlsRef(el); });
+  const family = glyphs ? glyphs.heldFamily() : 'xbox';
+  const words = family === 'xbox' ? null : (t) => glyphs.padText(t, family);
+  const spoken = family === 'ps' ? glyphs.padSpoken : (t) => t;
   const { title, rows } = controlRows(kind, {
     keys: SaveStore.data.settings && SaveStore.data.settings.keys,
     // Tilt is on or off now (the kit relabels its own mode a frame later); else the kit's mode in effect.
     movement: InputState.tiltEnabled ? 'tilt' : document.documentElement.dataset.tcMovement === 'dpad' ? 'dpad' : '',
     autoAccel: c.autoAccel !== false,
+    words,
   });
   el.dataset.kind = kind;
   el.innerHTML = `<h3><span aria-hidden="true">🎮 </span>CONTROLS <small>${title}</small></h3><dl class="ctl-grid">`
-    + rows.map((r) => `<div><dt>${r.label}</dt><dd data-ctl="${r.label}" aria-label="${esc(r.value.replace(/ · /g, ' or '))}">${esc(r.value)}</dd></div>`).join('')
+    + rows.map((r) => `<div><dt>${r.label}</dt><dd data-ctl="${r.label}" aria-label="${esc(spoken(r.value.replace(/ · /g, ' or ')))}">${esc(r.value)}</dd></div>`).join('')
     + '</dl>';
-  const pause = pauseNote(kind, GameState.mode === 'LIVE');
-  if (pause) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="pause"><span aria-hidden="true">⏸ </span>${esc(pause)}</p>`);
+  const pause = pauseNote(kind, GameState.mode === 'LIVE', words);
+  if (pause) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="pause"><span aria-hidden="true">⏸ </span>${glyphs ? glyphs.padHTML(pause) : esc(pause)}</p>`);
   const note = aidsNote(SaveStore.data.settings);
   if (note) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="laneGuide"><span aria-hidden="true">🔊 </span>${esc(note)}</p>`);
   const nos = nosNote(SaveStore.data.settings);
