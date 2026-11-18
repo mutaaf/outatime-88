@@ -32,12 +32,12 @@ startup budget has ~0.01 kB left (lesson 2026-11-14). Default (no pad or unknown
 Xbox, so nothing changes for current players.
 
 ## Acceptance criteria
-- [ ] With a stubbed pad whose id contains "054c", the grid hint reads "PRESS ✕ OR R1 RIGHT ON
+- [x] With a stubbed pad whose id contains "054c", the grid hint reads "PRESS ✕ OR R1 RIGHT ON
       GREEN FOR A ROCKET START" and the controls card shows ✕ · R2 for gas.
-- [ ] With "057e" the hint uses the Switch labels; with an unknown id it is unchanged.
-- [ ] Switching pads mid-session updates the next prompt (family read when the prompt renders).
-- [ ] No prompt gets wider than its card at 320 px (existing layout tests pass).
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse (no pad = no change).
+- [x] With "057e" the hint uses the Switch labels; with an unknown id it is unchanged.
+- [x] Switching pads mid-session updates the next prompt (family read when the prompt renders).
+- [x] No prompt gets wider than its card at 320 px (existing layout tests pass).
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse (no pad = no change).
 
 ## Test plan
 Unit: `padFamily` over real id strings for Xbox 360/One ("Xbox 360 Controller (XInput STANDARD

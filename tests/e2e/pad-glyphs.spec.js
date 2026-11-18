@@ -32,6 +32,8 @@ test.describe('desktop 1280x720', () => {
     await plugIn(page, DUALSENSE);
     await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
     await expect(page.locator('#rcSkip')).toHaveText('PRESS □ TO SKIP ▶▶');
+    // Screen readers hear the shape's name, not "white square".
+    await expect(page.locator('#rcSkip')).toHaveAccessibleName('PRESS Square TO SKIP ▶▶');
     // Skip without a key or click (either would name its own device): end the lineup by its pill's own path.
     await page.evaluate(() => { window.__OT.InputState.lastInput = 'pad'; });
     await expect(page.locator('#rcHint')).toHaveText('PRESS □ OR R1 RIGHT ON GREEN FOR A ROCKET START', { timeout: 20_000 });
@@ -48,6 +50,7 @@ test.describe('desktop 1280x720', () => {
     await expect(v('NOS')).toHaveText('L1');
     await expect(v('JUMP')).toHaveText('△');
     await expect(page.locator('#pauseControls [data-aid="pause"]')).toContainText('✕ or START to resume');
+    await expect(page.locator('#pauseControls [data-aid="pause"] [role="img"]')).toHaveAttribute('aria-label', 'Cross');
     expect(problems).toEqual([]);
   });
 

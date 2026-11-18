@@ -102,7 +102,7 @@ export function renderControlsRef(el) {
     + rows.map((r) => `<div><dt>${r.label}</dt><dd data-ctl="${r.label}" aria-label="${esc(spoken(r.value.replace(/ · /g, ' or ')))}">${esc(r.value)}</dd></div>`).join('')
     + '</dl>';
   const pause = pauseNote(kind, GameState.mode === 'LIVE', words);
-  if (pause) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="pause"><span aria-hidden="true">⏸ </span>${esc(pause)}</p>`);
+  if (pause) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="pause"><span aria-hidden="true">⏸ </span>${glyphs ? glyphs.padHTML(pause) : esc(pause)}</p>`);
   const note = aidsNote(SaveStore.data.settings);
   if (note) el.insertAdjacentHTML('beforeend', `<p class="ctl-note" data-aid="laneGuide"><span aria-hidden="true">🔊 </span>${esc(note)}</p>`);
   const nos = nosNote(SaveStore.data.settings);

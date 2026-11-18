@@ -18,18 +18,18 @@ const LABELS = Object.freeze({
 export function padFamily(id) {
   const s = typeof id === 'string' ? id.toLowerCase() : '';
   // Sony's pads also call themselves just "Wireless Controller"; "Xbox Wireless Controller" must not match.
-  if (/054c|dualsense|dualshock|playstation|^wireless controller/.test(s)) return 'ps';
-  if (/057e|pro controller|joy-con|nintendo/.test(s)) return 'switch';
+  if (/vendor: 054c|^054c-|dualsense|dualshock|playstation|^wireless controller/.test(s)) return 'ps';
+  if (/vendor: 057e|^057e-|pro controller|joy-con|nintendo/.test(s)) return 'switch';
   return 'xbox';
 }
 
 /** `{ A, B, X, Y, LB, RB, LT, RT }` → what that pad prints on those buttons. */
 export const padLabels = (family) => LABELS[family] || LABELS.xbox;
 
-// A button name standing alone. "A" is a button only before " ·" or " or" ("A · RT", "A or
-// START"); anywhere else it is the article ("FOR A ROCKET START"). One pass, so Switch's A↔B
-// and X↔Y swaps never chain.
-const NAME = /\b(?:[LR][BT]|[BXY]|A(?= ·| or\b| OR\b))\b/g;
+// A button name standing alone. "A" is a button only before " ·", " or" or " TO" ("A · RT", "A or
+// START", "START OR A TO DRIVE"); anywhere else it is the article ("FOR A ROCKET START"). One
+// pass, so Switch's A↔B and X↔Y swaps never chain.
+const NAME = /\b(?:[LR][BT]|[BXY]|A(?= ·| or\b| OR\b| TO\b))\b/g;
 
 /** `text` (Xbox wording) with each button named for `family`. */
 export function padText(text, family) {
@@ -54,12 +54,14 @@ export function padTable(table, family = heldFamily()) {
 // The pad in hand is the first connected one (src/input.js pollGamepad drives with it). Read on
 // connect and disconnect, never per frame (getGamepads() allocates in Chrome).
 let held = 'xbox';
-function scan() {
+/** Re-reads the pad in hand and returns its family (for a listener that may run before ours). */
+export function scan() {
   held = 'xbox';
   try {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (let i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) { held = padFamily(pads[i].id); break; }
   } catch (e) { /* blocked by permissions policy */ }
+  return held;
 }
 if (typeof window !== 'undefined') {
   scan();
@@ -72,3 +74,7 @@ export const heldFamily = () => held;
 const SPOKEN = { '✕': 'Cross', '○': 'Circle', '□': 'Square', '△': 'Triangle' };
 /** `text` with the PlayStation shapes as words, for an aria-label (a screen reader says "✕" as "multiplication x"). */
 export const padSpoken = (text) => String(text).replace(/[✕○□△]/g, (c) => SPOKEN[c]);
+
+const escHTML = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+/** `text` as HTML whose PlayStation shapes carry their spoken name (role="img"), for live text and buttons. */
+export const padHTML = (text) => escHTML(text).replace(/[✕○□△]/g, (c) => `<span role="img" aria-label="${SPOKEN[c]}">${c}</span>`);

@@ -1,6 +1,6 @@
 // Ticket 0283: pad prompts name the buttons of the pad in hand (PlayStation, Switch), not only Xbox letters.
-import { describe, it, expect } from 'vitest';
-import { padFamily, padLabels, padText, padTable, padSpoken, PAD_KEYS } from '../../src/pad-glyphs.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { padFamily, padLabels, padText, padTable, padSpoken, padHTML, PAD_KEYS } from '../../src/pad-glyphs.js';
 import { START_HINTS } from '../../src/racecall.js';
 import { PLAY_HINTS } from '../../src/play-hints.js';
 import { controlRows, pauseNote } from '../../src/controls-ref.js';
@@ -25,6 +25,10 @@ describe('padFamily', () => {
   });
   it('anything unknown, empty or missing is Xbox (no change for current players)', () => {
     for (const id of ['', undefined, null, 'Generic USB Joystick', '8BitDo SN30 Pro', 42]) expect(padFamily(id)).toBe('xbox');
+    // A Sony or Nintendo number as another maker's product id is not that maker's pad.
+    expect(padFamily('Arcade Stick (STANDARD GAMEPAD Vendor: 0f0d Product: 054c)')).toBe('xbox');
+    expect(padFamily('Arcade Stick (STANDARD GAMEPAD Vendor: 0f0d Product: 057e)')).toBe('xbox');
+    expect(padFamily('057e-2009-Pro Controller')).toBe('switch');
   });
 });
 
@@ -100,5 +104,40 @@ describe('padSpoken', () => {
     expect(padSpoken('✕ or R2')).toBe('Cross or R2');
     expect(padSpoken('○ or L2 / □ / △')).toBe('Circle or L2 / Square / Triangle');
     expect(padSpoken('A or RT')).toBe('A or RT');
+  });
+});
+
+describe('the reconnect line and live text', () => {
+  it('"START OR A TO DRIVE" names the pad in hand', () => {
+    const back = '🎮 CONTROLLER BACK. PRESS START OR A TO DRIVE';
+    expect(padText(back, 'ps')).toBe('🎮 CONTROLLER BACK. PRESS START OR ✕ TO DRIVE');
+    expect(padText(back, 'switch')).toBe('🎮 CONTROLLER BACK. PRESS START OR B TO DRIVE');
+  });
+  it('padHTML gives each shape a spoken name and escapes the rest', () => {
+    expect(padHTML('PRESS □ OR R1 <now>')).toBe('PRESS <span role="img" aria-label="Square">□</span> OR R1 &lt;now&gt;');
+    expect(padHTML('PRESS X')).toBe('PRESS X');
+  });
+});
+
+describe('the pad in hand', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
+  it('is the first connected pad, re-read on connect and disconnect; none is Xbox', async () => {
+    const win = new EventTarget();
+    let pads = [null, { connected: true, id: DUALSENSE }];
+    vi.stubGlobal('window', win);
+    vi.stubGlobal('navigator', { getGamepads: () => pads });
+    vi.resetModules();
+    const m = await import('../../src/pad-glyphs.js');
+    expect(m.heldFamily()).toBe('ps');
+    pads = [{ connected: true, id: SWITCH_PRO }, { connected: true, id: DUALSENSE }];
+    win.dispatchEvent(new Event('gamepadconnected'));
+    expect(m.heldFamily()).toBe('switch');
+    pads = [{ connected: false, id: SWITCH_PRO }, null];
+    win.dispatchEvent(new Event('gamepaddisconnected'));
+    expect(m.heldFamily()).toBe('xbox');
+    // A table read now follows the pad in hand.
+    pads = [{ connected: true, id: DUALSENSE }];
+    expect(m.scan()).toBe('ps');
+    expect(m.padTable(START_HINTS.pad).skip).toBe('PRESS □ TO SKIP ▶▶');
   });
 });
