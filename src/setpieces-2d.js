@@ -1,7 +1,7 @@
 // 2D art for the orange-track set pieces (sprint 4). Lazy chunk: main.js imports it after the
 // first frame and simply skips the art until it arrives (the simulation never waits for it).
 //
-//   drawAhead(ctx, segs, era)  the real loop rising off the road ahead (drawLoopAhead) and the speed signs at their
+//   drawAhead(ctx, segs, era)  the edge reflector posts (src/edge-posts.js), the real loop rising off the road ahead (drawLoopAhead) and the speed signs at their
 //                              booster gates, drawn into the road layer
 //   drawCutaway(ctx, w, h, s)  the side-on loop cam while you're in a loop: the orange loop,
 //                              your car going round it, and a fall if you came in too slow
@@ -13,6 +13,7 @@ import { drawPickup } from './pickup-art.js';
 import { ROAD_CFG } from './data.js';
 import { shapeOf } from './car-shapes.js';
 import { paintCar } from './car-paint.js';
+import { drawEdgePosts } from './edge-posts.js';
 import { LOOP_CAM, NEAR, loopPoint, loopCamera, carPose, peelFall, projectLoop, horizonRow, approachScale } from './loopcam.js';
 
 const ORANGE = '#ff6a13', ORANGE_DARK = '#b83a00', ORANGE_LIT = '#ffb15c';
@@ -47,6 +48,7 @@ function clockFace(ctx, x, y, r) {
  * (projected, near → far); each set piece is drawn once, at its first segment.
  */
 export function drawAhead(ctx, segs, eraCfg, W, H) {
+  drawEdgePosts(ctx, segs, eraCfg, W); // reflector posts on both edges, under everything else (0282)
   const year = eraYearOf(eraCfg);
   const th = themeFor(year);
   for (let i = segs.length - 1; i >= 0; i--) {

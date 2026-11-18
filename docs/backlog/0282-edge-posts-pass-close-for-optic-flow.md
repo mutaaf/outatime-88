@@ -1,7 +1,7 @@
 ---
 id: 0282
 title: Reflector posts stream past both road edges so empty stretches still feel fast
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: player-feel
@@ -33,15 +33,15 @@ gets the same posts as instanced meshes in `src/render3d/` only if it fits the s
 budget; otherwise leave it for a follow-up.
 
 ## Acceptance criteria
-- [ ] In 2D at speed, posts appear on both edges in all 7 eras with that era's rail colour,
+- [x] In 2D at speed, posts appear on both edges in all 7 eras with that era's rail colour,
       and are absent when the era draws no guardrail (the 2061 skyway).
-- [ ] The rate posts pass a fixed screen line equals `speed / spacing` within 5% (unit-test
+- [x] The rate posts pass a fixed screen line equals `speed / spacing` within 5% (unit-test
       the pure spacing/phase function).
-- [ ] No post draws over the player car, a pickup or a hazard label (draw order below
+- [x] No post draws over the player car, a pickup or a hazard label (draw order below
       sprites).
-- [ ] e2e perf probe stays within budget on the existing 2D race, and a zero-allocation check
+- [x] e2e perf probe stays within budget on the existing 2D race, and a zero-allocation check
       on the new draw loop passes.
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse; `main` startup budget unchanged
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse; `main` startup budget unchanged
       (put the code in a lazy chunk or an existing render module, lesson 2026-11-14).
 
 ## Test plan
