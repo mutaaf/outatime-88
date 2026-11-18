@@ -117,6 +117,8 @@ describe('HUD meters (ticket 0280)', () => {
     hud.update(view({ mph: 88.4 }));
     expect(now()).toBe('88');
     expect(width()).toBe('55%');
+    hud.update(view({ mph: 89 })); // 0.625 is exact in binary: no float noise in the width
+    expect([now(), width()]).toEqual(['89', '55.625%']);
     hud.update(view({ mph: 160 }));
     expect([now(), width()]).toEqual(['160', '100%']);
     hud.update(view({ mph: 190 }));

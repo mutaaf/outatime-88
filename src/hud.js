@@ -54,8 +54,8 @@ export function createHud(doc = document, marks = () => [], place = placeExact) 
     apply(value);
   }
   const text = (node, key, value) => node && put(key, value, (v) => { node.textContent = v; });
-  // 0280: every bar sits in a role="meter" box (index.html), which gets the same number as aria-valuenow.
-  // 0284: k scales the value to the bar's %, so the speed meter's value is mph (aria-valuemax 160).
+  // 0280: every bar sits in a role="meter" box (index.html), whose aria-valuenow is the bar's value;
+  // the bar's width is value × k % (k = 1 for the 0-100 meters; 0284: the speed meter's value is mph, k = 100/160).
   const width = (node, key, n, k = 1) => node && put(key, Math.round(n * 10) / 10, (v) => { node.style.width = `${v * k}%`; node.parentNode.setAttribute('aria-valuenow', v); });
   const flag = (node, key, cls, on) => node && put(key, on, (v) => { node.classList.toggle(cls, v); });
 
