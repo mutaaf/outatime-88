@@ -818,11 +818,12 @@ RS.finishScore = 0;
 RS.finishSeqLeft = 0;
 RS.skipRequested = false;
 // The ceremony code (src/racecall.js + src/racestage.js) is its own chunk, fetched at boot in
-// parallel with everything else, so it is ready long before anyone reaches the grid.
+// parallel with everything else, so it is ready long before anyone reaches the grid. racestage
+// re-exports racecall, so main holds one import for both (0283: main's budget).
 export let RC = null;
 export let callouts = null;
-export const ceremonyReady = Promise.all([import('./racecall.js'), import('./racestage.js')]).then(([call, stageMod]) => {
-  RC = { ...call, ...stageMod };
+export const ceremonyReady = import('./racestage.js').then((m) => {
+  RC = m;
   callouts = RC.createCallouts({ laps: RACE_LAPS });
 }).catch(() => {});
 RS.lapStartedAt = 0;

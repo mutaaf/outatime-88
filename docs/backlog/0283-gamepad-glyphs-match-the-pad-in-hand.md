@@ -1,7 +1,7 @@
 ---
 id: 0283
 title: Prompts name the buttons of the pad in hand (PlayStation, Switch) not only Xbox letters
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
@@ -48,3 +48,8 @@ hint text.
 
 ## Out of scope
 Rumble changes, button rebinding, drawing glyph icons (text symbols only), the `?tv` pad page.
+
+## Shipped note
+The first criterion's "✕ OR R1" was a slip: the rocket start is standard button 2 or RB
+(src/input.js), and button 2 is □ on a PlayStation pad, so the grid hint reads "PRESS □ OR R1".
+Gas (button 0) is ✕ · R2 as written. START keeps its name on every pad (OPTIONS / + is a follow-up).

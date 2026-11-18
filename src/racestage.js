@@ -5,6 +5,8 @@ import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState, setLastInput, padGone } from './input.js';
 import { finishResults, resultHeadline, lineupCall, startHint, START_HINTS, gridBeat, finishMargin, marginText } from './racecall.js';
+// main reads both modules through this one chunk (RC in src/main.js): one dynamic import, not two.
+export * from './racecall.js';
 import { carPortrait } from './car-sprite.js';
 
 const $ = (id) => document.getElementById(id);
@@ -64,7 +66,21 @@ window.addEventListener('gamepaddisconnected', () => {
 // The pad is back during that pause: say so (it never resumes on its own).
 window.addEventListener('gamepadconnected', () => { if (dropLive()) { drop.text = BACK_TXT; showDrop(); } });
 new MutationObserver(showDrop).observe($('garageModal'), { attributes: true, attributeFilter: ['class'] });
-const hint = () => startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
+// A pad's words name the pad in hand (0283), from an import()ed import-free chunk (not in main's preload map).
+let glyphs = null;
+const glyphsLoad = import('./pad-glyphs.js').then((m) => { glyphs = m; }).catch(() => {});
+const hint = () => {
+  const h = startHint(InputState.lastInput, window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys');
+  if (h !== START_HINTS.pad) return h;
+  if (glyphs) return glyphs.padTable(h);
+  // A race that starts before the names land (a cold load): rename the line in place once they do.
+  glyphsLoad.then(() => {
+    if (!glyphs) return;
+    const p = glyphs.padTable(h);
+    for (const [id, k] of [['rcHint', 'launch'], ['rcSkip', 'skip']]) if ($(id).textContent === h[k]) $(id).textContent = p[k];
+  });
+  return h;
+};
 
 const beep = (hz, len = 0.16, vol = 0.16, type = 'square') => { try { SoundEngine.playTone(hz, type, len, vol); } catch (e) {} };
 
