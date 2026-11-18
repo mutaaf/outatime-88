@@ -1,12 +1,12 @@
 ---
 id: 0284
 title: The speed meter tells screen readers the speed in mph, not a percentage of 160
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-11-18
-pr:
+pr: 284
 ---
 
 ## Why
@@ -29,12 +29,12 @@ unchanged or smaller; if main grows, move something else lazy first (rule in AGE
 FLUX, NOS and HP keep a percentage (that is what their bars show).
 
 ## Acceptance criteria
-- [ ] While racing at ~88 mph, the Speed meter's accessible value reads 88 (mph), and its
+- [x] While racing at ~88 mph, the Speed meter's accessible value reads 88 (mph), and its
       max reads 160; FLUX/NOS/HP still read 0-100.
-- [ ] `budget.spec.js` main JS ≤ 58 kB gz still passes.
-- [ ] No extra DOM writes per frame: the write stays change-only (existing hud unit test
+- [x] `budget.spec.js` main JS ≤ 58 kB gz still passes.
+- [x] No extra DOM writes per frame: the write stays change-only (existing hud unit test
       for change-only writes passes).
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse; no visual change.
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse; no visual change.
 
 ## Test plan
 Extend the 0280 hud unit test: feed a speed, assert the meter's `aria-valuenow` equals the
