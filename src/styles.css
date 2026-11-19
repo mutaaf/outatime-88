@@ -1196,3 +1196,6 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
 #announcerMain.is-beat { font-size: clamp(28px, 8vw, 44px); line-height: 1.1; padding: 2px 22px; transition: opacity 0.12s; }
 [data-motion="reduce"] #announcerMain.is-beat { transform: none !important; transition: none; }
 @media (prefers-reduced-motion: reduce) { #announcerMain.is-beat { transform: none !important; transition: none; } }
+/* 0286: a lap faster than your best turns the banner green (a slower one keeps the amber); the ▼ / ▲
+   glyph and the - / + sign say it too, so colour is never the only cue. Colour only: no flash, no slide. */
+#announcerMain.lap-gain { color: #4ade80; border-color: rgba(74, 222, 128, 0.7); }
