@@ -1662,9 +1662,9 @@ window.onload = () => {
   // Identity and the RACER opener are their own lazy chunk (0285), fetched right after boot;
   // the opener listener lives here so a tap before the chunk lands still opens the panel.
   const racerUi = import('./racer-ui.js');
-  racerUi.then((m) => m.initRacer({ SaveStore, freshSaveData, levels: WORLD_LEVELS, onChange: renderRacerPill })).catch(() => {}).finally(refreshRival);
+  racerUi.then((m) => m?.initRacer({ SaveStore, freshSaveData, levels: WORLD_LEVELS, onChange: renderRacerPill }), () => {}).finally(refreshRival);
   document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-open-racer], #btnRacer')) { e.preventDefault(); e.stopPropagation(); racerUi.then((m) => m.openRacer()); }
+    if (e.target.closest('[data-open-racer], #btnRacer')) { e.preventDefault(); e.stopPropagation(); racerUi.then((m) => m?.openRacer(), () => {}); }
   }, true);
 };
 
