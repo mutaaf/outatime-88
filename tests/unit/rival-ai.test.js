@@ -1,7 +1,7 @@
 // Rival racing AI (ticket 0160): corners, passes, NOS, loops, the tier ramp and determinism.
 import { describe, it, expect } from 'vitest';
 import { AI, aiTier, driverProfile, createBrain, rampBrain, cornerMph, createAiWorld, stepRival, pickNemesis, raceCalls, NEMESIS_LATEST } from '../../src/rival-ai.js';
-import { POP_CULTURE_ROSTER, MULTIVERSE_POOL } from '../../src/data.js';
+import { ROSTER, CAR_POOL } from '../../src/data.js';
 
 const DT = 1 / 120;
 const S2W = 125; // sim Z per mph·s (11000 / 88 at pace 1)
@@ -289,7 +289,7 @@ describe('raceCalls: crew grammar', () => {
   it('every roster driver gets the verb that agrees with it', () => {
     // The crews, by hand: a new two-driver name must be added here (and read right) on purpose.
     const CREWS = ['Rook & The Professor', 'Vex & Ion Arden', 'Ada Voss & LUMEN', 'Drs. Penn & Okafor', 'Cody & Clay Brandt'];
-    const drivers = [...POP_CULTURE_ROSTER, ...MULTIVERSE_POOL].map((r) => r.driver);
+    const drivers = [...ROSTER, ...CAR_POOL].map((r) => r.driver);
     expect(drivers.filter((d) => d.includes('&')).sort()).toEqual([...CREWS].sort());
     for (const driver of drivers) {
       expect(intro(driver)[1], driver).toBe(`${driver.toUpperCase()} ${CREWS.includes(driver) ? 'ARE' : 'IS'} GUNNING FOR YOU`);

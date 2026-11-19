@@ -2,7 +2,7 @@
 // underglow, the car sprite (or its placeholder) with its own flames, and the screen box
 // floating labels stay clear of.
 import { GameState } from '../state.js';
-import { POP_CULTURE_ROSTER } from '../data.js';
+import { ROSTER } from '../data.js';
 import { SaveStore } from '../save.js';
 import { RS, carArt, carPaint } from '../main.js';
 
@@ -23,7 +23,7 @@ export function drawPlayerCar(ctx, rw, rh, eraCfg) {
   const suspPx = Math.max(-14, Math.min(14, -(GameState.suspOffset || 0) + (GameState.chassisPitch || 0) * 0.8));
   const cy = Math.floor(rh * 0.87 - jumpOffset + bounce + (GameState.carJoltY || 0) + suspPx);
 
-  const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const activeChar = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   const liveryObj = carPaint(activeChar);
 
   ctx.save();

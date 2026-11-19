@@ -21,6 +21,8 @@ const DENYLIST = [
   'Vandura', 'La Bomba',
   // ticket 0018: real places/routes and parody car names
   'Mulholland', 'Wangan', 'Tokyo', 'Sentry-2000', 'Sentry 2000', 'Sentry2000', 'Go-Rocket', 'Go Rocket',
+  // ticket 0287: legacy identifiers that advertised borrowed homages (the roster is ROSTER, the pool CAR_POOL)
+  'POP_CULTURE', 'MULTIVERSE_POOL',
 ];
 // Short terms that are substrings of ordinary words ("Orbitron"): matched only when not
 // flanked by letters.

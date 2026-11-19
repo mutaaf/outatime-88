@@ -13,7 +13,7 @@
 import './live.css';
 import { GameState } from '../state.js';
 import { SaveStore } from '../save.js';
-import { ROAD_CFG, POP_CULTURE_ROSTER, WORLD_LEVELS, PACE_MODES } from '../data.js';
+import { ROAD_CFG, ROSTER, WORLD_LEVELS, PACE_MODES } from '../data.js';
 import { LIVE, LENGTHS, LEVEL_COUNT, cleanCode, cpuProfile, cpuZ, cpuX, cpuFinishMs } from '../worker/live-rules.js';
 import { cleanInitials } from '../worker/initials.js';
 import { createRoomSocket } from './net.js';
@@ -55,7 +55,7 @@ export function setRoomParam(c) {
   } catch { /* sandboxed iframe */ }
 }
 
-const carOf = (i) => POP_CULTURE_ROSTER[i] || POP_CULTURE_ROSTER[0];
+const carOf = (i) => ROSTER[i] || ROSTER[0];
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 /** "LVL 1: CLOCK HOLLOW 2026 3D" → "CLOCK HOLLOW 2026 3D" */
 const trackName = (l) => (l ? l.name.replace(/^LVL \d+:\s*/, '') : 'LIVE RACE');
@@ -656,7 +656,7 @@ export function createLive(hooks) {
     } else if (act === 'start') sock && sock.send({ t: 'start' });
     else if (act === 'car') {
       // Step to the next car you own (locked cars are skipped, 0071).
-      const n = POP_CULTURE_ROSTER.length;
+      const n = ROSTER.length;
       const dir = Number(b.dataset.dir);
       let next = GameState.selectedCharIdx | 0;
       for (let i = 0; i < n; i++) {

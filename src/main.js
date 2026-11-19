@@ -2,7 +2,7 @@ import './fonts.js';
 import './styles.css';
 import { boardsDebug } from './billboards.js';
 import { preloadBackdrops, resetBackdrop, backdropDebug, setBackdropQuality } from './backdrop.js';
-import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, UPGRADE_DEFS, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
+import { WORLD_LEVELS, ERAS, UNDERGLOW_OPTIONS, LIVERY_OPTIONS, ROSTER, CAR_POOL, UPGRADE_DEFS, JARVIS_MODES, ROAD_CFG, PACE_MODES, CAMERA_MODES } from './data.js';
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine, setAudioHooks, loadMusic } from './audio.js';
@@ -209,7 +209,7 @@ export const LiveTraffic = {
     // The field (ticket 0051): five named rivals from the roster (never your own driver) on a
     // two-wide grid, you at the back. Each keeps its name for the whole race.
     const playerZ0 = this.prevPlayerZ;
-    const field = POP_CULTURE_ROSTER.filter((rc, i) => i !== GameState.selectedCharIdx).slice(0, FIELD_SIZE - 1);
+    const field = ROSTER.filter((rc, i) => i !== GameState.selectedCharIdx).slice(0, FIELD_SIZE - 1);
     const pace = currentDifficulty().rivalPace;
     this.racers = field.map((rc, idx) => {
       const slot = gridSlot(idx);
@@ -552,7 +552,7 @@ function syncContactZ() {
 // --- WORLD TOUR LEVEL SELECTOR & DUB GARAGE UI ---
 /** The physics numbers for the car you're driving (src/cars.js, ticket 0071). */
 export function activeCarParams() {
-  const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const c = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   if (!GameState.carParams || GameState.carParamsFor !== c.id) {
     GameState.carParams = carParams(c);
     GameState.carParamsFor = c.id;
@@ -570,19 +570,19 @@ export function carPaint(c) {
 
 /** Index of the next car you own after `from` (locked cars are skipped). */
 function nextOwnedCarIndex(from) {
-  for (let k = 1; k <= POP_CULTURE_ROSTER.length; k++) {
-    const i = (from + k) % POP_CULTURE_ROSTER.length;
-    if (isOwned(SaveStore.data, POP_CULTURE_ROSTER[i].id)) return i;
+  for (let k = 1; k <= ROSTER.length; k++) {
+    const i = (from + k) % ROSTER.length;
+    if (isOwned(SaveStore.data, ROSTER[i].id)) return i;
   }
   return from;
 }
 
 function selectCharacterByIndex(idx) {
-  const want = ((idx % POP_CULTURE_ROSTER.length) + POP_CULTURE_ROSTER.length) % POP_CULTURE_ROSTER.length;
+  const want = ((idx % ROSTER.length) + ROSTER.length) % ROSTER.length;
   // Locked cars can't be driven; fall back to the car you had.
-  if (!isOwned(SaveStore.data, POP_CULTURE_ROSTER[want].id)) return false;
+  if (!isOwned(SaveStore.data, ROSTER[want].id)) return false;
   GameState.selectedCharIdx = want;
-  const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx];
+  const c = ROSTER[GameState.selectedCharIdx];
   SoundEngine.setEngineVoice(c.shape, c.car);
   if (SaveStore.data.garage.selected !== c.id) {
     SaveStore.data.garage.selected = c.id;
@@ -610,7 +610,7 @@ function selectCharacterByIndex(idx) {
 function renderCharacterRosterGrid() {
   levelSelect = levelSelect || import('./level-select.js');
   return levelSelect.then((m) => m.renderRosterGrid({
-    GameState, SaveStore, roster: POP_CULTURE_ROSTER, locked: (id) => openGarageModal(id),
+    GameState, SaveStore, roster: ROSTER, locked: (id) => openGarageModal(id),
     pick: (idx) => { selectCharacterByIndex(idx); SoundEngine.playCoinPickup(); },
   }));
 }
@@ -641,7 +641,7 @@ export function loadGarageUI() {
   if (!garageLoading) {
     garageLoading = import('./garage-ui.js').then(({ createGarageUI }) => {
       garageUI = createGarageUI({
-        save: SaveStore, roster: POP_CULTURE_ROSTER, liveries: LIVERY_OPTIONS, underglows: UNDERGLOW_OPTIONS,
+        save: SaveStore, roster: ROSTER, liveries: LIVERY_OPTIONS, underglows: UNDERGLOW_OPTIONS,
         upgradeDefs: UPGRADE_DEFS, sound: SoundEngine,
         selectedIndex: () => GameState.selectedCharIdx,
         drive: (i) => selectCharacterByIndex(i),
@@ -1091,7 +1091,7 @@ function bindAllControls() {
   if (quickCarBtn) {
     quickCarBtn.addEventListener('click', () => {
       selectCharacterByIndex(nextOwnedCarIndex(GameState.selectedCharIdx));
-      const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx];
+      const c = ROSTER[GameState.selectedCharIdx];
       triggerAnnouncement(`🏎️ ${c.car.toUpperCase()}`, `${c.driver} (${c.franchise})`, 1100);
     });
   }
@@ -1275,7 +1275,7 @@ function collectCarsFor3D(out) {
 }
 
 function playerPaint() {
-  const ch = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const ch = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   return { body: carPaint(ch).body, underglow: SaveStore.data.underglow || ch.glow, shape: ch.shape };
 }
 
@@ -1629,7 +1629,7 @@ window.onload = () => {
     lowEnd: isLowEnd(),
   }), { persist: false });
   renderCharacterRosterGrid();
-  const savedCar = POP_CULTURE_ROSTER.findIndex((c) => c.id === SaveStore.data.garage.selected);
+  const savedCar = ROSTER.findIndex((c) => c.id === SaveStore.data.garage.selected);
   if (!selectCharacterByIndex(Math.max(0, savedCar))) selectCharacterByIndex(0);
   renderLevelSelectGrid();
   setTimeout(() => syncRunnerUi(true), 0); // endless goals on the title (ticket 0151)
@@ -1690,7 +1690,7 @@ function paintTitleBest() {
 // directly, or this object keeps it in the startup bundle (0223).
 export const RACE_DEPS = {
   CAR_SPECS, CONTINUE, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, PACE_MODES,
-  PICKUP, PICKUPS, POP_CULTURE_ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
+  PICKUP, PICKUPS, ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
   WORLD_LEVELS, addItem, addNos, addRoadSection, applyRunResult, beginRun, boostOutcome, canContinue,
   continueCost, createDrive, createGhostRecorder, createHitStop, createHud, createLateral,
   createNos, createOnboarding, createRaceClock, createSteer, createStorm,

@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { RADIO, RADIO_T, radioLine, createRadio, radioEvents, radioReady } from '../../src/radio.js';
-import { POP_CULTURE_ROSTER } from '../../src/data.js';
+import { ROSTER } from '../../src/data.js';
 import { priorityFor } from '../../src/announcer.js';
 
 const racer = (crew, progress) => ({ crew, driver: 'X', progress, takenDown: false, finishTime: null });
 
 describe('rival radio lines (0277)', () => {
   it('every crew a rival can race for has at least 3 short, original lines', () => {
-    for (const rc of POP_CULTURE_ROSTER) {
+    for (const rc of ROSTER) {
       const t = RADIO[rc.franchise];
       expect(t, rc.franchise).toBeTruthy();
       const all = [...t.by, ...t.lost, ...t.down];
@@ -19,7 +19,7 @@ describe('rival radio lines (0277)', () => {
         expect(priorityFor(l), l).toBe(1); // never reads as a warp / takedown banner
       }
     }
-    expect(Object.keys(RADIO).length).toBe(new Set(POP_CULTURE_ROSTER.map((r) => r.franchise)).size);
+    expect(Object.keys(RADIO).length).toBe(new Set(ROSTER.map((r) => r.franchise)).size);
   });
 
   it('picks the same line for the same seed and count, and spreads over seeds', () => {

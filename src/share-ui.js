@@ -2,7 +2,7 @@
 // the QR encoder live in a lazy chunk (src/share.js) fetched when results open.
 import { SaveStore } from './save.js';
 import { GameState } from './state.js';
-import { POP_CULTURE_ROSTER, WORLD_LEVELS } from './data.js';
+import { ROSTER, WORLD_LEVELS } from './data.js';
 import { ordinal, formatRaceTime } from './raceflow.js';
 import { parseChallenge, challengeUrl, challengeBannerText, shareCopy, challengeVerdict } from './sharelink.js';
 
@@ -21,7 +21,7 @@ const BASE = () => `${location.origin}${import.meta.env.BASE_URL}`;
 function cardData() {
   const r = GameState.lastResult;
   if (!r || ((!r.rows || !r.rows.length) && !r.endless)) return null;
-  const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const me = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   const initials = SaveStore.data.initials || '';
   if (r.endless) {
     const url = `${BASE()}?play=infinite`;

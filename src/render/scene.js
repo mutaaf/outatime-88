@@ -2,7 +2,7 @@
 // road (road.js), what stands on it (sprites.js), the player car (player.js) and the car FX
 // (fx.js), then blits the buffer onto the display canvas with the speed feel on top.
 import { GameState } from '../state.js';
-import { ROAD_CFG, POP_CULTURE_ROSTER } from '../data.js';
+import { ROAD_CFG, ROSTER } from '../data.js';
 import { SaveStore } from '../save.js';
 import { SoundEngine } from '../audio.js';
 import { track, featureAt } from '../track.js';
@@ -92,7 +92,7 @@ export function renderScene() {
   if (rideF) {
     const z = GameState.trackPos + ROAD_CFG.playerZOffset;
     const blend = setPieceArt.rideBlend(rideF, z - rideF.z0);
-    const paint = carPaint(POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0]);
+    const paint = carPaint(ROSTER[GameState.selectedCharIdx] || ROSTER[0]);
     rideMovers[0] = LiveTraffic.racers; rideMovers[1] = LiveTraffic.traffic; rideMovers[2] = live.ghosts;
     const ride = setPieceArt.drawLoopRide(ctx, rw, rh, {
       f: rideF, z, lat: GameState.playerX, peelT: GameState.peeledLoop === rideF ? GameState.peelT : null,
@@ -184,7 +184,7 @@ export function renderScene() {
   drawSparks(mainCtx, rw, rh);
   // Calm mode's side-on loop cam (sprint 4) while you're going round a loop.
   if (setPieceArt && GameState.reducedMotion && rollF && rollF.kind === 'LOOP') {
-    const pc = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+    const pc = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
     setPieceArt.drawCutaway(mainCtx, viewW, viewH, {
       t: progressIn(rollF, GameState.trackPos + ROAD_CFG.playerZOffset), mph: GameState.speed,
       color: pc.body, eraCfg, failed: GameState.peeledLoop === rollF, reduced: GameState.reducedMotion,

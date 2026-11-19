@@ -5,11 +5,11 @@ import {
   crackleRate, squealLayer, driftTone, windFor, dopplerRatio, passedBy, passByGain, crunchFor,
   reverbFor, musicCutoff,
 } from '../../src/sfx/street-params.js';
-import { POP_CULTURE_ROSTER } from '../../src/data.js';
+import { ROSTER } from '../../src/data.js';
 
 describe('engine character per car', () => {
   it('maps every roster car to a known character', () => {
-    for (const c of POP_CULTURE_ROSTER) expect(CHARACTERS[characterFor(c.shape, c.car)], c.car).toBeTruthy();
+    for (const c of ROSTER) expect(CHARACTERS[characterFor(c.shape, c.car)], c.car).toBeTruthy();
   });
   it('muscle rumbles, tuners and the rotary spool a turbo, the electric and the rocket stay clean', () => {
     expect(characterFor('MUSCLE')).toBe('v8');
