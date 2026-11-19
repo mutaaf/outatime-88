@@ -53,7 +53,9 @@ export const SaveStore = {
     // Run missions (ticket 0026): { day, done, best } for today; another day reads as zero.
     missions: null,
     // Endless Highway (ticket 0150): { bestDistance, bestTier, runs }; null until the first run.
-    endless: null
+    endless: null,
+    // Lap splits (ticket 0286): { [levelIndex]: [best lap 1, 2, 3] } (src/lap-split.js).
+    bestLaps: {}
   },
   load() {
     try {

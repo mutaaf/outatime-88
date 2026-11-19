@@ -20,19 +20,21 @@ describe('lap split versus your best (ticket 0286)', () => {
     const c = lapCall(1, 40.78, 41.2);
     expect(c.kind).toBe('gain');
     expect(c.main).toBe('LAP 1 ▼ -0.42');
-    expect(c.sub).toBe('YOUR BEST 41.20');
+    expect(c.sub).toBe('FASTER THAN YOUR BEST 41.20');
   });
 
   it('a slower lap reads as a loss with a plus sign and an up glyph', () => {
     const c = lapCall(2, 39.21, 38.9);
     expect(c.kind).toBe('loss');
     expect(c.main).toBe('LAP 2 ▲ +0.31');
+    expect(c.sub).toBe('SLOWER THAN YOUR BEST 38.90');
   });
 
   it('a lap that matches your best to the hundredth is level, never a gain or a loss', () => {
     const c = lapCall(2, 38.902, 38.9);
     expect(c.kind).toBe('even');
     expect(c.main).toBe('LAP 2 = 0.00');
+    expect(c.sub).toBe('LEVEL WITH YOUR BEST 38.90');
   });
 
   it('the sign carries the meaning, never the colour alone', () => {
@@ -44,13 +46,10 @@ describe('lap split versus your best (ticket 0286)', () => {
   it('formats long deltas and best laps over a minute', () => {
     expect(splitText(-12.346)).toBe('-12.35');
     expect(splitText(0.004)).toBe('0.00');
-    expect(lapCall(3, 75.5, 62.25).sub).toBe('YOUR BEST 1:02.25');
-  });
-
-  it('keeps the shortest strings: the line fits a 320 px phone', () => {
-    // Courier-width estimate at the announcer's 12 px: 0.6 em a glyph, under 280 px of pill.
-    const c = lapCall(3, 99.99, 10);
-    expect(c.main.length * 12 * 0.6).toBeLessThan(280);
+    expect(splitText(-0.004)).toBe('0.00'); // never "-0.00"
+    expect(splitText(0.006)).toBe('+0.01');
+    expect(splitText(-0.006)).toBe('-0.01');
+    expect(lapCall(3, 75.5, 62.25).sub).toBe('SLOWER THAN YOUR BEST 1:02.25');
   });
 
   it('folds a finished race into the best of each lap', () => {
@@ -89,6 +88,7 @@ describe('bestLaps in the save (invariant 6)', () => {
     const { SaveStore } = await import('../../src/save.js');
     SaveStore.load();
     expect(SaveStore.data.bestScore).toBe(120000);
+    expect(SaveStore.data.bestLaps).toEqual({}); // the default fills in
     expect(bestLapsFor(SaveStore.data, '0')).toEqual([]);
   });
 

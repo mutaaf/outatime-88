@@ -2,8 +2,10 @@
 // frame from there. It watches GameState.lapSplits grow (race-flow pushes a lap as you cross the
 // line, and the last one at the finish), so race-flow and race-step need no new code. A lap
 // crossed mid-race is compared with your best for that lap on this level and announced on the one
-// channel (src/announcer.js, priority 2: it waits behind FINAL LAP! and is dropped if stale). At the
-// finish the bests are saved. Solo campaign races only (src/lap-split.js lapCounts).
+// channel (src/announcer.js) at priority 3: it takes over the "LAP 2/3" call pushed the frame before
+// (that call is still fading in, so it never reads) and a WAVE banner, which would otherwise hold it
+// past the queue's stale limit, and waits behind FINAL LAP! (also 3). The last lap lands at the finish:
+// it is saved, not called (the flag owns the screen). Solo campaign races only (lapCounts).
 // The colour is a second cue only: the glyph and sign say gain or loss (invariant 8).
 import { RACE_DEPS, triggerAnnouncement } from './main.js';
 import { bestLapsFor, foldBest, lapCall, lapCounts } from './lap-split.js';
@@ -34,7 +36,7 @@ export function lapFrame() {
   const best = bestLapsFor(S.data, key);
   if (G.racePhase === 'RACING') {
     const c = lapCall(n, L[n - 1], best[n - 1]);
-    if (c) { shown = c; shownUntil = performance.now() + 4500; triggerAnnouncement(c.main, c.sub, 1600, 2); tint(); }
+    if (c) { shown = c; shownUntil = performance.now() + 4500; triggerAnnouncement(c.main, c.sub, 1600, 3); tint(); }
   } else if (G.racePhase === 'FINISHED') {
     const all = S.data.bestLaps && typeof S.data.bestLaps === 'object' ? S.data.bestLaps : {};
     S.data.bestLaps = { ...all, [key]: foldBest(best, L) };

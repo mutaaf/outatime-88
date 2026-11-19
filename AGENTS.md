@@ -203,9 +203,9 @@ src/radio.js        Rival radio (0277), pure: each crew's own lines (by / lost /
 src/career-stats.js Career stats (0278), pure, its own import-free chunk: bestChain + distance (MPH·s; /3600 = miles) folded into the save's `career`
                       at race end (race-flow), five sanitised rows for the CAREER STATS section (settings-panel). Both import()
                       it: a static import from two lazy chunks makes a shared chunk that lands in main's preload map
-src/lap-split.js    Lap split (0286), pure: SaveStore.data.bestLaps { [levelIndex]: [best lap 1, 2, 3] } (no default: old saves read
+src/lap-split.js    Lap split (0286), pure: SaveStore.data.bestLaps { [levelIndex]: [best lap 1, 2, 3] } (default {}; junk reads
                       as no best), the "LAP n ▼ -0.42" text and fold. Glue src/lap-split-run.js is its own lazy chunk fetched by
-                      race-late: it watches GameState.lapSplits grow (race-flow untouched), announces at priority 2, saves at the finish
+                      race-late: it watches GameState.lapSplits grow (race-flow untouched), announces at priority 3 (over the LAP n/3 call), saves at the finish
 src/race-late.js    Race-late chunk (0233): what the race step first needs well after the lights, the opt-in lane guide
                       (src/lane-guide.js, 0219) and the arrival stretch (src/arrival.js). race-step.js import()s it as soon as it runs
                       and null-checks both until it lands; put cold, after-GO race code here, not in race-step

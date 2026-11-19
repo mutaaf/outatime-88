@@ -19,7 +19,7 @@ const record = (page, save) => page.addInitScript(([k, s]) => {
       if (text) {
         const r = box.getBoundingClientRect();
         out.push({ text, sub: document.getElementById('announcerSub').textContent, cls: [...box.classList].filter((c) => c.startsWith('lap-')).join(' '),
-          left: r.left, right: r.right });
+          color: getComputedStyle(box).color, left: r.left, right: r.right }); // colour on the line's first frame
       }
     }
     requestAnimationFrame(look);
@@ -53,7 +53,7 @@ test('a lap faster than your best: "LAP 1 ▼ -x.xx" in green, whole on screen a
   await expect.poll(() => lapCalls(page), { timeout: 8000 }).toHaveLength(1);
   const [c] = await lapCalls(page);
   expect(c.text).toMatch(/^LAP 1 ▼ -\d+\.\d\d$/);
-  expect(c.sub).toBe('YOUR BEST 15:00.00');
+  expect(c.sub).toBe('FASTER THAN YOUR BEST 15:00.00');
   expect(c.cls).toBe('lap-gain');
   // The box eases its colours (transition-all 300 ms), so read the settled colour while the line is up.
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.getElementById('announcerMain')).color)).toBe('rgb(74, 222, 128)');
@@ -75,7 +75,8 @@ test('a slower lap: "▲ +x.xx" in amber, whole at 320 px wide; the next line lo
   // Any later line wears the default colours, never the lap's.
   await page.waitForFunction(() => document.getElementById('announcerMain').style.opacity !== '1', null, { timeout: 8000 });
   await page.evaluate(() => window.__OT.announce('TEST LINE', '', 1500, 3));
-  await expect.poll(() => page.evaluate(() => window.__calls.at(-1))).toMatchObject({ text: 'TEST LINE', cls: '' });
+  // …from its first frame: the box doesn't ease colours, so no green fades off the next line.
+  await expect.poll(() => page.evaluate(() => window.__calls.at(-1))).toMatchObject({ text: 'TEST LINE', cls: '', color: 'rgb(252, 211, 77)' });
 });
 
 test('no saved best: no delta; the finish saves every lap and it survives a reload', async ({ page }) => {
@@ -95,6 +96,15 @@ test('no saved best: no delta; the finish saves every lap and it survives a relo
   await page.waitForFunction(() => window.__OT && window.__OT.GameState);
   await page.evaluate(() => window.__OT.ready()); // booted: the save was loaded (and re-saved) by then
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).bestLaps[0], SAVE)).toEqual(saved);
+  // The next race reads it back: lap 1 is now called against the saved lap 1.
+  await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+  await racing(page, { minTime: 1 });
+  await page.evaluate(() => { window.__OT.GameState.waveTier = 99; });
+  await crossLap1(page);
+  await expect.poll(() => lapCalls(page), { timeout: 8000 }).toHaveLength(1);
+  const [c] = await lapCalls(page);
+  expect(c.text).toMatch(/^LAP 1 [▼▲=] [-+]?\d+\.\d\d$/);
+  expect(c.sub).toMatch(new RegExp(` YOUR BEST ${saved[0].toFixed(2)}$`));
   expect(problems).toEqual([]);
 });
 
@@ -107,4 +117,13 @@ test('a daily race never calls a split', async ({ page }) => {
   const t0 = await page.evaluate(() => window.__OT.GameState.raceTime);
   await page.waitForFunction((t) => window.__OT.GameState.raceTime > t + 3 || window.__OT.GameState.status !== 'PLAYING', t0, { timeout: 20000 });
   expect(await lapCalls(page)).toEqual([]);
+});
+
+test('a banner already up at the crossing (a WAVE) does not make the split go stale', async ({ page }) => {
+  await record(page, { onboarded: true, bestLaps: { 0: [900, 900, 900] } });
+  await startArcade(page);
+  // What a real lap end can meet on some tracks (level 6's wave lands 33 units before its lap line).
+  await page.evaluate(() => window.__OT.announce('🌊 WAVE 9 REACHED!', 'SPEED & OBSTACLE INTENSITY UP!', 1400));
+  await crossLap1(page);
+  await expect.poll(() => lapCalls(page), { timeout: 8000 }).toHaveLength(1);
 });

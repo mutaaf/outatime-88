@@ -1199,3 +1199,6 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
 /* 0286: a lap faster than your best turns the banner green (a slower one keeps the amber); the ▼ / ▲
    glyph and the - / + sign say it too, so colour is never the only cue. Colour only: no flash, no slide. */
 #announcerMain.lap-gain { color: #4ade80; border-color: rgba(74, 222, 128, 0.7); }
+/* The box's Tailwind transition-all would ease the green onto (and off) the next line: only opacity
+   and the pop animate. */
+#announcerMain { transition-property: opacity, transform; }
