@@ -34,9 +34,23 @@ test('main bundle stays in budget and does not contain three.js', () => {
   // 59 → 58 (0223, 2026-10-29): main was 58.98 with ~13 bytes free. Scoring and the fork cue moved
   // into the race chunks, the tilt sensor into its own chunk (src/tilt.js), the garage's ratings
   // and buying (src/car-shop.js) and the RACER panel's save parking out of startup: ~57.3 today.
-  console.log(`[budget] main startup ${total.toFixed(2)} kB gzipped (limit 58)`); // the CI number, in the CI log
-  expect(total).toBeLessThan(58);
+  // 58 → 57 (0285, 2026-11-19): main was 57.95 with ~50 bytes free. Identity (link and recovery
+  // codes, friends, racer switch) and the RACER boot moved to lazy chunks: ~56.5 today.
+  console.log(`[budget] main startup ${total.toFixed(2)} kB gzipped (limit 57)`); // the CI number, in the CI log
+  expect(total).toBeLessThan(57);
   for (const f of files) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('WebGLRenderer');
+});
+
+test('identity and the RACER boot are lazy chunks, not part of startup (0285)', () => {
+  const files = readdirSync(DIR);
+  const ident = files.filter((f) => /^identity-.*\.js$/.test(f));
+  const ui = files.filter((f) => /^racer-ui-.*\.js$/.test(f));
+  expect(ident.length).toBe(1);
+  expect(ui.length).toBe(1);
+  const start = startup();
+  expect(start).not.toContain(ident[0]);
+  expect(start).not.toContain(ui[0]);
+  for (const f of start) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('/recovery/redeem');
 });
 
 test('the race step is a lazy chunk in its own budget (0170)', () => {
