@@ -82,6 +82,17 @@ test('the lane guide and arrival stretch are their own small lazy chunk (0233)',
   expect(readFileSync(`${DIR}/${step[0]}`, 'utf8')).not.toContain('lo:330,hi:880'); // …and not in the step chunk
 });
 
+test('the lap split call is its own small lazy chunk, fetched by race-late (0286)', () => {
+  const files = readdirSync(DIR);
+  const lap = files.filter((f) => /^lap-split-run-.*\.js$/.test(f));
+  expect(lap.length).toBe(1);
+  console.log(`[budget] lap split ${gz(lap[0]).toFixed(2)} kB gzipped (limit 1.5)`);
+  expect(gz(lap[0])).toBeLessThan(1.5); // today ~1.0 kB: the compare, the text and the save
+  expect(startup()).not.toContain(lap[0]);
+  const late = files.find((f) => /^race-late-.*\.js$/.test(f));
+  expect(readFileSync(`${DIR}/${late}`, 'utf8')).toContain(lap[0]); // race-late fetches it
+});
+
 test('the rival radio is its own small lazy chunk, fetched by race-late (0277)', () => {
   const files = readdirSync(DIR);
   const radio = files.filter((f) => /^radio-run-.*\.js$/.test(f));

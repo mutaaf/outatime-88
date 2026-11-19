@@ -1,12 +1,12 @@
 ---
 id: 0286
 title: Lap split versus your best lap, announced the moment you cross the line
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-11-19
-pr:
+pr: 287
 ---
 
 ## Why
