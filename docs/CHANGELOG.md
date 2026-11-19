@@ -213,3 +213,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-18 · 0283 · With a PlayStation or Switch controller, the start lights, crash tips, flux hint and pause controls card name that pad's own buttons (□ / R1, ✕ · R2; Y / R, B · ZR) instead of Xbox letters.
 2026-11-18 · 0282 · Reflector posts in each era's rail colour now stream past both road edges in the 2D race, so long empty stretches still feel fast (none on the 2061 skyway, which has no guardrail).
 2026-11-18 · 0284 · Screen readers now hear the race speed meter in mph ("88" at 88 mph, out of 160) instead of a percentage of the bar.
+2026-11-19 · 0285 · The title downloads about 1.5 kB less before it starts: racer identity now loads just after the first frame, with nothing changed for players.

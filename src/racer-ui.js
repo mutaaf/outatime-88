@@ -1,6 +1,7 @@
 // Who's playing (ticket 0090): boots the zero-login identity, keeps this device's save in
 // step with the racer, captures friends from links, and opens the RACER panel — whose code
-// (and the QR encoder) loads only when it's first opened, so the title stays light.
+// (and the QR encoder) loads only when it's first opened, so the title stays light. This module
+// is itself a lazy chunk (0285): main import()s it right after boot and owns the opener click.
 
 import { initIdentity, profile, onIdentity, setProfile, addFriends, PUB_RE } from './identity.js';
 import { mergeServerBests } from './progress.js';
@@ -18,15 +19,11 @@ export async function closeRacer() {
 }
 
 /**
- * Boot: restore/issue the racer, sync initials and bests with this device's save, wire the
- * openers, and handle a ?link=CODE deep link. Never blocks the game; resolves when done.
+ * Boot: restore/issue the racer, sync initials and bests with this device's save, and handle a
+ * ?link=CODE deep link. Never blocks the game; resolves when done.
  */
 export async function initRacer(options) {
   deps = { reload: () => location.reload(), ...options };
-  document.addEventListener('click', (e) => {
-    const opener = e.target.closest('[data-open-racer], #btnRacer');
-    if (opener) { e.preventDefault(); e.stopPropagation(); openRacer(); }
-  }, true);
   const params = new URLSearchParams(location.search);
   const code = params.get('link');
   if (code) {

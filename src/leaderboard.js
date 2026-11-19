@@ -1,8 +1,6 @@
 // Leaderboard client (ticket 0025). Talks only to our own origin (/outatime/api/*). Every
 // call fails soft: the game never waits on the network and never shows an error dialog.
 
-import { authHeaders } from './identity.js';
-
 const API = `${import.meta.env.BASE_URL}api`;
 const TIMEOUT_MS = 6000;
 
@@ -14,9 +12,11 @@ export async function call(path, init) {
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     // Runs count for this device's racer (ticket 0090): the cookie, or its mirrored credential.
+    // Identity is a lazy chunk (0285); main has already asked for it, so this is a cached module.
+    const auth = await import('./identity.js').then((m) => m.authHeaders(), () => ({}));
     const res = await fetch(`${API}${path}`, {
       ...init, signal: ctrl.signal, credentials: 'same-origin',
-      headers: { 'content-type': 'application/json', ...authHeaders() },
+      headers: { 'content-type': 'application/json', ...auth },
     });
     const body = await res.json().catch(() => ({}));
     return { ok: res.ok, status: res.status, body };

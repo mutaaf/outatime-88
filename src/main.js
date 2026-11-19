@@ -53,8 +53,6 @@ import { createGhostRecorder, createGhostRace } from './ghost.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
 import { carParams, isOwned, unlockProgress, recordRace, ensureGarage, CAR_SPECS } from './cars.js';
-import { initRacer } from './racer-ui.js';
-import { setProfile } from './identity.js';
 import { LIVE } from './worker/live-rules.js';
 /** Race state the lazy race step (race-step.js) writes as well as main: one shared object. */
 export const RS = {};
@@ -1038,7 +1036,7 @@ function bindAllControls() {
     if (!ini) { input.focus(); return; }
     SaveStore.data.initials = ini;
     SaveStore.save();
-    setProfile({ initials: ini });
+    import('./identity.js').then((m) => m.setProfile({ initials: ini })).catch(() => {});
     withResults((ui) => ui.postScore(ini));
   });
   // Typing initials must not steer the car or trigger shortcuts.
@@ -1661,7 +1659,13 @@ window.onload = () => {
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(mainLoop);
   // Zero-login identity (ticket 0090): silent, never blocks the title.
-  initRacer({ SaveStore, freshSaveData, levels: WORLD_LEVELS, onChange: renderRacerPill }).finally(refreshRival);
+  // Identity and the RACER opener are their own lazy chunk (0285), fetched right after boot;
+  // the opener listener lives here so a tap before the chunk lands still opens the panel.
+  const racerUi = import('./racer-ui.js');
+  racerUi.then((m) => m?.initRacer({ SaveStore, freshSaveData, levels: WORLD_LEVELS, onChange: renderRacerPill }), () => {}).finally(refreshRival);
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-open-racer], #btnRacer')) { e.preventDefault(); e.stopPropagation(); racerUi.then((m) => m?.openRacer(), () => {}); }
+  }, true);
 };
 
 let titleStart; // a deep link can make the title tap start today's daily (ticket 0110)

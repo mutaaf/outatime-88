@@ -1,12 +1,12 @@
 ---
 id: 0285
 title: Free at least 1 kB gz of main startup JS again (identity and track code the title does not need)
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: tech-health
 created: 2026-11-19
-pr:
+pr: 286
 ---
 
 ## Why
