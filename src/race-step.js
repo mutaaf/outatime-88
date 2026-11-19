@@ -13,7 +13,7 @@ import {
 // those modules (or as re-exports) would make the bundler split them into extra startup chunks.
 const {
   CAR_SPECS, CONTINUE, ENDLESS, ERAS, FLUX, GameState, InputState, PACE_MODES,
-  PICKUP, PICKUPS, POP_CULTURE_ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
+  PICKUP, PICKUPS, ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
   WORLD_LEVELS, addItem, addNos, addRoadSection, boostOutcome, canContinue,
   continueCost, createGhostRecorder, createHitStop, createNos, createSteer, createStorm,
   crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
@@ -149,7 +149,7 @@ export function applyPlayerDamage(rawDmg, reasonText) {
   const hitKind = reasonText.includes('TRAFFIC') ? 'traffic' : 'obstacle';
   const impactMph = Math.max(GameState.speed, GameState.prevSpeed || 0);
   chargePenalty(logHit(GameState.penaltyLog, hitKind, impactMph), hitKind === 'traffic' ? 'TRAFFIC CRASH' : reasonText.replace('IMPACT', 'HIT'));
-  const charObj = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const charObj = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   if (charObj.id === 'IRON_SAINT_BRAWLER' && reasonText.includes('BARRIER')) {
     // Dez's 1,780kg Brawler smashes barriers with 0 damage!
     return;
@@ -591,7 +591,7 @@ let latCarP = null, latTires = 0;
 export function resetNos() {
   if (!late) loadLate(); // every race start comes through here
   resetFlashBudget(); GameState.warpLit = true; // the race clock starts over (0234)
-  const c = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const c = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   const spec = CAR_SPECS[c.id];
   RS.nos = createNos(nosFor(spec ? spec.stats.flux : 5));
   GameState.nosBurning = false;
@@ -682,7 +682,7 @@ export function updateGame(rawDt) {
 
   // Update Invulnerability & Voss Nanotech Regen + Endless-Run Progressive Wave Tier
   if (GameState.invulnTimer > 0) GameState.invulnTimer = Math.max(0, GameState.invulnTimer - rawDt);
-  const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const activeChar = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   if (activeChar.id === 'ARC_ROADSTER_88' && GameState.hp < GameState.maxHp) {
     GameState.hp = Math.min(GameState.maxHp, GameState.hp + 2.0 * rawDt);
   }
@@ -1493,7 +1493,7 @@ export const LiveTrafficMethods = {
 
     const speedToWorld = (11000 * paceMult) / 88;
     const playerWorldVZ = GameState.speed * speedToWorld;
-    const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+    const activeChar = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
     const playerMass = activeCarParams().massKg;
     const playerInvMass = 1 / playerMass;
     const playerHalfW = (GameState.twoWheelTimer > 0 || activeChar.shape === 'LIGHTCYCLE') ? 0.10 : 0.14;

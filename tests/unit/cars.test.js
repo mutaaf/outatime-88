@@ -4,14 +4,14 @@ import {
   grantEarnedCars, recordRace, noteRivalBeaten, isOwned,
 } from '../../src/cars.js';
 import { STATS, displayStats, buyCar } from '../../src/car-shop.js';
-import { POP_CULTURE_ROSTER } from '../../src/data.js';
+import { ROSTER } from '../../src/data.js';
 
 const freshSave = (extra = {}) => ensureGarage({ fluxCoins: 250, progress: {}, ...extra });
-const byId = (id) => POP_CULTURE_ROSTER.find((c) => c.id === id);
+const byId = (id) => ROSTER.find((c) => c.id === id);
 
 describe('car roster (ticket 0071)', () => {
   it('every roster car has specs and every spec has a roster car', () => {
-    expect(Object.keys(CAR_SPECS).sort()).toEqual(POP_CULTURE_ROSTER.map((c) => c.id).sort());
+    expect(Object.keys(CAR_SPECS).sort()).toEqual(ROSTER.map((c) => c.id).sort());
   });
 
   it('every car spends the same rating budget, each rating 1..10', () => {
@@ -94,7 +94,7 @@ describe('car roster (ticket 0071)', () => {
   });
 
   it('roster maxHp matches the durability rating', () => {
-    for (const c of POP_CULTURE_ROSTER) expect(c.maxHp, c.id).toBe(carParams(c).maxHp);
+    for (const c of ROSTER) expect(c.maxHp, c.id).toBe(carParams(c).maxHp);
   });
 
   it('displayed ratings grow with upgrades but never pass 10', () => {

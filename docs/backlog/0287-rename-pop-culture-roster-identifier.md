@@ -1,12 +1,12 @@
 ---
 id: 0287
 title: Rename the legacy POP_CULTURE_ROSTER identifier to ROSTER (no string or save changes)
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: authenticity
 created: 2026-11-19
-pr:
+pr: 288
 ---
 
 ## Why

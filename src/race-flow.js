@@ -24,7 +24,7 @@ import {
   ghostRecorder, dockDeskCoach, obstacleTip
 } from './race-step.js';
 const {
-  CAR_SPECS, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, POP_CULTURE_ROSTER,
+  CAR_SPECS, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, ROSTER,
   ROAD_CFG, SaveStore, SoundEngine, WORLD_LEVELS, applyRunResult, beginRun,
   createDrive, createHud, createLateral, createOnboarding, createRaceClock,
   finishBonus, isNewPlayer, lapOf, missionsDone, mulberry32, ordinal,
@@ -283,7 +283,7 @@ export function updateLiveHud(forceHud) {
 /** Cars a race just unlocked: the full-screen reveal lands just after the results, so the score is seen first. */
 function carNamesFor(ids) {
   if (ids.length) setTimeout(() => loadGarageUI().then((ui) => ui.queueReveals(ids)), 1100);
-  return ids.map((id) => (POP_CULTURE_ROSTER.find((c) => c.id === id) || {}).car).filter(Boolean);
+  return ids.map((id) => (ROSTER.find((c) => c.id === id) || {}).car).filter(Boolean);
 }
 
 function setSteerHint(on) {
@@ -352,7 +352,7 @@ export function startNewRace(opts) {
 
   const lvl = WORLD_LEVELS[GameState.levelIndex] || WORLD_LEVELS[0];
 
-  const activeChar = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const activeChar = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   GameState.status = 'PLAYING';
   GameState.eraIndex = lvl.startEra;
   resetBackdrop();
@@ -488,7 +488,7 @@ const lineupSeen = new Set();
 
 /** The grid front to back: rivals in slot order, then you. */
 function gridOrder() {
-  const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const me = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   const spec = CAR_SPECS[me.id];
   return LiveTraffic.racers.map((r) => ({ driver: r.driver, short: r.short, car: r.car, crew: r.crew, color: r.color, accent: r.accent, shape: r.shape, bodyColor: r.bodyColor, accentColor: r.accentColor, underglow: r.underglow }))
     .concat([{ isPlayer: true, driver: me.driver, short: 'YOU', car: me.car, crew: me.franchise, color: SaveStore.data.underglow || me.glow, accent: me.body,
@@ -497,7 +497,7 @@ function gridOrder() {
 
 /** Your car's look for the race stage and results: its shape in your garage paint. */
 function myCarLook() {
-  const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const me = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   return { shape: me.shape, ...carPaint(me), glow: SaveStore.data.underglow || me.glow };
 }
 
@@ -640,7 +640,7 @@ export function finishRace() {
 /** Finish order for the whole field, a headline for how it went, Retry / Next (ticket 0052). */
 function renderRaceResults(badgeText, lvl) {
   if (!RC) return; // the ceremony chunk never loaded: plain results
-  const me = POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0];
+  const me = ROSTER[GameState.selectedCharIdx] || ROSTER[0];
   RC.renderResults({
     badgeText, lvl, next: WORLD_LEVELS[lvl.index + 1], racers: LiveTraffic.racers, speedToWorld: LiveTraffic.speedToWorld(),
     playerZ: GameState.trackPos + ROAD_CFG.playerZOffset, me, myLook: myCarLook(), color: SaveStore.data.underglow || me.glow,
@@ -703,7 +703,7 @@ export function endRaceRun(customBadgeText = null) {
     RS.currentRun.distance = Math.max(0, Math.round(GameState.distance));
     RS.currentRun.durationMs = Math.round(performance.now() - RS.currentRun.t0);
     RS.currentRun.warps = GameState.timeWarps;
-    RS.currentRun.car = (POP_CULTURE_ROSTER[GameState.selectedCharIdx] || POP_CULTURE_ROSTER[0]).id;
+    RS.currentRun.car = (ROSTER[GameState.selectedCharIdx] || ROSTER[0]).id;
     // A ghost only makes sense for a finished three-lap race on a campaign track.
     RS.currentRun.trace = RS.currentRun.mode === 'ARCADE' && GameState.finishTime != null ? ghostRecorder.encode() : undefined;
   }

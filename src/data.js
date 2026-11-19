@@ -245,7 +245,7 @@ export const LIVERY_OPTIONS = [
 // --- ORIGINAL DRIVER & VEHICLE ROSTER ---
 // Ratings, unlocks and the physics each car drives with live in src/cars.js (ticket 0071);
 // maxHp here must equal carParams(car).maxHp (a unit test checks it).
-export const POP_CULTURE_ROSTER = [
+export const ROSTER = [
   {
     id: 'FLUX_COUPE_88',
     driver: 'Rook & The Professor',
@@ -441,7 +441,7 @@ export const POP_CULTURE_ROSTER = [
   }
 ];
 
-export const MULTIVERSE_POOL = [
+export const CAR_POOL = [
   { driver: 'Drs. Penn & Okafor', car: 'Spectre-1 Wagon', franchise: 'Paranormal Patrol', body: '#f8fafc', cabin: '#dc2626', glow: '#22c55e', shape: 'HEAVY_VAN' },
   { driver: 'Lulu Baxter', car: 'Lucky Bug #35', franchise: 'Garage Gremlins', body: '#f8fafc', cabin: '#2563eb', glow: '#ef4444', shape: 'TUNER_WING' },
   { driver: 'Sunset Hero', car: "'86 Rosso Spider", franchise: 'Coastline Cruisers', body: '#dc2626', cabin: '#fde047', glow: '#ff5500', shape: 'GULLWING' },

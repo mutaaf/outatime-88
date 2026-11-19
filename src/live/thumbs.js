@@ -3,12 +3,12 @@
 // a lobby on every room message costs a few drawImage calls.
 
 import { drawTurntable } from '../car-art.js';
-import { POP_CULTURE_ROSTER } from '../data.js';
+import { ROSTER } from '../data.js';
 
 const cache = new Map();
 
 function portrait(idx, w, h) {
-  const car = POP_CULTURE_ROSTER[idx] || POP_CULTURE_ROSTER[0];
+  const car = ROSTER[idx] || ROSTER[0];
   const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
   const key = `${car.id}|${w}x${h}@${dpr}`;
   let c = cache.get(key);

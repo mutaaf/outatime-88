@@ -11,7 +11,7 @@ import { AI, aiTier, createAiWorld, setupField, stepRival } from '../../src/riva
 import { RIVAL_PACES, RACE_LAPS, FIELD_SIZE, gridSlot, raceLengthFor, crossingTime, projectedFinish } from '../../src/raceflow.js';
 import { track, setTrackSeed, setTrackLine, buildInitialTrack, generateNextTrackBiome, curvatureAt, bankAt, featureAt } from '../../src/track.js';
 import { createLine } from '../../src/cleanline.js';
-import { POP_CULTURE_ROSTER, ROAD_CFG, PACE_MODES, WORLD_LEVELS } from '../../src/data.js';
+import { ROSTER, ROAD_CFG, PACE_MODES, WORLD_LEVELS } from '../../src/data.js';
 import { CAR_SPECS, carParams } from '../../src/cars.js';
 import { difficultyOf } from '../../src/endless.js';
 import { GameState } from '../../src/state.js';
@@ -49,7 +49,7 @@ function race(lv, seed, band, mph = CLEAN_MPH) {
   w.curvatureAt = road.curvatureAt; w.bankAt = road.bankAt; w.featureAt = road.featureAt;
   w.lineAt = (z) => line.centreAt(z);
   const z0 = ROAD_CFG.playerZOffset;
-  const racers = POP_CULTURE_ROSTER.slice(1, FIELD_SIZE).map((rc, i) => {
+  const racers = ROSTER.slice(1, FIELD_SIZE).map((rc, i) => {
     const slot = gridSlot(i);
     return {
       id: rc.id, rc, short: rc.driver, worldZ: z0 + slot.dz, offset: slot.offset, vx: 0, mph: 0,

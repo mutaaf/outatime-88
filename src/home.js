@@ -8,7 +8,7 @@
 // main.js owns the state change itself (showTitle); this module only decides when and draws.
 import './home.css';
 import { HOME_IDLE_MS, PITCH, homeHooks, isFirstVisit, noteNewsSeen } from './home-hooks.js';
-import { POP_CULTURE_ROSTER, ROAD_CFG } from './data.js';
+import { ROSTER, ROAD_CFG } from './data.js';
 import { frameTitle } from './title-frame.js';
 import { InputState, setLastInput } from './input.js';
 import { scopeFocus, menuOpen, inTopMenu, tabNavigating, topMenu, tabbables, nextTab, visible } from './focus-scope.js';
@@ -23,7 +23,7 @@ export function createHome(h) {
   const shown = (id) => { const el = $(id); return !!el && !el.classList.contains('hidden'); };
   const S = h.state;
   const reduced = () => !!S.reducedMotion;
-  const names = Object.fromEntries(POP_CULTURE_ROSTER.map((c) => [c.id, c.car.replace(/^'\d+\s+/, '')]));
+  const names = Object.fromEntries(ROSTER.map((c) => [c.id, c.car.replace(/^'\d+\s+/, '')]));
 
   // ---------- home screen: hooks or the pitch ----------
   const rail = $('homeHooks');

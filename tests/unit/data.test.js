@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SCENE_IDS } from '../../src/scenes/stage.js';
-import { WORLD_LEVELS, ERAS, POP_CULTURE_ROSTER, MULTIVERSE_POOL, LIVERY_OPTIONS, UPGRADE_DEFS, PACE_MODES, CAMERA_MODES } from '../../src/data.js';
+import { WORLD_LEVELS, ERAS, ROSTER, CAR_POOL, LIVERY_OPTIONS, UPGRADE_DEFS, PACE_MODES, CAMERA_MODES } from '../../src/data.js';
 
 describe('game content integrity', () => {
   it('levels are indexed contiguously and reference valid eras', () => {
@@ -13,7 +13,7 @@ describe('game content integrity', () => {
   it('level and roster ids are unique', () => {
     const lvlIds = WORLD_LEVELS.map((l) => l.id);
     expect(new Set(lvlIds).size).toBe(lvlIds.length);
-    const rosterIds = POP_CULTURE_ROSTER.map((c) => c.id ?? c.name);
+    const rosterIds = ROSTER.map((c) => c.id ?? c.name);
     expect(new Set(rosterIds).size).toBe(rosterIds.length);
   });
 
@@ -25,7 +25,7 @@ describe('game content integrity', () => {
 
   it('every roster and multiverse car uses a body shape the renderer knows', () => {
     const SHAPES = ['GULLWING', 'MUSCLE', 'SCANNER', 'ROCKET', 'LIGHTCYCLE', 'TUNER_WING', 'HEAVY_VAN', 'ROADSTER'];
-    for (const c of [...POP_CULTURE_ROSTER, ...MULTIVERSE_POOL]) expect(SHAPES).toContain(c.shape);
+    for (const c of [...ROSTER, ...CAR_POOL]) expect(SHAPES).toContain(c.shape);
   });
 
   it('livery ids are unique', () => {
