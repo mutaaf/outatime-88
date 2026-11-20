@@ -81,7 +81,7 @@ export function ordinal(n) {
   return `${n}${(v >= 11 && v <= 13) ? 'TH' : (SUFFIX[n % 10] || 'TH')}`;
 }
 
-/** 1 → '1 WARP', 0 or 2 → '2 WARPS' (ticket 0289). */
+/** (1, 'WARP') → '1 WARP'; 0 and 2+ take an S (ticket 0289). */
 export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 'S'}`;
 
 /** Seconds a progress gap is worth at a speed (never divides by a standing start). */
