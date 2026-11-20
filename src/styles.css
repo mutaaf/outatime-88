@@ -1013,7 +1013,7 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
   .share-img { grid-row: 2 / span 3; max-height: calc(100vh - 110px); margin: 6px 0; }
 }
 /* Results fit (0052/0053 with 0073 penalties and 0091 rank card): one-line extras on short screens. */
-#endPenaltyText { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#endPenaltyText { display: block; line-height: 1.25; overflow-wrap: break-word; text-wrap: balance; } /* 0290: wraps, never clipped */
 #endUnlockText, #endMedalText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-height: 520px) and (orientation: landscape) {
   .results-card { padding-top: 8px; padding-bottom: 8px; }

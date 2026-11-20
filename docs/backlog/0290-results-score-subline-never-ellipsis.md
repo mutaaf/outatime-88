@@ -1,7 +1,7 @@
 ---
 id: 0290
 title: The results SCORE cell cuts its sub-line off with "…" on phones ("CLEAN RUN — NO PENALTIES…")
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility

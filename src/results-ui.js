@@ -54,7 +54,8 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     if (sheet.trafficHits) why.push(`${sheet.trafficHits} CRASH${sheet.trafficHits > 1 ? 'ES' : ''}`);
     if (sheet.coneHits) why.push(`${sheet.coneHits} CONE${sheet.coneHits > 1 ? 'S' : ''}`);
     if (sheet.wallSec) why.push(`${sheet.wallSec}s WALL`);
-    el.textContent = `${sheet.earned.toLocaleString()} − ${sheet.penalty.toLocaleString()} (${why.join(' · ')})`;
+    // 0290: the line wraps on phones; a count never leaves its word (no-break space).
+    el.textContent = `${sheet.earned.toLocaleString()} − ${sheet.penalty.toLocaleString()} (${why.map((w) => w.replace(' ', '\u00a0')).join(' · ')})`;
     el.className = 'mt-0.5 text-[8px] sm:text-[9px] font-arcade font-bold text-rose-300';
   }
 
