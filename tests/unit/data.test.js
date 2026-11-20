@@ -17,6 +17,14 @@ describe('game content integrity', () => {
     expect(new Set(rosterIds).size).toBe(rosterIds.length);
   });
 
+  it('era names carry no render-mode tag and keep the "YEAR • DISTRICT" shape (0288)', () => {
+    for (const era of ERAS) {
+      expect(era.name).not.toMatch(/\b3D\b/);
+      expect(era.name.startsWith(`${era.id} • `)).toBe(true);
+      expect(era.name.split('• ').pop().trim().length).toBeGreaterThan(0);
+    }
+  });
+
   it('has non-empty upgrade, pace and camera tables', () => {
     expect(UPGRADE_DEFS.length).toBeGreaterThan(0);
     expect(PACE_MODES.length).toBeGreaterThan(0);

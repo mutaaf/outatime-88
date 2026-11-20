@@ -81,7 +81,7 @@ export const WORLD_LEVELS = [
 export const ERAS = [
   {
     id: '2026',
-    name: '2026 • CLOCK HOLLOW 3D',
+    name: '2026 • CLOCK HOLLOW',
     presentDate: 'OCT 16 2026',
     destDate: 'OCT 26 1985',
     pixelScale: 1.0,
@@ -100,7 +100,7 @@ export const ERAS = [
   },
   {
     id: '1985',
-    name: '1985 • CEDAR RIDGE 3D',
+    name: '1985 • CEDAR RIDGE',
     presentDate: 'OCT 26 1985',
     destDate: 'SEP 02 1885',
     pixelScale: 1.0,
@@ -119,7 +119,7 @@ export const ERAS = [
   },
   {
     id: '1885',
-    name: '1885 • CANYON RAVINE 3D',
+    name: '1885 • CANYON RAVINE',
     presentDate: 'SEP 02 1885',
     destDate: 'OCT 21 2015',
     pixelScale: 1.0,
