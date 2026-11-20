@@ -14,10 +14,15 @@ async function results(page, vp) {
   await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ onboarded: true })), KEY);
   await page.goto(`${APP}?debug`);
   await page.waitForFunction(() => window.__OT?.startRace);
+  await page.evaluate(() => window.__OT.ready());
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
-  await page.evaluate(() => { window.__OT.GameState.score = 12345678; window.__OT.finishRun(); });
+  await page.waitForTimeout(300); // the field is placed (as layout.spec does), so the finish order has rows
+  // A score that unlocks nothing: a car unlock opens its reveal over the card (and takes focus) ~1 s later.
+  await page.evaluate(() => { window.__OT.GameState.score = 734210; window.__OT.finishRun(); });
   await expect(page.locator('#gameOverModal')).toBeVisible();
   await expect(page.locator('#initialsForm')).toBeVisible();
+  // The finish order is filled (the card's real height), so the worst case is really tested.
+  await expect(page.locator('#endPodium li').first()).toBeVisible();
   // The share banner shows once its preview is drawn; show it now so the worst case is always tested.
   await page.evaluate(() => document.getElementById('btnShare').classList.remove('hidden'));
   await page.evaluate(() => document.fonts.ready);
