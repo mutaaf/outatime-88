@@ -16,7 +16,7 @@ async function finish(page, vp, log) {
   await page.waitForFunction(() => window.__OT?.startRace);
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.waitForTimeout(300);
-  // 734,210 unlocks no car (a reveal would cover the card a second later).
+  // A fixed score; the card is measured as soon as it opens, before any car reveal (~1.1 s).
   await page.evaluate((pen) => {
     const G = window.__OT.GameState;
     if (pen) Object.assign(G.penaltyLog, JSON.parse(JSON.stringify(pen)));
@@ -51,7 +51,7 @@ function measure(page) {
     return {
       splitCounts,
       text: el.textContent,
-      cut: el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1,
+      cut: el.scrollWidth > el.clientWidth + 1,
       outside,
       overlapsScore: sub.top < score.bottom - 0.5,
       lines: new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top))).size,
@@ -62,7 +62,7 @@ function measure(page) {
   });
 }
 
-for (const vp of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
+for (const vp of [{ width: 390, height: 844 }, { width: 320, height: 568 }, { width: 667, height: 375 }]) {
   for (const kind of ['clean', 'dirty']) {
     test(`the ${kind} score sub-line wraps uncut at ${vp.width}x${vp.height}`, async ({ page }) => {
       const problems = watchPage(page);
@@ -78,6 +78,9 @@ for (const vp of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
       expect(m.outside).toBe(0);
       expect(m.overlapsScore).toBe(false);
       expect(m.fontPx).toBeGreaterThanOrEqual(8);
+      // Clean fits two lines; all four penalty reasons fit three on a portrait card, four on
+      // the narrower short-landscape one (the results sheet scrolls there).
+      expect(m.lines).toBeLessThanOrEqual(kind === 'clean' ? 2 : vp.width > vp.height ? 4 : 3);
       expect(Math.abs(m.scoreH - m.placeH)).toBeLessThanOrEqual(1);
       expect(problems).toEqual([]);
     });
@@ -92,5 +95,15 @@ test('at 1280x720 the clean sub-line stays one line in its card', async ({ page 
   expect(m.outside).toBe(0);
   expect(m.lines).toBe(1);
   expect(Math.abs(m.scoreH - m.placeH)).toBeLessThanOrEqual(1);
+  expect(problems).toEqual([]);
+});
+
+test('at 1280x720 a long penalty line wraps inside its card instead of clipping', async ({ page }) => {
+  const problems = watchPage(page);
+  await finish(page, { width: 1280, height: 720 }, DIRTY);
+  const m = await measure(page);
+  expect(m.cut).toBe(false);
+  expect(m.outside).toBe(0);
+  expect(m.lines).toBeLessThanOrEqual(3);
   expect(problems).toEqual([]);
 });

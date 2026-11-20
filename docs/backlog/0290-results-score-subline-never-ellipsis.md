@@ -30,5 +30,11 @@ and make the card grow, keeping the 8-9 px floor from 0263. No other results lay
 e2e (own spec file): finish a race clean and with forced penalties at 390 and 320 wide;
 assert no horizontal overflow on `#endPenaltyText` and rect containment in the card.
 
+## Shipped notes
+Clean copy wraps to two lines on phones. A run with all four penalty reasons needs three lines
+on a portrait phone card and four on a short-landscape card (667x375); the copy and labels stay
+as they are (out of scope), and `tests/e2e/results-penalty-wrap.spec.js` caps those counts.
+Desktop keeps its line height; a long penalty line there now wraps inside the card.
+
 ## Out of scope
 Changing penalty maths or labels.
