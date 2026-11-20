@@ -919,6 +919,18 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
 .end-board:not(:has(#initialsForm:not(.hidden))):not(:has(#endRankText:not(:empty))):not(:has(#endRankCard:not(:empty))) { display: none; }
 .end-actions { margin-top: 10px; display: flex; gap: 8px; }
 .end-actions-2 { margin-top: 4px; justify-content: center; gap: 18px; }
+/* 0291: on portrait phones/tablets (one-column card) the PLAY AGAIN row sticks to the bottom of the scrolling results
+   modal, on an opaque strip across the card that clears the home indicator, so one more run is always one tap away.
+   bottom is minus the modal's p-3 (sticky measures inside the scroller's padding) so the strip meets the screen edge;
+   margins are minus the card's side padding. scroll-padding keeps a Tab-focused control from landing under it. */
+@media (orientation: portrait) and (max-width: 899.98px) {
+  #gameOverModal { scroll-padding-bottom: 96px; }
+  .end-actions:not(.end-actions-2) { position: sticky; bottom: -12px; z-index: 3; margin: 10px -18px 0; padding: 8px 18px max(12px, env(safe-area-inset-bottom));
+    background: #0f172a; border-top: 1px solid rgba(255, 136, 0, 0.35); box-shadow: 0 -10px 18px rgba(15, 23, 42, 0.9); }
+}
+@media (orientation: portrait) and (max-width: 899.98px) and (max-height: 700px) {
+  .end-actions:not(.end-actions-2) { margin: 6px -12px 0; padding-left: 12px; padding-right: 12px; }
+}
 .end-btn { flex: 1; min-height: 48px; padding: 0 10px; border-radius: 14px; font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 900; white-space: nowrap; }
 .end-btn.hidden { display: none; }
 .end-btn-main { flex: 1.4; font-size: 15px; letter-spacing: 0.06em; }
