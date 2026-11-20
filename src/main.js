@@ -45,7 +45,7 @@ import { createHud } from './hud.js';
 // Sharing (ticket 0053) is its own chunk: fetched for the results screen or a challenge link.
 let shareUi = null;
 export const loadShareUi = () => (shareUi = shareUi || import('./share-ui.js').then((m) => { m.initShareUi({ startChallenge }); return m; }));
-import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
+import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, plural, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
 import { pickMissions, advanceMission, missionsDone, recordMissions, titleMissionLine } from './missions.js';
 import { beginRun, fetchGhost, normalizeInitials } from './leaderboard.js';
@@ -478,7 +478,7 @@ export function updateEraHud() {
   if (badge) badge.textContent = era.name;
   if (pres) pres.textContent = era.presentDate;
   if (dest) dest.textContent = era.destDate;
-  if (warps) warps.textContent = `${GameState.timeWarps} JUMPS`;
+  if (warps) warps.textContent = plural(GameState.timeWarps, 'JUMP');
   if (crt) crt.style.opacity = renderEra.scanlines ? '0.68' : '0.06';
 
   for (let i = 0; i < 4; i++) {

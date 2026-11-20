@@ -9,7 +9,7 @@ import { dailySpec, utcDay } from './daily.js';
 import { normalizeInitials, rankLine } from './leaderboard.js';
 import { submitRunQueued as submitRun, fetchBoardCached as fetchBoard, fetchStandingCached as fetchStanding, fetchHallCached as fetchHall } from './board-offline.js';
 import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
-import { ordinal } from './raceflow.js';
+import { ordinal, plural } from './raceflow.js';
 import { missionLine } from './missions.js';
 
 /**
@@ -133,7 +133,8 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     }
     $('endScoreText').textContent = GameState.score.toLocaleString();
     renderScoreSheet(scoreSheet);
-    $('endWarpsText').textContent = `${ordinal(GameState.racePosition)} • ${GameState.timeWarps} WARPS`;
+    $('endWarpsText').textContent = `${ordinal(GameState.racePosition)} • ${plural(GameState.timeWarps, 'WARP')}`;
+    // "TD" stays: "188 MPH • 12 TAKEDOWNS" overflows this cell at every size (0289); the caption spells it out.
     $('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
     $('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
     renderMissions(GameState.missions);

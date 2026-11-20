@@ -1,12 +1,12 @@
 ---
 id: 0289
 title: Results card says "1 WARPS" and "0 TD" — pluralise the count and spell out TAKEDOWNS
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-20
-pr:
+pr: 293
 ---
 
 ## Why
@@ -34,3 +34,10 @@ Unit test for the helper (0, 1, 2). Extend or add a small e2e spec (own file) th
 
 ## Out of scope
 Rewording other results labels or changing scoring.
+
+## Shipped note (Builder, PR #293): partial on takedowns
+Warps and jumps are fixed. TAKEDOWNS was NOT spelled out: measured with the widest real
+values, "188 MPH • 12 TAKEDOWNS" (182-212 px) and even "1 TAKEDOWN" (162-189 px) overflow the
+PEAK cell (112-173 px) at every viewport from 320x568 to 1280x720, so the value keeps "TD"
+(the caption reads "PEAK · TAKEDOWNS"). Spelling it out needs a cell layout change; the Scout
+may file that as its own ticket.
