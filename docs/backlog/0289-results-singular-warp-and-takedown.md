@@ -1,7 +1,7 @@
 ---
 id: 0289
 title: Results card says "1 WARPS" and "0 TD" — pluralise the count and spell out TAKEDOWNS
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel

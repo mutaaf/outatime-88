@@ -217,3 +217,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-19 · 0286 · Crossing the line mid-race in a campaign race now tells you how the lap you just finished compared with your best for that lap on that track ("LAP 1 ▼ -0.42" in green when faster, "▲ +0.31" when slower); your best laps are saved on this device.
 2026-11-19 · 0287 · Behind the scenes: the car roster's code name is now plain ROSTER, so even the source reads as our own universe; nothing changes in play or in your save.
 2026-11-20 · 0288 · The 88 mph warp banner now reads clean: "ERA SHIFT: CEDAR RIDGE!" under the year headline, with no doubled year and no stray "3D" in era names (the era badge still shows year and district).
+2026-11-20 · 0289 · The results card counts like words now: one warp reads "1 WARP", not "1 WARPS", and the HUD time-warps box says "1 JUMP".

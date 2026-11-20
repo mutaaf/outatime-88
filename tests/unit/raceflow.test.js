@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   RACE_LAPS, FIELD_SIZE, RIVAL_PACES, raceLengthFor, rivalTargetMph, gridSlot, lapOf, standings, sortStandings,
-  ordinal, gapSeconds, formatGap, formatRaceTime, projectedFinish, crossingTime, finishBonus, neighbours,
+  ordinal, plural, gapSeconds, formatGap, formatRaceTime, projectedFinish, crossingTime, finishBonus, neighbours,
 } from '../../src/raceflow.js';
 import { runCapFor } from '../../src/race.js';
 
@@ -74,6 +74,11 @@ describe('standings', () => {
 describe('formatting and timing', () => {
   it('ordinals', () => {
     expect([1, 2, 3, 4, 6, 11, 12, 13, 21, 22].map(ordinal)).toEqual(['1ST', '2ND', '3RD', '4TH', '6TH', '11TH', '12TH', '13TH', '21ST', '22ND']);
+  });
+  it('counts read singular at one (ticket 0289)', () => {
+    expect([0, 1, 2, 12].map((n) => plural(n, 'WARP'))).toEqual(['0 WARPS', '1 WARP', '2 WARPS', '12 WARPS']);
+    expect(plural(1, 'TAKEDOWN')).toBe('1 TAKEDOWN');
+    expect(plural(0, 'JUMP')).toBe('0 JUMPS');
   });
   it('gaps never divide by a standing start', () => {
     expect(gapSeconds(100, 100)).toBe(1);
