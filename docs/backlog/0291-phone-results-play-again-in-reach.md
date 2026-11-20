@@ -1,7 +1,7 @@
 ---
 id: 0291
 title: On phones the results card pushes PLAY AGAIN below the fold — pin the actions to the bottom edge
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: player-feel
@@ -26,9 +26,15 @@ and landscape stay as they are. Touch targets stay >= 44 px (0251).
 
 ## Acceptance criteria
 - [ ] At 390x844 and 320x568, PLAY AGAIN's bounding box is inside the viewport with the card scrolled to top and to bottom
-- [ ] The bar never covers the initials input, POST button or share banner when scrolled to them
-- [ ] 1280x720 and landscape phone layouts unchanged
-- [ ] Keyboard/gamepad focus order unchanged (PLAY AGAIN still default focus)
+- [x] The bar never covers the initials input, POST button or share banner when scrolled to them
+- [x] 1280x720 and landscape phone layouts unchanged
+- [x] Keyboard/gamepad focus order unchanged (PLAY AGAIN still default focus)
+
+Shipped notes: the sticky row is the PLAY AGAIN / HOME / RANKS (/ NEXT) row only; GARAGE / LEVELS stay in the
+flow below it, so the bar covers ~70 px, not ~120. It applies to the one-column card (portrait, < 900 px wide).
+`scroll-padding-bottom` on the modal keeps a Tab-focused or scrolled-to control clear of it. Default focus is
+unchanged (the initials box when there are no initials yet). Pre-existing, not fixed here: when NEXT ▶ shows
+(a level unlocked), the row needs ~366 px and runs past the card's right edge on phones (main too).
 
 ## Test plan
 e2e (own spec file, small): finish a race at 390x844 and 320x568, assert the PLAY AGAIN

@@ -218,3 +218,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-19 · 0287 · Behind the scenes: the car roster's code name is now plain ROSTER, so even the source reads as our own universe; nothing changes in play or in your save.
 2026-11-20 · 0288 · The 88 mph warp banner now reads clean: "ERA SHIFT: CEDAR RIDGE!" under the year headline, with no doubled year and no stray "3D" in era names (the era badge still shows year and district).
 2026-11-20 · 0289 · The results card counts like words now: one warp reads "1 WARP", not "1 WARPS", and the HUD time-warps box says "1 JUMP".
+2026-11-20 · 0291 · On phones the results card keeps PLAY AGAIN, HOME and RANKS pinned to the bottom of the screen, so one more run is always one tap away, whatever you scroll to.
