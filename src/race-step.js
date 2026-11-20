@@ -570,9 +570,10 @@ function triggerTimeWarp() {
     });
   }
 
+  // The headline names the year; the sub-line names only the district (0288).
   triggerAnnouncement(
     `⚡ 88 MPH TIME WARP! ➔ ${newEra.id} ⚡`,
-    `ERA SHIFT: ${newEra.name}! +${warpBonus} PTS${warpTime > 0 ? ` & +${warpTime}s` : ''}`,
+    `ERA SHIFT: ${newEra.name.split('• ').pop()}! +${warpBonus} PTS${warpTime > 0 ? ` & +${warpTime}s` : ''}`,
     2400
   );
   advanceContractProgress('WARP_88', 1);

@@ -1,12 +1,12 @@
 ---
 id: 0288
 title: The warp banner reads "ERA SHIFT: 1985 • CEDAR RIDGE 3D!" — drop the doubled year and the stray "3D" from era names
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
 created: 2026-11-20
-pr:
+pr: 291
 ---
 
 ## Why
@@ -25,11 +25,11 @@ announcement (`src/race-step.js` ~575) show the district without the year prefix
 text readable. Do not touch level (`LVL n:`) names.
 
 ## Acceptance criteria
-- [ ] No era `name` in `src/data.js` ends in " 3D"
-- [ ] The warp sub-line contains the district name but not the era year or "•"
-- [ ] The era badge (main.js) still shows year and district
-- [ ] Sub-line fits one line at 390x844 and 1280x720 (no new wrap or overlap with the fork pills)
-- [ ] Main/race-step chunk budgets unchanged or smaller
+- [x] No era `name` in `src/data.js` ends in " 3D"
+- [x] The warp sub-line contains the district name but not the era year or "•"
+- [x] The era badge (main.js) still shows year and district
+- [x] Sub-line fits one line at 390x844 and 1280x720 (no new wrap or overlap with the fork pills)
+- [x] Main/race-step chunk budgets unchanged or smaller
 
 ## Test plan
 Unit test over `ERAS`: no name matches /\b3D\b/. Extend the warp e2e (or add a small one) to
