@@ -761,6 +761,26 @@
         <dl id="statsList" class="stats-grid"></dl>
       </section>
 
+      <!-- Save backup (0296): one copy-paste code of the save, no server; src/save-backup.js. -->
+      <section id="setBackup" class="set-section" aria-labelledby="setHeadBackup">
+        <h3 id="setHeadBackup">💾 BACKUP</h3>
+        <p id="saveBackupHelp" class="set-status">Keep your cars, coins and best times safe: copy a save code and keep it somewhere, then paste it here (on this device or a new one) to bring them back. Nothing is sent anywhere.</p>
+        <button id="btnSaveCopy" type="button" class="set-btn mt-2">📋 COPY SAVE CODE</button>
+        <label for="saveCodeOut" class="set-label save-code-out hidden">Your save code</label>
+        <textarea id="saveCodeOut" class="save-code save-code-out hidden" readonly rows="3" spellcheck="false"></textarea>
+        <label for="saveCodeIn" class="set-label">Paste a save code</label>
+        <textarea id="saveCodeIn" class="save-code" rows="2" spellcheck="false" autocomplete="off" autocapitalize="off" aria-describedby="saveBackupHelp" placeholder="OT88.1…"></textarea>
+        <button id="btnSaveRestore" type="button" class="set-btn mt-2">↩ RESTORE FROM CODE</button>
+        <div id="saveRestoreConfirm" class="save-confirm hidden" role="group" aria-labelledby="saveRestoreAsk">
+          <p id="saveRestoreAsk" class="set-status"></p>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button id="btnSaveRestoreYes" type="button" class="set-btn save-yes">✓ REPLACE MY SAVE</button>
+            <button id="btnSaveRestoreNo" type="button" class="set-btn">✕ KEEP MINE</button>
+          </div>
+        </div>
+        <p id="saveBackupMsg" class="set-status mt-1.5" role="status" aria-live="polite"></p>
+      </section>
+
       <section class="set-section" aria-labelledby="setHeadControls">
         <h3 id="setHeadControls">🎮 TOUCH CONTROLS</h3>
         <p class="set-status">Thumbstick, D-pad or tilt; six button layouts (Roblox, Fortnite, left-handed…); drag any button where your thumbs like it.</p>

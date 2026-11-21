@@ -1,7 +1,7 @@
 ---
 id: 0296
 title: Back up and restore your save with a copy-paste code (no server)
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: tech-health
