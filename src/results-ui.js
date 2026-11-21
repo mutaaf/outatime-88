@@ -131,6 +131,9 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     el.textContent = text;
   }
 
+  // The card is a dialog (0294): focus, Tab and HOME glue in its own small chunk (src/results-focus.js).
+  import('./results-focus.js').then((m) => m.initResultsFocus(GameState)).catch(() => {});
+
   /** Everything on the results card after the finish order: medal, ghost, score, stats, initials. */
   function showResults({ lvl, result, newCarNames, verdict, ghostInitials, scoreSheet }) {
     if (result) renderRunMedal(lvl, result);

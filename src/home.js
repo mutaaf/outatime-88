@@ -156,28 +156,8 @@ export function createHome(h) {
   }
   if (homeBtn) homeBtn.addEventListener('click', goHome);
   if (modal) {
-    new MutationObserver(() => { armIdle(); padPrev = null; resultsFocus(); }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => { armIdle(); padPrev = null; }).observe(modal, { attributes: true, attributeFilter: ['class'] });
     for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) modal.addEventListener(ev, () => { if (Date.now() - idleAt > 400) armIdle(); }, { passive: true });
-  }
-  // The results card is a dialog (0294): it takes focus on PLAY AGAIN as it opens (the initials
-  // box keeps it when it asked first), Tab loops inside it, and HOME hands focus to the title's
-  // PLAY. Not a focus-scope menu: the pad keeps its results rules (A / START again, B home).
-  let resultsUp = false;
-  // PLAY AGAIN while it holds the focus the card gave it (not one the player moved to): boost mashed
-  // after the line is Space, so Space doesn't press it there; Enter / pad A still play again.
-  let autoFocused = null;
-  document.addEventListener('focusin', (e) => { if (e.target !== autoFocused) autoFocused = null; });
-  function resultsFocus() {
-    const up = shown('gameOverModal');
-    if (up === resultsUp) return;
-    resultsUp = up;
-    const a = document.activeElement;
-    if (up) { if (!modal.contains(a)) { const b = $('btnPlayAgain'); if (b) { b.focus({ preventScroll: true }); autoFocused = b; } } return; }
-    autoFocused = null;
-    const play = $('btnStartRace');
-    if (a && a !== document.body && !modal.contains(a)) return; // something else took focus
-    if (play && S.status === 'TITLE' && visible(play)) play.focus({ preventScroll: true });
-    else if (a && modal.contains(a)) a.blur();
   }
   // The share sheet and boards open over the results: their activity counts as not idle.
   for (const id of ['shareSheet', 'leaderboardModal']) {
@@ -207,19 +187,10 @@ export function createHome(h) {
   window.addEventListener('keydown', (e) => {
     if (!shown('gameOverModal') || S.status !== 'GAMEOVER') return;
     const inInput = !!(e.target && e.target.tagName === 'INPUT');
-    // A boost / Enter held across the line repeats onto the focused PLAY AGAIN: only a fresh press counts.
-    if (e.repeat && !inInput && (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter')) {
-      e.preventDefault(); e.stopImmediatePropagation(); return;
-    }
-    const a = document.activeElement;
-    if (e.code === 'Space' && a && a === autoFocused) { e.preventDefault(); e.stopImmediatePropagation(); return; }
-    // Tab stays on the card while focus is on it (or nowhere); an overlay over it keeps its own Tab.
-    if (e.key === 'Tab' && !menuOpen() && (!a || a === document.body || modal.contains(a))) {
-      const to = nextTab(tabbables(modal), a, e.shiftKey);
-      e.preventDefault();
-      if (to) to.focus();
-      return;
-    }
+    // A boost / Enter held across the line repeats onto the focused PLAY AGAIN, and Space (boost) never
+    // presses the PLAY AGAIN the card focused itself (data-auto, src/results-ui.js, 0294).
+    if (!inInput && (e.code === 'Space' || (e.repeat && (e.code === 'Enter' || e.code === 'NumpadEnter')))
+      && (e.repeat || (e.target && e.target.dataset && e.target.dataset.auto != null))) { e.preventDefault(); e.stopImmediatePropagation(); return; }
     if (blocking()) return;
     // In the (auto-focused) initials box only Escape means home; Backspace and Enter edit/post.
     if (e.code === 'Escape' || (e.code === 'Backspace' && !inInput)) { e.preventDefault(); e.stopImmediatePropagation(); goHome(); }
