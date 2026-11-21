@@ -79,16 +79,39 @@ export function describeSave(d) {
   return [plural(d.fluxCoins, 'coin', 'coins'), plural(owned(d), 'car', 'cars'), plural(races(d), 'race', 'races')].join(' · ');
 }
 
+export const MAX_COINS = 1e9;
+
+/**
+ * A decoded save made safe to load: the checksum is not a secret, so a hand-edited code can say
+ * anything. Any top-level field whose kind differs from the fresh save's (a list where an object
+ * goes, null where a number goes) falls back to its default, and coins are a whole number in
+ * 0..MAX_COINS. Fields the fresh save does not know are kept (a newer build's), as load() does.
+ */
+export function sanitizeSave(data, base) {
+  const kind = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
+  const out = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (k in base && base[k] !== null && kind(v) !== kind(base[k])) continue;
+    out[k] = v;
+  }
+  out.fluxCoins = Math.min(MAX_COINS, Math.max(0, Math.floor(Number(out.fluxCoins) || 0)));
+  return out;
+}
+
 /**
  * Writes a decoded save as the live save and reloads, so every screen reads it through load()'s
  * normal repair (old shapes keep working). Touches only the save key: identity and other
- * racers' parked saves stay as they are. Returns false if the browser refused the write.
+ * racers' parked saves stay as they are. `fresh()` is a brand-new save (src/save.js
+ * freshSaveData). Returns false if the browser refused the write.
  */
-export function restoreSave(store, data, reload) {
-  try { localStorage.setItem(store.key, JSON.stringify(data)); } catch (e) { return false; }
-  // Nothing may write the old in-memory save over the restored one before the reload: rebuild
-  // it from the restored data now (load() merges the save over this.data).
-  store.data = {};
+export function restoreSave(store, data, reload, fresh) {
+  const base = fresh();
+  const safe = sanitizeSave(data, base);
+  try { localStorage.setItem(store.key, JSON.stringify(safe)); } catch (e) { return false; }
+  // Until the reload lands, frames (or a live race under Settings) may still read or save():
+  // rebuild the in-memory save from fresh defaults plus the restored data, as swapSave does,
+  // so nothing reads a missing field and no save() writes the old save over the restored one.
+  store.data = Object.assign(base, safe);
   store.load();
   reload();
   return true;

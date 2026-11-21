@@ -1,6 +1,6 @@
 // Settings panel controls (ticket 0050): a lazy chunk fetched the first time the panel opens.
 // The tilt engine, motion and sound mix stay in src/settings-ui.js, which hands us `ctx`.
-import { SaveStore } from './save.js';
+import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine } from './audio.js';
 import { InputState } from './input.js';
@@ -210,7 +210,8 @@ export function createPanel(ctx) {
     const out = $('saveCodeOut');
     out.value = code;
     for (const el of document.querySelectorAll('#setBackup .save-code-out')) el.classList.remove('hidden');
-    const shown = () => { out.focus({ preventScroll: false }); out.select(); };
+    // iOS ignores select() on a readonly box; a selection range works everywhere.
+    const shown = () => { out.focus({ preventScroll: false }); out.setSelectionRange(0, code.length); };
     const clip = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(code) : Promise.reject();
     clip.then(() => bmsg('Save code copied. Paste it somewhere safe, like a note or a message to yourself.', 'ok'),
       () => { shown(); bmsg('Copy the code from the box above (it is selected) and keep it somewhere safe.'); });
@@ -227,13 +228,13 @@ export function createPanel(ctx) {
     showConfirm(r.ok);
     if (!r.ok) { bmsg(m.REASON_TEXT[r.reason], 'bad'); return; }
     bmsg('');
-    $('saveRestoreAsk').textContent = `Replace this save (${m.describeSave(SaveStore.data)}) with the code's (${m.describeSave(r.data)})? The game reloads.`;
+    $('saveRestoreAsk').textContent = `Replace this save (${m.describeSave(SaveStore.data)}) with the code's (${m.describeSave(r.data)})? The game reloads${GameState.status === 'PAUSED' ? ' and this race ends' : ''}.`;
     $('btnSaveRestoreNo').focus({ preventScroll: true });
   }, () => bmsg('Backup is not available offline yet. Try again online.', 'bad')));
   const yes = $('btnSaveRestoreYes');
   if (yes) yes.addEventListener('click', () => {
     if (!pending || !backup) return;
-    if (!backup.restoreSave(SaveStore, pending, () => location.reload())) {
+    if (!backup.restoreSave(SaveStore, pending, () => location.reload(), freshSaveData)) {
       bmsg("This browser won't let the game save right now (private window or full storage). Your save is unchanged.", 'bad');
     }
   });

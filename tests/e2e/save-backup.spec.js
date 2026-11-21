@@ -84,6 +84,10 @@ for (const vp of [
       await page.locator('#btnSaveRestore').click();
       await expect(page.locator('#saveRestoreConfirm')).toBeVisible();
       await expect(page.locator('#saveRestoreAsk')).toContainText(/with the code's \(4,321 coins · \d+ cars · 12 races\)/);
+      for (const id of ['#btnSaveRestoreYes', '#btnSaveRestoreNo']) {
+        const b = await page.locator(id).boundingBox();
+        expect(b.height).toBeGreaterThanOrEqual(44);
+      }
       await page.screenshot({ path: test.info().outputPath('backup-confirm.png') });
       await page.locator('#btnSaveRestoreNo').click();
       await expect(page.locator('#saveRestoreConfirm')).toBeHidden();
@@ -114,6 +118,7 @@ test('keyboard only: Tab reaches the paste box and the buttons, Enter restores',
   await openBackup(page);
   await page.locator('#btnSaveCopy').focus();
   await page.keyboard.press('Enter');
+  await expect(page.locator('#saveCodeOut')).toHaveValue(/^OT88\.1\./); // the chunk may still be landing
   const code = await page.locator('#saveCodeOut').inputValue();
   expect(code.startsWith('OT88.1.')).toBe(true);
   await page.evaluate((k) => { const d = JSON.parse(localStorage.getItem(k)); d.fluxCoins = 1; localStorage.setItem(k, JSON.stringify(d)); }, KEY);

@@ -1,7 +1,7 @@
 // Save backup code (ticket 0296): a round trip reproduces the save, any damaged or foreign code is
 // refused before it touches storage, and a restore writes only the save key.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { encodeSave, decodeSave, describeSave, restoreSave, REASON_TEXT, CODE_VERSION } from '../../src/save-backup.js';
+import { encodeSave, decodeSave, describeSave, restoreSave, sanitizeSave, MAX_COINS, REASON_TEXT, CODE_VERSION } from '../../src/save-backup.js';
 
 const KEY = 'outatime_cruisn_88_save_v2';
 function memoryStorage() {
@@ -16,7 +16,7 @@ function memoryStorage() {
 
 /** A save as a real player's would look after a few sessions. */
 async function playedSave() {
-  const { SaveStore } = await import('../../src/save.js');
+  const { SaveStore, freshSaveData } = await import('../../src/save.js');
   SaveStore.load();
   const d = SaveStore.data;
   d.fluxCoins = 12345;
@@ -50,13 +50,13 @@ describe('save backup code', () => {
     // A brand-new device: nothing saved.
     vi.resetModules();
     storage._m.clear();
-    const { SaveStore } = await import('../../src/save.js');
+    const { SaveStore, freshSaveData } = await import('../../src/save.js');
     SaveStore.load();
     expect(SaveStore.data.fluxCoins).toBe(250);
     const r = decodeSave(code);
     expect(r.ok).toBe(true);
     const reload = vi.fn();
-    expect(restoreSave(SaveStore, r.data, reload)).toBe(true);
+    expect(restoreSave(SaveStore, r.data, reload, freshSaveData)).toBe(true);
     expect(reload).toHaveBeenCalledOnce();
 
     // What the next page load sees.
@@ -68,6 +68,7 @@ describe('save backup code', () => {
     }
     // The in-memory save was rebuilt from the code too, so a stray save() before the reload is harmless.
     expect(SaveStore.data.fluxCoins).toBe(12345);
+    expect(SaveStore.data.progress).toEqual(data.progress);
     SaveStore.save();
     expect(JSON.parse(storage.getItem(KEY)).fluxCoins).toBe(12345);
   });
@@ -109,7 +110,7 @@ describe('save backup code', () => {
 
   it('a refused code never touches the save', async () => {
     storage.setItem(KEY, JSON.stringify({ fluxCoins: 77 }));
-    const { SaveStore } = await import('../../src/save.js');
+    const { SaveStore, freshSaveData } = await import('../../src/save.js');
     SaveStore.load();
     const r = decodeSave('OT88.1.e30.00000000');
     expect(r.ok).toBe(false);
@@ -119,11 +120,11 @@ describe('save backup code', () => {
   it('restores an old-shape save through load()\'s normal repair', async () => {
     // A pre-0001/0071 save: no garage or career, the legacy livery id, no settings object.
     const old = { bestScore: 31337, fluxCoins: 990, unlockedLevel: 5, selectedLevel: 3, livery: 'STARK_MK88', upgrades: { engine: 4 } };
-    const { SaveStore } = await import('../../src/save.js');
+    const { SaveStore, freshSaveData } = await import('../../src/save.js');
     SaveStore.load();
     const r = decodeSave(encodeSave(old));
     expect(r.ok).toBe(true);
-    restoreSave(SaveStore, r.data, () => {});
+    restoreSave(SaveStore, r.data, () => {}, freshSaveData);
     vi.resetModules();
     const { SaveStore: next } = await import('../../src/save.js');
     next.load();
@@ -138,23 +139,54 @@ describe('save backup code', () => {
   it('writes only the save key: identity and parked racer saves stay as they were', async () => {
     storage.setItem('outatime88_identity_v1', '{"racers":["abc"]}');
     storage.setItem('outatime88_racer_saves_v1', '{"xyz":{"fluxCoins":5}}');
-    const { SaveStore } = await import('../../src/save.js');
+    const { SaveStore, freshSaveData } = await import('../../src/save.js');
     SaveStore.load();
-    restoreSave(SaveStore, decodeSave(encodeSave({ fluxCoins: 3 })).data, () => {});
+    restoreSave(SaveStore, decodeSave(encodeSave({ fluxCoins: 3 })).data, () => {}, freshSaveData);
     expect(storage.getItem('outatime88_identity_v1')).toBe('{"racers":["abc"]}');
     expect(storage.getItem('outatime88_racer_saves_v1')).toBe('{"xyz":{"fluxCoins":5}}');
     expect([...storage._m.keys()].sort()).toEqual(['outatime88_identity_v1', 'outatime88_racer_saves_v1', KEY].sort());
   });
 
   it('reports a refused write and leaves the page alone', async () => {
-    const { SaveStore } = await import('../../src/save.js');
+    const { SaveStore, freshSaveData } = await import('../../src/save.js');
     SaveStore.load();
     const before = SaveStore.data;
     storage.setItem = () => { throw new Error('QuotaExceededError'); };
     const reload = vi.fn();
-    expect(restoreSave(SaveStore, { fluxCoins: 1 }, reload)).toBe(false);
+    expect(restoreSave(SaveStore, { fluxCoins: 1 }, reload, freshSaveData)).toBe(false);
     expect(reload).not.toHaveBeenCalled();
     expect(SaveStore.data).toBe(before);
+  });
+
+  it('a minimal code still leaves every default in memory until the reload', async () => {
+    const { SaveStore, freshSaveData } = await import('../../src/save.js');
+    SaveStore.load();
+    SaveStore.data.bestLaps = { 0: [1, 2, 3] }; // the old save's, must not survive
+    restoreSave(SaveStore, decodeSave(encodeSave({ fluxCoins: 5 })).data, () => {}, freshSaveData);
+    expect(SaveStore.data.progress).toEqual({});
+    expect(SaveStore.data.bestLaps).toEqual({});
+    expect(SaveStore.data.unlockedLevel).toBe(1);
+    SaveStore.save(); // a stray save before the reload writes the restored save, not the old one
+    expect(JSON.parse(storage.getItem(KEY)).bestLaps).toEqual({});
+  });
+
+  it('a hand-edited (re-signed) code is made safe: wrong-kind fields fall back, coins are clamped', async () => {
+    const { SaveStore, freshSaveData } = await import('../../src/save.js');
+    const evil = { fluxCoins: 1e308, progress: null, bestLaps: [1], upgrades: 'max', unlockedLevel: '99', initials: 'ABC', futureField: { x: 1 } };
+    const r = decodeSave(encodeSave(evil));
+    expect(r.ok).toBe(true);
+    const safe = sanitizeSave(r.data, freshSaveData());
+    expect(safe).toEqual({ fluxCoins: MAX_COINS, initials: 'ABC', futureField: { x: 1 } });
+    expect(sanitizeSave({ fluxCoins: 12.7 }, freshSaveData()).fluxCoins).toBe(12);
+    restoreSave(SaveStore, r.data, () => {}, freshSaveData);
+    vi.resetModules();
+    const { SaveStore: next } = await import('../../src/save.js');
+    next.load();
+    expect(next.data.progress).toEqual({});
+    expect(next.data.bestLaps).toEqual({});
+    expect(next.data.upgrades).toEqual({ engine: 1, tires: 1, flux: 1, hover: 1 });
+    expect(next.data.unlockedLevel).toBe(1);
+    expect(next.data.fluxCoins).toBe(MAX_COINS);
   });
 
   it('describes a save for the confirm line', () => {
