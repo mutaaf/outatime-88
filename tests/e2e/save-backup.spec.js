@@ -112,6 +112,22 @@ for (const vp of [
   });
 }
 
+test('a late clipboard refusal never pulls focus back from where the player moved', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.addInitScript(() => {
+    // A clipboard that answers slowly, then refuses.
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => new Promise((_, no) => setTimeout(() => no(new Error('denied')), 400)) } });
+  });
+  await seeded(page, PLAYED);
+  await openBackup(page);
+  await page.locator('#btnSaveCopy').focus();
+  await page.keyboard.press('Enter');
+  await page.locator('#saveCodeIn').focus(); // moved on before the clipboard answered
+  await expect(page.locator('#saveBackupMsg')).toHaveText(/Copy the code from the box/);
+  await expect(page.locator('#saveCodeIn')).toBeFocused();
+  expect(problems).toEqual([]);
+});
+
 test('keyboard only: Tab reaches the paste box and the buttons, Enter restores', async ({ page }) => {
   const problems = watchPage(page);
   await seeded(page, PLAYED);
@@ -121,10 +137,13 @@ test('keyboard only: Tab reaches the paste box and the buttons, Enter restores',
   await expect(page.locator('#saveCodeOut')).toHaveValue(/^OT88\.1\./); // the chunk may still be landing
   const code = await page.locator('#saveCodeOut').inputValue();
   expect(code.startsWith('OT88.1.')).toBe(true);
+  // The clipboard answers later (copied or refused, it varies headless); wait for that before moving on.
+  await expect(page.locator('#saveBackupMsg')).not.toHaveText('');
   await page.evaluate((k) => { const d = JSON.parse(localStorage.getItem(k)); d.fluxCoins = 1; localStorage.setItem(k, JSON.stringify(d)); }, KEY);
 
   await page.locator('#saveCodeIn').focus();
   await page.keyboard.insertText(code);
+  await expect(page.locator('#saveCodeIn')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.locator('#btnSaveRestore')).toBeFocused();
   await page.keyboard.press('Enter');

@@ -211,7 +211,12 @@ export function createPanel(ctx) {
     out.value = code;
     for (const el of document.querySelectorAll('#setBackup .save-code-out')) el.classList.remove('hidden');
     // iOS ignores select() on a readonly box; a selection range works everywhere.
-    const shown = () => { out.focus({ preventScroll: false }); out.setSelectionRange(0, code.length); };
+    // Only take focus if the player is still on COPY: the clipboard answers later, and focus that
+    // moved on (to the paste box, say) must not be pulled back. Selecting needs no focus.
+    const shown = () => {
+      if (document.activeElement === $('btnSaveCopy')) out.focus({ preventScroll: false });
+      out.setSelectionRange(0, code.length);
+    };
     const clip = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(code) : Promise.reject();
     clip.then(() => bmsg('Save code copied. Paste it somewhere safe, like a note or a message to yourself.', 'ok'),
       () => { shown(); bmsg('Copy the code from the box above (it is selected) and keep it somewhere safe.'); });
