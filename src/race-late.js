@@ -12,6 +12,7 @@ const loadRadio = () => import('./radio-run.js').then((m) => { radio = m; }, () 
 loadRadio(); // fetched with this chunk, long before a race passes its first 4 s
 let lap = null;
 import('./lap-split-run.js').then((m) => { lap = m; }, () => {}); // long before the first lap is done
+import('./restart-race.js').then((m) => m.initRestart(), () => {}); // the pause sheet's RESTART RACE (0292)
 /** Once per frame from main's loop (race-step padPause): the pad START pause (0271), the radio, lap splits. */
 export function frame(G, I) {
   padFrame(G, I);

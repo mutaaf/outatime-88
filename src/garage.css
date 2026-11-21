@@ -83,6 +83,11 @@
   .garage-actions > button { flex: 1 1 0; min-width: 0; padding: 4px 4px; font-size: 10px; line-height: 1.2; text-align: center; }
   .garage-actions > #btnResumeFromGarage { flex-grow: 1.35; }
 }
+/* RESTART RACE (0292) makes five: on a portrait phone BACK TO THE TRACK takes its own full-width row under the other four. */
+@media (max-width: 767px) and (orientation: portrait) {
+  .garage-actions:has(> #btnRestartRace:not(.hidden)) { flex-wrap: wrap; }
+  .garage-actions:has(> #btnRestartRace:not(.hidden)) > #btnResumeFromGarage { flex-basis: 100%; }
+}
 /* The first-race thumb guide (touch kit, pointer-events: none) must not draw its rings over the pause actions. */
 body:has(#garageModal:not(.hidden)) .tc-guide { visibility: hidden; }
 .pad-drop { margin-top: 8px; padding: 8px 12px; border-radius: 12px; border: 2px solid #fb923c; background: rgba(2, 6, 23, 0.9);
