@@ -1,6 +1,6 @@
 // Settings panel controls (ticket 0050): a lazy chunk fetched the first time the panel opens.
 // The tilt engine, motion and sound mix stay in src/settings-ui.js, which hands us `ctx`.
-import { SaveStore } from './save.js';
+import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine } from './audio.js';
 import { InputState } from './input.js';
@@ -198,12 +198,64 @@ export function createPanel(ctx) {
     }));
   }
 
+  // --- Save backup (0296): copy the save as a code, paste one back. Its own import-free chunk,
+  // fetched as the panel opens so a COPY tap can write the clipboard inside the tap (Safari asks).
+  let backup = null;
+  let pending = null; // a decoded save waiting for REPLACE MY SAVE
+  const loadBackup = () => import('./save-backup.js').then((m) => (backup = m));
+  const bmsg = (text, tone = '') => { const el = $('saveBackupMsg'); if (el) { el.textContent = text; el.dataset.tone = tone; } };
+  const showConfirm = (on) => { const box = $('saveRestoreConfirm'); if (box) box.classList.toggle('hidden', !on); };
+  function copyCode(m) {
+    const code = m.encodeSave(SaveStore.data);
+    const out = $('saveCodeOut');
+    out.value = code;
+    for (const el of document.querySelectorAll('#setBackup .save-code-out')) el.classList.remove('hidden');
+    // iOS ignores select() on a readonly box; a selection range works everywhere.
+    // Only take focus if the player is still on COPY: the clipboard answers later, and focus that
+    // moved on (to the paste box, say) must not be pulled back. Selecting needs no focus.
+    const shown = () => {
+      if (document.activeElement === $('btnSaveCopy')) out.focus({ preventScroll: false });
+      out.setSelectionRange(0, code.length);
+    };
+    const clip = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(code) : Promise.reject();
+    clip.then(() => bmsg('Save code copied. Paste it somewhere safe, like a note or a message to yourself.', 'ok'),
+      () => { shown(); bmsg('Copy the code from the box above (it is selected) and keep it somewhere safe.'); });
+  }
+  const copyBtn = $('btnSaveCopy');
+  if (copyBtn) copyBtn.addEventListener('click', () => {
+    if (backup) copyCode(backup);
+    else loadBackup().then(copyCode, () => bmsg('Backup is not available offline yet. Try again online.', 'bad'));
+  });
+  const restoreBtn = $('btnSaveRestore');
+  if (restoreBtn) restoreBtn.addEventListener('click', () => loadBackup().then((m) => {
+    const r = m.decodeSave($('saveCodeIn').value);
+    pending = r.ok ? r.data : null;
+    showConfirm(r.ok);
+    if (!r.ok) { bmsg(m.REASON_TEXT[r.reason], 'bad'); return; }
+    bmsg('');
+    $('saveRestoreAsk').textContent = `Replace this save (${m.describeSave(SaveStore.data)}) with the code's (${m.describeSave(r.data)})? The game reloads${GameState.status === 'PAUSED' ? ' and this race ends' : ''}.`;
+    $('btnSaveRestoreNo').focus({ preventScroll: true });
+  }, () => bmsg('Backup is not available offline yet. Try again online.', 'bad')));
+  const yes = $('btnSaveRestoreYes');
+  if (yes) yes.addEventListener('click', () => {
+    if (!pending || !backup) return;
+    if (!backup.restoreSave(SaveStore, pending, () => location.reload(), freshSaveData)) {
+      bmsg("This browser won't let the game save right now (private window or full storage). Your save is unchanged.", 'bad');
+    }
+  });
+  const no = $('btnSaveRestoreNo');
+  if (no) no.addEventListener('click', () => { pending = null; showConfirm(false); bmsg('Kept your save.'); restoreBtn.focus({ preventScroll: true }); });
+  const codeIn = $('saveCodeIn');
+  if (codeIn) codeIn.addEventListener('input', () => { pending = null; showConfirm(false); }); // a new paste asks again
+
   return {
     sync: syncPanel,
     tiltText: tiltStatusText,
     open() {
       syncPanel();
       renderStats();
+      loadBackup().catch(() => {});
+      pending = null; showConfirm(false); bmsg('');
       capturing = '';
       note('');
       renderKeys();
