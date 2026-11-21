@@ -86,7 +86,7 @@ export function createHud(doc = document, marks = () => [], place = placeExact) 
 
     /**
      * @param s { position, total, progress, length, raceTime, timeLeft, clockUrgent, infinite,
-     *            mph, flux, hpFrac, score, field: standings leader-first [{id, short, color,
+     *            mph, spd (the readout: whole mph or km/h, 0293), flux, hpFrac, score, field: standings leader-first [{id, short, color,
      *            progress, isPlayer}] }
      */
     update(s) {
@@ -139,7 +139,8 @@ export function createHud(doc = document, marks = () => [], place = placeExact) 
       place(field, dots, el.dots);
 
       const mph = Math.max(0, Math.round(s.mph));
-      text(el.speed, 'speed', String(mph));
+      // 0293: s.spd is the number shown (whole mph, or km/h in KM/H), from race-flow; the bar, the 88 mark and the gaps stay mph.
+      text(el.speed, 'speed', s.spd);
       // A full speed bar is 160 mph (index.html aria-valuemax), 88 sits at 55%; literals keep main's bytes down.
       width(el.speedBar, 'speedBar', Math.min(160, mph), 0.625);
       flag(el.speedCard, 'at88', 'is-88', mph >= 88);

@@ -213,6 +213,9 @@ src/restart-opts.js RESTART RACE (0292), pure: restartOpts(G, tv) = the startNew
                       { daily: true }) or null (Endless, live, TV, past the line, not PAUSED). Glue src/restart-race.js is its own lazy
                       chunk fetched by race-late: shows #btnRestartRace (static markup) on the pause sheet, re-arms the raced ghost
                       (RS.lastGhost, set by race-flow) and calls RF.startNewRace; nothing of the abandoned attempt is recorded
+src/units.js        Speed units (0293): Settings → Units MPH | KM/H (settings.units; unset = the device language), display only.
+                      Its own lazy chunk fetched by race-late (unitsFrame once a frame sets GameState.kmh, the HUD
+                      caption and the meter's aria-valuetext) and read by the panel; race-flow passes hudView.spd, results/warp read kmh
 src/resume-beat.js  Resume beat (0231), pure, race-step chunk only: a solo race back from PAUSED holds the sim for 3 → 2 → 1
                       (0.3 s each, wall clock) while the road draws. main's loop calls raceStep.resumeHold() once per frame
                       (resumed = last frame PAUSED, not LIVE/TV, raceTime > 0); GameState.resumeBeat is the number shown (0 = none)

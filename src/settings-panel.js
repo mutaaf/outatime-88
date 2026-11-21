@@ -14,18 +14,22 @@ export { renderControlsRef }; // the garage draws its copy of the card through t
 const renderCards = () => { renderControlsRef($('pauseControls')); renderControlsRef($('garageControls')); };
 
 const $ = (id) => document.getElementById(id);
+let units = null; // src/units.js (0293), its own chunk: the language's pick when no unit is saved
 
 export function createPanel(ctx) {
   const { settings, save, applyAll, toggleTilt, recenterTilt } = ctx;
   // Camera effects (0216): applied when this chunk loads (at boot when the save calms them) and on every change.
   const applyCameraFx = () => { GameState.cameraFx = cameraFxScale(settings().cameraFx); };
   applyCameraFx();
+  import('./units.js').then((m) => { units = m; syncPanel(); }, () => {});
 
   function syncPanel() {
     const s = settings();
     for (const seg of document.querySelectorAll('#settingsModal [data-setting]')) {
       const key = seg.dataset.setting;
-      for (const b of seg.querySelectorAll('button[data-value]')) b.setAttribute('aria-pressed', String(b.dataset.value === s[key]));
+      // Units (0293): with no choice saved, the device's language picked (src/units.js sets GameState.kmh).
+      const v = key === 'units' ? (units ? units.currentUnits() : s.units || (GameState.kmh ? 'kmh' : 'mph')) : s[key];
+      for (const b of seg.querySelectorAll('button[data-value]')) b.setAttribute('aria-pressed', String(b.dataset.value === v));
     }
     const inv = $('setTiltInvert');
     if (inv) inv.setAttribute('aria-checked', String(s.tiltInvert));
@@ -84,6 +88,7 @@ export function createPanel(ctx) {
       const b = e.target.closest('button[data-value]');
       if (!b) return;
       settings()[seg.dataset.setting] = b.dataset.value;
+      if (seg.dataset.setting === 'units') GameState.kmh = b.dataset.value === 'kmh'; // now, not on the next frame
       save(); applyAll(); applyCameraFx();
     });
   }

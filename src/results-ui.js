@@ -155,7 +155,12 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     renderScoreSheet(scoreSheet);
     $('endWarpsText').textContent = `${ordinal(GameState.racePosition)} • ${plural(GameState.timeWarps, 'WARP')}`;
     // "TD" stays: "188 MPH • 12 TAKEDOWNS" overflows this cell at every size (0289); the caption spells it out.
-    $('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
+    // 0293: KM/H shows the peak in km/h (the posted run and share text keep mph). "303 KM/H • 12 TD" is
+    // ~3 px wider than the cell at 320 and 667x375, so the km/h line takes thin spaces.
+    const pk = Math.max(0, GameState.peakSpeed);
+    $('endPeakSpeedText').textContent = GameState.kmh
+      ? `${Math.round(pk * 1.609344)}\u2009KM/H\u2009•\u2009${GameState.takedowns}\u2009TD`
+      : `${Math.round(pk)} MPH • ${GameState.takedowns} TD`;
     $('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
     renderMissions(GameState.missions);
     speakSummary();

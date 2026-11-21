@@ -222,3 +222,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-20 · 0290 · On phones the results SCORE card no longer cuts its note off with "…": "CLEAN RUN — NO PENALTIES ✨" and the list of what cost you points wrap onto a second line instead.
 2026-11-21 · 0292 · Pause a campaign race or the daily and hit ↻ RESTART RACE: the same event, same car, same ghost, straight back to the lights, with nothing from the bad start saved.
 2026-11-21 · 0294 · The results card is now a proper dialog: it takes focus on PLAY AGAIN, a screen reader hears "FINISHED 2ND OF 6 · TIME 1:42.3" once, Tab stays on the card, and HOME hands focus back to PLAY on the title.
+2026-11-21 · 0293 · Settings → Units: MPH or KM/H. In KM/H the speedometer, the warp ("142 KM/H TIME WARP!") and your top speed read km/h; with nothing chosen, your device's language picks. The warp is still 88 mph.

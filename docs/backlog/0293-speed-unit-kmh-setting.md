@@ -1,12 +1,12 @@
 ---
 id: 0293
 title: A MPH / KM/H setting, so the whole world reads its own speed (88 mph = 142 km/h)
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: authenticity
 created: 2026-11-21
-pr:
+pr: 299
 ---
 
 ## Why
@@ -29,12 +29,12 @@ HUD reaches only when units is `kmh`; the default path adds no bytes to main. Le
 payloads and share text keep mph (one canonical unit server-side).
 
 ## Acceptance criteria
-- [ ] Setting persists across reload and appears in Settings from the title and from pause
-- [ ] In KM/H: HUD speed, caption, warp card, results top speed and the meter's spoken value show km/h, rounded to whole numbers; 88 mph reads 142
-- [ ] The warp still triggers at 88 mph; no physics value changes
-- [ ] The leaderboard POST and share text are byte-identical in both units
-- [ ] Main startup JS does not grow in the default (MPH) path; budget test stays green
-- [ ] No text under 10px added; fits at 320 px
+- [x] Setting persists across reload and appears in Settings from the title and from pause
+- [x] In KM/H: HUD speed, caption, warp card, results top speed and the meter's spoken value show km/h, rounded to whole numbers; 88 mph reads 142
+- [x] The warp still triggers at 88 mph; no physics value changes
+- [x] The leaderboard POST and share text are byte-identical in both units
+- [x] Main startup JS does not grow in the default (MPH) path; budget test stays green
+- [x] No text under 10px added; fits at 320 px
 
 ## Test plan
 Unit test for `formatSpeed` (0, 88 → 142, 160 → 257, rounding). E2e `tests/e2e/units.spec.js`
