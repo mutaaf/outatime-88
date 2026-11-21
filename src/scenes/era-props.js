@@ -1,7 +1,8 @@
 // 2D art for the era signature hazards (ticket 0113, rules in src/era-hazards.js). Drawn by
 // src/render/sprites.js through the backdrop shim, already translated to the prop's centre and
 // rotated with it; the road is at y ≈ oh·0.45. Art stays inside the sprite's seen box
-// (±0.55·ow, up to 1.7·oh above the anchor) so billboard fading (0203) treats it as traffic. Flat fills only, nothing allocated per call.
+// (±0.55·ow, up to 1.7·oh above the anchor) so billboard fading (0203) treats it as traffic. Flat fills and strokes only (no gradients), nothing allocated
+// per call. No prop draws a clean ring: that is the pickup cue (0295, tests/unit/colour-vision.test.js).
 
 const B = 0.45; // ground line, in oh
 
@@ -36,14 +37,23 @@ function cart(ctx, ow, oh) {
 }
 
 function tumbleweed(ctx, ow, oh) {
-  // A dry ball of brush: two tan rings and crossing twigs (it spins when you hit it).
+  // A dry ball of brush: two spiky tan burrs and crossing twigs (it spins when you hit it). Never
+  // a clean ring: a ring is the cue every pickup floats in, and tan vs its white is under 3:1
+  // (2.84 for deuteranopes, 3.0 in greyscale; 0295, tests/unit/colour-vision.test.js).
   const r = Math.min(ow * 0.46, oh * 0.95);
   const cy = oh * B - r;
   ctx.strokeStyle = '#c08a4a';
   ctx.lineWidth = Math.max(1, r * 0.12);
   ctx.beginPath();
-  ctx.arc(0, cy, r, 0, Math.PI * 2);
-  ctx.moveTo(r * 0.62, cy); ctx.arc(0, cy, r * 0.62, 0, Math.PI * 2);
+  for (let n = 0; n < 2; n++) {
+    const R = n ? r * 0.6 : r, a0 = n * 0.4;
+    for (let k = 0; k < 14; k++) {
+      const a = a0 + k * Math.PI / 7, q = k & 1 ? R * 0.68 : R;
+      const x = Math.cos(a) * q, y = cy + Math.sin(a) * q;
+      if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  }
   ctx.moveTo(-r, cy - r * 0.3); ctx.lineTo(r, cy + r * 0.35);
   ctx.moveTo(-r * 0.4, cy - r); ctx.lineTo(r * 0.35, cy + r);
   ctx.moveTo(-r * 0.85, cy + r * 0.5); ctx.lineTo(r * 0.8, cy - r * 0.55);

@@ -35,6 +35,27 @@ export function simLum(r, g, b, m) {
   return 0.2126 * R + 0.7152 * G + 0.0722 * B;
 }
 
+/** sRGB [r, g, b] of '#rrggbb' or 'rgb(a)(…)' (alpha dropped), or null. */
+export function parseColor(c) {
+  const s = String(c).trim();
+  let m = /^#([0-9a-f]{6})$/i.exec(s);
+  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  m = /^rgba?\(([^)]+)\)$/i.exec(s);
+  if (m) return m[1].split(',').slice(0, 3).map((v) => Math.round(+v));
+  return null;
+}
+
+/** WCAG contrast ratio of two relative luminances. */
+export const contrast = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+
+/** Lowest luminance contrast between two colours over every simulation (ticket 0295). */
+export function worstContrast(a, b) {
+  const A = parseColor(a), B = parseColor(b);
+  let worst = Infinity;
+  for (const k in SIMS) worst = Math.min(worst, contrast(simLum(...A, SIMS[k]), simLum(...B, SIMS[k])));
+  return worst;
+}
+
 /** Keep only the sprite: the biggest blob of the mask (pixels within 3 px count as touching,
  *  so a stripe or beacon stays with its body), cropped to its box. Drops stray live pixels. */
 export function isolate(shot) {
