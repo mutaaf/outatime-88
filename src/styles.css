@@ -576,8 +576,10 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 [data-hud-size="large"] #btnDismissCoach { font-size: 14px; flex-shrink: 0; }
 /* The desktop chip (0229) has a fixed box in the HUD row: there GOT IT is just its ✓ (as on the 0225 phone chip; the
    button keeps "GOT IT ✓" as its name), so the bigger tip keeps the chip's width. */
-:root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #btnDismissCoach { font-size: 0; min-width: 32px; }
-:root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #btnDismissCoach::before { content: '✓'; font-size: 14px; line-height: 1; }
+@media (min-width: 600px) { /* the chip only docks on wide screens (coach-dock.js needs 240 px between the cards) */
+  :root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #btnDismissCoach { font-size: 0; min-width: 32px; }
+  :root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #btnDismissCoach::before { content: '✓'; font-size: 14px; line-height: 1; }
+}
 /* Keys on a full HUD, tip not docked: the card's 26vw (max 300 px) leaves the bigger GOT IT no room. */
 :root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) #interactiveCoachBanner:not(.coach-desk) #coachCard { max-width: min(360px, 30vw); }
 /* Upright screens: the bigger times column would squeeze between the cards on phones, so on every
