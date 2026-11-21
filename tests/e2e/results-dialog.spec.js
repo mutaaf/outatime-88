@@ -7,13 +7,14 @@ import { APP, watchPage } from './helpers.js';
 
 const KEY = 'outatime_cruisn_88_save_v2';
 
-async function finish(page, vp, save = { onboarded: true, initials: 'CLD' }) {
+async function finish(page, vp, save = { onboarded: true, initials: 'CLD' }, beforeRace = null) {
   const problems = watchPage(page);
   await page.setViewportSize(vp);
   await page.addInitScript(([k, s]) => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem(k, JSON.stringify(s)); } }, [KEY, save]);
   await page.goto(`${APP}?debug`);
   await page.waitForFunction(() => window.__OT?.startRace);
   await page.evaluate(() => window.__OT.ready());
+  if (beforeRace) await beforeRace();
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await page.waitForTimeout(300); // the field is placed, so the finish order has rows
   // A known place and time; a score that unlocks nothing (a car reveal would take focus).
@@ -36,16 +37,14 @@ test('the results card is a named modal dialog with focus on PLAY AGAIN', async 
   const name = await page.evaluate(() => document.getElementById(document.getElementById('gameOverModal').getAttribute('aria-labelledby')).textContent.trim());
   expect(name.length).toBeGreaterThan(3);
   await expect(page.locator('#btnPlayAgain')).toBeFocused();
-  // Focusing did not scroll the card.
-  expect(await page.evaluate(() => document.getElementById('gameOverModal').scrollTop)).toBe(0);
 
-  // The status line names place and time, once.
-  const place = await page.evaluate(() => window.__OT.GameState.lastResult.place);
-  const total = await page.evaluate(() => window.__OT.GameState.lastResult.total);
+  // The dialog's description names place and time (the field counted from the finish order).
+  const place = await page.evaluate(() => window.__OT.GameState.racePosition);
+  const total = await page.locator('#endPodium li').count();
   const sfx = place === 1 ? 'ST' : place === 2 ? 'ND' : place === 3 ? 'RD' : 'TH';
+  await expect(page.locator('#gameOverModal')).toHaveAttribute('aria-describedby', 'endSummary');
   await expect(page.locator('#endSummary')).toHaveText(`FINISHED ${place}${sfx} OF ${total} · TIME 1:42.3`);
-  await expect(page.locator('#endSummary')).toHaveAttribute('role', 'status');
-  // The rank card refreshing (its own region) never rewrites the summary.
+  // The rank card refreshing (its own live region) never rewrites the description.
   const writes = await page.evaluate(() => new Promise((res) => {
     let n = 0;
     new MutationObserver(() => { n++; }).observe(document.getElementById('endSummary'), { childList: true, characterData: true, subtree: true });
@@ -111,6 +110,41 @@ for (const vp of [{ width: 390, height: 844 }, { width: 320, height: 568 }, { wi
     const box = await page.locator('#endSummary').boundingBox();
     expect(box.width * box.height).toBeLessThanOrEqual(1);
     await expect(page.locator('#btnPlayAgain')).toBeFocused();
+    // Focusing PLAY AGAIN did not scroll the card (it does scroll on phones).
+    expect(await page.evaluate(() => document.getElementById('gameOverModal').scrollTop)).toBe(0);
     expect(problems).toEqual([]);
   });
 }
+
+test('boost mashed after the line (a fresh Space) does not press the PLAY AGAIN the card focused', async ({ page }) => {
+  // A keyboard player who used Tab on the title before the race: the 0207 Enter/Space rule is armed.
+  const problems = await finish(page, { width: 1280, height: 720 }, undefined, () => page.keyboard.press('Tab'));
+  await expect(page.locator('#btnPlayAgain')).toBeFocused();
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('GAMEOVER');
+  // Tabbing to it makes it the player's choice: Space presses it then.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('#btnPlayAgain')).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#gameOverModal')).toBeHidden();
+  // A race started from the card leaves no button focused for the race keys.
+  expect(await page.evaluate(() => document.activeElement === document.body || !document.activeElement)).toBe(true);
+  expect(problems).toEqual([]);
+});
+
+test('an Endless run is described by distance and score, not a place', async ({ page }) => {
+  const problems = watchPage(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ onboarded: true, initials: 'CLD' })), KEY);
+  await page.goto(`${APP}?debug`);
+  await page.waitForFunction(() => window.__OT?.startRace);
+  await page.evaluate(() => window.__OT.ready());
+  await page.evaluate(() => window.__OT.startRace({ mode: 'INFINITE' }));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { window.__OT.GameState.score = 734210; window.__OT.finishRun(); });
+  await expect(page.locator('#gameOverModal')).toBeVisible();
+  await expect(page.locator('#endSummary')).toHaveText(/^RUN OVER( · [\d,]+ M)? · SCORE 734,210$/);
+  expect(problems).toEqual([]);
+});

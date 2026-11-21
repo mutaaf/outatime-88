@@ -870,15 +870,15 @@
   </div>
 
   <!-- GAME OVER / EVENT SUMMARY MODAL -->
-  <div id="gameOverModal" class="hidden fixed inset-0 z-30 flex justify-center overflow-y-auto bg-slate-950/90 backdrop-blur-md p-3" role="dialog" aria-modal="true" aria-labelledby="endModalTitle">
+  <div id="gameOverModal" class="hidden fixed inset-0 z-30 flex justify-center overflow-y-auto bg-slate-950/90 backdrop-blur-md p-3" role="dialog" aria-modal="true" aria-labelledby="endModalTitle" aria-describedby="endSummary">
     <div class="results-card m-auto w-full rounded-3xl bg-slate-900 border-2 border-orange-500 text-center shadow-2xl">
       <div class="res-left">
         <div id="endModalBadge" class="inline-block px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400 text-orange-300 font-arcade text-xs font-bold">
           EVENT COMPLETE!
         </div>
         <h2 id="endModalTitle" class="end-title font-arcade font-black text-white">STREET RUN SUMMARY</h2>
-        <!-- Spoken once as the card opens (0294): place and time, or the run's distance (src/results-summary.js). -->
-        <p id="endSummary" class="sr-only" role="status"></p>
+        <!-- The dialog's description (0294): place and time, or the run's distance (src/results-summary.js). -->
+        <p id="endSummary" class="sr-only"></p>
         <p id="endHeadline" class="end-headline hidden"></p>
         <!-- Photo finish (ticket 0276): one margin line when you finish under 1 s from another car. -->
         <p id="endMargin" class="end-margin hidden"></p>

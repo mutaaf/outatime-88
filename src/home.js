@@ -163,12 +163,17 @@ export function createHome(h) {
   // box keeps it when it asked first), Tab loops inside it, and HOME hands focus to the title's
   // PLAY. Not a focus-scope menu: the pad keeps its results rules (A / START again, B home).
   let resultsUp = false;
+  // PLAY AGAIN while it holds the focus the card gave it (not one the player moved to): boost mashed
+  // after the line is Space, so Space doesn't press it there; Enter / pad A still play again.
+  let autoFocused = null;
+  document.addEventListener('focusin', (e) => { if (e.target !== autoFocused) autoFocused = null; });
   function resultsFocus() {
     const up = shown('gameOverModal');
     if (up === resultsUp) return;
     resultsUp = up;
     const a = document.activeElement;
-    if (up) { if (!modal.contains(a)) $('btnPlayAgain')?.focus({ preventScroll: true }); return; }
+    if (up) { if (!modal.contains(a)) { const b = $('btnPlayAgain'); if (b) { b.focus({ preventScroll: true }); autoFocused = b; } } return; }
+    autoFocused = null;
     const play = $('btnStartRace');
     if (a && a !== document.body && !modal.contains(a)) return; // something else took focus
     if (play && S.status === 'TITLE' && visible(play)) play.focus({ preventScroll: true });
@@ -206,10 +211,10 @@ export function createHome(h) {
     if (e.repeat && !inInput && (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter')) {
       e.preventDefault(); e.stopImmediatePropagation(); return;
     }
-    // Tab stays on the card while nothing opens over it (a board, the share sheet, a new car).
     const a = document.activeElement;
-    const over = a && !modal.contains(a) && a.closest && a.closest('[role="dialog"]');
-    if (e.key === 'Tab' && !menuOpen() && !(over && over.id !== 'titleScreen' && visible(over))) {
+    if (e.code === 'Space' && a && a === autoFocused) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+    // Tab stays on the card while focus is on it (or nowhere); an overlay over it keeps its own Tab.
+    if (e.key === 'Tab' && !menuOpen() && (!a || a === document.body || modal.contains(a))) {
       const to = nextTab(tabbables(modal), a, e.shiftKey);
       e.preventDefault();
       if (to) to.focus();

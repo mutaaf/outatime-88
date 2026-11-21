@@ -116,12 +116,11 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     }, 100);
   }
 
-  // The card's spoken line (0294): cleared as the card opens and filled a beat later, once the
-  // status region is in the tree, so it is read once per card (the rank card has its own region).
+  // The card's spoken line (0294): written before the card shows, so it is the dialog's description,
+  // read once as focus enters the card (the rank card keeps its own live region).
   function speakSummary() {
     const el = $('endSummary');
     if (!el) return;
-    el.textContent = '';
     const g = GameState, lr = g.lastResult;
     const endless = g.mode === 'INFINITE' || !g.raceLength;
     const text = resultSummary({
@@ -129,7 +128,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
       place: lr ? lr.place : g.racePosition, total: lr ? lr.total : 0, outcome: lr ? lr.outcome : 'finished',
       time: g.finishTime != null ? g.finishTime : g.raceTime,
     });
-    setTimeout(() => { if (!$('gameOverModal').classList.contains('hidden')) el.textContent = text; }, 150);
+    el.textContent = text;
   }
 
   /** Everything on the results card after the finish order: medal, ghost, score, stats, initials. */
@@ -156,8 +155,8 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     $('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
     $('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
     renderMissions(GameState.missions);
-    $('gameOverModal').classList.remove('hidden');
     speakSummary();
+    $('gameOverModal').classList.remove('hidden');
     showSaveNotice();
     offerScoreSubmission();
   }
