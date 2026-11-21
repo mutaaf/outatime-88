@@ -19,7 +19,7 @@ function fakeDoc() {
       parentNode,
       id, dataset: new Proxy({}, { set(t, k, v) { writes.n++; t[k] = v; return true; } }), style, children: [], title: '', className: '',
       get textContent() { return text; },
-      set textContent(v) { writes.n++; text = v; if (v === '') this.children.length = 0; },
+      set textContent(v) { writes.n++; text = String(v); if (v === '') this.children.length = 0; }, // a DOM stores text
       classList: { toggle(c, on) { writes.n++; if (on) cls.add(c); else cls.delete(c); }, contains: (c) => cls.has(c) },
       appendChild(c) { this.children.push(c); },
     };
@@ -32,7 +32,8 @@ function fakeDoc() {
   };
 }
 
-const view = (over = {}) => ({
+// 0293: race-flow passes the readout as spd (whole mph here; km/h in KM/H, tests/unit/units.test.js).
+const view = (over = {}) => withSpd({
   position: 4, total: 6, progress: 1200, length: 6500, raceTime: 12.34, timeLeft: 35.2, clockUrgent: false,
   infinite: false, mph: 100, flux: 40, hpFrac: 0.8, score: 12345,
   field: [
@@ -45,6 +46,7 @@ const view = (over = {}) => ({
   ],
   ...over,
 });
+function withSpd(v) { return 'spd' in v ? v : { ...v, spd: Math.max(0, Math.round(v.mph)) }; }
 
 describe('race HUD (ticket 0051)', () => {
   it('shows position, lap, time, clock, gaps, speed and one dot per racer', () => {

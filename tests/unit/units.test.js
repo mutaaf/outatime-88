@@ -91,7 +91,7 @@ describe('race HUD in km/h (0293)', () => {
     const node = () => {
       const attrs = {};
       return {
-        textContent: '', dataset: {}, style: { setProperty() {} }, children: [], className: '',
+        _t: '', get textContent() { return this._t; }, set textContent(v) { this._t = String(v); }, dataset: {}, style: { setProperty() {} }, children: [], className: '',
         parentNode: { attrs, setAttribute(k, v) { attrs[k] = String(v); } },
         classList: { toggle() {}, contains: () => false }, appendChild() {},
       };
@@ -112,9 +112,9 @@ describe('race HUD in km/h (0293)', () => {
     expect(doc.getElementById('hudSpeedBar').style.width).toBe('55%');
     hud.update(view({ mph: 160, spd: toKmh(160) }));
     expect(doc.getElementById('hudSpeed').textContent).toBe('257');
-    hud.update(view({ mph: 160, spd: 0 }));
+    hud.update(view({ mph: 160, spd: 160 }));
     expect(doc.getElementById('hudSpeed').textContent).toBe('160');
-    hud.update(view({ mph: 88.4 }));
+    hud.update(view({ mph: 88.4, spd: 88 }));
     expect(doc.getElementById('hudSpeed').textContent).toBe('88');
   });
 });

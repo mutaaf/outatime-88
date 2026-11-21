@@ -162,7 +162,7 @@ function updateRaceHud(force) {
   hudView.infinite = GameState.mode === 'INFINITE';
   hudView.compact = Boolean(phonePortrait && phonePortrait.matches); // the phone-portrait HUD layout in styles.css (0190)
   hudView.mph = GameState.speed;
-  hudView.spd = GameState.kmh ? Math.round(Math.max(0, GameState.speed) * 1.609344) : 0; // 0293: km/h (src/units.js sets kmh)
+  hudView.spd = Math.round(Math.max(0, GameState.speed) * (GameState.kmh ? 1.609344 : 1)); // 0293: the readout (src/units.js sets kmh)
   hudView.flux = GameState.fluxCharge;
   hudView.ready = Boolean(GameState.warpReady);
   hudView.nos = GameState.nosFill || 0;
