@@ -11,6 +11,7 @@ import { submitRunQueued as submitRun, fetchBoardCached as fetchBoard, fetchStan
 import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
 import { ordinal, plural } from './raceflow.js';
 import { missionLine } from './missions.js';
+import { resultSummary } from './results-summary.js';
 
 /**
  * deps: run (get/set the current leaderboard run, owned by main.js), raceGhostOf(initials, level),
@@ -115,6 +116,24 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     }, 100);
   }
 
+  // The card's spoken line (0294): written before the card shows, so it is the dialog's description,
+  // read once as focus enters the card (the rank card keeps its own live region).
+  function speakSummary() {
+    const el = $('endSummary');
+    if (!el) return;
+    const g = GameState, lr = g.lastResult;
+    const endless = g.mode === 'INFINITE' || !g.raceLength;
+    const text = resultSummary({
+      endless, score: g.score, distance: g.endlessResult ? g.endlessResult.distance : g.distance,
+      place: lr ? lr.place : g.racePosition, total: lr ? lr.total : 0, outcome: lr ? lr.outcome : 'finished',
+      time: g.finishTime != null ? g.finishTime : g.raceTime,
+    });
+    el.textContent = text;
+  }
+
+  // The card is a dialog (0294): focus, Tab and HOME glue in its own small chunk (src/results-focus.js).
+  import('./results-focus.js').then((m) => m.initResultsFocus(GameState)).catch(() => {});
+
   /** Everything on the results card after the finish order: medal, ghost, score, stats, initials. */
   function showResults({ lvl, result, newCarNames, verdict, ghostInitials, scoreSheet }) {
     if (result) renderRunMedal(lvl, result);
@@ -139,6 +158,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     $('endPeakSpeedText').textContent = `${Math.round(GameState.peakSpeed)} MPH • ${GameState.takedowns} TD`;
     $('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
     renderMissions(GameState.missions);
+    speakSummary();
     $('gameOverModal').classList.remove('hidden');
     showSaveNotice();
     offerScoreSubmission();

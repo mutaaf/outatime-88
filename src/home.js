@@ -185,9 +185,14 @@ export function createHome(h) {
 
   // Escape on the results = home (it would open the garage); Enter = play again.
   window.addEventListener('keydown', (e) => {
-    if (!shown('gameOverModal') || S.status !== 'GAMEOVER' || blocking()) return;
-    // In the (auto-focused) initials box only Escape means home; Backspace and Enter edit/post.
+    if (!shown('gameOverModal') || S.status !== 'GAMEOVER') return;
     const inInput = !!(e.target && e.target.tagName === 'INPUT');
+    // A boost / Enter held across the line repeats onto the focused PLAY AGAIN, and Space (boost) never
+    // presses the PLAY AGAIN the card focused itself (data-auto, src/results-ui.js, 0294).
+    if (!inInput && (e.code === 'Space' || (e.repeat && (e.code === 'Enter' || e.code === 'NumpadEnter')))
+      && (e.repeat || (e.target && e.target.dataset && e.target.dataset.auto != null))) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (blocking()) return;
+    // In the (auto-focused) initials box only Escape means home; Backspace and Enter edit/post.
     if (e.code === 'Escape' || (e.code === 'Backspace' && !inInput)) { e.preventDefault(); e.stopImmediatePropagation(); goHome(); }
     else if (inInput) return;
     else if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !(e.target && e.target.closest && e.target.closest('button, a, input'))) {

@@ -384,6 +384,7 @@ export function startNewRace(opts) {
   GameState.distance = 0;
   GameState.raceTime = 0;
   GameState.finishTime = null;
+  GameState.lastResult = null; // the results' spoken line never reads an earlier race (0294)
   GameState.raceLength = liveRace ? liveRace.length : GameState.mode === 'INFINITE' ? 0 : raceLengthFor(lvl.index);
   GameState.trackPos = 0;
   GameState.playerX = 0;
