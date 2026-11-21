@@ -156,8 +156,23 @@ export function createHome(h) {
   }
   if (homeBtn) homeBtn.addEventListener('click', goHome);
   if (modal) {
-    new MutationObserver(() => { armIdle(); padPrev = null; }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => { armIdle(); padPrev = null; resultsFocus(); }).observe(modal, { attributes: true, attributeFilter: ['class'] });
     for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) modal.addEventListener(ev, () => { if (Date.now() - idleAt > 400) armIdle(); }, { passive: true });
+  }
+  // The results card is a dialog (0294): it takes focus on PLAY AGAIN as it opens (the initials
+  // box keeps it when it asked first), Tab loops inside it, and HOME hands focus to the title's
+  // PLAY. Not a focus-scope menu: the pad keeps its results rules (A / START again, B home).
+  let resultsUp = false;
+  function resultsFocus() {
+    const up = shown('gameOverModal');
+    if (up === resultsUp) return;
+    resultsUp = up;
+    const a = document.activeElement;
+    if (up) { if (!modal.contains(a)) $('btnPlayAgain')?.focus({ preventScroll: true }); return; }
+    const play = $('btnStartRace');
+    if (a && a !== document.body && !modal.contains(a)) return; // something else took focus
+    if (play && S.status === 'TITLE' && visible(play)) play.focus({ preventScroll: true });
+    else if (a && modal.contains(a)) a.blur();
   }
   // The share sheet and boards open over the results: their activity counts as not idle.
   for (const id of ['shareSheet', 'leaderboardModal']) {
@@ -185,9 +200,23 @@ export function createHome(h) {
 
   // Escape on the results = home (it would open the garage); Enter = play again.
   window.addEventListener('keydown', (e) => {
-    if (!shown('gameOverModal') || S.status !== 'GAMEOVER' || blocking()) return;
-    // In the (auto-focused) initials box only Escape means home; Backspace and Enter edit/post.
+    if (!shown('gameOverModal') || S.status !== 'GAMEOVER') return;
     const inInput = !!(e.target && e.target.tagName === 'INPUT');
+    // A boost / Enter held across the line repeats onto the focused PLAY AGAIN: only a fresh press counts.
+    if (e.repeat && !inInput && (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter')) {
+      e.preventDefault(); e.stopImmediatePropagation(); return;
+    }
+    // Tab stays on the card while nothing opens over it (a board, the share sheet, a new car).
+    const a = document.activeElement;
+    const over = a && !modal.contains(a) && a.closest && a.closest('[role="dialog"]');
+    if (e.key === 'Tab' && !menuOpen() && !(over && over.id !== 'titleScreen' && visible(over))) {
+      const to = nextTab(tabbables(modal), a, e.shiftKey);
+      e.preventDefault();
+      if (to) to.focus();
+      return;
+    }
+    if (blocking()) return;
+    // In the (auto-focused) initials box only Escape means home; Backspace and Enter edit/post.
     if (e.code === 'Escape' || (e.code === 'Backspace' && !inInput)) { e.preventDefault(); e.stopImmediatePropagation(); goHome(); }
     else if (inInput) return;
     else if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !(e.target && e.target.closest && e.target.closest('button, a, input'))) {

@@ -11,6 +11,7 @@ import { submitRunQueued as submitRun, fetchBoardCached as fetchBoard, fetchStan
 import { renderRankCard, renderBoardRows, rivalLine, timeLeft } from './compete-ui.js';
 import { ordinal, plural } from './raceflow.js';
 import { missionLine } from './missions.js';
+import { resultSummary } from './results-summary.js';
 
 /**
  * deps: run (get/set the current leaderboard run, owned by main.js), raceGhostOf(initials, level),
@@ -115,6 +116,22 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     }, 100);
   }
 
+  // The card's spoken line (0294): cleared as the card opens and filled a beat later, once the
+  // status region is in the tree, so it is read once per card (the rank card has its own region).
+  function speakSummary() {
+    const el = $('endSummary');
+    if (!el) return;
+    el.textContent = '';
+    const g = GameState, lr = g.lastResult;
+    const endless = g.mode === 'INFINITE' || !g.raceLength;
+    const text = resultSummary({
+      endless, score: g.score, distance: g.endlessResult ? g.endlessResult.distance : g.distance,
+      place: lr ? lr.place : g.racePosition, total: lr ? lr.total : 0, outcome: lr ? lr.outcome : 'finished',
+      time: g.finishTime != null ? g.finishTime : g.raceTime,
+    });
+    setTimeout(() => { if (!$('gameOverModal').classList.contains('hidden')) el.textContent = text; }, 150);
+  }
+
   /** Everything on the results card after the finish order: medal, ghost, score, stats, initials. */
   function showResults({ lvl, result, newCarNames, verdict, ghostInitials, scoreSheet }) {
     if (result) renderRunMedal(lvl, result);
@@ -140,6 +157,7 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     $('endCoinsText').textContent = `+${GameState.runCoins} ⚡`;
     renderMissions(GameState.missions);
     $('gameOverModal').classList.remove('hidden');
+    speakSummary();
     showSaveNotice();
     offerScoreSubmission();
   }

@@ -1,7 +1,7 @@
 ---
 id: 0294
 title: The results card is a labelled dialog that announces the finish and puts focus on PLAY AGAIN
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: accessibility
