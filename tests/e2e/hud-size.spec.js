@@ -3,7 +3,7 @@
 // compact default, the choice survives a reload, and LARGE still lays the HUD out with every
 // block on screen and nothing on top of anything else, worst-case text included.
 import { test, expect } from '@playwright/test';
-import { APP, watchPage, racing, nextFrames } from './helpers.js';
+import { APP, watchPage, racing, nextFrames, touchReady } from './helpers.js';
 
 const SAVE = 'outatime_cruisn_88_save_v2';
 const saved = (page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}'), SAVE);
@@ -173,6 +173,131 @@ for (const [width, height] of [[390, 844], [844, 390], [667, 375], [768, 1024]])
       for (const h of r.hud) expect(discHitsBox(c, h), `${c.id} sits on ${h.id}`).toBeFalsy();
     }
     await page.screenshot({ path: test.info().outputPath(`hud-large-touch-${width}x${height}.png`) });
+    expect(problems).toEqual([]);
+    await ctx.close();
+  });
+}
+
+// HUD SIZE, the small print (ticket 0297): LARGE grew the numbers (0195) but left the words a racer reads
+// beside them at their NORMAL size: the SPD / FLUX / NOS bar captions, the flux label and score under the
+// mph, and the coach tip. Mid-race with the tip up (what a new player sees) and worst-case HUD text, LARGE
+// grows each by >= 25%, and nothing runs into anything else, off the screen or out of its card, with each
+// of the longest tips tried in turn.
+// Where the HUD row is full the bar captions and score line grow less (`small`): 10% on 320-349 px upright
+// phones (the most that keeps "⚡ WARP READY" and a 7-digit score on one line each), none on phones on their
+// side under 700 px wide (that row is full both ways, and a wider speed card takes the docked coach chip's
+// room, 0225). The docked chips have fixed boxes: the phone chip (0225) keeps its 10 px two-line tip; the
+// desktop chip (0229) grows its tip and shows GOT IT as its ✓.
+const SMALL_PRINT = { cap: '#hudSpeedCard .hud-meter .cap', fluxLabel: '#hudFluxLabel', score: '#hudScore', tip: '#coachDesc', tipTitle: '#coachTitle', gotIt: '#btnDismissCoach' };
+const LONG_TIPS = [
+  'Graze the gold ring for a slingshot — or go RIGHT ▶', 'Draft the green wake behind rivals for a slingshot',
+  'Hold drift to duck (S / ▼) — or go RIGHT ▶', 'Hold 88 mph — or hit BOOST — to jump eras', 'Go RIGHT ▶, jump it, or boost-smash it',
+];
+for (const { name, vp, touch, small = 1.25, desk = false } of [
+  { name: '320x568 touch', vp: { width: 320, height: 568 }, touch: true, small: 1.1 },
+  { name: '360x800 touch', vp: { width: 360, height: 800 }, touch: true },
+  { name: '390x844 touch', vp: { width: 390, height: 844 }, touch: true },
+  { name: '667x375 touch', vp: { width: 667, height: 375 }, touch: true, small: 1 },
+  { name: '844x390 touch', vp: { width: 844, height: 390 }, touch: true },
+  { name: '1280x720 keys', vp: { width: 1280, height: 720 }, touch: false },
+  { name: '1366x768 keys', vp: { width: 1366, height: 768 }, touch: false, desk: true },
+]) {
+  test(`LARGE grows the meter captions, the flux and score line and the coach tip at ${name}`, async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: vp, hasTouch: touch, isMobile: touch });
+    const page = await ctx.newPage();
+    const problems = watchPage(page);
+    await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({
+      initials: 'CLD', onboarded: true, controls: { coachSeen: true }, settings: { hud: 'large' } })), SAVE);
+    await page.goto(`${APP}?debug`);
+    await page.waitForFunction(() => window.__OT?.startRace);
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
+    if (touch) await touchReady(page);
+    await racing(page);
+    await page.waitForFunction(() => document.getElementById('interactiveCoachBanner').style.opacity === '1', null, { timeout: 30_000 });
+    await page.evaluate(() => {
+      window.__OT.pause();
+      // Worst case (as above): WARP READY and a 7-digit score widen the speed card; the docks re-measure on resize.
+      document.getElementById('hudFluxLabel').textContent = '⚡ WARP READY';
+      document.getElementById('hudScore').textContent = `${(1234567).toLocaleString()} PTS`;
+      document.getElementById('hudSpeed').textContent = '188';
+      return document.fonts.ready;
+    });
+    await nextFrames(page, 4); // a header resize re-lays the touch kit and the tip's dock on the next frame
+    const m = await page.evaluate(([print, tips]) => {
+      const root = document.documentElement;
+      const shown = (el) => {
+        if (!el || !el.getClientRects().length) return false;
+        for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+          const cs = getComputedStyle(n);
+          if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) < 0.05) return false;
+        }
+        return el.getBoundingClientRect().width > 0;
+      };
+      const sizes = () => Object.fromEntries(Object.entries(print).map(([k, sel]) => {
+        const el = document.querySelector(sel);
+        return [k, shown(el) ? parseFloat(getComputedStyle(el).fontSize) : 0];
+      }));
+      const box = (el) => (({ left, right, top, bottom }) => ({ id: el.id || el.className, left, right, top, bottom }))(el.getBoundingClientRect());
+      const banner = document.getElementById('interactiveCoachBanner');
+      const chip = banner.classList.contains('tc-coach-docked'), deskChip = banner.classList.contains('coach-desk');
+      const large = sizes();
+      // Laid out at LARGE from boot: measure that layout before flipping to NORMAL for the ratios.
+      const blocks = [...document.querySelectorAll('[data-hud-rect]')].filter(shown).map(box);
+      const coach = document.getElementById('coachCard');
+      if (shown(coach)) blocks.push(box(coach));
+      const pads = [...document.querySelectorAll('#touchControlsLayer > .tc-btn:not(.tc-hidden), #tcStick:not(.tc-hidden)')].filter(shown).map(box);
+      const card = box(document.getElementById('hudSpeedCard'));
+      const outOfCard = [...document.querySelectorAll('#hudSpeedCard .hud-meter .cap, #hudFluxLabel, #hudScore')].filter(shown).map(box)
+        .filter((r) => r.left < card.left - 0.5 || r.right > card.right + 0.5 || r.top < card.top - 0.5 || r.bottom > card.bottom + 0.5).map((r) => r.id);
+      // The three bar captions sit in one column: none on top of another.
+      const caps = [...document.querySelectorAll('#hudSpeedCard .hud-meter .cap')].filter(shown).map(box);
+      const capsTouch = caps.flatMap((a, i) => caps.slice(i + 1).filter((b) => a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5).map((b) => `${a.id}/${b.id}`));
+      // Cut-off text: wider than its box. (The phone chip's GOT IT shows only a ✓ pseudo-element, its text at 0 px.)
+      const clipped = ['#hudFluxLabel', '#hudScore', '#coachTitle', '#btnDismissCoach']
+        .map((s) => document.querySelector(s)).filter(shown).filter((el) => parseFloat(getComputedStyle(el).fontSize) > 0)
+        .filter((el) => el.scrollWidth - el.clientWidth > 1).map((el) => el.id);
+      // Each long tip: the line is whole (no clamp ellipsis, no overflow) and everything stays inside the tip's card.
+      const tipCut = [];
+      const d = document.getElementById('coachDesc'), was = d.textContent;
+      const inside = (el) => { const c = coach.getBoundingClientRect(), r = el.getBoundingClientRect(); return r.left >= c.left - 0.5 && r.right <= c.right + 0.5 && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5; };
+      for (const t of tips) {
+        d.textContent = t;
+        const parts = ['coachTitle', 'coachDesc', 'btnDismissCoach'].map((id) => document.getElementById(id)).filter(shown);
+        if (d.scrollHeight > d.clientHeight + 1 || d.scrollWidth > d.clientWidth + 1 || coach.scrollHeight > coach.clientHeight + 1
+          || parts.some((el) => !inside(el))) tipCut.push(t);
+      }
+      d.textContent = was;
+      root.dataset.hudSize = 'normal';
+      const normal = sizes();
+      root.dataset.hudSize = 'large';
+      return { large, normal, chip, deskChip, blocks, pads, outOfCard, capsTouch, capCount: caps.length, clipped, tipCut, pageWidth: root.scrollWidth };
+    }, [SMALL_PRINT, LONG_TIPS]);
+
+    expect(m.large.cap, 'a bar caption is on screen').toBeGreaterThan(0);
+    expect(m.large.tip, 'the coach tip is on screen').toBeGreaterThan(0);
+    if (desk) expect(m.deskChip, 'the tip docks as the desktop chip').toBe(true);
+    for (const [k, size] of Object.entries(m.large)) {
+      if (!size) continue; // hidden on this screen shape (the phone tip has no title, the chips' GOT IT is a ✓)
+      const floor = ['cap', 'fluxLabel', 'score'].includes(k) ? small : (m.chip ? 1 : 1.2);
+      expect(size / m.normal[k], `${k} grows (${m.normal[k]} → ${size}px)`).toBeGreaterThanOrEqual(floor - 0.001);
+    }
+    const hit = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+    for (let i = 0; i < m.blocks.length; i++) {
+      for (let j = i + 1; j < m.blocks.length; j++) expect(hit(m.blocks[i], m.blocks[j]), `${m.blocks[i].id} overlaps ${m.blocks[j].id}`).toBe(false);
+      for (const p of m.pads) expect(hit(m.blocks[i], p), `${m.blocks[i].id} overlaps pad ${p.id}`).toBe(false);
+    }
+    for (const b of m.blocks) {
+      expect(b.left, `${b.id} off the left edge`).toBeGreaterThanOrEqual(-0.5);
+      expect(b.right, `${b.id} off the right edge`).toBeLessThanOrEqual(vp.width + 0.5);
+      expect(b.bottom, `${b.id} off the bottom`).toBeLessThanOrEqual(vp.height + 0.5);
+    }
+    expect(m.outOfCard, 'small print spills out of the speed card').toEqual([]);
+    expect(m.capCount, 'SPD, FLUX and NOS captions').toBe(3);
+    expect(m.capsTouch, 'bar captions on top of each other').toEqual([]);
+    expect(m.clipped, 'text cut off').toEqual([]);
+    expect(m.tipCut, 'tips cut off or out of their card').toEqual([]);
+    expect(m.pageWidth).toBeLessThanOrEqual(vp.width);
+    await page.screenshot({ path: test.info().outputPath(`hud-large-print-${vp.width}x${vp.height}.png`) });
     expect(problems).toEqual([]);
     await ctx.close();
   });

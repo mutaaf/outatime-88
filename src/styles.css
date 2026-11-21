@@ -346,6 +346,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
    viewport (vmin) so a 13" iPad reads as well as a phone. */
 .race-hud {
   --hk: 1; /* HUD text size (0195): Settings → HUD SIZE → LARGE sets 1.3 */
+  --hs: 1; /* its small print (0297): the bar captions and the flux / score line; LARGE sets 1.3 (1.1 / 1 where the HUD row is full) */
   --hud-gap: clamp(6px, 1.2vmin, 14px);
   --hud-pad: clamp(6px, 1.1vmin, 12px);
   display: grid; gap: var(--hud-gap); align-items: start;
@@ -457,12 +458,12 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .nos-meter i { background: linear-gradient(90deg, #2563eb, #60a5fa, #a855f7); }
 /* 0280: every bar is named by text at its end (SPD / FLUX / NOS), not by its colour alone. The
    captions share one column after the bars; the margin fits the widest, so the card doesn't grow. */
-.hud-meter { overflow: visible; margin-right: 38px; }
-.hud-meter .cap { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%); font: 700 10px/1 Orbitron, sans-serif; letter-spacing: 0.06em; color: #cbd5e1; white-space: nowrap; }
+.hud-meter { overflow: visible; margin-right: calc(38px * var(--hs)); }
+.hud-meter .cap { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%); font: 700 calc(10px * var(--hs))/1 Orbitron, sans-serif; letter-spacing: 0.06em; color: #cbd5e1; white-space: nowrap; }
 .flux-meter .cap { color: #fde68a; }
 .nos-meter .cap { color: #93c5fd; }
 .hud-speed.is-nos .nos-meter i { box-shadow: 0 0 8px #a855f7, 0 0 2px #fff; }
-.spd-foot { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; font-size: clamp(10px, 1.5vmin, 15px); font-weight: 800; color: #94a3b8; }
+.spd-foot { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; font-size: calc(clamp(10px, 1.5vmin, 15px) * var(--hs)); font-weight: 800; color: #94a3b8; }
 .hud-score { color: #e2e8f0; font-variant-numeric: tabular-nums; }
 /* Penalties outweigh the points (ticket 0199): the pill holds at 0 with a dim tag, never a minus. */
 .hud-score.is-pen { color: #fca5a5; }
@@ -551,7 +552,36 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
   [data-hud-size="large"] .hud-track { display: none; }
 }
 /* HUD SIZE → LARGE (0195): the numbers a racer reads at speed (place, lap, gaps, clock, mph) grow 1.3x. */
-[data-hud-size="large"] .race-hud { --hk: 1.3; }
+[data-hud-size="large"] .race-hud { --hk: 1.3; --hs: 1.3; }
+/* 0297: the small print beside the numbers grows with them: the SPD / FLUX / NOS captions and the flux / score line
+   (both read --hs), and the coach tip (outside .race-hud, so sized below per layout). The bars sit at least a
+   caption's height apart (as at NORMAL); the foot's line is 1.2em, so it adds no height. */
+[data-hud-size="large"] .hud-meter { margin-top: max(5px, calc(10px * var(--hs) - clamp(5px, 0.9vmin, 10px))); }
+[data-hud-size="large"] .spd-foot { line-height: 1.2; column-gap: 6px; }
+/* Where the HUD row is full: 320-349 px upright phones get 1.1x (keeps "⚡ WARP READY" and a 7-digit score on one
+   line each); phones on their side under 700 px wide keep 1x (that row is full both ways: 0195 drops the strip on
+   the smallest, and a wider speed card would take the docked coach chip's room, 0225). */
+@media (max-width: 349px) and (orientation: portrait) { [data-hud-size="large"] .race-hud { --hs: 1.1; } }
+@media (max-height: 520px) and (max-width: 699px) and (orientation: landscape) { [data-hud-size="large"] .race-hud { --hs: 1; } }
+[data-hud-size="large"] #coachTitle { font-size: 12.5px; line-height: 1.2; }
+[data-hud-size="large"] #coachDesc { font-size: 14px; line-height: 1.25; }
+@media (min-width: 640px) {
+  [data-hud-size="large"] #coachTitle { font-size: 15px; }
+  [data-hud-size="large"] #coachDesc { font-size: 15px; }
+}
+/* The phone line: 15px, and three lines before the clamp so the longest tips (their direction last) stay whole at 320 px. */
+[data-hud-size="large"][data-hud="compact"] #coachDesc { font-size: 15px; -webkit-line-clamp: 3; }
+:root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #coachTitle { font-size: 12.5px; }
+:root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #coachDesc { font-size: 14px; }
+[data-hud-size="large"] #btnDismissCoach { font-size: 14px; flex-shrink: 0; }
+/* The desktop chip (0229) has a fixed box in the HUD row: there GOT IT is just its ✓ (as on the 0225 phone chip; the
+   button keeps "GOT IT ✓" as its name), so the bigger tip keeps the chip's width. */
+@media (min-width: 600px) { /* the chip only docks on wide screens (coach-dock.js needs 240 px between the cards) */
+  :root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #btnDismissCoach { font-size: 0; min-width: 32px; }
+  :root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #btnDismissCoach::before { content: '✓'; font-size: 14px; line-height: 1; }
+}
+/* Keys on a full HUD, tip not docked: the card's 26vw (max 300 px) leaves the bigger GOT IT no room. */
+:root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) #interactiveCoachBanner:not(.coach-desk) #coachCard { max-width: min(360px, 30vw); }
 /* Upright screens: the bigger times column would squeeze between the cards on phones, so on every
    portrait screen (one layout, tablets included) it gets its own row under them (gap pills and clock
    side by side, wrapping when they must), and the strip a full row below that. */
