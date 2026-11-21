@@ -1,7 +1,8 @@
 // 2D art for the era signature hazards (ticket 0113, rules in src/era-hazards.js). Drawn by
 // src/render/sprites.js through the backdrop shim, already translated to the prop's centre and
 // rotated with it; the road is at y ≈ oh·0.45. Art stays inside the sprite's seen box
-// (±0.55·ow, up to 1.7·oh above the anchor) so billboard fading (0203) treats it as traffic. Flat fills only, nothing allocated per call.
+// (±0.55·ow, up to 1.7·oh above the anchor) so billboard fading (0203) treats it as traffic. Flat fills and strokes only (no gradients), nothing allocated
+// per call. No prop draws a clean ring: that is the pickup cue (0295, tests/unit/colour-vision.test.js).
 
 const B = 0.45; // ground line, in oh
 
@@ -37,8 +38,8 @@ function cart(ctx, ow, oh) {
 
 function tumbleweed(ctx, ow, oh) {
   // A dry ball of brush: two spiky tan burrs and crossing twigs (it spins when you hit it). Never
-  // a clean ring: a ring is the cue every pickup floats in, and tan vs white is under 3:1 for
-  // deuteranopes (0295, tests/unit/colour-vision.test.js).
+  // a clean ring: a ring is the cue every pickup floats in, and tan vs its white is under 3:1
+  // (2.84 for deuteranopes, 3.0 in greyscale; 0295, tests/unit/colour-vision.test.js).
   const r = Math.min(ow * 0.46, oh * 0.95);
   const cy = oh * B - r;
   ctx.strokeStyle = '#c08a4a';

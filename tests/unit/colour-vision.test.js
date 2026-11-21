@@ -2,18 +2,20 @@
 // rest on hue. Machado et al. (2009) severity-1.0 matrices (tests/e2e/cvd.js, the same ones the
 // 0198 pixel audit uses) for protanopia, deuteranopia and tritanopia, plus greyscale.
 //
-// Rule for every pair that a player must tell apart: they differ by shape, or their signal
+// Rule for every pair that a player must tell apart: they differ by silhouette, or their signal
 // colours keep a simulated luminance contrast >= 3:1 under every simulation.
-//   - pickup vs pickup (different effects): each kind has its own silhouette (ART.shape)
+//   - pickup vs pickup (different effects)
 //   - pickup vs hazard: every pickup floats in a white ring (paintIcon); no hazard may draw a
-//     clean ring of its own unless it keeps 3:1 against that white in every simulation
+//     ring of its own that loses 3:1 to that white in any simulation
 //   - hazard vs hazard with a different answer (steer / jump / slide / knock aside)
-// Every pickup and hazard kind must be listed here, so a new kind fails until it has a cue.
-// The 2D art is recorded through a fake canvas context (paintIcon, the era props), so the test
-// reads what is really drawn; the road hazards' colours are checked against src/render/sprites.js.
+// Silhouettes and colours are not typed in here: the real 2D draw code runs against a recording
+// canvas context (paintIcon, the era props, and the obstacle chain of src/render/sprites.js run
+// as-is), and a silhouette is the recorded geometry. Every pickup, road hazard and era prop kind
+// must have an answer listed below, so a new kind fails until it is audited.
+// 2D only: the 3D view (opt-in, src/render3d) draws era props as plain blocks and is not covered.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { SIMS, simLum } from '../e2e/cvd.js';
+import { SIMS, simLum, contrast, worstContrast, parseColor } from '../e2e/cvd.js';
 import { PICKUPS } from '../../src/pickups.js';
 import { ART, paintIcon } from '../../src/pickup-art.js';
 import { MATERIALS } from '../../src/materials.js';
@@ -21,122 +23,123 @@ import { ERA_HAZARDS } from '../../src/era-hazards.js';
 import { drawEraProp } from '../../src/scenes/era-props.js';
 
 const MIN = 3;
+const OW = 40, OH = 24; // a mid-distance sprite (sprites.js: oh = max(7, ow·0.58))
 
-const rgb = (c) => {
-  const s = String(c).trim();
-  let m = /^#([0-9a-f]{6})$/i.exec(s);
-  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
-  m = /^rgba?\(([^)]+)\)$/i.exec(s);
-  if (m) return m[1].split(',').slice(0, 3).map((v) => Math.round(+v));
-  return null;
-};
-const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-/** Lowest simulated luminance contrast between two colours over every simulation. */
-export function worstContrast(a, b) {
-  const A = rgb(a), B = rgb(b);
-  let worst = Infinity;
-  for (const k in SIMS) worst = Math.min(worst, ratio(simLum(...A, SIMS[k]), simLum(...B, SIMS[k])));
-  return worst;
-}
-
-/** A canvas context that records what is painted: fills, strokes and every closed ring (a full
- *  circle arc that gets stroked). Gradients record their colour stops. */
-function recorder() {
-  const out = { fills: [], strokes: [], rings: [] };
-  let arcs = [];
-  const grad = () => ({ addColorStop: (_o, c) => out.fills.push(c) });
+/** A canvas context that records what is painted: colours, an op trace (the silhouette: op names
+ *  and coordinates in units of the sprite's size) and every ring. A ring is a closed round outline
+ *  that gets stroked: a full arc, a full ellipse no flatter than 0.6 (a flat oval on the ground is a
+ *  shadow, not a ring), or a closed polyline of 8+ points within 15% of one radius. */
+function recorder(unit) {
+  const out = { colors: [], trace: [], rings: [] };
+  let shapes = [], pts = null;
+  const q = (v) => Math.round((v / unit) * 100) / 100;
+  const t = (op, ...a) => out.trace.push(op + '(' + a.map(q).join(',') + ')');
+  const endSub = (closed) => {
+    if (closed && pts && pts.length >= 8) {
+      const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      const rs = pts.map(([x, y]) => Math.hypot(x - cx, y - cy));
+      const hi = Math.max(...rs), lo = Math.min(...rs);
+      if (hi > 0 && (hi - lo) / hi < 0.15) shapes.push(hi);
+    }
+    pts = null;
+  };
+  const grad = () => ({ addColorStop: (_o, c) => out.colors.push(c) });
+  const paint = (style) => { if (typeof style === 'string') out.colors.push(style); };
   const ctx = {
-    fillStyle: '#000000', strokeStyle: '#000000', lineWidth: 1, font: '', textAlign: '', textBaseline: '', lineJoin: '', lineCap: '',
-    beginPath() { arcs = []; },
-    arc(x, y, r, a0, a1) { if (Math.abs(a1 - a0) >= Math.PI * 2 - 1e-6) arcs.push(r); },
-    ellipse() {}, arcTo() {}, moveTo() {}, lineTo() {}, quadraticCurveTo() {}, bezierCurveTo() {}, closePath() {}, rect() {},
-    fill() { if (typeof ctx.fillStyle === 'string') out.fills.push(ctx.fillStyle); },
-    stroke() {
-      if (typeof ctx.strokeStyle === 'string') out.strokes.push(ctx.strokeStyle);
-      for (const r of arcs) out.rings.push({ r, color: ctx.strokeStyle });
+    fillStyle: '#000000', strokeStyle: '#000000', lineWidth: 1, font: '', textAlign: '', textBaseline: '', lineJoin: '', lineCap: '', globalAlpha: 1,
+    beginPath() { shapes = []; pts = null; t('begin'); },
+    arc(x, y, r, a0, a1) { t('arc', x, y, r, a0 * unit, a1 * unit); if (Math.abs(a1 - a0) >= Math.PI * 2 - 1e-6) shapes.push(r); },
+    ellipse(x, y, rx, ry, rot, a0, a1) {
+      t('ellipse', x, y, rx, ry);
+      if (Math.abs(a1 - a0) >= Math.PI * 2 - 1e-6 && Math.min(rx, ry) / Math.max(rx, ry) >= 0.6) shapes.push(Math.max(rx, ry));
     },
-    fillRect() { if (typeof ctx.fillStyle === 'string') out.fills.push(ctx.fillStyle); },
-    strokeRect() { if (typeof ctx.strokeStyle === 'string') out.strokes.push(ctx.strokeStyle); },
-    fillText() {}, save() {}, restore() {}, translate() {}, rotate() {}, scale() {},
+    moveTo(x, y) { endSub(false); pts = [[x, y]]; t('move', x, y); },
+    lineTo(x, y) { (pts ||= []).push([x, y]); t('line', x, y); },
+    closePath() { t('close'); endSub(true); },
+    arcTo(...a) { t('arcTo', ...a); }, quadraticCurveTo(...a) { t('quad', ...a); }, bezierCurveTo(...a) { t('bez', ...a); },
+    rect(...a) { t('rect', ...a); },
+    fill() { paint(ctx.fillStyle); t('fill'); },
+    stroke() {
+      paint(ctx.strokeStyle); t('stroke');
+      for (const r of shapes) out.rings.push({ r, color: ctx.strokeStyle });
+    },
+    fillRect(...a) { paint(ctx.fillStyle); t('fillRect', ...a); },
+    strokeRect(...a) { paint(ctx.strokeStyle); t('strokeRect', ...a); },
+    fillText(s) { out.trace.push('text(' + s + ')'); }, save() {}, restore() {}, translate() {}, rotate() {}, scale() {},
     createLinearGradient: grad, createRadialGradient: grad,
   };
   return { ctx, out };
 }
+const shapeOf = (out) => out.trace.join(' ');
 
-// The road hazards drawn by src/render/sprites.js: what the player does about each, its 2D
-// silhouette and the signal colours of its branch (checked against the source below).
-// FLUX_CRATE has no 2D art of its own: it is drawn as the barricade (the else branch).
-const ROAD_HAZARDS = {
-  TRAFFIC_CONE: { answer: 'knock', shape: 'cone', colors: ['#ff6a00', '#f8fafc'] },
-  OIL_BARREL: { answer: 'knock', shape: 'barrel', colors: ['#1d4ed8', '#fbbf24'] },
-  PINE_TREE_HAZARD: { answer: 'steer', shape: 'tree', colors: ['#064e3b'] },
-  LOW_LASER_BAR: { answer: 'jump', shape: 'low-beam', colors: ['#ef4444', '#fde047'] },
-  HIGH_LIGHT_GATE: { answer: 'slide', shape: 'gantry', colors: ['#334155', '#f59e0b'] },
-  HOLO_BARRIER: { answer: 'steer', shape: 'barricade', colors: ['#f97316', '#facc15'] },
-  FLUX_CRATE: { answer: 'steer', shape: 'barricade', colors: ['#f97316', '#facc15'] },
-};
-// Era signature props (0113): all knocked aside for a cone penalty, so they share one answer;
-// their silhouettes still differ, and none may borrow the pickup ring.
-const ERA_SHAPES = {
-  SIDEWALK_SIGN: 'a-frame', SHOPPING_CART: 'cart', TUMBLEWEED: 'burr', DRONE_WRECK: 'drone',
-  LIGHT_PYLON: 'pylon', MILK_CRATE: 'crates', ICE_SHARD: 'crystal',
-};
+// The obstacle chain of src/render/sprites.js (from the cone branch to the ctx.restore() that
+// closes it), run as written against the recorder. drawHazardArt (the era's tree art, lazy) is
+// absent, so the tree draws its own fallback; drawEraProp is the real era-prop painter.
+const SPRITES = readFileSync('src/render/sprites.js', 'utf8');
+const chainStart = SPRITES.indexOf("if (ob.type === 'TRAFFIC_CONE')");
+const chainEnd = SPRITES.indexOf('ctx.restore();', chainStart);
+const CHAIN = SPRITES.slice(chainStart, chainEnd);
+const runChain = new Function('ctx', 'ob', 'ow', 'oh', 'roadW', 'rw', 'rh', 'drawEraProp', 'drawHazardArt', CHAIN);
+const ROAD_TYPES = [...CHAIN.matchAll(/ob\.type === '([A-Z_]+)'/g)].map((m) => m[1]);
 
-function paintPickup(kind) {
-  const { ctx, out } = recorder();
-  paintIcon(ctx, kind, 40, 68);
+function paintRoad(type) {
+  const { ctx, out } = recorder(OW);
+  runChain(ctx, { type, knockable: !!(MATERIALS[type] || {}).knockable }, OW, OH, 400, 1280, 720, drawEraProp, () => false);
   return out;
 }
 function paintEra(kind) {
-  const { ctx, out } = recorder();
-  expect(drawEraProp(ctx, kind, 40, 24)).toBe(true);
+  const { ctx, out } = recorder(OW);
+  expect(drawEraProp(ctx, kind, OW, OH)).toBe(true);
+  return out;
+}
+function paintPickup(kind) {
+  const { ctx, out } = recorder(40);
+  paintIcon(ctx, kind, 40, 68);
   return out;
 }
 
+// What the player does about each hazard (gameplay meaning, not looks). Era props are all
+// knocked aside for a cone penalty (src/era-hazards.js).
+const ROAD_ANSWERS = {
+  TRAFFIC_CONE: 'knock', OIL_BARREL: 'knock', PINE_TREE_HAZARD: 'steer', LOW_LASER_BAR: 'jump',
+  HIGH_LIGHT_GATE: 'slide', HOLO_BARRIER: 'steer', FLUX_CRATE: 'steer',
+};
 const eraKinds = Object.values(ERA_HAZARDS).map((h) => h.kind);
 const hazards = () => [
-  ...Object.entries(ROAD_HAZARDS).map(([kind, h]) => ({ kind, ...h, rings: [] })),
-  ...eraKinds.map((kind) => {
-    const art = paintEra(kind);
-    return { kind, answer: 'knock', shape: ERA_SHAPES[kind], colors: [...new Set([...art.fills, ...art.strokes])], rings: art.rings };
-  }),
+  ...Object.keys(ROAD_ANSWERS).map((kind) => ({ kind, answer: ROAD_ANSWERS[kind], ...paintRoad(kind) })),
+  ...eraKinds.map((kind) => ({ kind, answer: 'knock', ...paintEra(kind) })),
 ];
 
 describe('colour-vision cues (0295)', () => {
-  it('the contrast maths matches WCAG: white on black is 21:1, a colour on itself 1:1', () => {
-    expect(ratio(simLum(255, 255, 255, null), simLum(0, 0, 0, null))).toBeCloseTo(21, 5);
-    expect(worstContrast('#facc15', '#facc15')).toBeCloseTo(1, 5);
-    // Red vs green collapses under deuteranopia: the case this audit exists for.
-    expect(worstContrast('#ef4444', '#10b981')).toBeLessThan(MIN);
+  it('the maths: white on black is 21:1, and a pair that passes for normal vision can fail under a simulation', () => {
+    expect(contrast(simLum(255, 255, 255, null), simLum(0, 0, 0, null))).toBeCloseTo(21, 5);
+    // Red vs green: 3.74:1 for normal vision, 2.85:1 for a deuteranope.
+    expect(contrast(simLum(224, 0, 0, null), simLum(64, 255, 64, null))).toBeGreaterThan(MIN);
+    expect(contrast(simLum(224, 0, 0, SIMS.deuteranopia), simLum(64, 255, 64, SIMS.deuteranopia))).toBeLessThan(MIN);
+    expect(worstContrast('#e00000', '#40ff40')).toBeLessThan(MIN);
   });
 
-  it('every pickup and hazard kind has a cue listed here (a new kind fails until it gets one)', () => {
-    for (const kind of Object.keys(PICKUPS)) {
-      expect(ART[kind], `pickup ${kind} has no art`).toBeTruthy();
-      expect(ART[kind].shape, `pickup ${kind} has no silhouette`).toBeTruthy();
-    }
+  it('the recorder finds rings however they are drawn, and not a burr or a flat ground oval', () => {
+    const rings = (draw) => { const { ctx, out } = recorder(1); draw(ctx); return out.rings.length; };
+    expect(rings((c) => { c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2); c.stroke(); })).toBe(1);
+    expect(rings((c) => { c.beginPath(); c.ellipse(0, 0, 10, 8, 0, 0, Math.PI * 2); c.stroke(); })).toBe(1);
+    expect(rings((c) => { c.beginPath(); for (let k = 0; k < 24; k++) { const a = k * Math.PI / 12; c[k ? 'lineTo' : 'moveTo'](Math.cos(a) * 10, Math.sin(a) * 10); } c.closePath(); c.stroke(); })).toBe(1);
+    expect(rings((c) => { c.beginPath(); for (let k = 0; k < 14; k++) { const a = k * Math.PI / 7, r = k & 1 ? 6.8 : 10; c[k ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } c.closePath(); c.stroke(); })).toBe(0);
+    expect(rings((c) => { c.beginPath(); c.ellipse(0, 0, 30, 9, 0, 0, Math.PI * 2); c.stroke(); })).toBe(0);
+    expect(rings((c) => { c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2); c.fill(); })).toBe(0); // a filled disc
+  });
+
+  it('every pickup and hazard kind is audited (a new kind fails until it gets an answer here)', () => {
     expect(Object.keys(ART).sort()).toEqual(Object.keys(PICKUPS).sort());
-    expect(Object.keys(ROAD_HAZARDS).sort()).toEqual(Object.keys(MATERIALS).sort());
-    expect(Object.keys(ERA_SHAPES).sort()).toEqual([...eraKinds].sort());
+    const road = new Set([...Object.keys(MATERIALS), ...ROAD_TYPES]);
+    expect(Object.keys(ROAD_ANSWERS).sort()).toEqual([...road].sort());
+    expect(chainStart).toBeGreaterThan(0);
+    for (const kind of eraKinds) expect(Object.keys(ROAD_ANSWERS)).not.toContain(kind);
   });
 
-  it('the road hazards listed here are the ones src/render/sprites.js draws, in these colours', () => {
-    const src = readFileSync('src/render/sprites.js', 'utf8');
-    const branches = src.split(/\n\s*\} else (?=if \(ob\.(?:type|knockable)|\{)/);
-    const branchOf = (kind) => branches.find((b) => b.includes(`ob.type === '${kind}'`)) || branches[branches.length - 1];
-    for (const [kind, h] of Object.entries(ROAD_HAZARDS)) {
-      const b = branchOf(kind);
-      for (const c of h.colors) expect(b, `${kind} is not drawn in ${c}`).toContain(`'${c}'`);
-    }
-    // The barricade (else branch) is what HOLO_BARRIER and FLUX_CRATE fall through to.
-    expect(branchOf('HOLO_BARRIER')).toBe(branches[branches.length - 1]);
-    expect(src).not.toContain("ob.type === 'FLUX_CRATE'");
-  });
-
-  it('every pickup floats in the white ring; it is the one cue all pickups share', () => {
+  it('every pickup floats in the white ring', () => {
     for (const kind of Object.keys(PICKUPS)) {
-      const art = paintPickup(kind);
-      const white = art.rings.filter((r) => /^#fff(fff)?$/i.test(r.color));
+      const white = paintPickup(kind).rings.filter((r) => /^#fff(fff)?$/i.test(r.color));
       expect(white.length, `${kind} has no white ring`).toBeGreaterThan(0);
     }
   });
@@ -145,15 +148,15 @@ describe('colour-vision cues (0295)', () => {
     const kinds = Object.keys(PICKUPS);
     const fails = [];
     for (let i = 0; i < kinds.length; i++) for (let j = i + 1; j < kinds.length; j++) {
-      const a = ART[kinds[i]], b = ART[kinds[j]];
-      if (a.shape !== b.shape) continue;
-      const c = worstContrast(a.body, b.body);
+      const a = paintPickup(kinds[i]), b = paintPickup(kinds[j]);
+      if (shapeOf(a) !== shapeOf(b)) continue;
+      const c = worstContrast(ART[kinds[i]].body, ART[kinds[j]].body);
       if (c < MIN) fails.push(`${kinds[i]}/${kinds[j]} ${c.toFixed(2)}`);
     }
     expect(fails).toEqual([]);
   });
 
-  it('pickup vs hazard: no hazard draws a clean ring of its own that loses 3:1 to the pickup ring', () => {
+  it('pickup vs hazard: no hazard draws a ring of its own that loses 3:1 to the pickup ring', () => {
     const fails = [];
     for (const h of hazards()) for (const ring of h.rings) {
       const c = worstContrast('#ffffff', ring.color);
@@ -165,27 +168,26 @@ describe('colour-vision cues (0295)', () => {
   it('hazard vs hazard: a different answer means a different silhouette, or 3:1 in every simulation', () => {
     const list = hazards();
     const fails = [];
+    const same = [];
     for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
       const a = list[i], b = list[j];
-      if (a.answer === b.answer || a.shape !== b.shape) continue;
-      let best = 0;
-      for (const ca of a.colors) for (const cb of b.colors) best = Math.max(best, worstContrast(ca, cb));
-      if (best < MIN) fails.push(`${a.kind}/${b.kind}`);
+      if (shapeOf(a) !== shapeOf(b)) continue;
+      same.push(`${a.kind}=${b.kind}`);
+      if (a.answer === b.answer) continue;
+      // Same art, different answer: every colour pair must still hold 3:1.
+      let worst = Infinity;
+      for (const ca of a.colors) for (const cb of b.colors) worst = Math.min(worst, worstContrast(ca, cb));
+      if (worst < MIN) fails.push(`${a.kind}/${b.kind}`);
     }
     expect(fails).toEqual([]);
-    // Shapes within one answer may repeat only for kinds that really share their art.
-    const byShape = {};
-    for (const h of list) (byShape[h.shape] ||= []).push(h.kind);
-    for (const [shape, kinds] of Object.entries(byShape)) {
-      if (kinds.length > 1) expect(`${shape}: ${kinds.join(',')}`).toBe('barricade: HOLO_BARRIER,FLUX_CRATE');
-    }
+    // FLUX_CRATE has no 2D art of its own: it draws as the barricade, and means the same thing.
+    expect(same).toEqual(['HOLO_BARRIER=FLUX_CRATE']);
   });
 
-  it('every era prop draws in colours this audit can read', () => {
-    for (const kind of eraKinds) {
-      const art = paintEra(kind);
-      expect(art.fills.length + art.strokes.length, kind).toBeGreaterThan(0);
-      for (const c of [...art.fills, ...art.strokes]) expect(rgb(c), `${kind}: ${c}`).not.toBeNull();
+  it('every colour the 2D art paints is one this audit can read', () => {
+    for (const h of hazards()) {
+      expect(h.colors.length, h.kind).toBeGreaterThan(0);
+      for (const c of h.colors) expect(parseColor(c), `${h.kind}: ${c}`).not.toBeNull();
     }
   });
 });

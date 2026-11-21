@@ -33,15 +33,21 @@ Touches the palette constants, pickup and hazard draw code, and the new test.
 - [x] No frame-time regression (e2e perf probe within budget); main startup size does not grow (palette check lives in tests only)
 
 ## Outcome
-`tests/unit/colour-vision.test.js` records the real 2D art through a fake canvas context
-(src/pickup-art.js paintIcon, src/scenes/era-props.js drawEraProp) and checks the road hazards'
-colours against src/render/sprites.js; every pickup kind (7), road hazard (7, FLUX_CRATE shares the
-barricade) and era prop (7) must be listed with a cue. Pickups: seven distinct silhouettes, all in
-the white ring. Road hazards with different answers (steer / jump / slide / knock) have distinct
-silhouettes (the 0198 e2e measures them). The one failing pair was the 1885 TUMBLEWEED: two clean
-tan rings, 2.84:1 against the pickup ring's white under deuteranopia, i.e. a hazard wearing the
-pickup cue. It is now a spiky burr (same colour, +47 B gz in the stage chunk; main unchanged).
-Police vs rival: no POLICE_INTERCEPTOR is spawned on the 2D road today, so there is no pair to test.
+`tests/unit/colour-vision.test.js` runs the real 2D draw code against a recording canvas context:
+src/pickup-art.js paintIcon, src/scenes/era-props.js drawEraProp, and the obstacle chain of
+src/render/sprites.js executed as written. A silhouette is the recorded geometry and colours are
+the ones painted, so nothing about looks is typed into the test; only each hazard's answer
+(steer / jump / slide / knock) is. Every pickup (7), road hazard (7, incl. any `ob.type` the chain
+draws) and era prop (7) is audited; a new kind fails until it has an answer. Rings are found as full
+arcs, round ellipses (aspect >= 0.6) and closed round polylines; the pine tree's gold graze oval
+(aspect ~0.18, on the ground) is not one. Results: pickups have seven silhouettes, all in the white
+ring; hazards with different answers all differ in silhouette (only HOLO_BARRIER = FLUX_CRATE share
+art, same answer). The one failing pair was the 1885 TUMBLEWEED: two clean tan rings, 2.84:1 against
+the pickup ring's white under deuteranopia (3.0 in greyscale), i.e. a hazard wearing the pickup cue.
+It is now a spiky burr in the same colour (+47 B gz in the stage chunk; main unchanged).
+Screenshots at 1280x720 and 390x844 were checked locally (PR #301 body); the sandbox can't attach images.
+Scope: 2D only. The opt-in 3D view draws era props as plain blocks and pickups without the ring; a
+follow-up ticket should cover it. Police vs rival: no POLICE_INTERCEPTOR is spawned on the road today.
 
 ## Test plan
 New unit test above; existing pickup/hazard e2e specs stay green.
