@@ -224,4 +224,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-21 · 0294 · The results card is now a proper dialog: it takes focus on PLAY AGAIN, a screen reader hears "FINISHED 2ND OF 6 · TIME 1:42.3" once, Tab stays on the card, and HOME hands focus back to PLAY on the title.
 2026-11-21 · 0293 · Settings → Units: MPH or KM/H. In KM/H the speedometer, the warp ("142 KM/H TIME WARP!") and your top speed read km/h; with nothing chosen, your device's language picks. The warp is still 88 mph.
 2026-11-21 · 0295 · The 1885 tumbleweed is now a spiky ball of brush, so it no longer looks like the white ring every pickup floats in for colour-blind players; a new audit keeps every pickup and hazard telling apart by shape, not only colour.
-2026-11-21 · #0296 · Settings → BACKUP: copy your save as a code and paste it back on any device to keep your cars, coins and best times (no server)
+2026-11-21 · 0296 · Settings → BACKUP: copy your save as a code and paste it back on any device to keep your cars, coins and best times (no server)
