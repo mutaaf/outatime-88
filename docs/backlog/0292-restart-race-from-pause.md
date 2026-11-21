@@ -1,12 +1,12 @@
 ---
 id: 0292
 title: RESTART RACE on the pause sheet, so a bad start is one tap from a clean one
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: player-feel
 created: 2026-11-21
-pr:
+pr: 297
 ---
 
 ## Why
