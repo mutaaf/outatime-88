@@ -455,6 +455,7 @@ export function startNewRace(opts) {
   if (daily) applyDailyModifier(daily.modifier.id);
   ghostRecorder.reset();
   const ghostFor = RS.pendingGhost && !daily && !liveRace && RS.pendingGhost.level === lvl.index ? RS.pendingGhost.data : null;
+  RS.lastGhost = ghostFor ? RS.pendingGhost : null; // RESTART RACE (0292) races the same ghost again
   RS.pendingGhost = null;
   if (!(ghostFor && ghostRace.load(ghostFor, GameState.raceLength || raceLengthFor(lvl.index)))) ghostRace.clear();
   if (liveRace) { // live races don't post to the solo leaderboard, and the room runs its own countdown

@@ -24,4 +24,9 @@ describe('restartOpts', () => {
     for (const status of ['TITLE', 'PLAYING', 'GAMEOVER', 'LIVE_DONE']) expect(restartOpts(paused({ status }))).toBeNull();
     expect(restartOpts(null)).toBeNull();
   });
+
+  it('a race past the line (the finish roll-out, still pausable) offers no restart', () => {
+    expect(restartOpts(paused({ racePhase: 'FINISHED' }))).toBeNull();
+    expect(restartOpts(paused({ racePhase: 'RACING' }))).toEqual({});
+  });
 });

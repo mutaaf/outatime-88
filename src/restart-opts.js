@@ -8,6 +8,7 @@
  *  @returns {null | { daily: true } | {}} the startNewRace opts, or null when no restart is offered */
 export function restartOpts(G, tv = false) {
   if (tv || !G || G.status !== 'PAUSED' || G.mode === 'LIVE') return null;
+  if (G.racePhase === 'FINISHED') return null; // the line is crossed: the finish (and its lap bests) is being written, not abandoned
   if (G.daily) return { daily: true };
   if (G.mode === 'INFINITE') return null; // Endless: a run, not an event (PLAY AGAIN after it is quick already)
   return {}; // the campaign event: same level, same car, through the lineup and lights
