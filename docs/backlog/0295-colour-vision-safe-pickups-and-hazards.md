@@ -1,7 +1,7 @@
 ---
 id: 0295
 title: Pickups, hazards and warp-ready stay distinguishable under colour-vision simulation
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: accessibility
@@ -27,10 +27,21 @@ renderer. Fix any failing pair by adding a glyph or shape, not by re-colouring t
 Touches the palette constants, pickup and hazard draw code, and the new test.
 
 ## Acceptance criteria
-- [ ] Unit test lists every pickup and hazard kind and fails if a new kind has neither a shape/glyph cue nor simulated contrast >= 3:1 against its confusable partner
-- [ ] Every currently failing pair gains a distinct glyph or silhouette; screenshots at 1280x720 and 390x844 attached to the PR
-- [ ] Works at 390x844 touch and 1280x720 keyboard/mouse
-- [ ] No frame-time regression (e2e perf probe within budget); main startup size does not grow (palette check lives in tests only)
+- [x] Unit test lists every pickup and hazard kind and fails if a new kind has neither a shape/glyph cue nor simulated contrast >= 3:1 against its confusable partner
+- [x] Every currently failing pair gains a distinct glyph or silhouette; screenshots at 1280x720 and 390x844 attached to the PR
+- [x] Works at 390x844 touch and 1280x720 keyboard/mouse
+- [x] No frame-time regression (e2e perf probe within budget); main startup size does not grow (palette check lives in tests only)
+
+## Outcome
+`tests/unit/colour-vision.test.js` records the real 2D art through a fake canvas context
+(src/pickup-art.js paintIcon, src/scenes/era-props.js drawEraProp) and checks the road hazards'
+colours against src/render/sprites.js; every pickup kind (7), road hazard (7, FLUX_CRATE shares the
+barricade) and era prop (7) must be listed with a cue. Pickups: seven distinct silhouettes, all in
+the white ring. Road hazards with different answers (steer / jump / slide / knock) have distinct
+silhouettes (the 0198 e2e measures them). The one failing pair was the 1885 TUMBLEWEED: two clean
+tan rings, 2.84:1 against the pickup ring's white under deuteranopia, i.e. a hazard wearing the
+pickup cue. It is now a spiky burr (same colour, +47 B gz in the stage chunk; main unchanged).
+Police vs rival: no POLICE_INTERCEPTOR is spawned on the 2D road today, so there is no pair to test.
 
 ## Test plan
 New unit test above; existing pickup/hazard e2e specs stay green.

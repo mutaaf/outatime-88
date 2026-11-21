@@ -36,14 +36,23 @@ function cart(ctx, ow, oh) {
 }
 
 function tumbleweed(ctx, ow, oh) {
-  // A dry ball of brush: two tan rings and crossing twigs (it spins when you hit it).
+  // A dry ball of brush: two spiky tan burrs and crossing twigs (it spins when you hit it). Never
+  // a clean ring: a ring is the cue every pickup floats in, and tan vs white is under 3:1 for
+  // deuteranopes (0295, tests/unit/colour-vision.test.js).
   const r = Math.min(ow * 0.46, oh * 0.95);
   const cy = oh * B - r;
   ctx.strokeStyle = '#c08a4a';
   ctx.lineWidth = Math.max(1, r * 0.12);
   ctx.beginPath();
-  ctx.arc(0, cy, r, 0, Math.PI * 2);
-  ctx.moveTo(r * 0.62, cy); ctx.arc(0, cy, r * 0.62, 0, Math.PI * 2);
+  for (let n = 0; n < 2; n++) {
+    const R = n ? r * 0.6 : r, a0 = n * 0.4;
+    for (let k = 0; k < 14; k++) {
+      const a = a0 + k * Math.PI / 7, q = k & 1 ? R * 0.68 : R;
+      const x = Math.cos(a) * q, y = cy + Math.sin(a) * q;
+      if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  }
   ctx.moveTo(-r, cy - r * 0.3); ctx.lineTo(r, cy + r * 0.35);
   ctx.moveTo(-r * 0.4, cy - r); ctx.lineTo(r * 0.35, cy + r);
   ctx.moveTo(-r * 0.85, cy + r * 0.5); ctx.lineTo(r * 0.8, cy - r * 0.55);
