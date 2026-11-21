@@ -297,6 +297,15 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .key-btn { min-width: 96px; }
 .key-btn[aria-pressed="true"] { color: #fff; border-color: #22d3ee; background: rgba(34, 211, 238, 0.18); }
 .set-link { display: inline-flex; align-items: center; text-decoration: none; }
+/* Save backup (0296): the code boxes. */
+#setBackup .set-label:not(.hidden) { display: block; }
+.save-code { width: 100%; vertical-align: top; padding: 8px 10px; border-radius: 12px; font: 600 12px/1.35 ui-monospace, Menlo, Consolas, monospace;
+  color: #e2e8f0; background: #020617; border: 1px solid #475569; word-break: break-all; resize: vertical; }
+.save-code:focus-visible { outline: 2px solid #22d3ee; outline-offset: 1px; }
+.save-confirm { margin-top: 10px; padding: 10px; border-radius: 12px; border: 1px solid rgba(251, 113, 133, 0.7); background: rgba(76, 5, 25, 0.5); }
+.save-yes { color: #ffe4e6; background: rgba(225, 29, 72, 0.3); border-color: #fb7185; }
+#saveBackupMsg[data-tone="bad"] { color: #fda4af; }
+#saveBackupMsg[data-tone="ok"] { color: #6ee7b7; }
 /* Player guide link in EVENTS (ticket 0261). */
 .guide-link { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 10px 0 0; padding: 0 14px; border-radius: 16px;
   font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: #a5f3fc; text-decoration: none;

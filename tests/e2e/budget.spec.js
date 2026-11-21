@@ -224,3 +224,14 @@ test('speed units are their own small lazy chunk, out of startup (0293)', () => 
   expect(start).not.toContain(units[0]);
   for (const f of start) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('km/h');
 });
+
+test('the save backup code is its own small lazy chunk, out of startup (0296)', () => {
+  const files = readdirSync(DIR);
+  const backup = files.filter((f) => /^save-backup-.*\.js$/.test(f));
+  expect(backup.length).toBe(1);
+  expect(gz(backup[0])).toBeLessThan(1.5);
+  const start = startup();
+  expect(start).not.toContain(backup[0]);
+  expect(readFileSync(`${DIR}/${backup[0]}`, 'utf8')).toContain('OT88');
+  for (const f of start) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('OT88');
+});
