@@ -346,7 +346,7 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
    viewport (vmin) so a 13" iPad reads as well as a phone. */
 .race-hud {
   --hk: 1; /* HUD text size (0195): Settings → HUD SIZE → LARGE sets 1.3 */
-  --hs: 1; /* its small print (0297): the bar captions and the flux / score line; LARGE sets 1.3 (1.2 / 1.1 on the smallest screens) */
+  --hs: 1; /* its small print (0297): the bar captions and the flux / score line; LARGE sets 1.3 (1.1 / 1 where the HUD row is full) */
   --hud-gap: clamp(6px, 1.2vmin, 14px);
   --hud-pad: clamp(6px, 1.1vmin, 12px);
   display: grid; gap: var(--hud-gap); align-items: start;
@@ -558,21 +558,26 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
    caption's height apart (as at NORMAL); the foot's line is 1.2em, so it adds no height. */
 [data-hud-size="large"] .hud-meter { margin-top: max(5px, calc(10px * var(--hs) - clamp(5px, 0.9vmin, 10px))); }
 [data-hud-size="large"] .spd-foot { line-height: 1.2; column-gap: 6px; }
-/* The narrowest upright phones (320-374 px) have a full row: 1.1x keeps "⚡ WARP READY" and a 7-digit score on one
-   line each. Phones on their side keep it at 1x: that row is full both ways (0195 already drops the strip on the
-   smallest), and a wider speed card would take the docked coach chip's room (0225). */
-@media (max-width: 374px) and (orientation: portrait) { [data-hud-size="large"] .race-hud { --hs: 1.1; } }
-@media (max-height: 520px) and (orientation: landscape) { [data-hud-size="large"] .race-hud { --hs: 1; } }
+/* Where the HUD row is full: 320-349 px upright phones get 1.1x (keeps "⚡ WARP READY" and a 7-digit score on one
+   line each); phones on their side under 700 px wide keep 1x (that row is full both ways: 0195 drops the strip on
+   the smallest, and a wider speed card would take the docked coach chip's room, 0225). */
+@media (max-width: 349px) and (orientation: portrait) { [data-hud-size="large"] .race-hud { --hs: 1.1; } }
+@media (max-height: 520px) and (max-width: 699px) and (orientation: landscape) { [data-hud-size="large"] .race-hud { --hs: 1; } }
 [data-hud-size="large"] #coachTitle { font-size: 12.5px; line-height: 1.2; }
 [data-hud-size="large"] #coachDesc { font-size: 14px; line-height: 1.25; }
 @media (min-width: 640px) {
   [data-hud-size="large"] #coachTitle { font-size: 15px; }
   [data-hud-size="large"] #coachDesc { font-size: 15px; }
 }
-[data-hud-size="large"][data-hud="compact"] #coachDesc { font-size: 15px; }
+/* The phone line: 15px, and three lines before the clamp so the longest tips (their direction last) stay whole at 320 px. */
+[data-hud-size="large"][data-hud="compact"] #coachDesc { font-size: 15px; -webkit-line-clamp: 3; }
 :root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #coachTitle { font-size: 12.5px; }
 :root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #coachDesc { font-size: 14px; }
 [data-hud-size="large"] #btnDismissCoach { font-size: 14px; flex-shrink: 0; }
+/* The desktop chip (0229) has a fixed box in the HUD row: there GOT IT is just its ✓ (as on the 0225 phone chip; the
+   button keeps "GOT IT ✓" as its name), so the bigger tip keeps the chip's width. */
+:root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #btnDismissCoach { font-size: 0; min-width: 32px; }
+:root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) .coach-desk #btnDismissCoach::before { content: '✓'; font-size: 14px; line-height: 1; }
 /* Keys on a full HUD, tip not docked: the card's 26vw (max 300 px) leaves the bigger GOT IT no room. */
 :root[data-hud-size="large"][data-hud="full"]:not(.touch-ui) #interactiveCoachBanner:not(.coach-desk) #coachCard { max-width: min(360px, 30vw); }
 /* Upright screens: the bigger times column would squeeze between the cards on phones, so on every

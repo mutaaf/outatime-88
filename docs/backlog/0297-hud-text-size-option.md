@@ -26,19 +26,20 @@ gaps / clock / mph at 1.3x), so this ticket kept that key (invariant 6: no secon
 the gap 0195 left: the small print beside those numbers stayed at NORMAL size. In LARGE now:
 - the SPD / FLUX / NOS bar captions and the flux label + score line under the mph read a new `--hs` on `.race-hud`
   (1.3x; the bars sit a caption's height apart, the line is 1.2em so it adds no height);
-- the coach tip grows ~1.25x in each of its layouts (centred card, phone line, desktop chip; GOT IT 11 -> 14 px,
-  the keys-only card may widen to min(360px, 30vw)).
-Exceptions where the HUD row is full, measured rather than assumed: the narrowest upright phones (320-374 px) get
-1.1x (the most that keeps "⚡ WARP READY" and a 7-digit score on one line each); phones on their side (<= 520 px
-tall) keep the small print at 1x and the 0225 docked coach chip as it is: that row is full both ways (0195 already
+- the coach tip grows ~1.25x in each of its layouts: the centred card (GOT IT 11 -> 14 px, never shrunk; the
+  keys-only card may widen to min(360px, 30vw)), the phone line (15 px, clamped at 3 lines, not 2, so the longest
+  tips stay whole at 320 px) and the desktop chip (0229; GOT IT shows as its ✓ there, so the chip keeps its width).
+Exceptions where the HUD row is full, measured rather than assumed: 320-349 px upright phones get 1.1x (the most that
+keeps "⚡ WARP READY" and a 7-digit score on one line each); phones on their side under 700 px wide keep the small
+print at 1x, and the 0225 docked phone chip keeps its 10 px two-line tip: that row is full both ways (0195 already
 drops the strip on the smallest) and a wider speed card takes the chip's room. CSS only, no JS.
 
 ## Acceptance criteria
 - [x] LARGE grows the measured HUD font sizes by >= 20% and persists across reload (0195 for the numbers and
-      persistence; captions, score line and coach tip here, with the 320-374 px portrait (1.1x) and landscape-phone
+      persistence; captions, score line and coach tip here, with the 320-349 px portrait (1.1x) and < 700 px landscape
       (1x) exceptions above)
-- [x] Zero overlaps and no clipped text at 320x568, 390x844 and 667x375 in LARGE (hud-size.spec.js, worst-case text;
-      0195's viewport grid still passes)
+- [x] Zero overlaps and no clipped text at 320x568, 390x844 and 667x375 in LARGE (hud-size.spec.js, worst-case text and
+      the longest tips, plus 360x800, 844x390, 1280x720 and 1366x768 with the desktop chip; 0195's grid still passes)
 - [x] The speed readout, position and warp banner stay clear of touch controls (0195's touch test, plus pads vs HUD
       blocks and the coach here)
 - [x] No frame-time regression; main startup size does not grow beyond 0.1 kB gz (CSS only; main JS unchanged)
