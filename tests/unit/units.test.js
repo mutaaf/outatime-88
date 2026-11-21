@@ -49,7 +49,8 @@ function frameDoc() {
   const cap = { t: 'MPH', get textContent() { return this.t; }, set textContent(v) { writes.n++; this.t = v; } };
   const attrs = {};
   const meter = { attrs, setAttribute(k, v) { writes.n++; attrs[k] = String(v); }, removeAttribute(k) { writes.n++; delete attrs[k]; } };
-  return { writes, cap, meter, querySelector: (s) => (s.includes('small') ? cap : s.includes('speed-meter') ? meter : null) };
+  const num = { t: '88', get textContent() { return this.t; }, set textContent(v) { writes.n++; this.t = v; } };
+  return { writes, cap, meter, num, getElementById: (id) => (id === 'hudSpeed' ? num : null), querySelector: (s) => (s.includes('small') ? cap : s.includes('speed-meter') ? meter : null) };
 }
 
 describe('unitsFrame (0293)', () => {
@@ -57,12 +58,16 @@ describe('unitsFrame (0293)', () => {
 
   it('sets GameState.kmh, the caption and the spoken value, change-only, and back', () => {
     const doc = frameDoc();
-    SaveStore.data.settings.units = 'kmh';
+    SaveStore.data.settings.units = 'mph';
     GameState.speed = 88;
+    unitsFrame(doc); // the first frame: the HUD already wrote the number, only the caption is set
+    expect(doc.num.textContent).toBe('88');
+    SaveStore.data.settings.units = 'kmh';
     unitsFrame(doc);
     expect(GameState.kmh).toBe(true);
     expect(doc.cap.textContent).toBe('KM/H');
     expect(doc.meter.attrs['aria-valuetext']).toBe('142 km/h');
+    expect(doc.num.textContent).toBe('142'); // a flip repaints the number too (the HUD only repaints while racing)
     const n = doc.writes.n;
     unitsFrame(doc);
     expect(doc.writes.n).toBe(n); // nothing changed: nothing written
@@ -73,6 +78,7 @@ describe('unitsFrame (0293)', () => {
     unitsFrame(doc);
     expect(GameState.kmh).toBe(false);
     expect(doc.cap.textContent).toBe('MPH');
+    expect(doc.num.textContent).toBe('100');
     expect(doc.meter.attrs['aria-valuetext']).toBeUndefined(); // mph: aria-valuenow (mph) speaks
     delete SaveStore.data.settings.units;
     GameState.speed = 0;

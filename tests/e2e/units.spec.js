@@ -76,13 +76,14 @@ test('KM/H from the title gear: HUD, meter, warp and results read km/h; it survi
   expect(headline).not.toContain('MPH');
 
   // Results: the top speed in km/h; the posted run keeps mph and never mentions km/h.
+  const topMph = await page.evaluate(() => window.__OT.fair().topMph); // the sim's top speed, in mph
+  expect(topMph).toBeGreaterThan(40);
   await page.evaluate(() => { const G = window.__OT.GameState; G.peakSpeed = 188; G.score = 734210; window.__OT.finishRun(); });
   await expect(page.locator('#gameOverModal')).toBeVisible();
   await expect(page.locator('#endPeakSpeedText')).toHaveText(/^303\u2009KM\/H\u2009•\u2009\d+\u2009TD$/);
   await expect.poll(() => posted, { timeout: 8000 }).not.toBeNull();
   expect(posted).not.toMatch(/km|kmh/i);
-  const body = JSON.parse(posted);
-  if (body.fp && body.fp.topMph != null) expect(body.fp.topMph).toBeLessThan(200); // mph, not ×1.609
+  expect(JSON.parse(posted).fp.topMph).toBe(topMph); // posted as the sim recorded it: mph, not ×1.609
   expect(problems).toEqual([]);
 });
 
@@ -96,14 +97,19 @@ test('MPH is unchanged, and the pause sheet settings flip the HUD mid-race', asy
   expect(h.cap).toBe('MPH');
   expect(h.shown).toBe(h.now);
   expect(h.text).toBeNull(); // in mph, aria-valuenow (mph) is what the meter speaks
-  await page.evaluate(() => { window.__OT.GameState.status = 'PLAYING'; });
+  // Flip from the HUD gear's settings while the race stays paused: number, caption and meter agree at once.
   await page.locator('#btnHudSettings').click();
   await expect(page.locator('#settingsModal')).toBeVisible();
+  expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PAUSED');
   await page.locator('[data-setting="units"] [data-value="kmh"]').click();
   await expect(page.locator('#hudSpeedCard .spd-line small')).toHaveText('KM/H');
+  const kmhNow = await page.evaluate(() => Math.round(window.__OT.GameState.speed * 1.609344));
+  await expect(page.locator('#hudSpeed')).toHaveText(String(kmhNow));
+  await expect(page.locator('#hudSpeedCard .speed-meter')).toHaveAttribute('aria-valuetext', `${kmhNow} km/h`);
   expect((await saved(page)).settings.units).toBe('kmh');
   await page.locator('[data-setting="units"] [data-value="mph"]').click();
   await expect(page.locator('#hudSpeedCard .spd-line small')).toHaveText('MPH');
+  await expect(page.locator('#hudSpeed')).toHaveText(String(await page.evaluate(() => Math.round(window.__OT.GameState.speed))));
   expect(problems).toEqual([]);
 });
 
@@ -139,7 +145,9 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
       const line = document.querySelector('#hudSpeedCard .spd-line');
       const cap = line.querySelector('small');
       const r = cap.getBoundingClientRect();
-      return { inside: r.left >= card.left - 0.5 && r.right <= card.right + 0.5, size: parseFloat(getComputedStyle(cap).fontSize), cut: line.scrollWidth > line.clientWidth + 1 };
+      const range = document.createRange();
+      range.selectNodeContents(line); // the text's own width (an integer scrollWidth hides a 1 px overflow)
+      return { inside: r.left >= card.left - 0.5 && r.right <= card.right + 0.5, size: parseFloat(getComputedStyle(cap).fontSize), cut: range.getBoundingClientRect().width > line.clientWidth + 0.5 };
     });
     expect(hud.inside).toBe(true);
     expect(hud.cut).toBe(false);

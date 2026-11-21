@@ -28,25 +28,37 @@ export const formatSpeed = (mph, kmh) => (kmh ? `${toKmh(mph)} KM/H` : `${Math.r
 
 const lang = () => (typeof navigator !== 'undefined' && (navigator.language || (navigator.languages || [])[0])) || '';
 
+// The language never changes in a visit: the rule runs once per saved value, not every frame.
+let memoSaved = {}, memoUnits = 'mph';
 /** The units in force now (the saved choice, else this device's language). */
-export const currentUnits = () => unitsFor(SaveStore.data.settings && SaveStore.data.settings.units, lang());
+export function currentUnits() {
+  const saved = SaveStore.data.settings && SaveStore.data.settings.units;
+  if (saved !== memoSaved) { memoSaved = saved; memoUnits = unitsFor(saved, lang()); }
+  return memoUnits;
+}
 
-let cap = null, meter = null, lastKmh = null, lastText = null;
-/** Once per frame (race-late): GameState.kmh, the HUD's unit caption and the speed meter's spoken value. */
+let cap = null, meter = null, num = null, lastKmh = null, lastSpoken = -1;
+/** Once per frame (race-late), paused too: GameState.kmh, the HUD's unit caption and number on a flip
+ *  (the HUD itself only repaints while the race steps), and the speed meter's spoken value. Change-only. */
 export function unitsFrame(doc = document) {
   const kmh = currentUnits() === 'kmh';
   GameState.kmh = kmh;
   if (kmh !== lastKmh) {
     cap = cap || doc.querySelector('#hudSpeedCard .spd-line small');
-    if (cap) { cap.textContent = kmh ? 'KM/H' : 'MPH'; lastKmh = kmh; }
+    num = num || doc.getElementById('hudSpeed');
+    if (cap) {
+      cap.textContent = kmh ? 'KM/H' : 'MPH';
+      if (num && lastKmh !== null) num.textContent = String(kmh ? toKmh(GameState.speed) : Math.max(0, Math.round(GameState.speed)));
+      lastKmh = kmh;
+    }
   }
   // aria-valuenow stays mph out of 160 (the bar, 0284); in km/h the meter speaks "142 km/h".
-  const text = kmh ? `${toKmh(GameState.speed)} km/h` : '';
-  if (text !== lastText) {
+  const spoken = kmh ? toKmh(GameState.speed) : -1;
+  if (spoken !== lastSpoken) {
     meter = meter || doc.querySelector('#hudSpeedCard .speed-meter');
     if (meter) {
-      if (text) meter.setAttribute('aria-valuetext', text); else meter.removeAttribute('aria-valuetext');
-      lastText = text;
+      if (kmh) meter.setAttribute('aria-valuetext', `${spoken} km/h`); else meter.removeAttribute('aria-valuetext');
+      lastSpoken = spoken;
     }
   }
 }

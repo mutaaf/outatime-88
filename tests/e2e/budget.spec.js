@@ -214,3 +214,13 @@ test('the home flow (hooks, pitch, results → home, history) is a lazy chunk (t
   for (const f of startup()) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('LEVEL UP FOREVER.');
   expect(gz(home[0])).toBeLessThan(6);
 });
+
+test('speed units are their own small lazy chunk, out of startup (0293)', () => {
+  const files = readdirSync(DIR);
+  const units = files.filter((f) => /^units-.*\.js$/.test(f));
+  expect(units.length).toBe(1);
+  expect(gz(units[0])).toBeLessThan(1); // today ~0.7 kB
+  const start = startup();
+  expect(start).not.toContain(units[0]);
+  for (const f of start) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('km/h');
+});
