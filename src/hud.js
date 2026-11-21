@@ -139,7 +139,8 @@ export function createHud(doc = document, marks = () => [], place = placeExact) 
       place(field, dots, el.dots);
 
       const mph = Math.max(0, Math.round(s.mph));
-      text(el.speed, 'speed', String(mph));
+      // 0293: in KM/H race-flow passes the shown km/h as s.spd (0 = show mph); the bar, the 88 mark and the gaps stay mph.
+      text(el.speed, 'speed', String(s.spd || mph));
       // A full speed bar is 160 mph (index.html aria-valuemax), 88 sits at 55%; literals keep main's bytes down.
       width(el.speedBar, 'speedBar', Math.min(160, mph), 0.625);
       flag(el.speedCard, 'at88', 'is-88', mph >= 88);

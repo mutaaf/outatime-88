@@ -13,9 +13,12 @@ loadRadio(); // fetched with this chunk, long before a race passes its first 4 s
 let lap = null;
 import('./lap-split-run.js').then((m) => { lap = m; }, () => {}); // long before the first lap is done
 import('./restart-race.js').then((m) => m.initRestart(), () => {}); // the pause sheet's RESTART RACE (0292)
-/** Once per frame from main's loop (race-step padPause): the pad START pause (0271), the radio, lap splits. */
+let units = null;
+import('./units.js').then((m) => { units = m; }, () => {}); // MPH | KM/H (0293): GameState.kmh, the HUD caption
+/** Once per frame from main's loop (race-step padPause): the pad START pause (0271), the radio, lap splits, units. */
 export function frame(G, I) {
   padFrame(G, I);
+  if (units) units.unitsFrame();
   if (lap) lap.lapFrame();
   if (radio) radio.radioFrame();
   else if (radio === 0 && performance.now() > retryAt) { radio = null; loadRadio(); } // a failed fetch tries again, every 10 s

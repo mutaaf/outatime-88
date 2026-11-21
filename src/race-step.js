@@ -572,7 +572,7 @@ function triggerTimeWarp() {
 
   // The headline names the year; the sub-line names only the district (0288).
   triggerAnnouncement(
-    `⚡ 88 MPH TIME WARP! ➔ ${newEra.id} ⚡`,
+    `⚡ ${GameState.kmh ? '142 KM/H' : '88 MPH'} TIME WARP! ➔ ${newEra.id} ⚡`, // 0293: 88 mph = 142 km/h
     `ERA SHIFT: ${newEra.name.split('• ').pop()}! +${warpBonus} PTS${warpTime > 0 ? ` & +${warpTime}s` : ''}`,
     2400
   );

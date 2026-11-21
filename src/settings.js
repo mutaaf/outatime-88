@@ -15,6 +15,8 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   proximity: true,        // a quiet tick panned toward traffic about to hit you (0191, src/proximity-cue.js)
   // laneGuide (0219, src/lane-guide.js): a tone panned toward the open lane. Off unless `true`, so it
   // needs no default here (main's bundle is at its budget); the lazy settings panel writes it.
+  // units (0293, src/units.js): 'mph' | 'kmh'; unset = the device language picks. No default here (main's
+  // bundle); the lazy settings panel writes it and src/units.js reads anything else as unset.
   coach: true,            // in-race tip card, first-run steer prompt and touch thumb guide (0201)
   hud: 'normal',          // HUD text size: 'normal' | 'large' (0195; ~1.3x speed, place, gaps and clock)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'
