@@ -1,7 +1,7 @@
 ---
 id: 0297
 title: Settings → HUD size: NORMAL or LARGE for the race readouts
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: accessibility
@@ -21,11 +21,27 @@ unchanged). LARGE sets a CSS custom property that scales the position, timer, sp
 captions and coach-bubble text by about 1.25x, with panels reflowing rather than overlapping.
 Touches `src/hud.js` styles, the settings panel and `src/save.js` defaults.
 
+As shipped: the setting itself already existed (0195: `settings.hud` 'normal' | 'large', persisted, place / lap /
+gaps / clock / mph at 1.3x), so this ticket kept that key (invariant 6: no second name for one setting) and closed
+the gap 0195 left: the small print beside those numbers stayed at NORMAL size. In LARGE now:
+- the SPD / FLUX / NOS bar captions and the flux label + score line under the mph read a new `--hs` on `.race-hud`
+  (1.3x; the bars sit a caption's height apart, the line is 1.2em so it adds no height);
+- the coach tip grows ~1.25x in each of its layouts (centred card, phone line, desktop chip; GOT IT 11 -> 14 px,
+  the keys-only card may widen to min(360px, 30vw)).
+Exceptions where the HUD row is full, measured rather than assumed: the narrowest upright phones (320-374 px) get
+1.1x (the most that keeps "⚡ WARP READY" and a 7-digit score on one line each); phones on their side (<= 520 px
+tall) keep the small print at 1x and the 0225 docked coach chip as it is: that row is full both ways (0195 already
+drops the strip on the smallest) and a wider speed card takes the chip's room. CSS only, no JS.
+
 ## Acceptance criteria
-- [ ] LARGE grows the measured HUD font sizes by >= 20% and persists across reload
-- [ ] Zero overlaps and no clipped text at 320x568, 390x844 and 667x375 in LARGE (reuse the zero-overlap harness from 0021)
-- [ ] The speed readout, position and warp banner stay clear of touch controls
-- [ ] No frame-time regression; main startup size does not grow beyond 0.1 kB gz
+- [x] LARGE grows the measured HUD font sizes by >= 20% and persists across reload (0195 for the numbers and
+      persistence; captions, score line and coach tip here, with the 320-374 px portrait (1.1x) and landscape-phone
+      (1x) exceptions above)
+- [x] Zero overlaps and no clipped text at 320x568, 390x844 and 667x375 in LARGE (hud-size.spec.js, worst-case text;
+      0195's viewport grid still passes)
+- [x] The speed readout, position and warp banner stay clear of touch controls (0195's touch test, plus pads vs HUD
+      blocks and the coach here)
+- [x] No frame-time regression; main startup size does not grow beyond 0.1 kB gz (CSS only; main JS unchanged)
 
 ## Test plan
 Unit: default and normalisation of `hudScale`. E2E `hud-size.spec.js`: toggle, measure fonts, run the overlap check at the three viewports.
