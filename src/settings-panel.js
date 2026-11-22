@@ -97,7 +97,7 @@ export function createPanel(ctx) {
       if (seg.dataset.setting === 'padDead' && b.dataset.value === 'normal') delete settings().padDead; // unset = NORMAL: no boot load
       if (seg.dataset.setting === 'units') GameState.kmh = b.dataset.value === 'kmh'; // now, not on the next frame
       save(); applyAll(); applyCameraFx(); applyPadDead();
-      if (seg.dataset.setting === 'padDead') { syncPanel(); if (deadView) deadView.style.setProperty('--dz', String(deadzoneOf(settings().padDead))); }
+      if (seg.dataset.setting === 'padDead') setRing();
     });
   }
   $('setMaster').addEventListener('input', (e) => { SoundEngine.init(); SoundEngine.setVolume(Number(e.target.value) / 100); });
@@ -291,24 +291,36 @@ export function createPanel(ctx) {
   const deadRead = $('setPadDeadRead');
   let deadRaf = 0;
   let lastRead = '';
+  let lastX = NaN, lastPad = null, deadR = 0;
+  // Steering reads the left stick's X only (src/input.js), so the dot moves on X: inside the ring = no steer.
+  const setRing = () => { if (deadView) deadView.style.setProperty('--dz', String(deadzoneOf(settings().padDead))); lastX = NaN; };
+  // While the preview is on screen the menu pad (src/home.js) moves on the D-pad only, so trying the stick doesn't move the focus.
+  const seen = deadView && typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver((es) => { InputState.padPreview = es[es.length - 1].isIntersecting && !!deadRaf; }) : null;
   function drawDead() {
     deadRaf = 0;
-    if (!deadView || $('settingsModal').classList.contains('hidden')) return;
-    const dead = deadzoneOf(settings().padDead);
-    deadView.style.setProperty('--dz', String(dead));
+    if (!deadView || $('settingsModal').classList.contains('hidden')) { InputState.padPreview = false; return; }
     let pad = null;
-    try { const pads = navigator.getGamepads ? navigator.getGamepads() : []; for (const p of pads || []) if (p && p.connected) { pad = p; break; } } catch (e) { /* blocked */ }
+    try { const pads = navigator.getGamepads ? navigator.getGamepads() : null; if (pads) for (let i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) { pad = pads[i]; break; } } catch (e) { /* blocked */ }
     const x = pad ? Math.max(-1, Math.min(1, pad.axes[0] || 0)) : 0;
-    const y = pad ? Math.max(-1, Math.min(1, pad.axes[1] || 0)) : 0;
-    const r = deadView.clientWidth / 2;
-    deadDot.style.transform = `translate(${(x * r).toFixed(1)}px, ${(y * r).toFixed(1)}px)`;
-    deadView.dataset.pad = String(Boolean(pad));
-    deadView.dataset.in = String(Boolean(pad) && Math.abs(x) <= dead);
-    const text = pad ? stickReadout(x, 0, dead) : 'Connect a gamepad to see its left stick here.';
-    if (text !== lastRead && deadRead) deadRead.textContent = lastRead = text;
+    if (x !== lastX || Boolean(pad) !== lastPad) { // writes only when the stick or the choice changed
+      const dead = deadzoneOf(settings().padDead);
+      lastX = x; lastPad = Boolean(pad);
+      deadDot.style.transform = `translateX(${(x * deadR).toFixed(1)}px)`;
+      deadView.dataset.pad = String(lastPad);
+      deadView.dataset.in = String(lastPad && Math.abs(x) <= dead);
+      const text = pad ? stickReadout(x, 0, dead) : 'Connect a gamepad to see its left stick here.';
+      if (text !== lastRead && deadRead) deadRead.textContent = lastRead = text;
+    }
     deadRaf = requestAnimationFrame(drawDead);
   }
-  const startDead = () => { if (!deadRaf) drawDead(); };
+  const startDead = () => {
+    if (!deadView || deadRaf) return;
+    setRing();
+    deadR = deadView.clientWidth / 2; // once per open: the box is a fixed size
+    drawDead();
+    if (seen) { seen.disconnect(); seen.observe(deadView); }
+  };
 
   const padReset = $('setPadReset');
   if (padReset) padReset.addEventListener('click', () => {

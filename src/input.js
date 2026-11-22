@@ -11,6 +11,7 @@ export const InputState = {
   // rebound BOOST key's name for prompts; downKey the BRAKE key's, 0253) are set by src/keybinds.js applyKeys; unset = defaults
   // (left out here so the startup bundle stays in budget). padMap (0298): rebound pad buttons, set by src/padmap.js applyPad; unset = defaults.
   // padCapture (0298): true while Settings waits for a pad button, so the menu and pause pads leave it alone.
+  // padPreview (0299): true while Settings' stick deadzone preview is on screen; the menu pad then moves on the D-pad only.
   nosHeld: false,      // NOS (ticket 0122): Shift / N while racing, gamepad LB, touch NOS
   touchNos: false,
   // nosTap / nosOn (0222, NOS TAP ON/OFF): a press this step, and the switch; unset reads as off

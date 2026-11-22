@@ -297,12 +297,14 @@ body.input-pad .steer-hint .hint-pad { display: inline; }
 .key-btn { min-width: 96px; }
 /* Stick deadzone preview (0299): the box is the stick's full travel, the ring the chosen deadzone. */
 .pad-dead-row { display: flex; align-items: center; gap: 12px; }
-.pad-dead-view { position: relative; flex: none; width: 96px; height: 96px; border-radius: 50%; border: 1px solid #64748b; background: rgba(15, 23, 42, 0.6); }
+.pad-dead-view { position: relative; flex: none; width: 120px; height: 120px; border-radius: 50%; border: 1px solid #64748b; background: rgba(15, 23, 42, 0.6); }
 .pdz-ring { position: absolute; left: 50%; top: 50%; width: calc(var(--dz, 0.12) * 100%); height: calc(var(--dz, 0.12) * 100%);
-  transform: translate(-50%, -50%); border-radius: 50%; border: 2px solid #fbbf24; background: rgba(251, 191, 36, 0.18); box-sizing: content-box; }
-.pdz-dot { position: absolute; left: calc(50% - 5px); top: calc(50% - 5px); width: 10px; height: 10px; border-radius: 50%; background: #22d3ee; will-change: transform; }
+  transform: translate(-50%, -50%); border-radius: 50%; border: 1.5px solid #fbbf24; background: rgba(251, 191, 36, 0.18); box-sizing: border-box; }
+.pad-dead-view::before { content: ''; position: absolute; left: 8%; right: 8%; top: 50%; border-top: 1px dashed #475569; } /* the steering axis */
+.pdz-dot { position: absolute; left: calc(50% - 3px); top: calc(50% - 3px); width: 6px; height: 6px; border-radius: 50%; background: #22d3ee; will-change: transform; }
 .pad-dead-view[data-in="true"] .pdz-dot { background: #fbbf24; }
 .pad-dead-view[data-pad="false"] .pdz-dot { opacity: 0.35; }
+@media (forced-colors: active) { .pdz-dot { forced-color-adjust: none; background: CanvasText; } }
 .key-btn[aria-pressed="true"] { color: #fff; border-color: #22d3ee; background: rgba(34, 211, 238, 0.18); }
 .set-link { display: inline-flex; align-items: center; text-decoration: none; }
 /* Save backup (0296): the code boxes. */

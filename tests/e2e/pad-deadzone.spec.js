@@ -54,11 +54,17 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       await expect(page.locator('#setPadDeadRead')).toHaveText('Stick at 20%: inside the deadzone, no steering.');
       await expect(page.locator('#setPadDeadView')).toHaveAttribute('data-in', 'true');
       expect(await ringPx(page)).toBeGreaterThan(normalRing + 5);
+      const box = await page.locator('#setPadDeadView').evaluate((e) => e.clientWidth);
+      expect(Math.abs(await ringPx(page) - 0.22 * box), 'the ring is drawn at the real radius').toBeLessThan(1.5);
+      expect(Math.abs(normalRing - 0.12 * box)).toBeLessThan(1.5);
+      await expect(seg(page, 'large')).toBeFocused();
       await page.screenshot({ path: `test-results/pad-deadzone-${vp.width}.png` });
 
       // The dot follows the stick live: push it left.
       await page.evaluate(() => { window.__pad.axes[0] = -0.9; });
       await expect.poll(() => dotX(page)).toBeLessThan(-30);
+      await nextFrames(page, 10);
+      await expect(seg(page, 'large'), 'trying the stick on the preview does not move the menu focus').toBeFocused();
       await expect(page.locator('#setPadDeadRead')).toHaveText('Stick at 90%: steering.');
       expect(await steer(page)).toBeLessThan(-0.85); // (0.68 / 0.74) ** 1.35
       await page.evaluate(() => { window.__pad.axes[0] = -1; });
@@ -83,6 +89,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       await expect(seg(page, 'large')).toHaveAttribute('aria-pressed', 'true');
       await seg(page, 'normal').click();
       expect(await steer(page)).toBeGreaterThan(0);
+      expect(await savedDead(page), 'NORMAL is stored as unset').toBeUndefined();
       expect(problems).toEqual([]);
     });
   });
@@ -95,7 +102,6 @@ test('a junk deadzone in the save loads as NORMAL', async ({ page }) => {
   await page.evaluate(() => window.__OT.ready());
   await page.locator('#btnOpenSettings').click();
   await expect(seg(page, 'normal')).toHaveAttribute('aria-pressed', 'true');
-  await nextFrames(page, 2);
   expect(await steer(page)).toBeGreaterThan(0);
   expect(problems).toEqual([]);
 });
