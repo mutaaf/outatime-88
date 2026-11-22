@@ -29,7 +29,8 @@ export const padLabels = (family) => LABELS[family] || LABELS.xbox;
 // A button name standing alone. "A" is a button only before " ·", " or" or " TO" ("A · RT", "A or
 // START", "START OR A TO DRIVE"); anywhere else it is the article ("FOR A ROCKET START"). One
 // pass, so Switch's A↔B and X↔Y swaps never chain.
-const NAME = /\b(?:[LR][BT]|RS|[BXY]|A(?= ·| or\b| OR\b| TO\b))\b/g;
+// A rebound button (0298) can also leave a bare "A" in "(A)", "A / LT", "A RIGHT", "OR A!" or alone.
+const NAME = /\b(?:[LR][BT]|RS|[BXY]|A(?= ·| or\b| OR\b| TO\b| RIGHT\b| FOR\b| \/| —|[)!]|$))\b/g;
 
 // Rebound buttons (0298, src/padmap.js): the settings panel hands over a text function that renames
 // each action's default button to the one the player bound, applied before the family's names.

@@ -136,6 +136,17 @@ describe('prompts and the controls card name the rebound buttons', () => {
     setRemap((t) => padRemapText(t, { jump: 2, boost: 3 }));
     expect(padTable(START_HINTS.pad, 'switch').skip).toBe('PRESS X TO SKIP ▶▶'); // Y (button 3) prints X on Switch
     expect(padText('X', 'ps', true)).toBe('□'); // raw: text that already names the rebound button
+    // A bare A from the remap gets the family's name too (Switch prints B on button 0, PlayStation ✕).
+    setRemap((t) => padRemapText(t, { gas: 11, jump: 0 }));
+    expect(padText(PLAY_HINTS.pad.hop, 'switch')).toBe('Hop it (B)');
+    expect(padText(PLAY_HINTS.pad.jump, 'ps')).toBe('💥 BLOCKED! JUMP (✕) OR STEER AROUND!');
+    expect(padText(PLAY_HINTS.pad.ramp, 'switch')).toBe('PRESS Y OR B FOR A MID-AIR TRICK!');
+    expect(padText('A', 'switch', true)).toBe('B');
+    setRemap((t) => padRemapText(t, { gas: 11, boost: 0 }));
+    expect(padText(START_HINTS.pad.launch, 'ps')).toBe('PRESS ✕ RIGHT ON GREEN FOR A ROCKET START');
+    expect(padText(PLAY_HINTS.pad.flux, 'switch')).toBe('⚡ FLUX READY! HIT 88 MPH OR B!');
+    setRemap((t) => padRemapText(t, { gas: 11, brake: 0 }));
+    expect(padText(PLAY_HINTS.pad.slide, 'ps')).toBe('💥 BLOCKED! HOLD ✕ / L2 TO SLIDE UNDER!');
     setRemap(null);
     expect(padTable(START_HINTS.pad, 'xbox')).toBe(START_HINTS.pad);
   });
