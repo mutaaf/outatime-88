@@ -815,6 +815,15 @@
           <p id="setPadDeadRead" class="set-status">Connect a gamepad to see its left stick here.</p>
         </div>
         <div id="setPadDeadNote" class="set-status mt-1.5">How far the left stick moves before the car steers. LARGE if the car creeps on a straight road or your hand shakes; SMALL for a new pad and a light touch.</div>
+        <div class="set-label">Gamepad rumble</div>
+        <div class="seg" data-setting="rumble" role="group" aria-label="Gamepad rumble" aria-describedby="setRumbleNote">
+          <button type="button" data-value="off">OFF</button>
+          <button type="button" data-value="low">LOW</button>
+          <button type="button" data-value="full">FULL</button>
+        </div>
+        <button id="setRumbleTest" type="button" class="set-btn mt-2">〰 TEST RUMBLE</button>
+        <p id="setRumbleRead" class="set-status mt-1.5" role="status" aria-live="polite"></p>
+        <div id="setRumbleNote" class="set-status mt-1.5">How hard the pad shakes in a race: the tyres through the light motor, hits through the heavy one. LOW or OFF if it tires your hands or rattles the desk.</div>
       </section>
 
       <section class="set-section" aria-labelledby="setHeadSound">

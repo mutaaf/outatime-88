@@ -228,3 +228,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-21 · 0297 · HUD SIZE → LARGE now also grows the small print: the SPD / FLUX / NOS bar names, the WARP READY and score line under your speed, and the coach tip (small phones on their side keep their compact row).
 2026-11-22 · 0298 · Settings → GAMEPAD BUTTONS: move GAS, BRAKE, WARP, JUMP and NOS to any face button, bumper or the right stick click; the prompts and the pause card name your buttons
 2026-11-22 · 0299 · Settings → GAMEPAD BUTTONS → STICK DEADZONE: SMALL, NORMAL or LARGE, with a live dot over the deadzone ring so you can see a drifting stick
+2026-11-22 · 0300 · Settings → GAMEPAD BUTTONS → GAMEPAD RUMBLE: OFF, LOW or FULL, with a TEST RUMBLE button that buzzes the pad at your choice

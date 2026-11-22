@@ -10,6 +10,7 @@ import { PAD_ACTIONS, applyPad, bindPad, isDefaultPad, padNames, buttonName } fr
 import { tiltStatusText } from './tilt-text.js';
 import { cameraFxScale } from './camera-fx.js';
 import { deadzoneName, deadzoneOf, stickReadout } from './pad-deadzone.js';
+import { rumbleName, testRumble, testText } from './rumble.js';
 
 export { renderControlsRef }; // the garage draws its copy of the card through this chunk (0204)
 /** Both pause sheets' controls cards (0204): the settings pause and the Escape/P garage pause. */
@@ -34,7 +35,8 @@ export function createPanel(ctx) {
       const key = seg.dataset.setting;
       // Units (0293): with no choice saved, the device's language picked (src/units.js sets GameState.kmh).
       const v = key === 'units' ? (units ? units.currentUnits() : s.units || (GameState.kmh ? 'kmh' : 'mph'))
-        : key === 'padDead' ? deadzoneName(s.padDead) : s[key]; // unset or junk reads as NORMAL (0299)
+        : key === 'padDead' ? deadzoneName(s.padDead) // unset or junk reads as NORMAL (0299)
+        : key === 'rumble' ? rumbleName(s.rumble) : s[key]; // … and as FULL (0300)
       for (const b of seg.querySelectorAll('button[data-value]')) b.setAttribute('aria-pressed', String(b.dataset.value === v));
     }
     const inv = $('setTiltInvert');
@@ -98,6 +100,7 @@ export function createPanel(ctx) {
       if (seg.dataset.setting === 'units') GameState.kmh = b.dataset.value === 'kmh'; // now, not on the next frame
       save(); applyAll(); applyCameraFx(); applyPadDead();
       if (seg.dataset.setting === 'padDead') setRing();
+      if (seg.dataset.setting === 'rumble') rumbleRead('');
     });
   }
   $('setMaster').addEventListener('input', (e) => { SoundEngine.init(); SoundEngine.setVolume(Number(e.target.value) / 100); });
@@ -322,6 +325,11 @@ export function createPanel(ctx) {
     if (seen) { seen.disconnect(); seen.observe(deadView); }
   };
 
+  // --- Gamepad rumble (0300): OFF / LOW / FULL is read live by src/forcefeel.js; TEST buzzes 300 ms at the choice.
+  const rumbleRead = (t) => { const el = $('setRumbleRead'); if (el) el.textContent = t; };
+  const rumbleTest = $('setRumbleTest');
+  if (rumbleTest) rumbleTest.addEventListener('click', () => rumbleRead(testText(testRumble(settings().rumble), settings().rumble)));
+
   const padReset = $('setPadReset');
   if (padReset) padReset.addEventListener('click', () => {
     stopPadCap(); settings().padMap = null; save(); padNote('Default buttons back.'); renderPad(); renderCards();
@@ -415,7 +423,7 @@ export function createPanel(ctx) {
       const done = $('btnSettingsDone');
       if (done) done.textContent = ctx.resumeOnClose || GameState.status === 'PAUSED' ? '▶ RESUME' : '✓ DONE';
       $('settingsModal').classList.remove('hidden');
-      startDead();
+      startDead(); rumbleRead(''); // a fresh TEST line each open (0300)
       if (done) done.focus({ preventScroll: true });
     },
   };
