@@ -22,9 +22,10 @@ const cur = { dir: 0, a: false, b: false };
 /**
  * What every connected pad holds, folded into one reused `{ dir, a, b }`: dir -1 = up/left
  * (previous), 1 = down/right (next), 0 = none. D-pad buttons 12-15 or the left stick past NAV.dead
- * (the larger axis wins).
+ * (the larger axis wins). `dpadOnly`: the stick doesn't move the focus (Settings' deadzone preview
+ * is on screen and the player is trying the stick there, 0299).
  */
-export function readNav(pads) {
+export function readNav(pads, dpadOnly) {
   cur.dir = 0; cur.a = cur.b = false;
   if (!pads) return cur;
   for (let i = 0; i < pads.length; i++) {
@@ -35,7 +36,7 @@ export function readNav(pads) {
     if (cur.dir) continue;
     if (pressed(p, 12) || pressed(p, 14)) cur.dir = -1;
     else if (pressed(p, 13) || pressed(p, 15)) cur.dir = 1;
-    else {
+    else if (!dpadOnly) {
       const x = p.axes[0] || 0, y = p.axes[1] || 0;
       const v = Math.abs(x) > Math.abs(y) ? x : y;
       if (Math.abs(v) >= NAV.dead) cur.dir = v < 0 ? -1 : 1;

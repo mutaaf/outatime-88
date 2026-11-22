@@ -254,7 +254,7 @@ export function createHome(h) {
     if (InputState.padCapture) { resetNav(nav); return true; } // Settings is waiting for a pad button (0298)
     let pads = null;
     try { pads = navigator.getGamepads(); } catch { /* blocked */ }
-    const act = padMenuStep(readNav(pads), dt, nav);
+    const act = padMenuStep(readNav(pads, InputState.padPreview), dt, nav);
     if (!act) return true;
     const a = document.activeElement;
     const inside = !!a && a !== menu && menu.contains(a);
