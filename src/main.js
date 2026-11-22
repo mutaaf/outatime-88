@@ -1581,6 +1581,7 @@ window.onload = () => {
     view,
     setView: (m) => setRenderMode(m, { persist: false }),
     input: InputState,
+    padSteer: () => pollGamepad().steer, // the shaped stick (deadzone 0299, curve 0183)
     controls: () => SaveStore.data.controls,
     touch: () => touch && touch.controls,
     steer: () => steerModes,

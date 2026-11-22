@@ -50,10 +50,13 @@ export const InputState = {
 // The result is one reused object (no garbage at 120 Hz); read it before the next poll.
 export const PAD = Object.freeze({ dead: 0.12, outer: 0.96, curve: 1.35, trigDead: 0.06 });
 
-const shapeAxis = (x) => {
+// Stick DEADZONE (0299): the lazy settings panel (src/pad-deadzone.js) sets it; unset = PAD.dead.
+let padDead = PAD.dead;
+export const setPadDead = (v) => { padDead = v; };
+export const shapeAxis = (x) => {
   const m = Math.abs(x);
-  if (m <= PAD.dead) return 0;
-  return Math.sign(x) * Math.min(1, (m - PAD.dead) / (PAD.outer - PAD.dead)) ** PAD.curve;
+  if (m <= padDead) return 0;
+  return Math.sign(x) * Math.min(1, (m - padDead) / (PAD.outer - padDead)) ** PAD.curve;
 };
 const trigger = (b) => {
   if (!b) return 0;

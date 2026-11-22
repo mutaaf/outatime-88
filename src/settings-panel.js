@@ -3,12 +3,13 @@
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine } from './audio.js';
-import { InputState, setLastInput } from './input.js';
+import { InputState, setLastInput, setPadDead } from './input.js';
 import { ACTIONS, applyKeys, bindKey, isDefault, keyName } from './keybinds.js';
 import { renderControlsRef } from './controls-ref.js';
 import { PAD_ACTIONS, applyPad, bindPad, isDefaultPad, padNames, buttonName } from './padmap.js';
 import { tiltStatusText } from './tilt-text.js';
 import { cameraFxScale } from './camera-fx.js';
+import { deadzoneName, deadzoneOf, stickReadout } from './pad-deadzone.js';
 
 export { renderControlsRef }; // the garage draws its copy of the card through this chunk (0204)
 /** Both pause sheets' controls cards (0204): the settings pause and the Escape/P garage pause. */
@@ -22,6 +23,9 @@ export function createPanel(ctx) {
   // Camera effects (0216): applied when this chunk loads (at boot when the save calms them) and on every change.
   const applyCameraFx = () => { GameState.cameraFx = cameraFxScale(settings().cameraFx); };
   applyCameraFx();
+  // Stick deadzone (0299): applied at load (settings-ui loads this chunk at boot when one is saved) and on every change.
+  const applyPadDead = () => setPadDead(deadzoneOf(settings().padDead));
+  applyPadDead();
   import('./units.js').then((m) => { units = m; syncPanel(); }, () => {});
 
   function syncPanel() {
@@ -29,7 +33,8 @@ export function createPanel(ctx) {
     for (const seg of document.querySelectorAll('#settingsModal [data-setting]')) {
       const key = seg.dataset.setting;
       // Units (0293): with no choice saved, the device's language picked (src/units.js sets GameState.kmh).
-      const v = key === 'units' ? (units ? units.currentUnits() : s.units || (GameState.kmh ? 'kmh' : 'mph')) : s[key];
+      const v = key === 'units' ? (units ? units.currentUnits() : s.units || (GameState.kmh ? 'kmh' : 'mph'))
+        : key === 'padDead' ? deadzoneName(s.padDead) : s[key]; // unset or junk reads as NORMAL (0299)
       for (const b of seg.querySelectorAll('button[data-value]')) b.setAttribute('aria-pressed', String(b.dataset.value === v));
     }
     const inv = $('setTiltInvert');
@@ -89,8 +94,10 @@ export function createPanel(ctx) {
       const b = e.target.closest('button[data-value]');
       if (!b) return;
       settings()[seg.dataset.setting] = b.dataset.value;
+      if (seg.dataset.setting === 'padDead' && b.dataset.value === 'normal') delete settings().padDead; // unset = NORMAL: no boot load
       if (seg.dataset.setting === 'units') GameState.kmh = b.dataset.value === 'kmh'; // now, not on the next frame
-      save(); applyAll(); applyCameraFx();
+      save(); applyAll(); applyCameraFx(); applyPadDead();
+      if (seg.dataset.setting === 'padDead') { syncPanel(); if (deadView) deadView.style.setProperty('--dz', String(deadzoneOf(settings().padDead))); }
     });
   }
   $('setMaster').addEventListener('input', (e) => { SoundEngine.init(); SoundEngine.setVolume(Number(e.target.value) / 100); });
@@ -277,6 +284,32 @@ export function createPanel(ctx) {
       if (padCap && !padBox.contains(e.relatedTarget)) { stopPadCap(); padNote(''); renderPad(); }
     });
   }
+  // --- Stick deadzone preview (0299): a dot that follows the left stick over a ring at the chosen
+  // radius, so a drifting stick shows. Runs only while the panel is open; nothing per race frame.
+  const deadView = $('setPadDeadView');
+  const deadDot = deadView && deadView.querySelector('.pdz-dot');
+  const deadRead = $('setPadDeadRead');
+  let deadRaf = 0;
+  let lastRead = '';
+  function drawDead() {
+    deadRaf = 0;
+    if (!deadView || $('settingsModal').classList.contains('hidden')) return;
+    const dead = deadzoneOf(settings().padDead);
+    deadView.style.setProperty('--dz', String(dead));
+    let pad = null;
+    try { const pads = navigator.getGamepads ? navigator.getGamepads() : []; for (const p of pads || []) if (p && p.connected) { pad = p; break; } } catch (e) { /* blocked */ }
+    const x = pad ? Math.max(-1, Math.min(1, pad.axes[0] || 0)) : 0;
+    const y = pad ? Math.max(-1, Math.min(1, pad.axes[1] || 0)) : 0;
+    const r = deadView.clientWidth / 2;
+    deadDot.style.transform = `translate(${(x * r).toFixed(1)}px, ${(y * r).toFixed(1)}px)`;
+    deadView.dataset.pad = String(Boolean(pad));
+    deadView.dataset.in = String(Boolean(pad) && Math.abs(x) <= dead);
+    const text = pad ? stickReadout(x, 0, dead) : 'Connect a gamepad to see its left stick here.';
+    if (text !== lastRead && deadRead) deadRead.textContent = lastRead = text;
+    deadRaf = requestAnimationFrame(drawDead);
+  }
+  const startDead = () => { if (!deadRaf) drawDead(); };
+
   const padReset = $('setPadReset');
   if (padReset) padReset.addEventListener('click', () => {
     stopPadCap(); settings().padMap = null; save(); padNote('Default buttons back.'); renderPad(); renderCards();
@@ -370,6 +403,7 @@ export function createPanel(ctx) {
       const done = $('btnSettingsDone');
       if (done) done.textContent = ctx.resumeOnClose || GameState.status === 'PAUSED' ? '▶ RESUME' : '✓ DONE';
       $('settingsModal').classList.remove('hidden');
+      startDead();
       if (done) done.focus({ preventScroll: true });
     },
   };

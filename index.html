@@ -804,6 +804,17 @@
         <div id="setPad" class="set-keys" role="group" aria-label="Gamepad buttons"></div>
         <p id="setPadNote" class="set-status mt-1.5" role="status" aria-live="polite"></p>
         <button id="setPadReset" type="button" class="set-btn mt-2">↺ DEFAULT BUTTONS</button>
+        <div class="set-label">Stick deadzone</div>
+        <div class="seg" data-setting="padDead" role="group" aria-label="Stick deadzone" aria-describedby="setPadDeadNote">
+          <button type="button" data-value="small">SMALL</button>
+          <button type="button" data-value="normal">NORMAL</button>
+          <button type="button" data-value="large">LARGE</button>
+        </div>
+        <div class="pad-dead-row mt-2">
+          <div id="setPadDeadView" class="pad-dead-view" aria-hidden="true"><span class="pdz-ring"></span><span class="pdz-dot"></span></div>
+          <p id="setPadDeadRead" class="set-status">Connect a gamepad to see its left stick here.</p>
+        </div>
+        <div id="setPadDeadNote" class="set-status mt-1.5">How far the left stick moves before the car steers. LARGE if the car creeps on a straight road or your hand shakes; SMALL for a new pad and a light touch.</div>
       </section>
 
       <section class="set-section" aria-labelledby="setHeadSound">

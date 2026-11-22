@@ -1,7 +1,7 @@
 ---
 id: 0299
 title: Settings → Controls: stick DEADZONE (SMALL / NORMAL / LARGE) for worn or tremor-affected sticks
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
@@ -27,11 +27,11 @@ the main-bundle change to reading one module-level variable that the lazy panel 
 as `setPadDead(v)`), measured against the byte budget.
 
 ## Acceptance criteria
-- [ ] Default behaviour is bit-for-bit today's (`PAD.dead` 0.12): existing steering-latency tests unchanged
-- [ ] LARGE: an axis of 0.20 steers 0; SMALL: an axis of 0.08 steers a little; full lock is still reachable at the rim in all three
-- [ ] The preview dot and ring move with a mocked pad and show the chosen radius
-- [ ] The choice persists across reload; an old save and a junk value load as NORMAL
-- [ ] No per-frame allocation added to `readPad()` (0005); main startup JS within budget
+- [x] Default behaviour is bit-for-bit today's (`PAD.dead` 0.12): existing steering-latency tests unchanged
+- [x] LARGE: an axis of 0.20 steers 0; SMALL: an axis of 0.08 steers a little; full lock is still reachable at the rim in all three
+- [x] The preview dot and ring move with a mocked pad and show the chosen radius
+- [x] The choice persists across reload; an old save and a junk value load as NORMAL
+- [x] No per-frame allocation added to `readPad()` (0005); main startup JS within budget
 
 ## Test plan
 Unit: `shapeAxis` at the three radii (0, edge, rim) and monotonic past each radius. E2E (new
