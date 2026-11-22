@@ -32,6 +32,9 @@ async function crashRumble(page) {
   await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.ready());
   await page.evaluate(() => window.dispatchEvent(new Event('gamepadconnected'))); // loads src/forcefeel.js
+  // Wait for the force-feel chunk itself, so OFF's "no calls" can't pass just because it never loaded.
+  await page.waitForFunction(() => performance.getEntriesByType('resource').some((e) => /\/forcefeel-[\w-]+\.js$/.test(e.name)));
+  await nextFrames(page, 2);
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await racing(page);
   await page.evaluate(() => { const g = window.__OT.GameState; g.invulnTimer = 0; window.__OT.damage(10, 'BARREL HIT'); g.hp = Math.max(g.hp, 60); });
