@@ -86,5 +86,7 @@ const act = (start) => padAct(start, gs, ins);
 /** One frame: `GameState` and `InputState` from main (this chunk imports nothing from it). Allocation-free. */
 export function padFrame(GameState, InputState) {
   gs = GameState; ins = InputState;
+  // Settings is waiting for a pad button (0298): no press pauses or resumes, and a held one must be let go after.
+  if (InputState.padCapture) { padMenu.start = padMenu.a = true; return; }
   padPauseStep(GameState.status, padRead, padMenu, act);
 }

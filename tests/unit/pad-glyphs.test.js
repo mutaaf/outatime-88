@@ -33,13 +33,14 @@ describe('padFamily', () => {
 });
 
 describe('padLabels', () => {
-  it('names all eight buttons per family, by the position of the standard-mapping button', () => {
-    expect(PAD_KEYS).toEqual(['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT']);
+  it('names all nine buttons per family, by the position of the standard-mapping button', () => {
+    // RS (right stick click, 0298) can hold a rebound action.
+    expect(PAD_KEYS).toEqual(['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'RS']);
     for (const f of ['xbox', 'ps', 'switch']) expect(Object.keys(padLabels(f)).sort()).toEqual([...PAD_KEYS].sort());
-    expect(padLabels('xbox')).toEqual({ A: 'A', B: 'B', X: 'X', Y: 'Y', LB: 'LB', RB: 'RB', LT: 'LT', RT: 'RT' });
-    expect(padLabels('ps')).toEqual({ A: '✕', B: '○', X: '□', Y: '△', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2' });
+    expect(padLabels('xbox')).toEqual({ A: 'A', B: 'B', X: 'X', Y: 'Y', LB: 'LB', RB: 'RB', LT: 'LT', RT: 'RT', RS: 'RS' });
+    expect(padLabels('ps')).toEqual({ A: '✕', B: '○', X: '□', Y: '△', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2', RS: 'R3' });
     // Nintendo's letters sit swapped: the bottom button (standard 0) is B, the left one (2) is Y.
-    expect(padLabels('switch')).toEqual({ A: 'B', B: 'A', X: 'Y', Y: 'X', LB: 'L', RB: 'R', LT: 'ZL', RT: 'ZR' });
+    expect(padLabels('switch')).toEqual({ A: 'B', B: 'A', X: 'Y', Y: 'X', LB: 'L', RB: 'R', LT: 'ZL', RT: 'ZR', RS: 'RS' });
     expect(padLabels('nope')).toBe(padLabels('xbox'));
   });
 });

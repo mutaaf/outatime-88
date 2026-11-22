@@ -226,3 +226,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-21 · 0295 · The 1885 tumbleweed is now a spiky ball of brush, so it no longer looks like the white ring every pickup floats in for colour-blind players; a new audit keeps every pickup and hazard telling apart by shape, not only colour.
 2026-11-21 · 0296 · Settings → BACKUP: copy your save as a code and paste it back on any device to keep your cars, coins and best times (no server)
 2026-11-21 · 0297 · HUD SIZE → LARGE now also grows the small print: the SPD / FLUX / NOS bar names, the WARP READY and score line under your speed, and the coach tip (small phones on their side keep their compact row).
+2026-11-22 · 0298 · Settings → GAMEPAD BUTTONS: move GAS, BRAKE, WARP, JUMP and NOS to any face button, bumper or the right stick click; the prompts and the pause card name your buttons

@@ -28,6 +28,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   assist: '',             // co-pilot: 'off' | 'assist' | 'auto'; '' = the touch kit's old switch
   nos: 'hold',            // NOS button: 'hold' | 'toggle' (0222, a tap turns it on and off; src/nos-toggle.js)
   keys: null,             // rebound keyboard keys { left: 'KeyJ', … } (0013, src/keybinds.js); null = defaults
+  padMap: null,           // rebound pad buttons { gas: 0, boost: 5, … } (0298, src/padmap.js); null = defaults
 });
 
 export const DIFFICULTY = Object.freeze({
