@@ -5,13 +5,13 @@
 // and cost main bytes (lesson 2026-11-17). Text only, no icons.
 
 /** The standard-mapping buttons the prompts name, by their Xbox letters. */
-export const PAD_KEYS = Object.freeze(['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT']);
+export const PAD_KEYS = Object.freeze(['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'RS']);
 
 const LABELS = Object.freeze({
-  xbox: Object.freeze({ A: 'A', B: 'B', X: 'X', Y: 'Y', LB: 'LB', RB: 'RB', LT: 'LT', RT: 'RT' }),
-  ps: Object.freeze({ A: '✕', B: '○', X: '□', Y: '△', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2' }),
+  xbox: Object.freeze({ A: 'A', B: 'B', X: 'X', Y: 'Y', LB: 'LB', RB: 'RB', LT: 'LT', RT: 'RT', RS: 'RS' }),
+  ps: Object.freeze({ A: '✕', B: '○', X: '□', Y: '△', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2', RS: 'R3' }),
   // Nintendo prints its letters swapped: the bottom face button (standard 0) is B, the left (2) Y.
-  switch: Object.freeze({ A: 'B', B: 'A', X: 'Y', Y: 'X', LB: 'L', RB: 'R', LT: 'ZL', RT: 'ZR' }),
+  switch: Object.freeze({ A: 'B', B: 'A', X: 'Y', Y: 'X', LB: 'L', RB: 'R', LT: 'ZL', RT: 'ZR', RS: 'RS' }),
 });
 
 /** 'ps' | 'switch' | 'xbox' from a Gamepad.id (vendor 054c Sony, 057e Nintendo); unknown is 'xbox'. */
@@ -23,24 +23,31 @@ export function padFamily(id) {
   return 'xbox';
 }
 
-/** `{ A, B, X, Y, LB, RB, LT, RT }` → what that pad prints on those buttons. */
+/** `{ A, B, X, Y, LB, RB, LT, RT, RS }` → what that pad prints on those buttons. */
 export const padLabels = (family) => LABELS[family] || LABELS.xbox;
 
 // A button name standing alone. "A" is a button only before " ·", " or" or " TO" ("A · RT", "A or
 // START", "START OR A TO DRIVE"); anywhere else it is the article ("FOR A ROCKET START"). One
 // pass, so Switch's A↔B and X↔Y swaps never chain.
-const NAME = /\b(?:[LR][BT]|[BXY]|A(?= ·| or\b| OR\b| TO\b))\b/g;
+const NAME = /\b(?:[LR][BT]|RS|[BXY]|A(?= ·| or\b| OR\b| TO\b))\b/g;
 
-/** `text` (Xbox wording) with each button named for `family`. */
-export function padText(text, family) {
+// Rebound buttons (0298, src/padmap.js): the settings panel hands over a text function that renames
+// each action's default button to the one the player bound, applied before the family's names.
+let remap = null;
+const tables = new Map();
+/** Sets (or clears, null) the rebound-button rename for padText and padTable. */
+export function setRemap(fn) { remap = typeof fn === 'function' ? fn : null; tables.clear(); }
+
+/** `text` (Xbox wording) with each button named for `family`; `raw` skips the rebound-button rename (text already names them). */
+export function padText(text, family, raw = false) {
   const l = padLabels(family);
-  return l === LABELS.xbox ? text : String(text).replace(NAME, (k) => l[k]);
+  const t = remap && !raw ? remap(String(text)) : text;
+  return l === LABELS.xbox ? t : String(t).replace(NAME, (k) => l[k]);
 }
 
-const tables = new Map();
-/** A frozen copy of a prompt table (`{ key: text }`) for `family`, built once; Xbox gets `table` itself. */
+/** A frozen copy of a prompt table (`{ key: text }`) for `family`, built once; Xbox with nothing rebound gets `table` itself. */
 export function padTable(table, family = heldFamily()) {
-  if (padLabels(family) === LABELS.xbox) return table;
+  if (!remap && padLabels(family) === LABELS.xbox) return table;
   let byFamily = tables.get(table);
   if (!byFamily) tables.set(table, (byFamily = {}));
   if (!byFamily[family]) {

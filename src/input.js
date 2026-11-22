@@ -9,7 +9,8 @@ export const InputState = {
   lastInput: '',       // 'keys' | 'pad' | 'phone' | 'touch': the input in hand, for prompts (0111)
   // keyMap (rebound keys, 0013: e.code → the default code main.js acts on) and boostKey (the
   // rebound BOOST key's name for prompts; downKey the BRAKE key's, 0253) are set by src/keybinds.js applyKeys; unset = defaults
-  // (left out here so the startup bundle stays in budget).
+  // (left out here so the startup bundle stays in budget). padMap (0298): rebound pad buttons, set by src/padmap.js applyPad; unset = defaults.
+  // padCapture (0298): true while Settings waits for a pad button, so the menu and pause pads leave it alone.
   nosHeld: false,      // NOS (ticket 0122): Shift / N while racing, gamepad LB, touch NOS
   touchNos: false,
   // nosTap / nosOn (0222, NOS TAP ON/OFF): a press this step, and the switch; unset reads as off
@@ -79,6 +80,7 @@ export function padGone() {
   if (!left) setLastInput('');
 }
 
+const PAD_BTN = [0, 1, 2, 5, 3, 4]; // today's buttons: A gas, B brake, X / RB warp, Y jump, LB NOS
 let padWasActive = false;
 const padOut = { steer: 0, gas: false, brake: false, gasAmt: 0, brakeAmt: 0, boost: false, hover: false, nos: false, back: false, l3: false };
 
@@ -97,16 +99,18 @@ export function pollGamepad() {
       if (p && p.connected) {
         const axisX = shapeAxis(p.axes[0] || 0);
         const steer = axisX !== 0 ? axisX : (pressed(p, 14) ? -1 : (pressed(p, 15) ? 1 : 0));
-        const gasAmt = Math.max(pressed(p, 0) ? 1 : 0, trigger(p.buttons[7]));
-        const brakeAmt = Math.max(pressed(p, 1) ? 1 : 0, trigger(p.buttons[6]));
+        // Rebound buttons (0298, src/padmap.js padButtons): [gas, brake, warp, warp2, jump, nos], -1 = none.
+        const m = InputState.padMap || PAD_BTN;
+        const gasAmt = Math.max(pressed(p, m[0]) ? 1 : 0, trigger(p.buttons[7]));
+        const brakeAmt = Math.max(pressed(p, m[1]) ? 1 : 0, trigger(p.buttons[6]));
         padOut.steer = steer;
         padOut.gasAmt = gasAmt;
         padOut.brakeAmt = brakeAmt;
         padOut.gas = gasAmt > 0;
         padOut.brake = brakeAmt > 0;
-        padOut.boost = pressed(p, 2) || pressed(p, 5);
-        padOut.hover = pressed(p, 3);
-        padOut.nos = pressed(p, 4);
+        padOut.boost = pressed(p, m[2]) || pressed(p, m[3]);
+        padOut.hover = pressed(p, m[4]);
+        padOut.nos = pressed(p, m[5]);
         padOut.back = pressed(p, 8); // BACK / SELECT / VIEW: steering mode
         padOut.l3 = pressed(p, 10);  // left-stick click: co-pilot
         // A fresh pad press takes over the prompts (0007); a held stick doesn't fight the keys.

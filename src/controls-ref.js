@@ -6,10 +6,12 @@ import { GameState } from './state.js';
 import { InputState } from './input.js';
 import { SaveStore } from './save.js';
 import { ACTIONS, normalizeKeys, keyName } from './keybinds.js';
+import { padNames } from './padmap.js';
 
 const TITLES = { keys: 'KEYBOARD', pad: 'GAMEPAD', touch: 'TOUCH' };
 const LABELS = ['STEER', 'GAS', 'BRAKE', 'WARP', 'NOS', 'JUMP'];
-const PAD = ['L-STICK · D-PAD', 'A · RT', 'B · LT', 'X · RB', 'LB', 'Y'];
+/** The pad rows' values (Xbox names) for a pad map (0298, src/padmap.js; null = today's buttons). */
+const padValues = (map) => { const n = padNames(map); return ['L-STICK · D-PAD', n.gas, n.brake, n.boost, n.nos, n.jump]; };
 
 /**
  * Which controls to show. A connected pad wins (browsers only reveal a pad once it was pressed on
@@ -25,11 +27,12 @@ export function controlsKind(lastInput, coarse, padConnected = false) {
 /**
  * `{ title, rows: [{ label, value }] }` for `kind`. Options: `keys` (SaveStore settings.keys),
  * `movement` (the touch kit's steering in effect: stick modes, 'dpad' or 'tilt'), `autoAccel`
- * (touch: the car drives itself), `words` (pad: Xbox names → the pad in hand's, 0283).
+ * (touch: the car drives itself), `words` (pad: Xbox names → the pad in hand's, 0283), `pad`
+ * (SaveStore settings.padMap, the rebound pad buttons, 0298).
  */
-export function controlRows(kind, { keys = null, movement = '', autoAccel = true, words = null } = {}) {
+export function controlRows(kind, { keys = null, movement = '', autoAccel = true, words = null, pad = null } = {}) {
   let values;
-  if (kind === 'pad') values = words ? PAD.map(words) : PAD;
+  if (kind === 'pad') values = words ? padValues(pad).map(words) : padValues(pad);
   else if (kind === 'touch') {
     values = [movement === 'tilt' ? 'TILT' : movement === 'dpad' ? 'D-PAD' : 'STICK', autoAccel ? 'AUTO' : 'GAS', 'DRIFT', 'WARP', 'NOS', 'JUMP'];
   } else {
@@ -88,10 +91,12 @@ export function renderControlsRef(el) {
   // A pad card drawn before the names land is drawn again once they do.
   if (kind === 'pad' && !glyphs) glyphsLoad.then(() => { if (glyphs) renderControlsRef(el); });
   const family = glyphs ? glyphs.heldFamily() : 'xbox';
-  const words = family === 'xbox' ? null : (t) => glyphs.padText(t, family);
+  // The rows already name rebound buttons (0298), so only the family's names apply (raw).
+  const words = family === 'xbox' ? null : (t) => glyphs.padText(t, family, true);
   const spoken = family === 'ps' ? glyphs.padSpoken : (t) => t;
   const { title, rows } = controlRows(kind, {
     keys: SaveStore.data.settings && SaveStore.data.settings.keys,
+    pad: SaveStore.data.settings && SaveStore.data.settings.padMap,
     // Tilt is on or off now (the kit relabels its own mode a frame later); else the kit's mode in effect.
     movement: InputState.tiltEnabled ? 'tilt' : document.documentElement.dataset.tcMovement === 'dpad' ? 'dpad' : '',
     autoAccel: c.autoAccel !== false,

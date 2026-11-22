@@ -3,9 +3,10 @@
 import { SaveStore, freshSaveData } from './save.js';
 import { GameState } from './state.js';
 import { SoundEngine } from './audio.js';
-import { InputState } from './input.js';
+import { InputState, setLastInput } from './input.js';
 import { ACTIONS, applyKeys, bindKey, isDefault, keyName } from './keybinds.js';
 import { renderControlsRef } from './controls-ref.js';
+import { PAD_ACTIONS, applyPad, bindPad, isDefaultPad, padNames, buttonName } from './padmap.js';
 import { tiltStatusText } from './tilt-text.js';
 import { cameraFxScale } from './camera-fx.js';
 
@@ -177,6 +178,110 @@ export function createPanel(ctx) {
   if (keysReset) keysReset.addEventListener('click', () => { setKeys(null); capturing = ''; note('Default keys back.'); renderKeys(); });
 
 
+  // --- Gamepad buttons (ticket 0298): pick an action, press its new button on the pad. Conflicts
+  // are refused, not swapped. The triggers, START, VIEW, the stick click and the D-pad stay fixed.
+  let glyphs = null; // the pad in hand's names (0283), an import()ed import-free chunk
+  const padBox = $('setPad');
+  const padNote = (text) => { const el = $('setPadNote'); if (el) el.textContent = text; };
+  const shown = (t) => (glyphs ? glyphs.padText(t, glyphs.heldFamily(), true) : t);
+  const spoken = (t) => (glyphs ? glyphs.padSpoken(shown(t)) : t);
+  let padCap = ''; // the action waiting for a button
+  let capHeld = null; // buttons already down when the capture began: they must be let go first
+  let capRaf = 0;
+  const applyPadNow = () => applyPad(InputState, settings().padMap, glyphs);
+  applyPadNow(); // at load: settings-ui loads this chunk at boot when buttons are rebound
+  import('./pad-glyphs.js').then((m) => { glyphs = m; applyPadNow(); renderPad(); }, () => {});
+  function renderPad() {
+    if (!padBox) return;
+    const names = padNames(applyPadNow());
+    if (!padBox.firstChild) {
+      padBox.innerHTML = PAD_ACTIONS.map((a) => `<div class="set-row"><span>${a.label}<small data-pad-also="${a.id}"></small></span>`
+        + `<button type="button" class="set-btn key-btn" data-pad-action="${a.id}" aria-pressed="false"></button></div>`).join('');
+    }
+    for (const b of padBox.querySelectorAll('[data-pad-action]')) {
+      const a = PAD_ACTIONS.find((x) => x.id === b.dataset.padAction);
+      const [main, ...also] = names[a.id].split(' · ');
+      const on = padCap === a.id;
+      b.textContent = on ? 'PRESS A BUTTON…' : shown(main);
+      b.setAttribute('aria-pressed', String(on));
+      b.setAttribute('aria-label', on ? `Press the new pad button for ${a.label}` : `${a.label}: ${spoken(main)}. Change button`);
+      const small = padBox.querySelector(`[data-pad-also="${a.id}"]`);
+      if (small) small.textContent = also.length ? `also ${shown(also.join(' '))}` : '';
+    }
+  }
+  function stopPadCap() {
+    padCap = ''; capHeld = null;
+    InputState.padCapture = false;
+    if (capRaf) cancelAnimationFrame(capRaf);
+    capRaf = 0;
+  }
+  function startPadCap(id) {
+    stopPadCap();
+    padCap = id;
+    capHeld = padDown(); // read now, not next frame: a press after this one counts, the A that pressed the row doesn't
+    InputState.padCapture = true; // the menu pad (src/home.js) and the pause pad (src/pad-pause.js) stand back
+    capRaf = requestAnimationFrame(capLoop);
+  }
+  /** Every button down on any connected pad right now. */
+  function padDown() {
+    let pads = null;
+    try { pads = navigator.getGamepads ? navigator.getGamepads() : null; } catch (e) { /* blocked */ }
+    const now = new Set();
+    for (const p of pads || []) if (p && p.connected) p.buttons.forEach((x, i) => { if (x && x.pressed) now.add(i); });
+    return now;
+  }
+  function capLoop() {
+    capRaf = 0;
+    if (!padCap) return;
+    if ($('settingsModal').classList.contains('hidden')) { stopPadCap(); renderPad(); return; }
+    const now = padDown();
+    for (const i of [...capHeld]) if (!now.has(i)) capHeld.delete(i);
+    for (const i of now) {
+      if (capHeld.has(i)) continue;
+      capHeld.add(i);
+      padPress(i);
+      if (!padCap) return;
+    }
+    capRaf = requestAnimationFrame(capLoop);
+  }
+  /** A fresh button while capturing: START cancels; anything else binds or says why it can't. */
+  function padPress(i) {
+    setLastInput('pad');
+    const a = PAD_ACTIONS.find((x) => x.id === padCap);
+    if (i === 9) { stopPadCap(); padNote(`Kept ${a.label} as it was.`); renderPad(); return; }
+    const r = bindPad(settings().padMap, a.id, i);
+    const n = shown(buttonName(i));
+    if (r.ok) {
+      settings().padMap = isDefaultPad(r.map) ? null : r.map;
+      save();
+      stopPadCap();
+      padNote(`${a.label} is ${n} now.`);
+      renderCards(); // the pause cards name the buttons too (0204)
+    } else {
+      padNote(r.reason === 'taken' ? `${n} is already ${r.by}. Pick another button, or press START to cancel.`
+        : r.reason === 'fixed' ? `${n} is ${r.by} and can't move. Pick another button, or press START to cancel.`
+          : `That button can't drive. Try ${['A', 'B', 'X', 'Y', 'LB', 'RB', 'RS'].map(shown).join(', ')}.`);
+    }
+    renderPad();
+  }
+  if (padBox) {
+    padBox.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pad-action]');
+      if (!b) return;
+      if (padCap === b.dataset.padAction) { stopPadCap(); padNote(''); } // a second press cancels
+      else { startPadCap(b.dataset.padAction); padNote('Press a button on your gamepad. START cancels.'); }
+      renderPad();
+      if (padCap) b.focus({ preventScroll: true });
+    });
+    padBox.addEventListener('focusout', (e) => {
+      if (padCap && !padBox.contains(e.relatedTarget)) { stopPadCap(); padNote(''); renderPad(); }
+    });
+  }
+  const padReset = $('setPadReset');
+  if (padReset) padReset.addEventListener('click', () => {
+    stopPadCap(); settings().padMap = null; save(); padNote('Default buttons back.'); renderPad(); renderCards();
+  });
+
   // Career stats (0278): five read-only counters from the save, drawn fresh on every open.
   // Its own import-free chunk, shared with race-flow (a static import would grow main's preload map).
   function renderStats() {
@@ -259,6 +364,8 @@ export function createPanel(ctx) {
       capturing = '';
       note('');
       renderKeys();
+      stopPadCap(); padNote('');
+      renderPad();
       ctx.setTiltStatus(ctx.tiltStatus);
       const done = $('btnSettingsDone');
       if (done) done.textContent = ctx.resumeOnClose || GameState.status === 'PAUSED' ? '▶ RESUME' : '✓ DONE';

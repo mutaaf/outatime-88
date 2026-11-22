@@ -798,6 +798,14 @@
         <button id="setKeysReset" type="button" class="set-btn mt-2">↺ DEFAULT KEYS</button>
       </section>
 
+      <section class="set-section" aria-labelledby="setHeadPad">
+        <h3 id="setHeadPad">🎮 GAMEPAD BUTTONS</h3>
+        <p class="set-status">Pick an action, then press its new button on the pad. RT and LT always drive and brake; START pauses.</p>
+        <div id="setPad" class="set-keys" role="group" aria-label="Gamepad buttons"></div>
+        <p id="setPadNote" class="set-status mt-1.5" role="status" aria-live="polite"></p>
+        <button id="setPadReset" type="button" class="set-btn mt-2">↺ DEFAULT BUTTONS</button>
+      </section>
+
       <section class="set-section" aria-labelledby="setHeadSound">
         <h3 id="setHeadSound">🔊 SOUND</h3>
         <label class="set-row" for="setMaster"><span>Master</span><input id="setMaster" type="range" min="0" max="100" step="5" class="set-range" /></label>

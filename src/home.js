@@ -251,6 +251,7 @@ export function createHome(h) {
     const over = S.status !== 'PLAYING' && navigator.getGamepads ? overPanel() : null;
     const menu = over || (S.status !== 'PLAYING' && navigator.getGamepads ? topMenu() : null);
     if (!menu) { resetNav(nav); if (marked) mark(null); return false; }
+    if (InputState.padCapture) { resetNav(nav); return true; } // Settings is waiting for a pad button (0298)
     let pads = null;
     try { pads = navigator.getGamepads(); } catch { /* blocked */ }
     const act = padMenuStep(readNav(pads), dt, nav);

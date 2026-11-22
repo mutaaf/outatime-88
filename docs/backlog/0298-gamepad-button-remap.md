@@ -1,7 +1,7 @@
 ---
 id: 0298
 title: Settings → Controls: remap the gamepad buttons (gas, brake, warp, jump, NOS)
-status: ready
+status: shipped
 priority: P1
 size: M
 lens: accessibility
@@ -32,13 +32,13 @@ Main is near its gzip budget: put capture UI and normalise in a lazy chunk and k
 see LESSONS 2026-11-21).
 
 ## Acceptance criteria
-- [ ] With no `padMap` every button works exactly as today (existing pad e2e and unit tests unchanged)
-- [ ] Rebinding WARP to another button makes that button warp and the old one do nothing in a race
-- [ ] A button already used by another action is refused with a spoken/visible reason; RESET restores defaults
-- [ ] Pad hint glyphs (PlayStation / Switch / Xbox families) and the pause controls card show the rebound button
-- [ ] The capture row is reachable and operable with the pad itself (0273 menu focus) and with keyboard
-- [ ] An old save and a corrupt `padMap` (wrong types, out-of-range index) load as defaults
-- [ ] Main startup JS stays within budget; `budget.spec.js` passes
+- [x] With no `padMap` every button works exactly as today (existing pad e2e and unit tests unchanged)
+- [x] Rebinding WARP to another button makes that button warp and the old one do nothing in a race
+- [x] A button already used by another action is refused with a spoken/visible reason; RESET restores defaults
+- [x] Pad hint glyphs (PlayStation / Switch / Xbox families) and the pause controls card show the rebound button
+- [x] The capture row is reachable and operable with the pad itself (0273 menu focus) and with keyboard
+- [x] An old save and a corrupt `padMap` (wrong types, out-of-range index) load as defaults
+- [x] Main startup JS stays within budget; `budget.spec.js` passes
 
 ## Test plan
 Unit: pure `normalisePadMap` and `actionsFor(buttons, padMap)` (default, rebound, duplicate refused,
