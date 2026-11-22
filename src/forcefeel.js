@@ -8,7 +8,10 @@
 //     hit, grinding a barrier, a hard landing, a crash).
 //   - Phone pulses for the same moments (src/touch/haptics.js): a wall hit, a hard landing and
 //     the tyres letting go, each throttled so a long slide never buzzes constantly.
-// Off with the Haptics setting; calm mode keeps only the tyres and halves everything.
+// Off with the Haptics setting; calm mode keeps only the tyres and halves everything. The pad's
+// RUMBLE choice (ticket 0300, src/rumble.js) scales both motors: LOW halves them, OFF never touches the motor.
+
+import { rumbleScale, padActuator } from './rumble.js';
 
 /** Rumble mix, all 0..1. */
 export const FEEL = Object.freeze({
@@ -48,23 +51,14 @@ export function rumbleFor(s, imp, out = { weak: 0, strong: 0 }) {
  * @param {() => {haptics:boolean, hapticStrength:number}} o.settings controls settings
  * @param {() => boolean} [o.calm]
  * @param {() => ({pulse:(k:string)=>boolean}|null)} [o.haptics] the phone's haptics, if any
+ * @param {() => any} [o.rumble] the saved RUMBLE choice (settings.rumble: 'off' | 'low' | 'full'; anything else = FULL)
  * @param {() => number} [o.now]
  */
-export function createForceFeel({ state, settings, calm = () => false, haptics = () => null, now = () => performance.now() }) {
+export function createForceFeel({ state, settings, calm = () => false, haptics = () => null, rumble = () => undefined, now = () => performance.now() }) {
   let imp = 0, sent = 0, lastSent = { weak: 0, strong: 0 }, wasGrind = false, wasAir = false, peakFall = 0, lastHp = null, wasSlip = false;
   const want = { weak: 0, strong: 0 };
 
-  function actuator() {
-    if (!navigator.getGamepads) return null;
-    try {
-      const pads = navigator.getGamepads();
-      for (let i = 0; i < pads.length; i++) {
-        const p = pads[i]; // the same pad src/input.js steers with: the first connected one
-        if (p && p.connected) return p.vibrationActuator || (p.hapticActuators && p.hapticActuators[0]) || null;
-      }
-    } catch (e) { /* blocked */ }
-    return null;
-  }
+  const actuator = () => padActuator(); // the same pad src/input.js steers with: the first connected one
 
   function send(act, weak, strong, t) {
     sent = t; lastSent.weak = weak; lastSent.strong = strong;
@@ -110,14 +104,21 @@ export function createForceFeel({ state, settings, calm = () => false, haptics =
       imp *= Math.exp(-FEEL.decay * Math.max(0, dt));
       if (imp < 0.01) imp = 0;
 
+      const pad = rumbleScale(rumble());
+      const wasLive = lastSent.weak > 0 || lastSent.strong > 0;
+      if (pad === 0 && !wasLive) return; // RUMBLE OFF: never touch the motor …
       const act = actuator();
       if (!act) return;
-      const weak = on ? Math.round(want.weak * k * 50) / 50 : 0;
-      const strong = on ? Math.round(want.strong * k * 50) / 50 : 0;
+      if (pad === 0) { // … except to stop one that was running when OFF was chosen (pause → settings)
+        sent = now(); lastSent.weak = 0; lastSent.strong = 0;
+        try { if (typeof act.reset === 'function') act.reset(); } catch (e) { /* unsupported */ }
+        return;
+      }
+      const weak = on ? Math.round(want.weak * k * pad * 50) / 50 : 0;
+      const strong = on ? Math.round(want.strong * k * pad * 50) / 50 : 0;
       const t = now();
       const changed = Math.abs(weak - lastSent.weak) > 0.03 || Math.abs(strong - lastSent.strong) > 0.03;
       const live = weak > 0 || strong > 0;
-      const wasLive = lastSent.weak > 0 || lastSent.strong > 0;
       if ((live && (changed || t - sent >= FEEL.refreshMs)) || (!live && wasLive)) send(act, weak, strong, t);
     },
     /** Silence (pause, results, page hidden). */

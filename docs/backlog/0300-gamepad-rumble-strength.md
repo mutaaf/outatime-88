@@ -1,12 +1,12 @@
 ---
 id: 0300
 title: Settings → Controls: gamepad RUMBLE OFF / LOW / FULL
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-11-22
-pr:
+pr: 308
 ---
 
 ## Why
@@ -27,11 +27,11 @@ level so the player can judge it without starting a race. Panel and normalise in
 settings chunk; forcefeel.js already loads lazily.
 
 ## Acceptance criteria
-- [ ] Default FULL: `rumbleFor()` output and the existing force-feel tests are unchanged
-- [ ] LOW halves both motors; OFF sends zero and never calls `playEffect`/`pulse` on the actuator
-- [ ] TEST gives a 300 ms pulse at the chosen level; with no pad connected it says so in the panel (text, not only colour)
-- [ ] The setting persists; an old save and a junk value load as FULL
-- [ ] Touch haptics settings are untouched and still work on phones
+- [x] Default FULL: `rumbleFor()` output and the existing force-feel tests are unchanged
+- [x] LOW halves both motors; OFF sends zero and never calls `playEffect`/`pulse` on the actuator
+- [x] TEST gives a 300 ms pulse at the chosen level; with no pad connected it says so in the panel (text, not only colour)
+- [x] The setting persists; an old save and a junk value load as FULL
+- [x] Touch haptics settings are untouched and still work on phones
 
 ## Test plan
 Unit: the scaling helper at OFF, LOW, FULL and with out-of-range input. E2E (new

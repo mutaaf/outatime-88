@@ -1378,7 +1378,7 @@ function loadForceFeel() {
   forceFeelLoading = forceFeelLoading || import('./forcefeel.js').then(({ createForceFeel }) => {
     forceFeel = createForceFeel({
       state: GameState, settings: () => SaveStore.data.controls || {}, calm: () => GameState.reducedMotion,
-      haptics: () => (touch ? touch.controls.haptics : null),
+      haptics: () => (touch ? touch.controls.haptics : null), rumble: () => SaveStore.data.settings.rumble, // RUMBLE (0300)
     });
   }).catch(() => { forceFeelLoading = null; });
 }
