@@ -230,3 +230,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-22 · 0299 · Settings → GAMEPAD BUTTONS → STICK DEADZONE: SMALL, NORMAL or LARGE, with a live dot over the deadzone ring so you can see a drifting stick
 2026-11-22 · 0300 · Settings → GAMEPAD BUTTONS → GAMEPAD RUMBLE: OFF, LOW or FULL, with a TEST RUMBLE button that buzzes the pad at your choice
 2026-11-23 · 0302 · Settings → Graphics → FRAME RATE: AUTO or 30 FPS, which saves battery and keeps a phone cool while the race plays exactly the same
+2026-11-23 · 0303 · Settings → Sound → OUTPUT: STEREO or MONO. Mono plays everything in both ears for one earbud or one-ear hearing, and the proximity tick and lane guide tell left from right by tone

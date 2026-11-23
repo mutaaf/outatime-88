@@ -46,6 +46,7 @@ export const SoundEngine = {
   musicMix: normalizeSettings(SaveStore.data.settings).musicVolume,
   sfxMix: normalizeSettings(SaveStore.data.settings).sfxVolume,
   musicStyle: normalizeSettings(SaveStore.data.settings).musicStyle,
+  mono: false, // 0303 MONO: set by settings-ui's applyAll at boot (setMono); the cues read it to say their side by tone
   tuner: null,
   shape: 'GULLWING',
   carName: '',
@@ -85,6 +86,7 @@ export const SoundEngine = {
         this.compressor.connect(lim);
         lim.connect(this.masterGain);
         this.masterGain.connect(ctx.destination);
+        this.setMono(this.mono);
         this.buildEngineVoice();
         this.loadBank();
         // A call, Siri, an alarm or a lock screen ('interrupted' on iOS) or the browser can put the
@@ -151,6 +153,18 @@ export const SoundEngine = {
       } catch (e) {}
     }
     hooks.syncAudioUI();
+  },
+  /** MONO (0303): the master gain sums L+R into one channel ('speakers' downmix drops nothing),
+   *  which the destination plays in both ears. Live, on the same context: no restart, no new nodes. */
+  setMono(on) {
+    this.mono = Boolean(on);
+    const m = this.masterGain;
+    if (!m) return;
+    try {
+      m.channelCount = this.mono ? 1 : 2;
+      m.channelCountMode = this.mono ? 'explicit' : 'max';
+      m.channelInterpretation = 'speakers';
+    } catch (e) { /* audio is best-effort */ }
   },
   /** Music and effects levels (0..1 each); applied live to the buses. */
   setMix(music, sfx) {

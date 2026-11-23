@@ -15,6 +15,10 @@ export const PROX = Object.freeze({
 
 const NONE = [];
 
+/** MONO (0303): with no left and right, the tick says its side by pitch: a fourth down to the
+ *  left, a fourth up to the right (about 1.2 / 1.6 / 2.1 kHz). Stereo keeps today's tick. */
+export const sideRate = (pan, mono) => (!mono || !pan ? 1 : pan < 0 ? 0.75 : 4 / 3);
+
 /** Seconds until `b` reaches the player `p` (its middle at road offset `x`, p.x by default) at
  *  today's closing speed, or Infinity if it won't: parked, wrecked, already hit (the cue warns
  *  before a hit, it doesn't follow one), in another lane, or one you're jumping over or sliding
@@ -93,9 +97,11 @@ export function createProximityCue(se, on, silent = false) {
         if (ctx !== se.ctx) build();
         const now = ctx.currentTime;
         gain.gain.setValueAtTime(PROX.level * se.volume, now);
-        if (panner) panner.pan.setValueAtTime(pan * PROX.pan, now);
+        // MONO: centred (a hard pan would come out 3 dB down in the downmix), side by pitch.
+        if (panner) panner.pan.setValueAtTime(se.mono ? 0 : pan * PROX.pan, now);
         const src = ctx.createBufferSource();
         src.buffer = buf;
+        src.playbackRate.value = sideRate(pan, se.mono);
         src.connect(gain);
         src.start(now);
       } catch (e) { /* audio is best-effort */ }

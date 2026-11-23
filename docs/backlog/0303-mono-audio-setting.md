@@ -1,12 +1,12 @@
 ---
 id: 0303
 title: Settings: MONO AUDIO for one-ear listening
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility
 created: 2026-11-23
-pr:
+pr: 312
 ---
 
 ## Why

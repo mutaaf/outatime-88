@@ -6,7 +6,7 @@ import { SaveStore } from './save.js';
 import { GameState } from './state.js';
 import { InputState } from './input.js';
 import { SoundEngine } from './audio.js';
-import { normalizeSettings, reducedMotionFor, difficultyOf } from './settings.js';
+import { normalizeSettings, reducedMotionFor, difficultyOf, monoOf } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 let tiltStatus = 'off';
@@ -134,6 +134,7 @@ function applyAll() {
   applyMotion();
   SoundEngine.setMix(s.musicVolume, s.sfxVolume);
   SoundEngine.setMusicStyle(s.musicStyle);
+  SoundEngine.setMono(monoOf(s)); // 0303
   document.documentElement.dataset.hudSize = s.hud; // 0195: CSS scales the HUD text
   if (panel) panel.sync();
 }
