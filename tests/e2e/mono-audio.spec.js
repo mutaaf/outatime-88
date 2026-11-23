@@ -32,7 +32,7 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
     await expect(stereo).toHaveAttribute('aria-pressed', 'true');
     await mono.scrollIntoViewIfNeeded();
     const box = await mono.boundingBox();
-    expect(box.height).toBeGreaterThanOrEqual(vp.width < 500 ? 32 : 24);
+    expect(box.height).toBeGreaterThanOrEqual(vp.width < 500 ? 44 : 24); // touch target (invariant 5)
     expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
     // Keyboard path: focus the button and press Enter.
     await mono.focus();
@@ -83,7 +83,7 @@ test('mid-race: MONO applies at once on the same running context, and back', asy
   expect(problems).toEqual([]);
 });
 
-test('MONO through the real Web Audio downmix: a hard-panned tone reaches both ears, near a centred one', async ({ page }) => {
+test('MONO through the real Web Audio downmix: a panned tone reaches both ears equally', async ({ page }) => {
   await page.goto(`${APP}?debug`);
   await audioReady(page);
   // The game's own setMono on a real master node in an offline render: RMS per ear for a tone
@@ -104,11 +104,14 @@ test('MONO through the real Web Audio downmix: a hard-panned tone reaches both e
       const rms = (c) => { const d = buf.getChannelData(c); let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; return Math.sqrt(s / d.length); };
       return [rms(0), rms(1)];
     };
-    return { monoHard: await render(1, true), monoMid: await render(0, true), stereoHard: await render(1, false) };
+    return { monoHard: await render(1, true), monoMid: await render(0, true), monoStreet: await render(0.5, true), stereoHard: await render(1, false) };
   });
   const db = (a, b) => 20 * Math.log10(a / b);
   expect(r.stereoHard[0]).toBeLessThan(0.01); // stereo: hard right is silent in the left ear (the problem)
   expect(r.monoHard[0]).toBeGreaterThan(0.1); // mono: both ears get it…
   expect(r.monoHard[0]).toBeCloseTo(r.monoHard[1], 4); // …equally
-  expect(Math.abs(db(r.monoHard[0], r.monoMid[0]))).toBeLessThan(3.1); // within the equal-power pan law
+  // The equal-power pan law leaves a hard pan 3 dB under centre after the downmix: that is why the
+  // two side cues play centred in MONO. The game's other pans (street layer, Doppler: src/sfx/tuner.js, up to ±0.5) lose under 1 dB.
+  expect(db(r.monoMid[0], r.monoHard[0])).toBeCloseTo(3.01, 1);
+  expect(Math.abs(db(r.monoStreet[0], r.monoMid[0]))).toBeLessThan(1);
 });

@@ -15,8 +15,8 @@ import { contactIn } from './proximity-cue.js';
  *  left, a soft triangle in the middle, a buzzy square to the right. Stereo stays a sine. */
 const WAVES = ['sine', 'triangle', 'square'];
 export const sideWave = (pan, mono) => (mono ? WAVES[(pan > 0) - (pan < 0) + 1] : 'sine');
-// A square is ~2x as loud as a sine at the same gain: level it so the right side isn't louder.
-const waveLevel = (w) => (w === 'square' ? 0.5 : 1);
+// Equal loudness by RMS: a square is +3 dB over a sine at the same gain, a triangle -1.8 dB.
+const waveLevel = (w) => (w === 'square' ? 0.71 : w === 'triangle' ? 1.23 : 1);
 
 export const GUIDE = Object.freeze({
   horizon: 1.2,               // seconds ahead a lane must be clear
@@ -169,7 +169,8 @@ export function createLaneGuide(se, on, silent = false) {
         }
         const mono = Boolean(se.mono);
         const wave = sideWave(pan, mono);
-        if (osc.type !== wave) { osc.type = wave; refreshed = -1; } // re-level now (waveLevel)
+        let swap = false;
+        if (osc.type !== wave) { osc.type = wave; refreshed = -1; swap = true; } // re-level now (waveLevel), gliding
         if (mono !== lastMono) { lastPan = NaN; lastMono = mono; }
         const hz = GUIDE.lo + (GUIDE.hi - GUIDE.lo) * Math.max(0, Math.min(1, 1 - why.t / H));
         if (Math.abs(hz - lastHz) > 4) { osc.frequency.setTargetAtTime(hz, now, lastHz ? GUIDE.glide : 0.001); lastHz = hz; }
@@ -179,7 +180,7 @@ export function createLaneGuide(se, on, silent = false) {
           // Hold the level a short way ahead of the clock, then fade: steps keep pushing it out.
           // Coming back after the hold ran out (a pause, a long frame) glides in rather than jumps.
           const g = gain.gain, level = GUIDE.level * se.volume * waveLevel(wave);
-          const fresh = now >= holdUntil;
+          const fresh = now >= holdUntil || swap; // a new waveform glides to its level: no click
           cancel(g, now);
           if (fresh) g.setTargetAtTime(level, now, GUIDE.glide); else g.setValueAtTime(level, now);
           holdUntil = now + GUIDE.hold;
