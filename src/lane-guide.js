@@ -11,6 +11,13 @@
 // results, a hidden tab) the tone fades out by itself instead of droning on.
 import { contactIn } from './proximity-cue.js';
 
+/** MONO (0303): the pitch already says how soon, so the side is the timbre: a pure sine to the
+ *  left, a soft triangle in the middle, a buzzy square to the right. Stereo stays a sine. */
+const WAVES = ['sine', 'triangle', 'square'];
+export const sideWave = (pan, mono) => (mono ? WAVES[(pan > 0) - (pan < 0) + 1] : 'sine');
+// A square is ~2x as loud as a sine at the same gain: level it so the right side isn't louder.
+const waveLevel = (w) => (w === 'square' ? 0.5 : 1);
+
 export const GUIDE = Object.freeze({
   horizon: 1.2,               // seconds ahead a lane must be clear
   // Where the car can go: the Endless hazard lanes (src/hazards.js LANES: -0.48, 0, 0.48) and the
@@ -111,7 +118,7 @@ export function chooseLane(p, traffic, obstacles, racers = NONE, out = null) {
 export function createLaneGuide(se, on, silent = false) {
   const why = { t: 0 };
   let ctx = null, gain = null, panner = null, osc = null;
-  let holdUntil = -1, refreshed = -1, quiet = 0, lastPan = NaN, lastHz = 0;
+  let holdUntil = -1, refreshed = -1, quiet = 0, lastPan = NaN, lastHz = 0, lastMono = false;
   function build() {
     if (osc) { try { osc.stop(); } catch (e) {} osc = null; } // left on an old context
     ctx = se.ctx;
@@ -160,13 +167,18 @@ export function createLaneGuide(se, on, silent = false) {
           osc.start(now);
           lastPan = NaN; lastHz = 0;
         }
+        const mono = Boolean(se.mono);
+        const wave = sideWave(pan, mono);
+        if (osc.type !== wave) { osc.type = wave; refreshed = -1; } // re-level now (waveLevel)
+        if (mono !== lastMono) { lastPan = NaN; lastMono = mono; }
         const hz = GUIDE.lo + (GUIDE.hi - GUIDE.lo) * Math.max(0, Math.min(1, 1 - why.t / H));
         if (Math.abs(hz - lastHz) > 4) { osc.frequency.setTargetAtTime(hz, now, lastHz ? GUIDE.glide : 0.001); lastHz = hz; }
-        if (panner && pan !== lastPan) { panner.pan.setTargetAtTime(pan * GUIDE.pan, now, lastPan === lastPan ? GUIDE.glide : 0.001); lastPan = pan; }
+        // MONO: centred (a hard pan comes out 3 dB down in the downmix); the side is the wave.
+        if (panner && pan !== lastPan) { panner.pan.setTargetAtTime(mono ? 0 : pan * GUIDE.pan, now, lastPan === lastPan ? GUIDE.glide : 0.001); lastPan = pan; }
         if (now >= holdUntil || now - refreshed >= GUIDE.refresh || now < refreshed) {
           // Hold the level a short way ahead of the clock, then fade: steps keep pushing it out.
           // Coming back after the hold ran out (a pause, a long frame) glides in rather than jumps.
-          const g = gain.gain, level = GUIDE.level * se.volume;
+          const g = gain.gain, level = GUIDE.level * se.volume * waveLevel(wave);
           const fresh = now >= holdUntil;
           cancel(g, now);
           if (fresh) g.setTargetAtTime(level, now, GUIDE.glide); else g.setValueAtTime(level, now);

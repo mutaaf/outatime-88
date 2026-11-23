@@ -17,6 +17,7 @@ export const SETTINGS_DEFAULTS = Object.freeze({
   // needs no default here (main's bundle is at its budget); the lazy settings panel writes it.
   // units (0293, src/units.js): 'mph' | 'kmh'; unset = the device language picks. No default here (main's
   // bundle); the lazy settings panel writes it and src/units.js reads anything else as unset.
+  // mono (0303): 'mono' downmixes the output (src/audio.js setMono); unset = STEREO, no default here (main's bundle).
   coach: true,            // in-race tip card, first-run steer prompt and touch thumb guide (0201)
   hud: 'normal',          // HUD text size: 'normal' | 'large' (0195; ~1.3x speed, place, gaps and clock)
   motion: 'auto',         // 'auto' follows the OS; 'reduce' always calms shakes and flashes; 'full'
@@ -58,6 +59,9 @@ export function normalizeSettings(saved) {
   for (const [k, list] of Object.entries(CHOICES)) if (!list.includes(s[k])) s[k] = SETTINGS_DEFAULTS[k];
   return s;
 }
+
+/** MONO AUDIO (0303): settings.mono is 'mono' or unset; anything else (old saves, junk) is STEREO. */
+export const monoOf = (s) => Boolean(s && s.mono === 'mono');
 
 export const difficultyOf = (settings) => DIFFICULTY[settings && settings.difficulty] || DIFFICULTY.normal;
 
