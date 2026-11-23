@@ -291,7 +291,10 @@ src/perf/           Graphics quality (ticket 0041), render-only — the sim is i
                       capabilities.js (probe WebGPU/WebGL2/GPU string/cores/memory/DPR/touch/
                       data-saver → tier, presets) · governor.js (p95 frame time → quality steps,
                       with hysteresis) · gfx.js (the controller both renderers read) ·
-                      gfx-boot.js (lazy: Settings → GRAPHICS, ?debug overlay). See § Graphics tiers.
+                      gfx-boot.js (lazy: Settings → GRAPHICS and FRAME RATE, ?debug overlay). See § Graphics tiers.
+                      FRAME RATE 30 (0302): src/frame-cap.js (pure, import-free, owned by the gfx chunk) builds the gate;
+                      main's loop does nothing on a frame where gfx.skip(t) is true, and the governor judges frames against
+                      the cap (governor.capMs), not the refresh. settings.fps '30'; unset/junk = AUTO
 src/layout.js       Compact/full HUD decision + measured overlay slots (zero-overlap layout)
                       Desktop race (0229): main's loop sets body.race-on while the race steps (the driver badge
                       fades out; back on pause/results); src/coach-dock.js dockDeskCoach (race-step chunk, re-exported

@@ -1,12 +1,12 @@
 ---
 id: 0302
 title: Settings: FRAME RATE 30 / AUTO cap for battery and heat
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: performance
 created: 2026-11-23
-pr:
+pr: 311
 ---
 
 ## Why
