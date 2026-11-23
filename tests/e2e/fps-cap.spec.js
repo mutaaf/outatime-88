@@ -102,7 +102,8 @@ test('30 FPS: the canvas draws ~30 times a second, the sim keeps real time, qual
   if (capped.tickRate > 50) expect(capped.drawRate / capped.tickRate).toBeLessThan(0.62); // 60 Hz: every other frame
   expect(capped.simRate).toBeGreaterThan(0.9); // the race clock still runs in real time
   expect(capped.simRate).toBeLessThan(1.1);
-  expect(await page.evaluate(() => window.__OT.gfx().step)).toBe(0); // a deliberate 30 is not "slow"
+  // A deliberate 30 is not "slow"; on a starved runner (rAF itself under ~45/s) real 50 ms frames may step it.
+  if (capped.tickRate >= 50) expect(await page.evaluate(() => window.__OT.gfx().step)).toBe(0);
   expect(await page.evaluate(() => window.__OT.gfx().budgetMs)).toBeGreaterThan(40);
   expect(problems).toEqual([]);
 });

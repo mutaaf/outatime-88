@@ -50,12 +50,12 @@ export const Gfx = {
       // Warm-up: the first few seconds of a provisional tier decide whether it sticks.
       if (Gfx.provisional && gov.elapsedMs > 4000) {
         if (gov.step >= 2) { applyTier(lowerTier(Gfx.tier), 'probe', true); }
-        else { Gfx.provisional = false; writeGfxCache(Gfx.tier, Gfx.caps || {}); }
+        else { Gfx.provisional = false; if (!capMs) writeGfxCache(Gfx.tier, Gfx.caps || {}); } // a tier held at 30 fps is not this device's tier (0302)
         return true;
       }
       if (gov.shouldDemote && Gfx.tier !== 'low') {
         applyTier(lowerTier(Gfx.tier), 'cache', false);
-        writeGfxCache(Gfx.tier, Gfx.caps || {});
+        if (!capMs) writeGfxCache(Gfx.tier, Gfx.caps || {});
         return true;
       }
     }

@@ -61,6 +61,13 @@ describe('createFrameGate', () => {
     expect(drawn).toBe(300);
   });
 
+  it('tolerates ±5 ms of rAF jitter at 60 Hz: still exactly every other frame', () => {
+    const gate = createFrameGate(FPS_CAP_MS);
+    let drawn = 0;
+    for (let i = 0; i < 600; i++) if (!gate(i * (1000 / 60) + (i % 4 < 2 ? 5 : -5))) drawn++;
+    expect(drawn).toBe(300);
+  });
+
   it('re-anchors after a stall (hidden tab): no burst of catch-up draws', () => {
     const gate = createFrameGate(FPS_CAP_MS);
     gate(0);

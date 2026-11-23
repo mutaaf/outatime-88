@@ -6,7 +6,7 @@
 
 export const FPS_CAP_MS = 1000 / 30;
 /** Early slack: a frame this close to its due time is drawn (rAF timestamps sit on vsync). */
-export const FPS_SLACK_MS = 4;
+export const FPS_SLACK_MS = 8; // half a 60 Hz frame: ±5 ms timestamp jitter never turns a 33 into a 50
 
 /** 'auto' | '30' as the panel shows it; anything but '30' is AUTO. */
 export const fpsName = (v) => (String(v) === '30' ? '30' : 'auto');
