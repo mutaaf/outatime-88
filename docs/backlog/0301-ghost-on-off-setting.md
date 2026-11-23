@@ -1,7 +1,7 @@
 ---
 id: 0301
 title: Settings: GHOST ON / OFF (race without the ghost car)
-status: ready
+status: proposed
 priority: P1
 size: S
 lens: player-feel
@@ -39,3 +39,15 @@ choice persisted; finish an OFF race faster than the best and check the best was
 
 ## Out of scope
 Choosing which ghost to race (friend/rival ghosts); recolouring the ghost.
+
+## Builder note (2026-11-23): back to proposed, the premise does not match the code
+The ghost is never raced automatically. `RS.pendingGhost` is armed only by the rank card's
+"👻 RACE YOUR BEST" / "👻 RACE X'S GHOST" button (src/compete-ui.js renderRankCard → main.js
+raceGhostOf), and that same tap starts the race. RESTART RACE re-arms it for that one race.
+So OFF would hide a ghost the player asked for a second earlier. Also: `src/ghost.js` is in
+main (main.js imports it statically), not lazy, and in 2D there is no ghost car, only the
+👻 strip dot with its gap; the translucent car is 3D only (main.js collectCarsFor3D).
+Before re-readying, the Scout should pick a real problem, for example: does the 3D ghost car
+clutter the road, or should "race your best" be a mode the game remembers? Then this
+setting may make sense.
+
