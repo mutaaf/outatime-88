@@ -14,7 +14,9 @@ const LABEL = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH', ultra: 'ULTRA' };
 export function bootGfx({ onQuality, debug = false }) {
   // `?gfx=low|medium|high|ultra` forces a tier for this visit (tests, comparing tiers).
   const forced = new URLSearchParams(location.search).get('gfx');
-  Gfx.init(forced || (SaveStore.data.settings && SaveStore.data.settings.graphics) || 'auto');
+  const saved = SaveStore.data.settings || {};
+  Gfx.init(forced || saved.graphics || 'auto');
+  Gfx.setFps(saved.fps); // FRAME RATE 30 (0302); unset = AUTO
   Gfx.onChange(onQuality);
   Gfx.onChange(syncNote);
   onQuality(Gfx.q);
@@ -44,6 +46,14 @@ function bindSettings() {
     seg.addEventListener('click', (e) => {
       const b = e.target.closest('button[data-value]');
       if (b) Gfx.setPref(b.dataset.value);
+    });
+  }
+  // FRAME RATE (0302): the settings panel saves the choice; this applies it now.
+  const fps = document.querySelector('#settingsModal [data-setting="fps"]');
+  if (fps) {
+    fps.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-value]');
+      if (b) Gfx.setFps(b.dataset.value);
     });
   }
   syncNote();

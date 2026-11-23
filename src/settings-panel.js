@@ -36,7 +36,8 @@ export function createPanel(ctx) {
       // Units (0293): with no choice saved, the device's language picked (src/units.js sets GameState.kmh).
       const v = key === 'units' ? (units ? units.currentUnits() : s.units || (GameState.kmh ? 'kmh' : 'mph'))
         : key === 'padDead' ? deadzoneName(s.padDead) // unset or junk reads as NORMAL (0299)
-        : key === 'rumble' ? rumbleName(s.rumble) : s[key]; // … and as FULL (0300)
+        : key === 'rumble' ? rumbleName(s.rumble) // … and as FULL (0300)
+        : key === 'fps' ? (String(s.fps) === '30' ? '30' : 'auto') : s[key]; // … and as AUTO (0302; src/frame-cap.js fpsName, not imported: one owner chunk)
       for (const b of seg.querySelectorAll('button[data-value]')) b.setAttribute('aria-pressed', String(b.dataset.value === v));
     }
     const inv = $('setTiltInvert');
@@ -97,6 +98,7 @@ export function createPanel(ctx) {
       if (!b) return;
       settings()[seg.dataset.setting] = b.dataset.value;
       if (seg.dataset.setting === 'padDead' && b.dataset.value === 'normal') delete settings().padDead; // unset = NORMAL: no boot load
+      if (seg.dataset.setting === 'fps' && b.dataset.value !== '30') delete settings().fps; // unset = AUTO (0302)
       if (seg.dataset.setting === 'units') GameState.kmh = b.dataset.value === 'kmh'; // now, not on the next frame
       save(); applyAll(); applyCameraFx(); applyPadDead();
       if (seg.dataset.setting === 'padDead') setRing();

@@ -229,3 +229,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-22 · 0298 · Settings → GAMEPAD BUTTONS: move GAS, BRAKE, WARP, JUMP and NOS to any face button, bumper or the right stick click; the prompts and the pause card name your buttons
 2026-11-22 · 0299 · Settings → GAMEPAD BUTTONS → STICK DEADZONE: SMALL, NORMAL or LARGE, with a live dot over the deadzone ring so you can see a drifting stick
 2026-11-22 · 0300 · Settings → GAMEPAD BUTTONS → GAMEPAD RUMBLE: OFF, LOW or FULL, with a TEST RUMBLE button that buzzes the pad at your choice
+2026-11-23 · 0302 · Settings → Graphics → FRAME RATE: AUTO or 30 FPS, which saves battery and keeps a phone cool while the race plays exactly the same

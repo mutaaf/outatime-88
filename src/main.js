@@ -1478,7 +1478,8 @@ const garageModalEl = document.getElementById('garageModal');
 const TV_MODE = /[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search); // ticket 0175
 
 function mainLoop(timestamp) {
-  if (simHeld || adHeld) { rafId = requestAnimationFrame(mainLoop); return; }
+  // FRAME RATE 30 (0302): a skipped display frame does nothing; the next one steps its sim time.
+  if (simHeld || adHeld || (gfx && gfx.skip(timestamp))) { rafId = requestAnimationFrame(mainLoop); return; }
   if (!lastFrameTime) lastFrameTime = timestamp;
   const frameSeconds = (timestamp - lastFrameTime) / 1000;
   const dt = Math.min(0.05, frameSeconds); // wall-clock frame time for attract mode and render FX

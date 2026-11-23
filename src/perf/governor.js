@@ -51,6 +51,8 @@ export function createGovernor({ startStep = 0 } = {}) {
   let slowEvals = 0, goodMs = 0, upAfter = GOV.upAfterMs, slowMs = 0, lastWasUp = false;
   const g = {
     step: startStep, p95: 0, refreshMs: 16.7, budgetMs: 22, fps: 60, elapsedMs: 0,
+    /** FRAME RATE 30 (0302): the frame interval the player chose (ms), 0 = none. Judged like the refresh. */
+    capMs: 0,
     /** True once quality is at the floor and still slow for a while: lower the tier. */
     shouldDemote: false,
     /** Feed one frame interval in ms. Returns true when the step changed. */
@@ -76,7 +78,9 @@ export function createGovernor({ startStep = 0 } = {}) {
     // The display's refresh: 60 Hz screens bottom out near 16.7 ms, 120 Hz near 8.3 ms. It
     // only ever learns downward, so a run of slow frames can't pass itself off as the refresh.
     g.refreshMs = Math.max(6, Math.min(g.refreshMs, p10));
-    g.budgetMs = Math.max(22, g.refreshMs * 1.35);
+    // Under a cap the expected frame is the cap, not the refresh: a steady 33 ms is on time.
+    const frameMs = Math.max(g.refreshMs, g.capMs);
+    g.budgetMs = Math.max(22, frameMs * 1.35);
     const windowMs = acc;
     n = 0; acc = 0;
     const before = g.step;
@@ -92,7 +96,7 @@ export function createGovernor({ startStep = 0 } = {}) {
     } else {
       slowEvals = 0;
       slowMs = 0;
-      if (g.p95 <= g.refreshMs * 1.15 + 1) {
+      if (g.p95 <= frameMs * 1.15 + 1) {
         goodMs += windowMs;
         if (g.step > 0 && goodMs >= upAfter) { g.step--; goodMs = 0; lastWasUp = true; return true; }
       }
