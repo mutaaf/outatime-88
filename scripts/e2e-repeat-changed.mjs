@@ -49,5 +49,5 @@ if (!specs.length) {
 // Keep the guard to a few minutes: fewer repeats when a branch touches many specs.
 const repeat = Number(process.env.E2E_REPEAT) || (specs.length <= 4 ? 5 : specs.length <= 10 ? 3 : 2);
 console.log(`[flake guard] ${specs.length} changed spec(s), ${repeat}× each, no retries:\n  ${specs.join('\n  ')}`);
-const res = spawnSync('npx', ['playwright', 'test', ...specs, '--project=desktop', `--repeat-each=${repeat}`, '--retries=0'], { stdio: 'inherit' });
+const res = spawnSync('npx', ['playwright', 'test', ...specs, '--project=desktop', `--repeat-each=${repeat}`, '--retries=0', '--workers=2'], { stdio: 'inherit' });
 process.exit(res.status ?? 1);

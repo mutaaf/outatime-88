@@ -22,6 +22,11 @@ export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 45_000,
   retries: process.env.CI ? 1 : 0,
+  // CI runners have 4 vCPUs, where Playwright's default is 2 workers. At 2 the Chromium gate
+  // reached ~28 of the frozen 30-minute job, so main and every PR were cancelled with all tests
+  // green. 3 workers leaves room for the flake guard and the other engines; the @perf project
+  // still runs alone (workers: 1). E2E_WORKERS overrides it.
+  workers: Number(process.env.E2E_WORKERS) || (process.env.CI ? 3 : undefined),
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
