@@ -348,6 +348,8 @@ src/tilt.js         Lazy (0223, fetched when tilt turns on): tilt maths (screenA
 src/tilt-text.js    The panel's tilt status sentences, pure; imported only by the lazy settings-panel chunk (0195)
 src/settings-ui.js  Settings panel, gears (title/HUD/garage), title TILT chip, iOS permission, registerControlsEditor();
                       applyAll() sets html[data-hud-size] (0195: LARGE scales the race HUD's text by --hk in styles.css)
+                      Pauses: a hidden tab (0032) and window blur (0304: Alt-Tab; also releases held keys in every mode,
+                      never pauses LIVE or the TV). In main's startup bundle (static import), so keep it small
 src/touch/          Touch controls (ticket 0061), Roblox/Fortnite style:
                       touch-ui.js (one full-screen Pointer Events surface: thumbstick / D-pad /
                       tilt, action arc, shortcuts, look-drag; sample() writes InputState

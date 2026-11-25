@@ -1,7 +1,7 @@
 ---
 id: 0304
 title: Losing window focus pauses a solo race and releases every held key
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
