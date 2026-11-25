@@ -14,6 +14,19 @@ const onDay = (page, iso) => page.addInitScript((target) => {
 /** True when the element's text overflows its box (clipped or cut off). */
 const clipped = (page, sel) => page.locator(sel).evaluate((el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1);
 
+/** The card's text runs (they wrap, so measure the text itself) all sit inside the card and the card inside the viewport. */
+const cardFits = (page) => page.evaluate(() => {
+  const card = document.getElementById('dailyCard').getBoundingClientRect();
+  const out = [];
+  if (card.left < 0 || card.right > innerWidth + 0.5) out.push('card');
+  for (const id of ['dailyTitle', 'dailyDesc']) {
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById(id));
+    for (const r of range.getClientRects()) if (r.left < card.left - 0.5 || r.right > card.right + 0.5) out.push(id);
+  }
+  return out;
+});
+
 const CASES = [
   // dailySpec('2026-12-05') = OPEN_ROAD; dailySpec('2026-12-09') = COLD_START (src/daily.js)
   { day: '2026-12-05', id: 'OPEN_ROAD', name: 'OPEN ROAD', size: { width: 1280, height: 720 } },
@@ -31,23 +44,23 @@ for (const c of CASES) {
     await page.locator('#btnOpenLeaderboard').click();
     await expect(page.locator('#dailyTitle')).toContainText(c.name);
     await expect(page.locator('#dailyDesc')).toContainText('Same road for everyone today.');
-    expect(await clipped(page, '#dailyTitle')).toBe(false);
-    expect(await clipped(page, '#dailyDesc')).toBe(false);
+    expect(await cardFits(page)).toEqual([]);
     await page.locator('#btnCloseLeaderboard').click();
 
     // The real race start applies the twist on top of the level's own start values.
-    await page.evaluate(() => window.__OT.startRace({ daily: true }));
-    await expect.poll(() => page.evaluate(() => window.__OT.GameState.daily && window.__OT.GameState.daily.modifier.id)).toBe(c.id);
+    // Read in the same task as the start, before a frame of driving can add flux.
     const st = await page.evaluate(() => {
+      window.__OT.startRace({ daily: true });
       const G = window.__OT.GameState;
-      return { gap: G.trafficGapScale, flux: G.fluxCharge, heat: G.heatLevel, level: G.levelIndex };
+      return { id: G.daily && G.daily.modifier.id, gap: G.trafficGapScale, flux: G.fluxCharge, heat: G.heatLevel, level: G.levelIndex };
     });
+    expect(st.id).toBe(c.id);
     if (c.id === 'OPEN_ROAD') {
       expect(st.gap).toBe(1.6);
-      expect(st.flux).toBeGreaterThanOrEqual(20); // flux is untouched: the meter's usual start (FLUX.start)
+      expect(st.flux).toBe(20); // untouched: the meter's usual start (FLUX.start)
     } else {
       expect(st.gap).toBe(1);
-      expect(st.flux).toBeLessThan(1); // empty at the start (a frame or two of driving may add a hair)
+      expect(st.flux).toBe(0);
     }
 
     // The results card names the daily and its twist without clipping.
@@ -57,13 +70,14 @@ for (const c of CASES) {
     await page.screenshot({ path: `test-results/daily-${c.id.toLowerCase()}-${c.size.width}.png` });
 
     // The heat it started on: the same level outside the daily starts one lower on COLD START.
-    await page.evaluate((lvl) => {
+    const plain = await page.evaluate((lvl) => {
       window.__OT.startRace({ mode: 'ARCADE' }); // leaves the daily: the campaign level comes back
       window.__OT.GameState.levelIndex = lvl;
       window.__OT.startRace();
+      const G = window.__OT.GameState;
+      return [G.heatLevel, G.levelIndex, G.trafficGapScale, G.daily];
     }, st.level);
-    await expect.poll(() => page.evaluate(() => window.__OT.GameState.daily)).toBeNull();
-    const plain = await page.evaluate(() => [window.__OT.GameState.heatLevel, window.__OT.GameState.levelIndex, window.__OT.GameState.trafficGapScale]);
+    expect(plain[3]).toBeNull();
     expect(plain[1]).toBe(st.level);
     expect(plain[2]).toBe(1);
     expect(st.heat).toBe(plain[0] + (c.id === 'COLD_START' ? 1 : 0));
