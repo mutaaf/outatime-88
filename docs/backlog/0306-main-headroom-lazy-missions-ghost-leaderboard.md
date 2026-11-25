@@ -1,12 +1,12 @@
 ---
 id: 0306
 title: Give main.js headroom: move race-only missions, ghost and leaderboard glue behind the race chunks
-status: ready
+status: shipped
 priority: P2
 size: M
 lens: tech-health
 created: 2026-11-25
-pr:
+pr: 317
 ---
 
 ## Why
