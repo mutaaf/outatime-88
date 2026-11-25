@@ -43,7 +43,7 @@ or link a ticket in the Visual twin column.
 | Near miss on a rival | `playCoinPickup` | `race-step.js` | NEAR MISS! xN announcement |
 | **Near miss on traffic** | `playCoinPickup` | `race-step.js` | **Fixed here:** a 🚗 NEAR MISS! +PTS (xN) plate beside the car. It had only the combo pill ticking up before |
 | Checkpoint (campaign, Endless) | `playCheckpoint` | `race-step.js`, `hazard-run.js` | CHECKPOINT announcement with the time added |
-| Mission / Endless goals done | `playCheckpoint` | `main.js`, `race-step.js` | Mission / ENDLESS LEVEL announcement |
+| Mission / Endless goals done | `playCheckpoint` | `race-step.js` | Mission / ENDLESS LEVEL announcement |
 | Endless tier up | `playLevelUp`, tuner `levelUp` | `race-step.js` | TIER N level-up banner |
 | Crash, wall hit, barrel | `playCrash`, `crunch` (tuner `crunch`) | `race-step.js` | −HP pop and HP bar, sparks, speed drop (and a shake unless calm motion is on) |
 | Bump with a rival | `playImpact` | `race-step.js` | The car's nose dives or it rolls on the hit |
@@ -72,10 +72,10 @@ the test fails until its row is checked or added here and the count is updated:
 garage-ui.js 4
 hazard-run.js 16
 live/controller.js 3
-main.js 6
+main.js 5
 race-flow.js 8
 race-specials.js 5
-race-step.js 49
+race-step.js 50
 racestage.js 4
 render/scene.js 1
 touch/bridge.js 1

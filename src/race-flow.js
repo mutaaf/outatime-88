@@ -6,7 +6,7 @@
 // bundler keeps them separate.
 import {
   RACE_DEPS, DEBUG_MODE, LiveTraffic, adCue, RAI, RC, RS, activeCarParams, announcer, burstSparks,
-  callouts, carPaint, ceremonyReady, drive, ghostRace, hideCoach, hudView, initTrack, lateral,
+  callouts, carPaint, ceremonyReady, drive, hideCoach, hudView, initTrack, lateral,
   live, loadGarageUI, loadShareUi, restoreSoloSettings, smoke2d, sparks, steerModes, syncAudioUI,
   syncModeButtons, syncRunnerUi, todaysDaily, touch, triggerAnnouncement, updateEraHud,
   withResults
@@ -15,20 +15,22 @@ import { createFair, fairPayload } from './fairplay.js';
 // Only the race chunks use these, so they import them directly and never ship at startup (0223).
 import { createPenaltyLog, penaltyPoints, breakdown, logPayload } from './scoring.js';
 import { catchUpScale } from './fair-field.js';
+import { pickMissions, missionsDone } from './missions.js';
+import { beginRun } from './leaderboard.js';
 import { wakeFrame } from './slipstream.js';
 import { playHint } from './play-hints.js';
 import { createPlaceCall } from './place-call.js';
 import { stripMarks, createStripFan } from './strip-marks.js';
 import {
   endlessSolo, nearMisses, cashAcc, earnCash, resetRunner, steerWheel, resetNos, showForkCue,
-  ghostRecorder, dockDeskCoach, obstacleTip
+  ghostRecorder, ghostRace, armGhost, dockDeskCoach, obstacleTip
 } from './race-step.js';
 const {
   CAR_SPECS, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, ROSTER,
-  ROAD_CFG, SaveStore, SoundEngine, WORLD_LEVELS, applyRunResult, beginRun,
+  ROAD_CFG, SaveStore, SoundEngine, WORLD_LEVELS, applyRunResult,
   createDrive, createHud, createLateral, createOnboarding, createRaceClock,
-  finishBonus, isNewPlayer, lapOf, missionsDone, mulberry32, ordinal,
-  pickMissions, preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace,
+  finishBonus, isNewPlayer, lapOf, mulberry32, ordinal,
+  preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace,
   resetBackdrop, utcDay
 } = RACE_DEPS;
 
@@ -457,11 +459,7 @@ export function startNewRace(opts) {
   if (steerModes) steerModes.raceStart();
 
   if (daily) applyDailyModifier(daily.modifier.id);
-  ghostRecorder.reset();
-  const ghostFor = RS.pendingGhost && !daily && !liveRace && RS.pendingGhost.level === lvl.index ? RS.pendingGhost.data : null;
-  RS.lastGhost = ghostFor ? RS.pendingGhost : null; // RESTART RACE (0292) races the same ghost again
-  RS.pendingGhost = null;
-  if (!(ghostFor && ghostRace.load(ghostFor, GameState.raceLength || raceLengthFor(lvl.index)))) ghostRace.clear();
+  armGhost(lvl.index, !daily && !liveRace, GameState.raceLength || raceLengthFor(lvl.index));
   if (liveRace) { // live races don't post to the solo leaderboard, and the room runs its own countdown
     RS.currentRun = null;
     beginRaceStart(lvl, { ceremony: false });

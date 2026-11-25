@@ -1,6 +1,7 @@
 // Run missions (ticket 0026): three visible goals per run, picked from the street contracts.
 import { describe, it, expect } from 'vitest';
-import { MISSIONS, pickMissions, advanceMission, missionsDone, recordMissions, missionsToday, titleMissionLine, missionLine } from '../../src/missions.js';
+import { MISSIONS, MISSIONS_PER_RUN, pickMissions, advanceMission, missionsDone, missionLine } from '../../src/missions.js';
+import { recordMissions, missionsToday, titleMissionLine } from '../../src/mission-day.js';
 import { mulberry32, seedFor } from '../../src/daily.js';
 
 describe('run missions', () => {
@@ -82,5 +83,10 @@ describe('run missions', () => {
 describe('mission table', () => {
   it('each label names its own target', () => {
     for (const m of MISSIONS) if (m.type !== 'WARP_88' && m.type !== 'SLIPSTREAM') expect(m.label).toContain(m.target.toLocaleString('en-US'));
+  });
+
+  it('the title line counts the same number of missions a run picks (mission-day.js, 0306)', () => {
+    expect(pickMissions(mulberry32(1))).toHaveLength(MISSIONS_PER_RUN);
+    expect(titleMissionLine({}, '2026-11-25')).toBe(`🎯 ${MISSIONS_PER_RUN} MISSIONS · 0/${MISSIONS_PER_RUN} DONE TODAY`);
   });
 });

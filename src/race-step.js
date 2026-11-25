@@ -5,7 +5,7 @@
 // write lives on the shared RS object.
 import {
   RACE_DEPS, DEBUG_MODE, JarvisAI, LiveTraffic, RAI, RS, activeCarParams,
-  advanceContractProgress, announcer, aiRoad, burstSparks, coarsePointer, drive, gfxQ, lateral, live,
+  announcer, aiRoad, burstSparks, coarsePointer, drive, gfxQ, lateral, live,
   loadRunnerUi, pickupArt, runStats, runnerMod,
   smoke2d, sparks, steerModes, storm, syncRunnerUi, touch, triggerAnnouncement, updateEraHud, view3d
 } from './main.js';
@@ -15,7 +15,7 @@ const {
   CAR_SPECS, CONTINUE, ENDLESS, ERAS, FLUX, GameState, InputState, PACE_MODES,
   PICKUP, PICKUPS, ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
   WORLD_LEVELS, addItem, addNos, addRoadSection, boostOutcome, canContinue,
-  continueCost, createGhostRecorder, createHitStop, createNos, createSteer, createStorm,
+  continueCost, createHitStop, createNos, createSteer, createStorm,
   crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, generateNextTrackBiome, handlingFor, hasSetPieceBetween,
   impactVelocities, landingKeep, loopStep,
   magnetPull, materialFor, nearMissChain, nosFill, nosFor, nosSpeed,
@@ -27,6 +27,7 @@ import { createFormationStream } from './formations.js';
 // Only the race chunks use these, so they import them directly and never ship at startup (0223).
 import { logHit, logWall } from './scoring.js';
 import { forkLean, forkCueState } from './fork.js';
+import { advanceMission, missionsDone } from './missions.js';
 import { createReadyCue } from './warp-cue.js';
 import { foldChain, startChain, chainLabel } from './chain-plate.js';
 import { createProximityCue } from './proximity-cue.js';
@@ -42,6 +43,24 @@ import {
 import { spawnObstacleShatter, triggerRivalTakedown, activateMidnightSpecial, fireUnibeam, fadeAbilityTint } from './race-specials.js';
 export { activateMidnightSpecial, fireUnibeam };
 export { dockDeskCoach, obstacleTip } from './coach-dock.js'; // race-flow's coach (0229, 0233): lands in this chunk, which has the room
+
+// Run missions (ticket 0026): the run's three contracts; a completion pays out and goes
+// through the announcer (no HUD row). The results card lists all three. Race-only, so it lives
+// here, not in main (0306); main's debug hook reaches it through raceCall.
+export function advanceContractProgress(type, amount) {
+  if (type === 'NEAR_MISS') runStats.nearMisses += amount; // endless goals (ticket 0151)
+  const m = advanceMission(GameState.missions, type, amount);
+  if (!m) return;
+  SaveStore.data.fluxCoins += m.reward;
+  GameState.runCoins += m.reward;
+  GameState.score += 3000 * GameState.combo;
+  GameState.specialCharges = Math.min(5, GameState.specialCharges + 1);
+  SoundEngine.playCheckpoint();
+  // A finished mission is a reward the player earned: it outranks routine callouts (priority 2,
+  // with laps and checkpoints) so a start-of-race line can't push it out of the queue.
+  triggerAnnouncement(`🎯 MISSION ${missionsDone(GameState.missions)}/3 COMPLETE!`, `${m.label} · +${m.reward} ⚡ & +1 SPECIAL`, 1900, 2);
+  SaveStore.save();
+}
 
 RS.fair = createFair();
 if (DEBUG_MODE) GameState.flashLog = flashLog; // flash budget totals for the e2e (0234)
@@ -1474,8 +1493,23 @@ export function resumeHold(frameSeconds, resumed, playing) {
 }
 
 // Ghost racing (ticket 0092): every race records a trace; "race the ghost" loads someone's
-// best on this track for the next start and shows it on the HUD strip.
-export const ghostRecorder = createGhostRecorder();
+// best on this track for the next start and shows it on the HUD strip. src/ghost.js is its own
+// chunk (0306): main fetches it alongside this one and hands it over (useGhost) before it calls
+// the race step loaded, like the rigid world; main's 3D view reads the race as RS.ghostRace.
+export let ghostRecorder = null, ghostRace = null;
+export function useGhost(m) {
+  ghostRecorder = m.createGhostRecorder();
+  RS.ghostRace = ghostRace = m.createGhostRace();
+}
+/** Race start (race-flow): a fresh trace, and the ghost the results card armed for this track,
+ *  in a solo race (not a daily, not live); anything else clears it. */
+export function armGhost(level, solo, length) {
+  ghostRecorder.reset();
+  const g = RS.pendingGhost, data = g && solo && g.level === level ? g.data : null;
+  RS.lastGhost = data ? g : null; // RESTART RACE (0292) races the same ghost again
+  RS.pendingGhost = null;
+  if (!(data && ghostRace.load(data, length))) ghostRace.clear();
+}
 
 // Race start and finish, the coach and the race HUD (src/race-flow.js) are their own lazy chunk,
 // fetched alongside this one; main hands it over (useFlow) before it calls the race step loaded.

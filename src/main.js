@@ -47,9 +47,8 @@ let shareUi = null;
 export const loadShareUi = () => (shareUi = shareUi || import('./share-ui.js').then((m) => { m.initShareUi({ startChallenge }); return m; }));
 import { FIELD_SIZE, RIVAL_PACES, gridSlot, rivalTargetMph, raceLengthFor, sortStandings, crossingTime, ordinal, plural, finishBonus, lapOf, RACE_LAPS } from './raceflow.js';
 import { dailySpec, mulberry32, utcDay } from './daily.js';
-import { pickMissions, advanceMission, missionsDone, recordMissions, titleMissionLine } from './missions.js';
-import { beginRun, fetchGhost, normalizeInitials } from './leaderboard.js';
-import { createGhostRecorder, createGhostRace } from './ghost.js';
+// Missions themselves are race-only (race chunks import src/missions.js, 0306); the title only needs its line.
+import { recordMissions, titleMissionLine } from './mission-day.js';
 import { createOnboarding, isNewPlayer } from './onboarding.js';
 import { initSettings, toggleTilt, recenterTilt, currentDifficulty, refreshSettingsPanel, settingsOpen, openSettings, registerControlsEditor } from './settings-ui.js';
 import { carParams, isOwned, unlockProgress, recordRace, ensureGarage, CAR_SPECS } from './cars.js';
@@ -62,8 +61,9 @@ let raceStep = null, raceStepLoad = null;
 function loadRaceStep() {
   // The rigid-body world (0176) is its own chunk, fetched in parallel and handed to the race step.
   // Race start/finish, coach and race HUD (0176) are their own chunk too: one object holds both.
-  raceStepLoad = raceStepLoad || Promise.all([import('./race-step.js'), import('./rigid.js'), import('./race-flow.js')]).then(([m, rigid, flow]) => {
+  raceStepLoad = raceStepLoad || Promise.all([import('./race-step.js'), import('./rigid.js'), import('./race-flow.js'), import('./ghost.js')]).then(([m, rigid, flow, ghost]) => {
     m.useRigid(rigid);
+    m.useGhost(ghost); // ghost racing (0092) is its own chunk too (0306)
     m.useFlow(flow);
     if (m.LiveTrafficMethods) Object.assign(LiveTraffic, m.LiveTrafficMethods);
     return (raceStep = Object.assign({}, m, flow));
@@ -402,22 +402,6 @@ export function triggerAnnouncement(mainText, subText = '', duration = 950, prio
   announcer.push(mainText, subText, duration, priority);
 }
 
-// Run missions (ticket 0026): the run's three contracts; a completion pays out and goes
-// through the announcer (no HUD row). The results card lists all three.
-export function advanceContractProgress(type, amount) {
-  if (type === 'NEAR_MISS') runStats.nearMisses += amount; // endless goals (ticket 0151)
-  const m = advanceMission(GameState.missions, type, amount);
-  if (!m) return;
-  SaveStore.data.fluxCoins += m.reward;
-  GameState.runCoins += m.reward;
-  GameState.score += 3000 * GameState.combo;
-  GameState.specialCharges = Math.min(5, GameState.specialCharges + 1);
-  SoundEngine.playCheckpoint();
-  // A finished mission is a reward the player earned: it outranks routine callouts (priority 2,
-  // with laps and checkpoints) so a start-of-race line can't push it out of the queue.
-  triggerAnnouncement(`🎯 MISSION ${missionsDone(GameState.missions)}/3 COMPLETE!`, `${m.label} · +${m.reward} ⚡ & +1 SPECIAL`, 1900, 2);
-  SaveStore.save();
-}
 
 
 
@@ -514,11 +498,11 @@ export const hudView = {
   infinite: false, compact: false, mph: 0, flux: 0, nos: 0, nosOn: false, hpFrac: 1, score: 0, field: LiveTraffic.fieldEntries,
 };
 
-export const ghostRace = createGhostRace();
 RS.pendingGhost = null; // { level, data } armed by the results screen, used by the next start
 
 async function raceGhostOf(initials, level) {
-  const data = await fetchGhost('ARCADE', level, initials);
+  // The leaderboard client is race/results-only (0306); the results card that asks has it loaded.
+  const data = await import('./leaderboard.js').then((m) => m.fetchGhost('ARCADE', level, initials));
   if (!data) { triggerAnnouncement('👻 NO GHOST YET', 'FINISH A RACE ON THIS TRACK TO LEAVE ONE', 2000); return; }
   RS.pendingGhost = { level, data };
   GameState.levelIndex = level;
@@ -1032,12 +1016,11 @@ function bindAllControls() {
   document.getElementById('initialsForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = document.getElementById('initialsInput');
-    const ini = normalizeInitials(input.value);
-    if (!ini) { input.focus(); return; }
-    SaveStore.data.initials = ini;
-    SaveStore.save();
-    import('./identity.js').then((m) => m.setProfile({ initials: ini })).catch(() => {});
-    withResults((ui) => ui.postScore(ini));
+    withResults((ui) => {
+      const ini = ui.submitInitials(input.value);
+      if (!ini) { input.focus(); return; }
+      import('./identity.js').then((m) => m.setProfile({ initials: ini })).catch(() => {});
+    });
   });
   // Typing initials must not steer the car or trigger shortcuts.
   document.getElementById('initialsInput').addEventListener('keydown', (e) => e.stopPropagation());
@@ -1260,7 +1243,8 @@ const ghostBody3D = {
 /** Every car the 3D view should draw. Remote/ghost cars belong here too. */
 function collectCarsFor3D(out) {
   let n = 0;
-  if (ghostRace.active && GameState.status === 'PLAYING' && ghostRace.poseInto(hudView.raceTime, ghostPose3D)) {
+  const ghostRace = RS.ghostRace; // the race step's (0306); unset until its chunk is in
+  if (ghostRace && ghostRace.active && GameState.status === 'PLAYING' && ghostRace.poseInto(hudView.raceTime, ghostPose3D)) {
     const mult = (PACE_MODES[GameState.paceMode] || PACE_MODES[0]).mult;
     ghostBody3D.worldZ = GameState.trackPos + ROAD_CFG.playerZOffset + (ghostPose3D.d - GameState.distance) * (11000 * mult / 88);
     ghostBody3D.offset = ghostPose3D.x;
@@ -1572,7 +1556,7 @@ window.onload = () => {
     pause: () => { GameState.status = 'PAUSED'; },
     home: () => home, // the home flow (0185), once its chunk is in
     finishRun: () => endRaceRun('🏁 FINISH!'),
-    mission: advanceContractProgress,
+    mission: raceCall('advanceContractProgress'),
     traffic: () => LiveTraffic,
     track: () => track,
     backdrop: backdropDebug,
@@ -1693,14 +1677,14 @@ function paintTitleBest() {
 export const RACE_DEPS = {
   CAR_SPECS, CONTINUE, ENDLESS, ERAS, FIELD_SIZE, FLUX, GameState, InputState, LIVE, PACE_MODES,
   PICKUP, PICKUPS, ROSTER, ROAD_CFG, SaveStore, SoundEngine, TRAFFIC_LATERAL,
-  WORLD_LEVELS, addItem, addNos, addRoadSection, applyRunResult, beginRun, boostOutcome, canContinue,
-  continueCost, createDrive, createGhostRecorder, createHitStop, createHud, createLateral,
+  WORLD_LEVELS, addItem, addNos, addRoadSection, applyRunResult, boostOutcome, canContinue,
+  continueCost, createDrive, createHitStop, createHud, createLateral,
   createNos, createOnboarding, createRaceClock, createSteer, createStorm,
   crossingTime, currentDifficulty, difficultyOf, endlessCash, endlessTuning, featureAt, finishBonus,
   generateNextTrackBiome, handlingFor, hasSetPieceBetween,
   impactVelocities, isNewPlayer, landingKeep, lapOf, loopStep,
-  magnetPull, materialFor, missionsDone, mulberry32, nearMissChain, nosFill, nosFor, nosSpeed,
-  ordinal, passiveFluxRate, pickMissions, pickupReach, pollGamepad,
+  magnetPull, materialFor, mulberry32, nearMissChain, nosFill, nosFor, nosSpeed,
+  ordinal, passiveFluxRate, pickupReach, pollGamepad,
   preloadBackdrops, raceLengthFor, recordEndless, recordMissions, recordRace, resetBackdrop,
   rivalTargetMph, rpmFor, runnerMult, setTrackIntensity, setTrackPowerups, stepDrive, stepLateral, stepNos,
   stepSetPieces, stepSteer, stepStorm, stormRespite, track, utcDay, wallContact, warpReady
