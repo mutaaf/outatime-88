@@ -302,6 +302,8 @@ function applyDailyModifier(id) {
   else if (id === 'GLASS_CHASSIS') { GameState.maxHp = Math.round(GameState.maxHp / 2); GameState.hp = GameState.maxHp; }
   else if (id === 'FLUX_STORM') GameState.fluxCharge = Math.max(GameState.fluxCharge, 60);
   else if (id === 'RUSH_HOUR') GameState.trafficGapScale = 0.66;
+  else if (id === 'OPEN_ROAD') GameState.trafficGapScale = 1.6;
+  else if (id === 'COLD_START') { GameState.fluxCharge = 0; GameState.heatLevel += 1; }
 }
 
 // --- START / END / PAUSE FLOWS ---

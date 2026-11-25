@@ -7,7 +7,15 @@ export const MODIFIERS = [
   { id: 'GLASS_CHASSIS', name: 'GLASS CHASSIS', desc: 'Half HP — every hit counts' },
   { id: 'FLUX_STORM', name: 'FLUX STORM', desc: 'Flux starts at 60% — warp early' },
   { id: 'RUSH_HOUR', name: 'RUSH HOUR', desc: 'Half again as much traffic' },
+  { id: 'OPEN_ROAD', name: 'OPEN ROAD', desc: 'Quiet road. Nobody to hide behind' },
+  { id: 'COLD_START', name: 'COLD START', desc: 'Flux starts empty. Earn your first warp' },
 ];
+
+/**
+ * First UTC day that draws from all six twists (0305). Days before it draw from the first four,
+ * exactly as they always did, so no daily changes its twist mid-day (the 0155 rule).
+ */
+export const TWISTS_V2_FROM = '2026-12-02';
 
 /** Small, fast, well-distributed 32-bit PRNG; returns floats in [0, 1). */
 export function mulberry32(seed) {
@@ -41,6 +49,6 @@ export function dailySpec(day, levelCount = DAILY_LEVELS) {
   const seed = seedFor(day);
   const r = mulberry32(seed);
   const levelIndex = Math.floor(r() * levelCount);
-  const modifier = MODIFIERS[Math.floor(r() * MODIFIERS.length)];
+  const modifier = MODIFIERS[Math.floor(r() * (day < TWISTS_V2_FROM ? 4 : MODIFIERS.length))];
   return { day, seed, levelIndex, modifier };
 }
