@@ -212,12 +212,18 @@ export function initSettings({ announce } = {}) {
   // Switching apps mid-race pauses with the panel up, so coming back shows ▶ RESUME instead
   // of a race that kept going (or a frozen-looking frame) behind your back.
   // Ticket 0032. Audio sleeps while hidden and wakes on return: SoundEngine.wake() (0212).
-  const onHide = () => {
-    if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE' && !settingsOpen()) openSettings();
-    SoundEngine.wake(true);
-  };
+  const pause = () => { if (GameState.status === 'PLAYING' && GameState.mode !== 'LIVE' && !settingsOpen()) openSettings(); };
+  const onHide = () => { pause(); SoundEngine.wake(true); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) onHide(); });
   window.addEventListener('pagehide', onHide);
+  // Alt-Tab / a click into another window (0304): the tab stays visible and the keyups go to the
+  // other window, so let go of every held key, a tapped-on NOS and the wheel (all modes; mouse steer resets in steermode-ui) and pause a solo race. Not on the TV,
+  // where the phone is the pad and its own ▶ resumes (the panel would stay up over the race).
+  window.addEventListener('blur', () => {
+    Object.assign(InputState, { left: false, right: false, up: false, down: false, nosHeld: false, nosOn: false });
+    $('virtualWheel')?.dispatchEvent(new Event('pointercancel')); // a wheel drag let go outside the window
+    if (!/[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search)) pause();
+  });
   $('settingsModal').addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
   // While the panel is open the race neither steers nor starts behind it: keys aimed at the
   // panel's own controls stop at the panel; anything else stops before the game sees it.
