@@ -217,10 +217,11 @@ export function initSettings({ announce } = {}) {
   document.addEventListener('visibilitychange', () => { if (document.hidden) onHide(); });
   window.addEventListener('pagehide', onHide);
   // Alt-Tab / a click into another window (0304): the tab stays visible and the keyups go to the
-  // other window, so let go of every held key (all modes) and pause a solo race. Not on the TV,
+  // other window, so let go of every held key, a tapped-on NOS and the wheel (all modes; mouse steer resets in steermode-ui) and pause a solo race. Not on the TV,
   // where the phone is the pad and its own ▶ resumes (the panel would stay up over the race).
   window.addEventListener('blur', () => {
-    Object.assign(InputState, { left: false, right: false, up: false, down: false, nosHeld: false, mouseSteerVal: 0 });
+    Object.assign(InputState, { left: false, right: false, up: false, down: false, nosHeld: false, nosOn: false });
+    $('virtualWheel')?.dispatchEvent(new Event('pointercancel')); // a wheel drag let go outside the window
     if (!/[?&](screen=tv|tv)(&|=?$|=&)/.test(location.search)) pause();
   });
   $('settingsModal').addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
