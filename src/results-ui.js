@@ -319,5 +319,17 @@ export function createResultsUI({ run, raceGhostOf, coarsePointer }) {
     if (input) { input.value = ''; if (!coarsePointer) input.focus(); }
   }
 
-  return { showResults, openLeaderboard, closeLeaderboard, selectBoard, refreshRival, postScore };
+  /** The results card's initials form (main's submit handler, 0306): saves and posts 3 letters
+   *  and returns them, or null (nothing done) for anything else. */
+  function submitInitials(raw) {
+    const ini = normalizeInitials(raw);
+    if (ini) {
+      SaveStore.data.initials = ini;
+      SaveStore.save();
+      postScore(ini);
+    }
+    return ini;
+  }
+
+  return { showResults, openLeaderboard, closeLeaderboard, selectBoard, refreshRival, submitInitials };
 }

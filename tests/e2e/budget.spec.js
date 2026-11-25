@@ -36,6 +36,8 @@ test('main bundle stays in budget and does not contain three.js', () => {
   // and buying (src/car-shop.js) and the RACER panel's save parking out of startup: ~57.3 today.
   // 58 → 57 (0285, 2026-11-19): main was 57.95 with ~50 bytes free. Identity (link and recovery
   // codes, friends, racer switch) and the RACER boot moved to lazy chunks: ~56.5 today.
+  // 0306 (2026-11-25): main was 56.96. Missions, ghost racing and the leaderboard client left
+  // startup (see the 0306 test below): ~54.7 today.
   console.log(`[budget] main startup ${total.toFixed(2)} kB gzipped (limit 57)`); // the CI number, in the CI log
   expect(total).toBeLessThan(57);
   for (const f of files) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('WebGLRenderer');
@@ -51,6 +53,24 @@ test('identity and the RACER boot are lazy chunks, not part of startup (0285)', 
   expect(start).not.toContain(ident[0]);
   expect(start).not.toContain(ui[0]);
   for (const f of start) expect(readFileSync(`${DIR}/${f}`, 'utf8')).not.toContain('/recovery/redeem');
+});
+
+test('missions, ghost racing and the leaderboard client are race chunks, not startup (0306)', () => {
+  // main statically imported all three until 0306 (~2.3 kB gzipped); the title needs only the
+  // missions line (src/mission-day.js). Each is now a chunk the race/results chunks pull in.
+  const files = readdirSync(DIR);
+  const start = startup();
+  for (const [name, mark] of [['missions', '1,500 DRIFT POINTS'], ['ghost', 'hud-dot-ghost'], ['leaderboard', '/ghost?']]) {
+    const chunk = files.filter((f) => new RegExp(`^${name}-.*\\.js$`).test(f));
+    expect(chunk, name).toHaveLength(1);
+    expect(readFileSync(`${DIR}/${chunk[0]}`, 'utf8'), name).toContain(mark);
+    expect(start, name).not.toContain(chunk[0]);
+    for (const f of start) expect(readFileSync(`${DIR}/${f}`, 'utf8'), `${name} in ${f}`).not.toContain(mark);
+    expect(gz(chunk[0]), name).toBeLessThan(2); // today: missions ~0.5, ghost ~1.7, leaderboard ~0.8 kB
+  }
+  // index.html must not modulepreload them either (a static import from main would).
+  const html = readFileSync('dist/outatime/index.html', 'utf8');
+  expect(html).not.toMatch(/(missions|ghost|leaderboard)-[\w-]+\.js/);
 });
 
 test('the race step is a lazy chunk in its own budget (0170)', () => {

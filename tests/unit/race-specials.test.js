@@ -28,12 +28,12 @@ vi.mock('../../src/main.js', () => ({
   },
   JarvisAI: { setStatus: h.log('status') },
   LiveTraffic: h.LiveTraffic,
-  advanceContractProgress: h.log('contract'),
   burstSparks: h.log('sparks'),
   triggerAnnouncement: h.log('announce')
 }));
 vi.mock('../../src/race-step.js', () => ({
   RF: { updateLiveHud: h.log('hud') },
+  advanceContractProgress: h.log('contract'),
   earnCash: (n) => n,
   spawnParticle: h.log('particle')
 }));

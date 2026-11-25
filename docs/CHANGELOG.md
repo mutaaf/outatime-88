@@ -233,3 +233,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-23 · 0303 · Settings → Sound → OUTPUT: STEREO or MONO. Mono plays everything in both ears for one earbud or one-ear hearing, and the proximity tick and lane guide tell left from right by tone
 2026-11-25 · 0304 · Alt-Tab or clicking into another window mid-race now pauses a solo race (tap RESUME to go on) and lets go of any key you were holding, so the car never keeps driving on its own
 2026-11-25 · 0305 · Two new daily twists from 2 December: OPEN ROAD (a quiet road with nobody to hide behind) and COLD START (flux starts empty and the heat starts one higher); every daily before then keeps its road and twist
+2026-11-25 · 0306 · The title loads about 2.3 kB less code: missions, ghost racing and the leaderboard now arrive with the race instead of at startup (no change to how they play)

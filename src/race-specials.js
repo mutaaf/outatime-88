@@ -2,9 +2,9 @@
 // ROAR) and the Arc Pulse Beam, carved out of src/race-step.js with no behaviour change. Only
 // race-step.js imports this, so it lands in the same lazy chunk (never a chunk of its own).
 import {
-  RACE_DEPS, JarvisAI, LiveTraffic, advanceContractProgress, burstSparks, triggerAnnouncement
+  RACE_DEPS, JarvisAI, LiveTraffic, burstSparks, triggerAnnouncement
 } from './main.js';
-import { RF, earnCash, spawnParticle } from './race-step.js';
+import { RF, advanceContractProgress, earnCash, spawnParticle } from './race-step.js';
 import { foldRepeat } from './chain-plate.js';
 
 const { FLUX, GameState, ROAD_CFG, SaveStore, SoundEngine, track } = RACE_DEPS;
