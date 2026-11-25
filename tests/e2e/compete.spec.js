@@ -139,6 +139,12 @@ test('a finished race leaves a ghost, and you can race it from the results', asy
   await expect(page.locator('#gameOverModal')).toBeHidden();
   await expect(page.locator('#hudGhost')).toContainText('👻 CLD', { timeout: 5000 });
   expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
+  // RESTART RACE (0292) races the same ghost again: armGhost in the race step re-arms RS.lastGhost (0306).
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#btnRestartRace')).toBeVisible({ timeout: 15000 });
+  await page.locator('#btnRestartRace').click();
+  await expect.poll(() => page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
+  await expect(page.locator('#hudGhost')).toContainText('👻 CLD', { timeout: 5000 });
   // The server turns away runs under 4 s (LIMITS.minDurationMs) with a 422, which logs a console
   // error: drive the ghost race past that in game time, which is never ahead of the wall clock.
   await simWait(page, 4.5);

@@ -402,12 +402,6 @@ export function triggerAnnouncement(mainText, subText = '', duration = 950, prio
   announcer.push(mainText, subText, duration, priority);
 }
 
-
-
-
-
-
-
 // Endless runner loop (ticket 0151, src/runner.js): the Time Storm behind you, three run goals
 // that raise a permanent points multiplier, a "YOUR BEST" gate on the road, one coins-only
 // continue. Endless solo runs only.
