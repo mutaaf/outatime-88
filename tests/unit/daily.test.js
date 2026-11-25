@@ -6,7 +6,7 @@ describe('daily challenge', () => {
   it('is the same for everyone on a given UTC day', () => {
     expect(dailySpec('2026-10-17')).toEqual(dailySpec('2026-10-17'));
   });
-  it('changes from day to day and uses every level and modifier over a month', () => {
+  it('changes from day to day and uses every level and every original modifier over a month', () => {
     const levels = new Set(); const mods = new Set();
     for (let d = 1; d <= 31; d++) {
       const s = dailySpec(`2026-10-${String(d).padStart(2, '0')}`);
@@ -15,7 +15,7 @@ describe('daily challenge', () => {
       expect(s.levelIndex).toBeLessThan(5);
     }
     expect(levels.size).toBe(5);
-    expect(mods.size).toBe(MODIFIERS.length);
+    expect(mods.size).toBe(4); // the four original twists: OPEN ROAD and COLD START only draw from TWISTS_V2_FROM (0305)
   });
   it('seeded traffic RNG repeats exactly for a seed', () => {
     const a = mulberry32(seedFor('2026-10-17')); const b = mulberry32(seedFor('2026-10-17'));

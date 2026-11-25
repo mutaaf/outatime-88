@@ -1,12 +1,12 @@
 ---
 id: 0305
 title: Two more daily twists (OPEN ROAD, COLD START) without moving today's daily
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: content
 created: 2026-11-25
-pr:
+pr: 316
 ---
 
 ## Why
