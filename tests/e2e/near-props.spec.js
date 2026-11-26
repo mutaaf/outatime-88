@@ -54,7 +54,9 @@ const barAt = (page, d) => page.evaluate((d) => new Promise((done) => {
   window.__hold = setInterval(hold, 5);
   setTimeout(() => {
     const frames = [];
-    let n = 4;
+    // 8 frames per position: on a loaded runner a slow frame runs several sim steps, so frames
+    // held just past your bumper (d 1170) can land below it and be skipped.
+    let n = 8;
     (function tick() { try {
       const B = window.__bar;
       // This callback runs right after the game's own frame: the fade it drew used this depth
