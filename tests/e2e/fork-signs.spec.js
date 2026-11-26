@@ -91,7 +91,11 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
     const page = await ctx.newPage();
     const problems = watchPage(page);
     await page.goto(`${APP}?debug`);
-    await page.locator('#btnStartRace').click();
+    // A campaign race, not the title's PLAY: that is an Endless run, and the walk holds the car at
+    // 0 mph, so on a slow runner STALL (4 s under 25 mph, src/hazards.js) ends the run mid-walk and
+    // the boards draw solid with no race to fade them for (CI run 45722745972).
+    await page.evaluate(() => window.__OT.ready());
+    await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
     await racing(page);
     await page.waitForFunction(() => window.__OT.ads() !== null); // the board art chunk is in
     let shown = 0, under = 0, solid = [];
@@ -99,6 +103,8 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       const w = await walkFork(page, x);
       shown += w.shown; under += w.under; solid = solid.concat(w.solid);
     }
+    // The race was on for the whole walk (a run that ended draws its boards solid, unfaded).
+    expect(await page.evaluate(() => window.__OT.GameState.status)).toBe('PLAYING');
     expect(shown).toBeGreaterThan(80);
     // The walk passes board faces under the cards on a landscape screen. On a tall phone the cue
     // sits high above the horizon and a 2D board never climbs that far while the fork is underfoot
