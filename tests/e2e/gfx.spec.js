@@ -17,6 +17,9 @@ async function race3d(page, query) {
   await page.waitForFunction(() => window.__OT.GameState.status === 'PLAYING', null, { timeout: 15_000 });
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(2500);
+  // Software GL draws HIGH/ULTRA at ~2 fps here, slower on a loaded CI runner: wait for the
+  // frames rather than trusting 2.5 s to hold enough of them.
+  await page.waitForFunction(() => window.__OT.view().stats.frames > 20, null, { timeout: 30_000 });
   await page.keyboard.up('ArrowUp');
   return page.evaluate(() => window.__OT.view().stats);
 }
@@ -35,6 +38,9 @@ test('auto picks a tier from the device; a software GPU gets LOW', async ({ page
 
 for (const tier of ['low', 'ultra']) {
   test(`3D at ${tier.toUpperCase()} renders without errors and under its draw-call ceiling`, async ({ page }) => {
+    // ULTRA under software GL takes ~23 s on an idle machine (start to PLAYING alone ~10 s at
+    // ~2 fps), so a loaded runner overruns the 45 s default. Correctness only; speed is @perf's job.
+    if (tier === 'ultra') test.slow();
     const problems = watchPage(page);
     const stats = await race3d(page, `&gfx=${tier}`);
     const g = await info(page);
@@ -135,6 +141,7 @@ test('in 3D mode the garage shows the real 3D car models, and browsing works', a
 });
 
 test('3D cars: wheels roll and the archetype matches the driven car', async ({ page }) => {
+  test.slow(); // HIGH under software GL: ~18 s idle, past 45 s on a loaded CI runner
   const problems = watchPage(page);
   await page.goto(`${APP}?debug&view=3d&gfx=high`);
   await page.waitForFunction(() => { const s = window.__OT.view().stats; return s && s.frames > 3; }, null, { timeout: 20_000 });
