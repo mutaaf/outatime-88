@@ -12,6 +12,7 @@ import { cameraFxScale } from './camera-fx.js';
 import { deadzoneName, deadzoneOf, stickReadout } from './pad-deadzone.js';
 import { rumbleName, testRumble, testText } from './rumble.js';
 import { monoOf } from './settings.js';
+import { wireFullscreen } from './fullscreen.js';
 
 export { renderControlsRef }; // the garage draws its copy of the card through this chunk (0204)
 /** Both pause sheets' controls cards (0204): the settings pause and the Escape/P garage pause. */
@@ -29,6 +30,7 @@ export function createPanel(ctx) {
   const applyPadDead = () => setPadDead(deadzoneOf(settings().padDead));
   applyPadDead();
   import('./units.js').then((m) => { units = m; syncPanel(); }, () => {});
+  wireFullscreen($('setFullscreen'), document, $('setFullscreenNote')); // 0307; stays hidden without the API (iPhone)
 
   function syncPanel() {
     const s = settings();
