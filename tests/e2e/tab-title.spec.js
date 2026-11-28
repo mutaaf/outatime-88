@@ -88,18 +88,37 @@ test('blur and a hidden tab: PAUSED, written at the hide itself (a hidden tab ge
   const hidden = await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
-    document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
     return { title: document.title, status: window.__OT.GameState.status };
   });
   expect(hidden).toEqual({ title: PAUSED, status: 'PAUSED' });
   await page.evaluate(() => {
     delete document.hidden; delete document.visibilityState;
-    document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
   });
   await nextFrames(page, 10);
   expect(await title(page)).toBe(PAUSED); // coming back is not a tap on RESUME
   await page.locator('#btnSettingsDone').click();
   await expect.poll(() => title(page)).toBe(base);
   expect(await writes(page)).toBe(4);
+  expect(problems).toEqual([]);
+});
+
+test('a hidden tab says PAUSED even when a slow ads script holds back onload (settings-ui listens after this chunk)', async ({ page }) => {
+  const problems = watchPage(page);
+  // A slow link: the async ads loader holds the load event (where settings-ui adds its hide
+  // listener) until after race-late has fetched the title chunk.
+  await page.route('**/ads/v1/ads.js', async (route) => {
+    await new Promise((r) => setTimeout(r, 2500));
+    await route.fulfill({ contentType: 'text/javascript', body: '/* ads stub */' });
+  });
+  await race(page);
+  const hidden = await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    return { title: document.title, status: window.__OT.GameState.status };
+  });
+  expect(hidden).toEqual({ title: PAUSED, status: 'PAUSED' });
   expect(problems).toEqual([]);
 });

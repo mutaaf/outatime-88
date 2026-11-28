@@ -54,7 +54,7 @@ describe('a hidden tab', () => {
   it('syncs on visibilitychange from the last game state it saw, with no frame in between', () => {
     const doc = fakeDoc(BASE);
     const listeners = [];
-    doc.addEventListener = (t, fn) => { if (t === 'visibilitychange') listeners.push(fn); };
+    doc.defaultView = { addEventListener: (t, fn) => { if (t === 'visibilitychange') listeners.push(fn); } };
     const title = createTabTitle(doc);
     const G = { status: 'PLAYING' };
     listeners.forEach((fn) => fn()); // before any frame: nothing to read

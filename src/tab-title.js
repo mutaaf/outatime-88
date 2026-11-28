@@ -13,8 +13,9 @@ export function tabTitle(paused, base) {
 
 /**
  * `frame(G)` once per frame from race-late: writes `doc.title` only when the paused state changes.
- * A hidden tab gets no frames, so the hide itself syncs too (settings-ui's visibilitychange
- * listener, added at startup, has already paused the race by then).
+ * A hidden tab gets no frames, so the hide itself syncs too. The listener is on the window,
+ * where the bubbling event lands after every `document` listener (settings-ui's pause among them,
+ * which onload may add after this chunk when the ads script holds the load event back).
  */
 export function createTabTitle(doc) {
   const base = doc ? doc.title : '';
@@ -25,6 +26,7 @@ export function createTabTitle(doc) {
     paused = p;
     doc.title = tabTitle(p, base);
   };
-  if (doc && doc.addEventListener) doc.addEventListener('visibilitychange', () => { if (game) sync(game.status); });
+  const win = doc && doc.defaultView;
+  if (win && win.addEventListener) win.addEventListener('visibilitychange', () => { if (game) sync(game.status); });
   return { sync, frame(G) { sync((game = G).status); } };
 }
