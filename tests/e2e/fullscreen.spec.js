@@ -68,3 +68,17 @@ test('FULLSCREEN is hidden when the browser has no Fullscreen API (iPhone)', asy
   await expect(page.locator('#setFullscreen')).toBeHidden();
   expect(problems).toEqual([]);
 });
+
+test('a refused request (a gamepad press is no user gesture) keeps the label and says why', async ({ page }) => {
+  const problems = watchPage(page);
+  await seed(page);
+  await stubFullscreen(page);
+  await page.addInitScript(() => { Element.prototype.requestFullscreen = () => Promise.reject(new TypeError('Permissions check failed')); });
+  await page.goto(`${APP}?debug`);
+  await page.locator('#btnOpenSettings').click();
+  const btn = page.locator('#setFullscreen');
+  await btn.click();
+  await expect(page.locator('#setFullscreenNote')).toContainText('Fullscreen needs a click');
+  await expect(btn).toHaveText('⛶ ENTER FULLSCREEN');
+  expect(problems).toEqual([]);
+});

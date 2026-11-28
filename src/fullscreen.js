@@ -31,16 +31,24 @@ export function fullscreenApi(doc) {
   return null;
 }
 
+/** What the note says when the browser refuses (a gamepad press is not a user gesture). */
+export const REFUSED_TEXT = 'Fullscreen needs a click, a tap or the Enter key. A gamepad press can\'t start it.';
+
 /** Shows and wires the toggle button. Returns false (button stays hidden) without the API. */
-export function wireFullscreen(btn, doc = typeof document !== 'undefined' ? document : null) {
+export function wireFullscreen(btn, doc = typeof document !== 'undefined' ? document : null, note = null) {
   const api = btn ? fullscreenApi(doc) : null;
   if (!api) return false;
+  const say = (t) => { if (note) note.textContent = t; };
   // The label says what a press does, so no aria-pressed on top (it would read "EXIT…, pressed").
-  const sync = () => { btn.textContent = fullscreenLabel(api.active()); };
-  // A refused request (no user gesture, a kiosk or iframe policy) just leaves the label as it is.
-  const quiet = (p) => { if (p && typeof p.catch === 'function') p.catch(() => {}); };
+  const sync = () => { btn.textContent = fullscreenLabel(api.active()); say(''); };
+  // A refused request (a gamepad press, a kiosk or iframe policy) keeps the label and says why.
+  const refused = () => say(REFUSED_TEXT);
   btn.addEventListener('click', () => {
-    try { quiet(api.active() ? api.exit() : api.enter()); } catch { /* old browsers throw instead */ }
+    say('');
+    try {
+      const p = api.active() ? api.exit() : api.enter();
+      if (p && typeof p.catch === 'function') p.catch(refused);
+    } catch { refused(); } // old browsers throw instead
   });
   doc.addEventListener(api.change, sync); // the button, Esc or F11's exit: the label follows
   sync();

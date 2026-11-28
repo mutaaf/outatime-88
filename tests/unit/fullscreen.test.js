@@ -1,6 +1,6 @@
 // FULLSCREEN button (ticket 0307): Settings → View, for desktop and tablets.
 import { describe, it, expect } from 'vitest';
-import { fullscreenLabel, fullscreenApi, wireFullscreen } from '../../src/fullscreen.js';
+import { fullscreenLabel, fullscreenApi, wireFullscreen, REFUSED_TEXT } from '../../src/fullscreen.js';
 
 function fakeDoc({ std = true, webkit = false } = {}) {
   const listeners = {};
@@ -94,13 +94,30 @@ describe('wireFullscreen', () => {
     doc.fire('fullscreenchange');
     expect(btn.textContent).toBe(fullscreenLabel(false));
   });
-  it('a refused request (no gesture, kiosk policy) leaves the label alone and throws nothing', async () => {
+  it('a refused request (a gamepad press, kiosk policy) keeps the label, throws nothing and says why', async () => {
     const doc = fakeDoc();
     doc.documentElement.requestFullscreen = () => Promise.reject(new Error('denied'));
     const btn = fakeButton();
-    wireFullscreen(btn, doc);
+    const note = { textContent: '' };
+    wireFullscreen(btn, doc, note);
     expect(() => btn.click()).not.toThrow();
-    await Promise.resolve();
+    await Promise.resolve(); await Promise.resolve();
     expect(btn.textContent).toBe(fullscreenLabel(false));
+    expect(note.textContent).toBe(REFUSED_TEXT);
+    doc.documentElement.requestFullscreen = () => { doc.fullscreenElement = doc.documentElement; doc.fire('fullscreenchange'); return Promise.resolve(); };
+    btn.click(); // a real click works and clears the note
+    expect(note.textContent).toBe('');
+    expect(btn.textContent).toBe(fullscreenLabel(true));
+  });
+  it('a synchronous throw (old browsers) is caught and explained; webkit path toggles through the button', () => {
+    const doc = fakeDoc({ std: false, webkit: true });
+    const btn = fakeButton();
+    const note = { textContent: '' };
+    wireFullscreen(btn, doc, note);
+    btn.click();
+    expect(btn.textContent).toBe(fullscreenLabel(true));
+    doc.webkitExitFullscreen = () => { throw new Error('nope'); };
+    expect(() => btn.click()).not.toThrow();
+    expect(note.textContent).toBe(REFUSED_TEXT);
   });
 });

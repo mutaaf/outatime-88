@@ -30,7 +30,7 @@ export function createPanel(ctx) {
   const applyPadDead = () => setPadDead(deadzoneOf(settings().padDead));
   applyPadDead();
   import('./units.js').then((m) => { units = m; syncPanel(); }, () => {});
-  wireFullscreen($('setFullscreen')); // 0307: desktop and tablets; stays hidden without the API
+  wireFullscreen($('setFullscreen'), document, $('setFullscreenNote')); // 0307; stays hidden without the API (iPhone)
 
   function syncPanel() {
     const s = settings();
