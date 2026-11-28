@@ -1247,13 +1247,18 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
    (touch.css, live.css) loads later and wins ties, hence :root on those two. The minifier adds the
    -webkit- twin of backdrop-filter itself (writing both made it keep only the prefixed one). */
 @media (prefers-reduced-transparency: reduce) {
-  .hud-card { background: linear-gradient(180deg, #080a18, #020617); }
+  .hud-card { background: linear-gradient(180deg, #070a18, #020617); }
   .hud-track { background: linear-gradient(90deg, #30052a, #023041); }
   .hud-clockbox, .gap, .hud-steer, .hud-gear { background: #020617; }
   #announcerMain, :root #coachCard, #garageModal, #gameOverModal, #startModal, #leaderboardModal, #shareSheet, #settingsModal,
   #leftHudPanel, #centerHudPanel, #rightHudPanel, .racer-modal, .continue-offer { background-color: #020617; }
-  #startBar { background-color: #0f172a; }
-  :root .tc-panel { background: #05050d; }
+  #driftCounterBox, #steerHint, #driverBadgeBar, #jarvisHudBar, #tiltHudBar, .steer-picker { background-color: #020617; }
+  #startBar { background-color: #0e1629; }
+  :root .tc-panel { background: #04050f; }
+  :root .home-hook { background: linear-gradient(160deg, #0d0926, #050513); }
+  :root :is(.live-tower li, .live-toasts li, .live-callout li) { background: #020617; }
+  :root .live-tower li.you { background: #352e12; }
+  :root .live-net { background: #6c1a1c; }
   :root .live-root { background: radial-gradient(120% 90% at 50% 0%, #30052a, #020617 60%); }
   #garageModal, #gameOverModal, #startModal, #leaderboardModal, #shareSheet, #settingsModal, #startBar, #leftHudPanel,
   #centerHudPanel, #rightHudPanel, .racer-modal, .continue-offer, .arcade-pedal, :root .tc-panel, :root .live-root {

@@ -9,6 +9,7 @@ const KEY = 'outatime_cruisn_88_save_v2';
 // coachSeen: the coach tip stays up mid-race (nothing waits on the thumb guide).
 const SAVE = JSON.stringify({ initials: 'CLD', onboarded: true, controls: { coachSeen: true } });
 const RACE = ['#hudPosCard', '#hudTrack', '#hudSpeedCard', '.hud-clockbox', '#btnHudSettings', '#coachCard'];
+const TEXT = ['#hudPosCard', '#hudSpeedCard', '.hud-clockbox', '#coachCard'];
 
 async function emulate(page, value) {
   const cdp = await page.context().newCDPSession(page);
@@ -16,7 +17,7 @@ async function emulate(page, value) {
 }
 
 // For each selector: is its own fill opaque, is there a backdrop filter, and the worst contrast of
-// the text painted straight on that fill (text over a child's own plate is that plate's business).
+// the text inside it, read against what is under each line (child plates composited over the fill).
 function probe(sels) {
   const nums = (s) => (s.match(/[\d.]+/g) || []).map(Number);
   const alphaOf = (c) => { const n = nums(c); return n.length > 3 ? n[3] : 1; };
@@ -42,13 +43,19 @@ function probe(sels) {
       if (!/[A-Za-z0-9]/.test(t.textContent)) continue;
       const p = t.parentElement;
       if (!p.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
-      let painted = false;
+      // The plate under this text: every fill between it and el, composited over el's own fill.
+      // Text on a gradient plate (a coloured button) is that button's own design, not this fill's.
+      const layers = [];
+      let onImage = false;
       for (let n = p; n && n !== el; n = n.parentElement) {
         const ncs = getComputedStyle(n);
-        if (alphaOf(ncs.backgroundColor) > 0 || ncs.backgroundImage !== 'none') { painted = true; break; }
+        if (ncs.backgroundImage !== 'none') { onImage = true; break; }
+        if (alphaOf(ncs.backgroundColor) > 0) layers.push(ncs.backgroundColor);
       }
-      if (painted) continue;
-      worst = Math.min(worst, ratio(nums(getComputedStyle(p).color), fill));
+      if (onImage) continue;
+      let under = fill.slice(0, 3);
+      for (const c of layers.reverse()) { const a = alphaOf(c), v = nums(c); under = under.map((x, i) => x * (1 - a) + v[i] * a); }
+      worst = Math.min(worst, ratio(nums(getComputedStyle(p).color), under));
     }
     const bf = cs.backdropFilter;
     return { sel, shown: true, opaque, blur: !!bf && bf !== 'none', contrast: worst };
@@ -56,11 +63,11 @@ function probe(sels) {
 }
 
 async function raceStates(page) {
-  await page.goto(`${APP}?debug`);
   await page.evaluate(() => window.__OT.ready());
   await page.evaluate(() => window.__OT.startRace({ mode: 'ARCADE' }));
   await racing(page);
-  await expect(page.locator('#coachCard')).toBeVisible();
+  // The tip is really on screen: toBeVisible ignores opacity, and the banner's fade-in must finish.
+  await page.waitForFunction(() => getComputedStyle(document.getElementById('interactiveCoachBanner')).opacity === '1', null, { timeout: 30_000 });
   const race = await page.evaluate(probe, RACE);
   await page.keyboard.press('Escape');
   await expect(page.locator('#garageModal')).toBeVisible();
@@ -86,6 +93,9 @@ for (const vp of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
       expect(r.shown, `${r.sel} shown`).toBe(true);
       expect(r.opaque, `${r.sel} opaque fill`).toBe(true);
       expect(r.blur, `${r.sel} backdrop-filter`).toBe(false);
+      // The pause and results cards sit on their own opaque shells (unchanged here), so their text is
+      // measured only where it lands on the new fill; the HUD plates and the coach tip must have some.
+      if (TEXT.includes(r.sel)) expect(r.contrast, `${r.sel} has text measured`).toBeLessThan(Infinity);
       if (Number.isFinite(r.contrast)) expect(r.contrast, `${r.sel} text contrast`).toBeGreaterThanOrEqual(4.5);
     }
     expect(problems).toEqual([]);
@@ -96,6 +106,7 @@ test('without the setting the panels stay translucent', async ({ page }) => {
   const problems = watchPage(page);
   await page.addInitScript(([k, s]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, s); }, [KEY, SAVE]);
   await emulate(page, 'no-preference');
+  await page.goto(`${APP}?debug`);
   const rows = await raceStates(page);
   const by = Object.fromEntries(rows.map((r) => [r.sel, r]));
   for (const sel of ['#hudPosCard', '#hudTrack', '.hud-clockbox', '#coachCard', '#garageModal', '#gameOverModal']) {
