@@ -15,9 +15,12 @@ import('./lap-split-run.js').then((m) => { lap = m; }, () => {}); // long before
 import('./restart-race.js').then((m) => m.initRestart(), () => {}); // the pause sheet's RESTART RACE (0292)
 let units = null;
 import('./units.js').then((m) => { units = m; }, () => {}); // MPH | KM/H (0293): GameState.kmh, the HUD caption
-/** Once per frame from main's loop (race-step padPause): the pad START pause (0271), the radio, lap splits, units. */
+let title = null;
+import('./tab-title.js').then((m) => { title = m.createTabTitle(document); }, () => {}); // ⏸ PAUSED in the tab (0309)
+/** Once per frame from main's loop (race-step padPause): the pad START pause (0271), the radio, lap splits, units, the tab title. */
 export function frame(G, I) {
   padFrame(G, I);
+  if (title) title.frame(G);
   if (units) units.unitsFrame();
   if (lap) lap.lapFrame();
   if (radio) radio.radioFrame();

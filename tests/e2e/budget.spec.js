@@ -113,6 +113,16 @@ test('the lap split call is its own small lazy chunk, fetched by race-late (0286
   expect(readFileSync(`${DIR}/${late}`, 'utf8')).toContain(lap[0]); // race-late fetches it
 });
 
+test('the PAUSED tab title is its own tiny lazy chunk, fetched by race-late (0309)', () => {
+  const files = readdirSync(DIR);
+  const t = files.filter((f) => /^tab-title-.*\.js$/.test(f));
+  expect(t.length).toBe(1);
+  expect(gz(t[0])).toBeLessThan(0.5); // today ~0.26 kB
+  expect(startup()).not.toContain(t[0]);
+  const late = files.find((f) => /^race-late-.*\.js$/.test(f));
+  expect(readFileSync(`${DIR}/${late}`, 'utf8')).toContain(t[0]); // race-late fetches it
+});
+
 test('the rival radio is its own small lazy chunk, fetched by race-late (0277)', () => {
   const files = readdirSync(DIR);
   const radio = files.filter((f) => /^radio-run-.*\.js$/.test(f));

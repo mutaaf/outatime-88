@@ -236,3 +236,4 @@ One line per shipped change, newest last: `YYYY-MM-DD · #<ticket> · <player-fa
 2026-11-25 · 0306 · The title loads about 2.3 kB less code: missions, ghost racing and the leaderboard now arrive with the race instead of at startup (no change to how they play)
 2026-11-28 · 0307 · Settings → View has an ENTER FULLSCREEN button (desktop, tablets and Android; not iPhone, which has no fullscreen): the race fills the screen with no tabs or address bar, and the button (or Esc) brings them back
 2026-11-28 · 0308 · With your device's "Reduce transparency" setting on, the race HUD, announcer, coach tip, pause sheet, results and menus paint solid panels with no blur behind them, so the moving road never shows through the text
+2026-11-28 · 0309 · The browser tab says ⏸ PAUSED while a race is paused (Escape, pad START, Alt-Tab, a hidden tab) and goes back to the game's own title on resume, the results and the title screen.

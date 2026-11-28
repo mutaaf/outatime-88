@@ -1,12 +1,12 @@
 ---
 id: 0309
 title: The browser tab title says PAUSED when the game pauses itself, and restores on resume
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: player-feel
 created: 2026-11-27
-pr:
+pr: 325
 ---
 
 ## Why
@@ -23,10 +23,10 @@ restore the original on resume and on returning to the title. Pure helper
 (pause code in the race step or pad-pause) rather than main (at its budget).
 
 ## Acceptance criteria
-- [ ] Pausing by Escape, blur and hidden tab sets the paused title; resuming restores the original string exactly.
-- [ ] Title is the original on the title screen and results.
-- [ ] No per-frame writes (assert at most one write per transition).
-- [ ] Main startup JS stays ≤ 57 kB gz.
+- [x] Pausing by Escape, blur and hidden tab sets the paused title; resuming restores the original string exactly.
+- [x] Title is the original on the title screen and results.
+- [x] No per-frame writes (assert at most one write per transition).
+- [x] Main startup JS stays ≤ 57 kB gz.
 
 ## Test plan
 Unit for `tabTitle`. E2E: start a race, press Escape, assert `document.title` contains
