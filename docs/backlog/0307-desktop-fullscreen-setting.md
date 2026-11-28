@@ -1,7 +1,7 @@
 ---
 id: 0307
 title: Settings → Screen: FULLSCREEN button for desktop and tablets (a race without browser chrome)
-status: ready
+status: shipped
 priority: P1
 size: S
 lens: player-feel
