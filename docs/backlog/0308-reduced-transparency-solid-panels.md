@@ -1,7 +1,7 @@
 ---
 id: 0308
 title: prefers-reduced-transparency turns the translucent HUD and menu panels solid
-status: ready
+status: shipped
 priority: P2
 size: S
 lens: accessibility

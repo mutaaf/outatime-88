@@ -1241,6 +1241,25 @@ body.rc-grid-up .tc-guide { opacity: 0 !important; transition: none; }
   .tc-presets button.on::before { position: absolute; top: 2px; left: 5px; font-size: 10px; line-height: 1; }
 }
 
+/* "Reduce transparency" (0308): what sits over the moving road gets an opaque version of its own
+   fill and no backdrop blur. Each colour is the old rgba composited over the slate-950 base
+   (#020617) the panels already darken toward. CSS only; the default look is untouched. Lazy CSS
+   (touch.css, live.css) loads later and wins ties, hence :root on those two. The minifier adds the
+   -webkit- twin of backdrop-filter itself (writing both made it keep only the prefixed one). */
+@media (prefers-reduced-transparency: reduce) {
+  .hud-card { background: linear-gradient(180deg, #080a18, #020617); }
+  .hud-track { background: linear-gradient(90deg, #30052a, #023041); }
+  .hud-clockbox, .gap, .hud-steer, .hud-gear { background: #020617; }
+  #announcerMain, :root #coachCard, #garageModal, #gameOverModal, #startModal, #leaderboardModal, #shareSheet, #settingsModal,
+  #leftHudPanel, #centerHudPanel, #rightHudPanel, .racer-modal, .continue-offer { background-color: #020617; }
+  #startBar { background-color: #0f172a; }
+  :root .tc-panel { background: #05050d; }
+  :root .live-root { background: radial-gradient(120% 90% at 50% 0%, #30052a, #020617 60%); }
+  #garageModal, #gameOverModal, #startModal, #leaderboardModal, #shareSheet, #settingsModal, #startBar, #leftHudPanel,
+  #centerHudPanel, #rightHudPanel, .racer-modal, .continue-offer, .arcade-pedal, :root .tc-panel, :root .live-root {
+    backdrop-filter: none; }
+}
+
 /* Marquee ads (2026-10-30, src/ads.js): menus only. The title banner takes no room until filled. */
 .title-ad { width: min(100%, 728px); max-height: 120px; overflow: hidden; }
 .title-ad:empty, .title-ad[hidden] { display: none; }
